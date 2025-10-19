@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ダウ雲Pine表 完全再現</title>
+    <style>
+        :root {
+            --gc-bg-color: #22c55e;
+            --dc-bg-color: #ef4444;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Consolas', 'Courier New', monospace;
+            min-height: 100vh;
+            padding: 15px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        /* ダークモード（デフォルト） */
+        body.theme-dark {
+            background: #0a0e27;
+            color: #e0e0e0;
+        }
+        
+        /* ライトモード */
+        body.theme-light {
+            background: #f5f7fa;
+            color: #2d3748;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            font-size: 24px;
+            color: white;
+            font-weight: 700;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            color: white;
+            font-size: 13px;
+        }
+        
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+            font-size: 18px;
+            transition: background 0.3s;
+        }
+        
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        select, button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: none;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        
+        select {
+            background: white;
+            color: #333;
+        }
+        
+        button {
+            background: #22c55e;
+            color: white;
+            font-weight: 600;
+        }
+        
+        button:hover {
+            background: #16a34a;
+        }
+        
+        .tables-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(850px, 1fr));
+            gap: 20px;
+        }
+        
+        .pine-table-wrapper {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            overflow-x: auto;
+            transition: background-color 0.3s;
+        }
+        
+        body.theme-light .pine-table-wrapper {
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .pine-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+            background: #1a1f3a;
+            transition: background-color 0.3s;
+        }
+        
+        body.theme-light .pine-table {
+            background: #fafafa;
+        }
+        
+        .pine-table th,
+        .pine-table td {
+            border: 1px solid #2a3f5f;
+            padding: 8px 10px;
+            text-align: center;
+            font-size: inherit; /* 親要素のフォントサイズを継承 */
+            font-weight: 700 !important; /* 全ての文字を太字に統一 */
+        }
+        
+        body.theme-light .pine-table th,
+        body.theme-light .pine-table td {
+            border: 1px solid #e2e8f0;
+        }
+        
+        .pine-table th {
+            background: #0f1729;
+            color: #a0aec0;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        body.theme-light .pine-table th {
+            background: #edf2f7;
+            color: #4a5568;
+        }
+        
+        /* 列の表示/非表示 */
+        .pine-table th.hidden-col,
+        .pine-table td.hidden-col {
+            display: none;
+        }
+        
+        .table-header {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            text-align: left;
+            padding: 12px 15px !important;
+        }
+        
+        .dow-section {
+            font-weight: 600;
+        }
+        
+        /* ダウ行のGC背景色（ダークモード） */
+        .dow-row.gc,
+        .dow-row.gc td {
+            background: #0d3d2d !important;
+            color: #ffffff !important;
+        }
+        
+        /* ダウ行のDC背景色（ダークモード） */
+        .dow-row.dc,
+        .dow-row.dc td {
+            background: #3d0d1d !important;
+            color: #ffffff !important;
+        }
+        
+        /* ライトモード */
+        body.theme-light .dow-row.gc,
+        body.theme-light .dow-row.gc td {
+            background: #d1fae5 !important;
+            color: #ffffff !important;
+        }
+        
+        body.theme-light .dow-row.dc,
+        body.theme-light .dow-row.dc td {
+            background: #fee2e2 !important;
+            color: #ffffff !important;
+        }
+        
+        .dow-label {
+            text-align: left !important;
+            font-size: 15px;
+        }
+        
+        .dow-status {
+            font-weight: 700;
+        }
+        
+        .price-row {
+            background: #1e3a5f !important;
+            font-weight: 700;
+            font-size: 15px;
+        }
+        
+        body.theme-light .price-row {
+            background: #dbeafe !important;
+        }
+        
+        .cloud-row.gc {
+            background: #0d3d2d;
+        }
+        
+        body.theme-light .cloud-row.gc {
+            background: #d1fae5;
+        }
+        
+        .cloud-row.dc {
+            background: #3d0d1d;
+        }
+        
+        body.theme-light .cloud-row.dc {
+            background: #fee2e2;
+        }
+        
+        .cloud-label {
+            font-weight: 700;
+            font-size: 15px;
+            text-align: left !important;
+            padding-left: 15px !important;
+        }
+        
+        /* 個別の雲ラベル背景色と文字色 */
+        .cloud-label[data-cloud-label="5m"] {
+            background-color: #AFE899 !important;
+            color: #000000 !important;
+        }
+        
+        .cloud-label[data-cloud-label="15m"] {
+            background-color: #FBCCA2 !important;
+            color: #000000 !important;
+        }
+        
+        .cloud-label[data-cloud-label="1H"] {
+            background-color: #9BD0FD !important;
+            color: #000000 !important;
+        }
+        
+        .cloud-label[data-cloud-label="4H"] {
+            background-color: #F99BFE !important;
+            color: #000000 !important;
+        }
+        
+        .direction-gc {
+            color: #22c55e;
+            font-weight: 700;
+        }
+        
+        .direction-dc {
+            color: #ef4444;
+            font-weight: 700;
+        }
+        
+        .fire-positive {
+            color: #fbbf24;
+            font-weight: 700;
+        }
+        
+        .fire-negative {
+            color: #f87171;
+            font-weight: 700;
+        }
+        
+        .distance-positive {
+            color: #60a5fa;
+        }
+        
+        .distance-negative {
+            color: #fb923c;
+        }
+        
+        .angle-positive {
+            color: #34d399;
+        }
+        
+        .angle-negative {
+            color: #f87171;
+        }
+        
+        .empty-cell {
+            color: #4b5563;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 60px;
+            color: #64748b;
+            font-size: 16px;
+        }
+        
+        .history-section {
+            margin-top: 20px;
+            background: #16213e;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        body.theme-light .history-section {
+            background: white;
+        }
+        
+        .history-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #e0e0e0;
+        }
+        
+        body.theme-light .history-title {
+            color: #2d3748;
+        }
+        
+        .history-item {
+            background: #1a1f3a;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            border-left: 3px solid #f59e0b;
+        }
+        
+        body.theme-light .history-item {
+            background: #f7fafc;
+        }
+        
+        .history-time {
+            color: #94a3b8;
+        }
+        
+        /* 設定パネル */
+        .settings-panel {
+            position: fixed;
+            right: -400px;
+            top: 0;
+            width: 380px;
+            height: 100vh;
+            background: #1a1f3a;
+            box-shadow: -4px 0 12px rgba(0,0,0,0.3);
+            transition: right 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        body.theme-light .settings-panel {
+            background: white;
+            box-shadow: -4px 0 12px rgba(0,0,0,0.1);
+        }
+        
+        .settings-panel.open {
+            right: 0;
+        }
+        
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #2a3f5f;
+        }
+        
+        body.theme-light .settings-header {
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .settings-title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: #e0e0e0;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+        }
+        
+        body.theme-light .close-btn {
+            color: #2d3748;
+        }
+        
+        .setting-section {
+            margin-bottom: 25px;
+        }
+        
+        .setting-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+        
+        body.theme-light .setting-section-title {
+            color: #64748b;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .checkbox-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        body.theme-light .checkbox-item:hover {
+            background: rgba(0,0,0,0.03);
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-item label {
+            cursor: pointer;
+            font-size: 13px;
+            flex: 1;
+        }
+        
+        .theme-selector {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .theme-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #2a3f5f;
+            background: transparent;
+            color: #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        
+        body.theme-light .theme-btn {
+            border-color: #e2e8f0;
+            color: #2d3748;
+        }
+        
+        .theme-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+        
+        .settings-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        .btn-reset,
+        .btn-save {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-reset {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-reset:hover {
+            background: #4b5563;
+        }
+        
+        .btn-save {
+            background: #22c55e;
+            color: white;
+        }
+        
+        .btn-save:hover {
+            background: #16a34a;
+        }
+        
+        /* 通貨ペア非表示 */
+        .pine-table-wrapper.hidden-symbol {
+            display: none;
+        }
+        
+        /* フェーズ2/3: 追加スタイル */
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .slider-group label {
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .slider-group input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        .color-picker-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .color-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .color-item label {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .color-item input[type="color"] {
+            width: 80px;
+            height: 35px;
+            border: 2px solid #2a3f5f;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        body.theme-light .color-item input[type="color"] {
+            border-color: #cbd5e1;
+        }
+        
+        .threshold-inputs {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 4px;
+        }
+        
+        .threshold-inputs input[type="number"] {
+            padding: 6px;
+            border: 1px solid #2a3f5f;
+            border-radius: 4px;
+            background: #1a2332;
+            color: #e0e0e0;
+            font-size: 12px;
+        }
+        
+        body.theme-light .threshold-inputs input[type="number"] {
+            background: white;
+            color: #2d3748;
+            border-color: #cbd5e1;
+        }
+        
+        .import-export-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .btn-export,
+        .btn-import {
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-export {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-export:hover {
+            background: #2563eb;
+        }
+        
+        .btn-import {
+            background: #8b5cf6;
+            color: white;
+        }
+        
+        .btn-import:hover {
+            background: #7c3aed;
+        }
+        
+        /* 行の非表示 */
+        .dow-row.hidden-row,
+        .cloud-row.hidden-row {
+            display: none;
+        }
+        
+        /* 雲の非表示（フィルター用） */
+        .cloud-row.hidden-cloud {
+            display: none;
+        }
+    </style>
+</head>
+<body class="theme-dark">
+    <div class="container">
+        <header>
+            <h1>🌥️ ダウ雲Pine表 完全再現</h1>
+            <div class="controls">
+                <div class="status-dot"></div>
+                <span>最終更新: <span id="last-update">--:--:--</span></span>
+                <select id="refresh-interval" onchange="changeRefreshInterval()">
+                    <option value="5000">5秒</option>
+                    <option value="10000">10秒</option>
+                    <option value="15000">15秒</option>
+                    <option value="30000">30秒</option>
+                    <option value="60000" selected>1分</option>
+                    <option value="0">手動のみ</option>
+                </select>
+                <button class="icon-btn" onclick="toggleTheme()" title="テーマ切替">🌓</button>
+                <button class="icon-btn" onclick="toggleSettings()" title="設定">⚙️</button>
+                <button onclick="loadCurrentStates()">🔄 更新</button>
+            </div>
+        </header>
+        
+        <div id="tables-container" class="tables-container">
+            <div class="no-data">データ読み込み中...</div>
+        </div>
+        
+        <div class="history-section">
+            <div class="history-title">📊 最近の発火履歴</div>
+            <div id="fire-history"></div>
+        </div>
+    </div>
+    
+    <!-- 設定パネル -->
+    <div id="settings-panel" class="settings-panel">
+        <div class="settings-header">
+            <div class="settings-title">⚙️ 表示設定</div>
+            <button class="close-btn" onclick="toggleSettings()">✕</button>
+        </div>
+        
+        <div class="setting-section">
+            <div class="setting-section-title">🎨 テーマ</div>
+            <div class="theme-selector">
+                <button class="theme-btn active" data-theme="dark" onclick="setTheme('dark')">🌙 ダーク</button>
+                <button class="theme-btn" data-theme="light" onclick="setTheme('light')">☀️ ライト</button>
+            </div>
+        </div>
+        
+        <div class="setting-section">
+            <div class="setting-section-title">📊 列の表示</div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="col-direction" checked onchange="updateColumnVisibility()">
+                    <label for="col-direction">雲方向</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="col-fire" checked onchange="updateColumnVisibility()">
+                    <label for="col-fire">発火数</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="col-cloud-dist" checked onchange="updateColumnVisibility()">
+                    <label for="col-cloud-dist">各雲間</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="col-price-dist" checked onchange="updateColumnVisibility()">
+                    <label for="col-price-dist">価格間</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="col-angle" checked onchange="updateColumnVisibility()">
+                    <label for="col-angle">雲角度</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="col-thickness" checked onchange="updateColumnVisibility()">
+                    <label for="col-thickness">雲厚み</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="col-elapsed" checked onchange="updateColumnVisibility()">
+                    <label for="col-elapsed">経過時間</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-section">
+            <div class="setting-section-title">💱 通貨ペアフィルター</div>
+            <div id="symbol-filter" class="checkbox-group">
+                <!-- 動的に生成 -->
+            </div>
+        </div>
+        
+        <!-- フェーズ2: 行の表示 -->
+        <div class="setting-section">
+            <div class="setting-section-title">� 行の表示</div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-daily-dow" checked onchange="updateRowVisibility()">
+                    <label for="show-daily-dow">デイダウを表示</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-swing-dow" checked onchange="updateRowVisibility()">
+                    <label for="show-swing-dow">スイングダウを表示</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-cloud-4h" checked onchange="updateRowVisibility()">
+                    <label for="show-cloud-4h">4Hを表示</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-cloud-1h" checked onchange="updateRowVisibility()">
+                    <label for="show-cloud-1h">1Hを表示</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-cloud-15m" checked onchange="updateRowVisibility()">
+                    <label for="show-cloud-15m">15mを表示</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-cloud-5m" checked onchange="updateRowVisibility()">
+                    <label for="show-cloud-5m">5mを表示</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="filter-gc-only" onchange="updateDataFilter()">
+                    <label for="filter-gc-only">GCのみ表示</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="filter-dc-only" onchange="updateDataFilter()">
+                    <label for="filter-dc-only">DCのみ表示</label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- フェーズ2: 表示調整 -->
+        <div class="setting-section">
+            <div class="setting-section-title">📐 表示調整</div>
+            <div class="slider-group">
+                <label for="font-size-slider">フォントサイズ: <span id="font-size-value">18px</span></label>
+                <input type="range" id="font-size-slider" min="10" max="18" value="15" step="1" oninput="updateFontSize(this.value)">
+            </div>
+        </div>
+        
+        <!-- フェーズ3: 色設定 -->
+        <div class="setting-section">
+            <div class="setting-section-title">🎨 色カスタマイズ</div>
+            <div class="color-picker-group">
+                <div class="color-item">
+                    <label for="gc-bg-color">GC背景色</label>
+                    <input type="color" id="gc-bg-color" value="#22c55e" onchange="updateColors()">
+                </div>
+                <div class="color-item">
+                    <label for="dc-bg-color">DC背景色</label>
+                    <input type="color" id="dc-bg-color" value="#ef4444" onchange="updateColors()">
+                </div>
+                <div class="color-item">
+                    <label>列毎の文字色設定</label>
+                    <div class="threshold-inputs">
+                        <span style="width: 80px; display: inline-block;">雲整列:</span>
+                        <input type="color" id="col-color-label" value="#000000" onchange="updateColors()">
+                    </div>
+                    <div class="threshold-inputs">
+                        <span style="width: 80px; display: inline-block;">雲方向:</span>
+                        <input type="color" id="col-color-direction" value="#e0e0e0" onchange="updateColors()">
+                    </div>
+                    <div class="threshold-inputs">
+                        <span style="width: 80px; display: inline-block;">発火数:</span>
+                        <input type="color" id="col-color-fire" value="#e0e0e0" onchange="updateColors()">
+                    </div>
+                    <div class="threshold-inputs">
+                        <span style="width: 80px; display: inline-block;">各雲間:</span>
+                        <input type="color" id="col-color-cloud-dist" value="#e0e0e0" onchange="updateColors()">
+                    </div>
+                    <div class="threshold-inputs">
+                        <span style="width: 80px; display: inline-block;">価格間:</span>
+                        <input type="color" id="col-color-price-dist" value="#e0e0e0" onchange="updateColors()">
+                    </div>
+                    <div class="threshold-inputs">
+                        <span style="width: 80px; display: inline-block;">雲角度:</span>
+                        <input type="color" id="col-color-angle" value="#e0e0e0" onchange="updateColors()">
+                    </div>
+                    <div class="threshold-inputs">
+                        <span style="width: 80px; display: inline-block;">雲厚み:</span>
+                        <input type="color" id="col-color-thickness" value="#e0e0e0" onchange="updateColors()">
+                    </div>
+                    <div class="threshold-inputs">
+                        <span style="width: 80px; display: inline-block;">経過時間:</span>
+                        <input type="color" id="col-color-elapsed" value="#e0e0e0" onchange="updateColors()">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- フェーズ3: インポート/エクスポート -->
+        <div class="setting-section">
+            <div class="setting-section-title">💾 設定の保存/読込</div>
+            <div class="import-export-group">
+                <button class="btn-export" onclick="exportSettings()">📤 設定をエクスポート</button>
+                <button class="btn-import" onclick="document.getElementById('import-file').click()">📥 設定をインポート</button>
+                <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importSettings(event)">
+            </div>
+        </div>
+        
+        <div class="settings-actions">
+            <button class="btn-reset" onclick="resetSettings()">リセット</button>
+            <button class="btn-save" onclick="saveSettings()">保存して閉じる</button>
+        </div>
+    </div>
+    
+    <script>
+        let refreshIntervalId = null;
+        let currentInterval = 60000; // デフォルト1分
+        let allSymbols = [];
+        let settings = {
+            theme: 'dark',
+            columns: {
+                direction: true,
+                fire: true,
+                cloudDist: true,
+                priceDist: true,
+                angle: true,
+                thickness: true,
+                elapsed: true
+            },
+            symbols: {},
+            // フェーズ2: 行の表示フィルター
+            filters: {
+                gcOnly: false,
+                dcOnly: false,
+                showDailyDow: true,
+                showSwingDow: true,
+                showCloud4H: true,
+                showCloud1H: true,
+                showCloud15m: true,
+                showCloud5m: true
+            },
+            // フェーズ2: 表示調整
+            display: {
+                fontSize: 15
+            },
+            // フェーズ3: 色設定
+            colors: {
+                gcBg: '#22c55e',
+                dcBg: '#ef4444',
+                // 列毎の文字色設定
+                colLabel: '#000000',      // 雲整列列
+                colDirection: '#e0e0e0',  // 雲方向列
+                colFire: '#e0e0e0',       // 発火数列
+                colCloudDist: '#e0e0e0',  // 各雲間列
+                colPriceDist: '#e0e0e0',  // 価格間列
+                colAngle: '#e0e0e0',      // 雲角度列
+                colThickness: '#e0e0e0',  // 雲厚み列
+                colElapsed: '#e0e0e0'     // 経過時間列
+            }
+        };
+        
+        // 設定を読み込み
+        function loadSettings() {
+            const saved = localStorage.getItem('pineTableSettings');
+            if (saved) {
+                settings = JSON.parse(saved);
+                applySettings();
+            }
+        }
+        
+        // 設定を適用
+        function applySettings() {
+            // テーマ適用
+            document.body.className = `theme-${settings.theme}`;
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === settings.theme);
+            });
+            
+            // 列表示設定を適用
+            Object.keys(settings.columns).forEach(col => {
+                const checkbox = document.getElementById(`col-${col.replace(/([A-Z])/g, '-$1').toLowerCase()}`);
+                if (checkbox) {
+                    checkbox.checked = settings.columns[col];
+                }
+            });
+            
+            // フェーズ2: フィルター設定を適用
+            if (settings.filters) {
+                document.getElementById('filter-gc-only').checked = settings.filters.gcOnly || false;
+                document.getElementById('filter-dc-only').checked = settings.filters.dcOnly || false;
+                document.getElementById('show-daily-dow').checked = settings.filters.showDailyDow !== false;
+                document.getElementById('show-swing-dow').checked = settings.filters.showSwingDow !== false;
+                document.getElementById('show-cloud-4h').checked = settings.filters.showCloud4H !== false;
+                document.getElementById('show-cloud-1h').checked = settings.filters.showCloud1H !== false;
+                document.getElementById('show-cloud-15m').checked = settings.filters.showCloud15m !== false;
+                document.getElementById('show-cloud-5m').checked = settings.filters.showCloud5m !== false;
+            }
+            
+            // フェーズ2: 表示調整を適用
+            if (settings.display) {
+                const fontSize = settings.display.fontSize || 18;
+                document.getElementById('font-size-slider').value = fontSize;
+                document.getElementById('font-size-value').textContent = fontSize + 'px';
+                updateFontSize(fontSize);
+            }
+            
+            // フェーズ3: 色設定を適用
+            if (settings.colors) {
+                document.getElementById('gc-bg-color').value = settings.colors.gcBg || '#22c55e';
+                document.getElementById('dc-bg-color').value = settings.colors.dcBg || '#ef4444';
+                // 列毎の文字色設定
+                document.getElementById('col-color-label').value = settings.colors.colLabel || '#000000';
+                document.getElementById('col-color-direction').value = settings.colors.colDirection || '#e0e0e0';
+                document.getElementById('col-color-fire').value = settings.colors.colFire || '#e0e0e0';
+                document.getElementById('col-color-cloud-dist').value = settings.colors.colCloudDist || '#e0e0e0';
+                document.getElementById('col-color-price-dist').value = settings.colors.colPriceDist || '#e0e0e0';
+                document.getElementById('col-color-angle').value = settings.colors.colAngle || '#e0e0e0';
+                document.getElementById('col-color-thickness').value = settings.colors.colThickness || '#e0e0e0';
+                document.getElementById('col-color-elapsed').value = settings.colors.colElapsed || '#e0e0e0';
+                updateColors();
+            }
+            
+            updateColumnVisibility();
+            updateSymbolVisibility();
+            updateRowVisibility();
+            updateDataFilter();
+        }
+        
+        // 設定を保存
+        function saveSettings() {
+            // 列設定を取得
+            settings.columns = {
+                direction: document.getElementById('col-direction').checked,
+                fire: document.getElementById('col-fire').checked,
+                cloudDist: document.getElementById('col-cloud-dist').checked,
+                priceDist: document.getElementById('col-price-dist').checked,
+                angle: document.getElementById('col-angle').checked,
+                thickness: document.getElementById('col-thickness').checked,
+                elapsed: document.getElementById('col-elapsed').checked
+            };
+            
+            // 通貨ペア設定を取得
+            document.querySelectorAll('#symbol-filter input[type="checkbox"]').forEach(cb => {
+                settings.symbols[cb.dataset.symbol] = cb.checked;
+            });
+            
+            // フェーズ2: フィルター設定を保存
+            settings.filters = {
+                gcOnly: document.getElementById('filter-gc-only').checked,
+                dcOnly: document.getElementById('filter-dc-only').checked,
+                showDailyDow: document.getElementById('show-daily-dow').checked,
+                showSwingDow: document.getElementById('show-swing-dow').checked,
+                showCloud4H: document.getElementById('show-cloud-4h').checked,
+                showCloud1H: document.getElementById('show-cloud-1h').checked,
+                showCloud15m: document.getElementById('show-cloud-15m').checked,
+                showCloud5m: document.getElementById('show-cloud-5m').checked
+            };
+            
+            // フェーズ2: 表示調整を保存
+            settings.display = {
+                fontSize: parseInt(document.getElementById('font-size-slider').value)
+            };
+            
+            // フェーズ3: 色設定を保存
+            settings.colors = {
+                gcBg: document.getElementById('gc-bg-color').value,
+                dcBg: document.getElementById('dc-bg-color').value,
+                // 列毎の文字色設定
+                colLabel: document.getElementById('col-color-label').value,
+                colDirection: document.getElementById('col-color-direction').value,
+                colFire: document.getElementById('col-color-fire').value,
+                colCloudDist: document.getElementById('col-color-cloud-dist').value,
+                colPriceDist: document.getElementById('col-color-price-dist').value,
+                colAngle: document.getElementById('col-color-angle').value,
+                colThickness: document.getElementById('col-color-thickness').value,
+                colElapsed: document.getElementById('col-color-elapsed').value
+            };
+            
+            localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+            toggleSettings();
+        }
+        
+        // 設定リセット
+        function resetSettings() {
+            if (confirm('設定を初期状態に戻しますか?')) {
+                localStorage.removeItem('pineTableSettings');
+                location.reload();
+            }
+        }
+        
+        // テーマ切り替え
+        function toggleTheme() {
+            settings.theme = settings.theme === 'dark' ? 'light' : 'dark';
+            applySettings();
+            localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+        }
+        
+        function setTheme(theme) {
+            settings.theme = theme;
+            applySettings();
+        }
+        
+        // 設定パネル開閉
+        function toggleSettings() {
+            document.getElementById('settings-panel').classList.toggle('open');
+        }
+        
+        // 列の表示/非表示を更新
+        function updateColumnVisibility() {
+            const colMap = {
+                direction: 1,
+                fire: 2,
+                cloudDist: 3,
+                priceDist: 4,
+                angle: 5,
+                thickness: 6,
+                elapsed: 7
+            };
+            
+            Object.keys(colMap).forEach(key => {
+                const colIndex = colMap[key];
+                const isVisible = document.getElementById(`col-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`).checked;
+                settings.columns[key] = isVisible;
+                
+                document.querySelectorAll(`.pine-table th:nth-child(${colIndex + 1}), .pine-table td:nth-child(${colIndex + 1})`).forEach(cell => {
+                    cell.classList.toggle('hidden-col', !isVisible);
+                });
+            });
+            
+            // 設定を即座に保存
+            localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+        }
+        
+        // 通貨ペアの表示/非表示を更新
+        function updateSymbolVisibility() {
+            // 通貨ペア設定を即時更新
+            document.querySelectorAll('#symbol-filter input[type="checkbox"]').forEach(cb => {
+                settings.symbols[cb.dataset.symbol] = cb.checked;
+            });
+            
+            document.querySelectorAll('.pine-table-wrapper').forEach(wrapper => {
+                const symbol = wrapper.dataset.symbol;
+                if (symbol && settings.symbols[symbol] !== undefined) {
+                    wrapper.classList.toggle('hidden-symbol', !settings.symbols[symbol]);
+                }
+            });
+            
+            // 設定を即座に保存
+            localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+        }
+        
+        // 通貨ペアフィルター生成
+        function generateSymbolFilter(symbols) {
+            allSymbols = symbols;
+            const container = document.getElementById('symbol-filter');
+            container.innerHTML = symbols.map(symbol => {
+                const checked = settings.symbols[symbol] !== false;
+                return `
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="sym-${symbol}" data-symbol="${symbol}" ${checked ? 'checked' : ''} onchange="updateSymbolVisibility()">
+                        <label for="sym-${symbol}">${symbol}</label>
+                    </div>
+                `;
+            }).join('');
+            
+            // 設定を更新
+            symbols.forEach(symbol => {
+                if (settings.symbols[symbol] === undefined) {
+                    settings.symbols[symbol] = true;
+                }
+            });
+        }
+        
+        function formatTimeShort(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('ja-JP');
+        }
+        
+        async function loadCurrentStates() {
+            try {
+                const response = await fetch('/current_states');
+                const data = await response.json();
+                
+                const container = document.getElementById('tables-container');
+                
+                if (data.status === 'success' && data.states.length > 0) {
+                    // 通貨ペアリストを抽出してフィルター生成
+                    const symbols = data.states.map(s => s.symbol);
+                    if (symbols.length > allSymbols.length || !allSymbols.every(s => symbols.includes(s))) {
+                        generateSymbolFilter(symbols);
+                    }
+                    
+                    container.innerHTML = data.states.map(state => renderPineTable(state)).join('');
+                    updateColumnVisibility();
+                    updateSymbolVisibility();
+                    updateRowVisibility();
+                    updateDataFilter();
+                } else {
+                    container.innerHTML = '<div class="no-data">データがありません</div>';
+                }
+                
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString('ja-JP');
+                
+                // 発火履歴も更新
+                loadFireHistory();
+            } catch (error) {
+                console.error('エラー:', error);
+                document.getElementById('tables-container').innerHTML = 
+                    '<div class="no-data">エラーが発生しました</div>';
+            }
+        }
+        
+        function getDowDirectionClass(statusText) {
+            if (!statusText && statusText !== 0 && statusText !== 1 && statusText !== -1) return '';
+            const text = statusText.toString();
+            
+            // 全角英数字を半角に正規化
+            const normalized = text
+                .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 65248))
+                .replace(/[＋]/g, '+')
+                .replace(/[－ー−]/g, '-')
+                .replace(/ＤＣ/g, 'DC')
+                .replace(/ＧＣ/g, 'GC');
+            
+            const upper = normalized.toUpperCase();
+            
+            // 数値チェック: 1はGC、-1はDC、正の数はGC、負の数はDC
+            const numValue = parseFloat(text);
+            if (!isNaN(numValue)) {
+                if (numValue > 0) return 'gc';
+                if (numValue < 0) return 'dc';
+            }
+            
+            // DC（下降・売り）判定
+            if (
+                upper.includes('DC') ||
+                upper.includes('DOWN') ||
+                upper.includes('BEAR') ||
+                upper.includes('SELL') ||
+                normalized.includes('▼') ||
+                normalized.includes('下降') ||
+                normalized.includes('下落') ||
+                normalized.includes('下げ') ||
+                normalized.includes('下り') ||
+                normalized.includes('売') ||
+                normalized.includes('ショート') ||
+                normalized.includes('SHORT') ||
+                upper.includes('BEARISH')
+            ) {
+                return 'dc';
+            }
+            
+            // GC（上昇・買い）判定
+            if (
+                upper.includes('GC') ||
+                upper.includes('UP') ||
+                upper.includes('BULL') ||
+                upper.includes('BUY') ||
+                normalized.includes('▲') ||
+                normalized.includes('+') ||
+                normalized.includes('上昇') ||
+                normalized.includes('上げ') ||
+                normalized.includes('上り') ||
+                normalized.includes('買') ||
+                normalized.includes('ロング') ||
+                normalized.includes('LONG') ||
+                upper.includes('BULLISH')
+            ) {
+                return 'gc';
+            }
+            
+            return '';
+        }
+
+        function renderPineTable(state) {
+            const rowOrder = state.row_order || ['price', '5m', '15m', '1H', '4H'];
+            const cloudOrder = state.cloud_order || ['5m', '15m', '1H', '4H'];
+            const dailyDirectionClass = getDowDirectionClass(state.daily_dow.status) || getDowDirectionClass(state.daily_dow.bos);
+            const swingDirectionClass = getDowDirectionClass(state.swing_dow.status) || getDowDirectionClass(state.swing_dow.bos);
+            
+            // デバッグ情報をコンソールに出力
+            console.log('Daily Dow Status:', state.daily_dow.status, '→ Class:', dailyDirectionClass);
+            console.log('Swing Dow Status:', state.swing_dow.status, '→ Class:', swingDirectionClass);
+
+            // 設定に基づいて行の表示/非表示クラスを決定
+            const showDailyDow = settings.filters ? settings.filters.showDailyDow !== false : true;
+            const showSwingDow = settings.filters ? settings.filters.showSwingDow !== false : true;
+            const showCloud4H = settings.filters ? settings.filters.showCloud4H !== false : true;
+            const showCloud1H = settings.filters ? settings.filters.showCloud1H !== false : true;
+            const showCloud15m = settings.filters ? settings.filters.showCloud15m !== false : true;
+            const showCloud5m = settings.filters ? settings.filters.showCloud5m !== false : true;
+
+            return `
+                <div class="pine-table-wrapper" data-symbol="${state.symbol}">
+                    <table class="pine-table">
+                        <tr>
+                            <th colspan="8" class="table-header">
+                                ${state.symbol} - ${state.price.toFixed(3)} (${state.tf}) 
+                                <span style="font-size:11px; color:#94a3b8; margin-left:10px;">
+                                    ${formatTimeShort(state.timestamp)}
+                                </span>
+                            </th>
+                        </tr>
+                        <tr class="dow-section dow-row ${dailyDirectionClass} ${showDailyDow ? '' : 'hidden-row'}">
+                            <td class="dow-label">デイ</td>
+                            <td class="dow-status" colspan="2">${state.daily_dow.status || '-'}</td>
+                            <td>${state.daily_dow.bos || '-'}</td>
+                            <td colspan="4">${state.daily_dow.time || '-'}</td>
+                        </tr>
+                        <tr class="dow-section dow-row ${swingDirectionClass} ${showSwingDow ? '' : 'hidden-row'}">
+                            <td class="dow-label">スイング</td>
+                            <td class="dow-status" colspan="2">${state.swing_dow.status || '-'}</td>
+                            <td>${state.swing_dow.bos || '-'}</td>
+                            <td colspan="4">${state.swing_dow.time || '-'}</td>
+                        </tr>
+                        <tr>
+                            <th>雲整列</th>
+                            <th>雲方向</th>
+                            <th>発火数</th>
+                            <th>各雲間</th>
+                            <th>価格間</th>
+                            <th>雲角度</th>
+                            <th>雲厚み</th>
+                            <th>経過時間</th>
+                        </tr>
+                        ${rowOrder.map(label => renderRow(label, state, {showCloud4H, showCloud1H, showCloud15m, showCloud5m})).join('')}
+                    </table>
+                </div>
+            `;
+        }
+        
+        function renderCloudRow(label, cloud, shouldHide = false) {
+            if (!cloud) {
+                return `
+                    <tr class="cloud-row ${shouldHide ? 'hidden-row' : ''}">
+                        <td class="cloud-label" data-cloud-label="${label}">${label}</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                    </tr>
+                `;
+            }
+            
+            const gcClass = cloud.gc ? 'gc' : 'dc';
+            const directionClass = cloud.gc ? 'direction-gc' : 'direction-dc';
+            const directionText = cloud.gc ? 'GC' : 'DC';
+            const fireClass = cloud.fire_count > 0 ? 'fire-positive' : 'fire-negative';
+            const angleClass = cloud.angle >= 0 ? 'angle-positive' : 'angle-negative';
+            const distancePriceClass = cloud.distance_from_price >= 0 ? 'distance-positive' : 'distance-negative';
+            const distancePrevClass = cloud.distance_from_prev >= 0 ? 'distance-positive' : 'distance-negative';
+            
+            return `
+                <tr class="cloud-row ${gcClass} ${shouldHide ? 'hidden-row' : ''}" data-cloud-label="${label}">
+                    <td class="cloud-label" data-cloud-label="${label}">${label}</td>
+                    <td class="${directionClass}">${directionText}</td>
+                    <td class="${fireClass}">${cloud.fire_count || 0}</td>
+                    <td class="${distancePrevClass}">${cloud.distance_from_prev?.toFixed(2) || '-'}</td>
+                    <td class="${distancePriceClass}">${cloud.distance_from_price?.toFixed(2) || '-'}</td>
+                    <td class="${angleClass}">${cloud.angle?.toFixed(2) || '-'}°</td>
+                    <td>${cloud.thickness?.toFixed(2) || '-'}</td>
+                    <td>${cloud.elapsed || '-'}</td>
+                </tr>
+            `;
+        }
+        
+        function renderRow(label, state, visibilitySettings = {}) {
+            if (label === 'price') {
+                return `
+                    <tr class="price-row">
+                        <td>価格</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                        <td class="empty-cell">-</td>
+                    </tr>
+                `;
+            } else {
+                // 雲行の表示/非表示設定をチェック
+                let shouldHide = false;
+                if (label === '4H' && visibilitySettings.showCloud4H === false) {
+                    shouldHide = true;
+                } else if (label === '1H' && visibilitySettings.showCloud1H === false) {
+                    shouldHide = true;
+                } else if (label === '15m' && visibilitySettings.showCloud15m === false) {
+                    shouldHide = true;
+                } else if (label === '5m' && visibilitySettings.showCloud5m === false) {
+                    shouldHide = true;
+                }
+                
+                return renderCloudRow(label, state.clouds[label], shouldHide);
+            }
+        }
+        
+        async function loadFireHistory() {
+            try {
+                const response = await fetch('/fire_history');
+                const data = await response.json();
+                
+                const historyDiv = document.getElementById('fire-history');
+                
+                if (data.status === 'success' && data.history.length > 0) {
+                    historyDiv.innerHTML = data.history.slice(0, 10).map(h => `
+                        <div class="history-item">
+                            <div>
+                                <strong>${h.symbol}</strong> - ${h.cloud_label} - ${h.message}
+                            </div>
+                            <div class="history-time">${formatTimeShort(h.timestamp)}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    historyDiv.innerHTML = '<div style="color: #666; text-align: center;">発火履歴なし</div>';
+                }
+            } catch (error) {
+                console.error('履歴取得エラー:', error);
+            }
+        }
+        
+        function changeRefreshInterval() {
+            const select = document.getElementById('refresh-interval');
+            currentInterval = parseInt(select.value);
+            
+            if (refreshIntervalId) {
+                clearInterval(refreshIntervalId);
+                refreshIntervalId = null;
+            }
+            
+            if (currentInterval > 0) {
+                refreshIntervalId = setInterval(loadCurrentStates, currentInterval);
+                console.log(`自動更新: ${currentInterval / 1000}秒ごと`);
+            } else {
+                console.log('自動更新: 無効');
+            }
+        }
+        
+        // ===== フェーズ2/3: 新機能関数 =====
+        
+        // フォントサイズ調整
+        function updateFontSize(size) {
+            document.getElementById('font-size-value').textContent = size + 'px';
+            // テーブル本体のフォントサイズを設定（th/tdは継承）
+            document.querySelectorAll('.pine-table').forEach(table => {
+                table.style.fontSize = size + 'px';
+            });
+            // 全てのth/tdにも明示的に適用（CSS継承を確実に）
+            document.querySelectorAll('.pine-table th, .pine-table td').forEach(cell => {
+                cell.style.fontSize = size + 'px';
+            });
+            // フォントサイズを即座に保存
+            settings.display.fontSize = parseInt(size);
+            localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+        }
+        
+        // 色設定を適用
+        function updateColors() {
+            const gcBg = document.getElementById('gc-bg-color').value;
+            const dcBg = document.getElementById('dc-bg-color').value;
+            // 列毎の文字色
+            const colLabel = document.getElementById('col-color-label').value;
+            const colDirection = document.getElementById('col-color-direction').value;
+            const colFire = document.getElementById('col-color-fire').value;
+            const colCloudDist = document.getElementById('col-color-cloud-dist').value;
+            const colPriceDist = document.getElementById('col-color-price-dist').value;
+            const colAngle = document.getElementById('col-color-angle').value;
+            const colThickness = document.getElementById('col-color-thickness').value;
+            const colElapsed = document.getElementById('col-color-elapsed').value;
+            
+            // CSS変数を更新
+            const style = document.documentElement.style;
+            style.setProperty('--gc-bg-color', gcBg);
+            style.setProperty('--dc-bg-color', dcBg);
+            
+            // 動的にスタイルルールを作成（行全体に色を適用）
+            let styleSheet = document.getElementById('dynamic-row-colors');
+            if (!styleSheet) {
+                styleSheet = document.createElement('style');
+                styleSheet.id = 'dynamic-row-colors';
+                document.head.appendChild(styleSheet);
+            }
+            
+            styleSheet.textContent = `
+                /* 雲行とダウ行の背景色 */
+                .cloud-row.gc { background: ${gcBg} !important; }
+                .cloud-row.dc { background: ${dcBg} !important; }
+                .dow-row.gc, .dow-row.gc td { background: ${gcBg} !important; color: #ffffff !important; }
+                .dow-row.dc, .dow-row.dc td { background: ${dcBg} !important; color: #ffffff !important; }
+                
+                /* ライトモードでもダウ行の文字色を白に */
+                body.theme-light .dow-row.gc, body.theme-light .dow-row.gc td { background: ${gcBg} !important; color: #ffffff !important; }
+                body.theme-light .dow-row.dc, body.theme-light .dow-row.dc td { background: ${dcBg} !important; color: #ffffff !important; }
+                
+                /* 雲ラベルの背景色（個別設定を維持） */
+                .cloud-label[data-cloud-label="4H"] { color: #000000 !important; }
+                .cloud-label[data-cloud-label="1H"] { color: #000000 !important; }
+                .cloud-label[data-cloud-label="15m"] { color: #000000 !important; }
+                .cloud-label[data-cloud-label="5m"] { color: #000000 !important; }
+                
+                /* 列毎の文字色設定 */
+                .pine-table .cloud-label { color: ${colLabel} !important; }
+                .pine-table .direction-gc, .pine-table .direction-dc { color: ${colDirection} !important; }
+                .pine-table .fire-positive, .pine-table .fire-negative { color: ${colFire} !important; }
+                .pine-table td:nth-child(2) { color: ${colDirection} !important; }
+                .pine-table td:nth-child(3) { color: ${colFire} !important; }
+                .pine-table td:nth-child(4) { color: ${colCloudDist} !important; }
+                .pine-table td:nth-child(5) { color: ${colPriceDist} !important; }
+                .pine-table td:nth-child(6) { color: ${colAngle} !important; }
+                .pine-table td:nth-child(7) { color: ${colThickness} !important; }
+                .pine-table td:nth-child(8) { color: ${colElapsed} !important; }
+            `;
+            
+            // 色設定を即座に保存
+            settings.colors = {
+                gcBg: gcBg,
+                dcBg: dcBg,
+                colLabel: colLabel,
+                colDirection: colDirection,
+                colFire: colFire,
+                colCloudDist: colCloudDist,
+                colPriceDist: colPriceDist,
+                colAngle: colAngle,
+                colThickness: colThickness,
+                colElapsed: colElapsed
+            };
+            localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+        }
+        
+        // データフィルター適用
+        function updateDataFilter() {
+            const gcOnly = document.getElementById('filter-gc-only').checked;
+            const dcOnly = document.getElementById('filter-dc-only').checked;
+            
+            document.querySelectorAll('.cloud-row').forEach(row => {
+                let shouldHide = false;
+                
+                // GC/DCフィルター
+                if (gcOnly && row.classList.contains('dc')) {
+                    shouldHide = true;
+                }
+                if (dcOnly && row.classList.contains('gc')) {
+                    shouldHide = true;
+                }
+                
+                row.classList.toggle('hidden-cloud', shouldHide);
+            });
+        }
+        
+        // 行の表示/非表示
+        function updateRowVisibility() {
+            const showDailyDow = document.getElementById('show-daily-dow').checked;
+            const showSwingDow = document.getElementById('show-swing-dow').checked;
+            const showCloud4H = document.getElementById('show-cloud-4h').checked;
+            const showCloud1H = document.getElementById('show-cloud-1h').checked;
+            const showCloud15m = document.getElementById('show-cloud-15m').checked;
+            const showCloud5m = document.getElementById('show-cloud-5m').checked;
+            
+            console.log('Row visibility settings:', {
+                showDailyDow, showSwingDow, showCloud4H, showCloud1H, showCloud15m, showCloud5m
+            });
+            
+            // デイ/スイングダウ行
+            document.querySelectorAll('.dow-row').forEach(row => {
+                const label = row.cells[0].textContent.trim();
+                if (label === 'デイ') {
+                    row.classList.toggle('hidden-row', !showDailyDow);
+                    console.log('Daily Dow row visibility:', !showDailyDow);
+                } else if (label === 'スイング') {
+                    row.classList.toggle('hidden-row', !showSwingDow);
+                    console.log('Swing Dow row visibility:', !showSwingDow);
+                }
+            });
+            
+            // 雲行
+            document.querySelectorAll('.cloud-row').forEach(row => {
+                const label = row.getAttribute('data-cloud-label');
+                let shouldHide = false;
+                if (label === '4H') {
+                    shouldHide = !showCloud4H;
+                } else if (label === '1H') {
+                    shouldHide = !showCloud1H;
+                } else if (label === '15m') {
+                    shouldHide = !showCloud15m;
+                } else if (label === '5m') {
+                    shouldHide = !showCloud5m;
+                }
+                row.classList.toggle('hidden-row', shouldHide);
+                console.log(`Cloud row ${label} visibility:`, shouldHide);
+            });
+        }
+        
+        // 設定のエクスポート
+        function exportSettings() {
+            const dataStr = JSON.stringify(settings, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `pine-table-settings-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            alert('設定をエクスポートしました');
+        }
+        
+        // 設定のインポート
+        function importSettings(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    settings = imported;
+                    localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+                    applySettings();
+                    alert('設定をインポートしました');
+                } catch (error) {
+                    alert('設定ファイルの読み込みに失敗しました: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // 初回ロード
+        loadSettings();
+        loadCurrentStates();
+        refreshIntervalId = setInterval(loadCurrentStates, currentInterval);
+    </script>
+</body>
+</html>
