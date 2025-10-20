@@ -315,6 +315,42 @@ def webhook():
         conn = get_db_connection()
         c = conn.cursor()
         
+        # values変数を定義
+        values = (
+            symbol, datetime.now().isoformat(), tf, price,
+            daily_dow['status'], daily_dow['bos'], daily_dow['time'],
+            swing_dow['status'], swing_dow['bos'], swing_dow['time'],
+            ','.join(row_order), ','.join(cloud_order),
+            cloud_data.get('5m', {}).get('gc', 0),
+            cloud_data.get('5m', {}).get('thickness', 0),
+            cloud_data.get('5m', {}).get('angle', 0),
+            cloud_data.get('5m', {}).get('fire_count', 0),
+            cloud_data.get('5m', {}).get('elapsed', ''),
+            cloud_data.get('5m', {}).get('distance_from_price', 0),
+            cloud_data.get('5m', {}).get('distance_from_prev', 0),
+            cloud_data.get('15m', {}).get('gc', 0),
+            cloud_data.get('15m', {}).get('thickness', 0),
+            cloud_data.get('15m', {}).get('angle', 0),
+            cloud_data.get('15m', {}).get('fire_count', 0),
+            cloud_data.get('15m', {}).get('elapsed', ''),
+            cloud_data.get('15m', {}).get('distance_from_price', 0),
+            cloud_data.get('15m', {}).get('distance_from_prev', 0),
+            cloud_data.get('1H', {}).get('gc', 0),
+            cloud_data.get('1H', {}).get('thickness', 0),
+            cloud_data.get('1H', {}).get('angle', 0),
+            cloud_data.get('1H', {}).get('fire_count', 0),
+            cloud_data.get('1H', {}).get('elapsed', ''),
+            cloud_data.get('1H', {}).get('distance_from_price', 0),
+            cloud_data.get('1H', {}).get('distance_from_prev', 0),
+            cloud_data.get('4H', {}).get('gc', 0),
+            cloud_data.get('4H', {}).get('thickness', 0),
+            cloud_data.get('4H', {}).get('angle', 0),
+            cloud_data.get('4H', {}).get('fire_count', 0),
+            cloud_data.get('4H', {}).get('elapsed', ''),
+            cloud_data.get('4H', {}).get('distance_from_price', 0),
+            cloud_data.get('4H', {}).get('distance_from_prev', 0)
+        )
+        
         if is_postgresql():
             # PostgreSQLの場合
             c.execute("""INSERT INTO current_states 
