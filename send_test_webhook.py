@@ -55,6 +55,7 @@ PAYLOAD = {
 }
 
 if __name__ == "__main__":
-    response = requests.post("http://localhost:5000/webhook", json=PAYLOAD, timeout=10)
+    # クラウドのRender URLに変更
+    response = requests.post("https://tradingview-webhook-s5x1.onrender.com/webhook", json=PAYLOAD, timeout=10)
     print(response.status_code)
     print(response.text)
