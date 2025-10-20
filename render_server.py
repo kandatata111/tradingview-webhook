@@ -81,7 +81,7 @@ def analyze_clouds(symbol, price, clouds):
             # メッセージ生成
             message = f"{cloud_name} {direction_ja} (発火{fire_count}回)"
             
-            # LINE用メッセージ
+            # Discord用メッセージ
             line_message = f"""🔔 ダウ雲アラート
 銘柄: {symbol}
 時間足: {tf}
@@ -230,26 +230,21 @@ def init_db():
         conn.commit()
         conn.close()
 
-# Send LINE notification
-def send_line_notification(message):
-    line_token = os.getenv('LINE_NOTIFY_TOKEN')
-    if not line_token:
-        print("LINE_NOTIFY_TOKEN not set")
+# Send Discord notification
+def send_discord_notification(message):
+    webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+    if not webhook_url:
+        print("DISCORD_WEBHOOK_URL not set")
         return
     
-    headers = {
-        'Authorization': f'Bearer {line_token}',
-    }
     payload = {
-        'message': message
+        'content': message
     }
     try:
-        response = requests.post('https://notify-api.line.me/api/notify', 
-                                headers=headers, 
-                                data=payload)
-        print(f"LINE notification sent: {response.status_code}")
+        response = requests.post(webhook_url, json=payload)
+        print(f"Discord notification sent: {response.status_code}")
     except Exception as e:
-        print(f"LINE notification error: {e}")
+        print(f"Discord notification error: {e}")
 
 # Forward to local client
 def forward_to_local_client(data):
@@ -426,9 +421,9 @@ def webhook():
             conn.commit()
             conn.close()
         
-        # Send LINE notifications (発火時のみ)
+        # Send Discord notifications (発火時のみ)
         for notif in notifications:
-            send_line_notification(notif['line_message'])
+            send_discord_notification(notif['line_message'])
             
             # Forward to local client
             forward_to_local_client({
