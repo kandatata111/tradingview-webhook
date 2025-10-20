@@ -1130,9 +1130,12 @@
         }
         
         async function loadCurrentStates() {
+            console.log('loadCurrentStates called');
             try {
                 const response = await fetch('/current_states');
+                console.log('fetch response:', response);
                 const data = await response.json();
+                console.log('fetch data:', data);
                 
                 const container = document.getElementById('tables-container');
                 
