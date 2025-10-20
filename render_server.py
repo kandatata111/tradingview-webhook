@@ -411,7 +411,7 @@ def webhook():
                       values)
         else:
             # SQLiteの場合
-            placeholders = ', '.join(['?'] * 42)
+            placeholders = ', '.join(['?'] * 40)
             c.execute(f"""INSERT OR REPLACE INTO current_states 
                          (symbol, timestamp, tf, price,
                           daily_dow_status, daily_dow_bos, daily_dow_time,
