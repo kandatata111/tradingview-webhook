@@ -264,17 +264,19 @@ def webhook():
     try:
         data = request.json
         if data is None:
-            print(f"Error: request.json is None. Content-Type: {request.content_type}")
+            print(f"❌ Error: request.json is None. Content-Type: {request.content_type}")
             print(f"Raw data: {request.get_data()}")
             return jsonify({'status': 'error', 'message': 'Invalid JSON data'}), 400
         
-        print(f"Received webhook: {data}")
+        print(f"📩 Received webhook: {json.dumps(data, indent=2, ensure_ascii=False)}")
         
         # Extract data from complex JSON structure
         symbol = data.get('symbol', 'UNKNOWN')
         tf = data.get('tf', '5')
         price = data.get('price', 0)
         clouds = data.get('clouds', [])
+        
+        print(f"✅ Parsed - Symbol: {symbol}, TF: {tf}, Price: {price}, Clouds: {len(clouds)}")
         
         # デイトレード/スイングダウ情報の取得
         # 'daytrade'/'swing' または 'daily_dow'/'swing_dow' の両方をサポート
@@ -296,16 +298,6 @@ def webhook():
         
         row_order = data.get('row_order', ['price', '5m', '15m', '1H', '4H'])
         cloud_order = data.get('cloud_order', ['5m', '15m', '1H', '4H'])
-        
-        # 整列情報
-        alignment = data.get('alignment', {})
-        alignment_up = 1 if alignment.get('up', False) else 0
-        alignment_down = 1 if alignment.get('down', False) else 0
-        alignment_elapsed = alignment.get('elapsed', 0)
-        
-        # 雲間差分と価格差分
-        cloud_diffs = data.get('cloud_diffs', [])
-        price_diffs = data.get('price_diffs', [])
         
         # 雲データをパース
         cloud_data = {}
@@ -331,8 +323,6 @@ def webhook():
             daily_dow['status'], daily_dow['bos'], daily_dow['time'],
             swing_dow['status'], swing_dow['bos'], swing_dow['time'],
             ','.join(row_order), ','.join(cloud_order),
-            alignment_up, alignment_down, alignment_elapsed,
-            ','.join(map(str, cloud_diffs)), ','.join(map(str, price_diffs)),
             cloud_data.get('5m', {}).get('gc', 0),
             cloud_data.get('5m', {}).get('thickness', 0),
             cloud_data.get('5m', {}).get('angle', 0),
@@ -371,8 +361,6 @@ def webhook():
                           swing_dow_status, swing_dow_bos, swing_dow_time,
                           row_order,
                           cloud_order,
-                          alignment_up, alignment_down, alignment_elapsed,
-                          cloud_diffs, price_diffs,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
                           cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
@@ -381,7 +369,7 @@ def webhook():
                           cloud_1h_distance_from_price, cloud_1h_distance_from_prev,
                           cloud_4h_gc, cloud_4h_thickness, cloud_4h_angle, cloud_4h_fire_count, cloud_4h_elapsed,
                           cloud_4h_distance_from_price, cloud_4h_distance_from_prev)
-                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                          ON CONFLICT (symbol) DO UPDATE SET
                              timestamp = EXCLUDED.timestamp,
                              tf = EXCLUDED.tf,
@@ -394,11 +382,6 @@ def webhook():
                              swing_dow_time = EXCLUDED.swing_dow_time,
                              row_order = EXCLUDED.row_order,
                              cloud_order = EXCLUDED.cloud_order,
-                             alignment_up = EXCLUDED.alignment_up,
-                             alignment_down = EXCLUDED.alignment_down,
-                             alignment_elapsed = EXCLUDED.alignment_elapsed,
-                             cloud_diffs = EXCLUDED.cloud_diffs,
-                             price_diffs = EXCLUDED.price_diffs,
                              cloud_5m_gc = EXCLUDED.cloud_5m_gc,
                              cloud_5m_thickness = EXCLUDED.cloud_5m_thickness,
                              cloud_5m_angle = EXCLUDED.cloud_5m_angle,
@@ -430,15 +413,13 @@ def webhook():
                       values)
         else:
             # SQLiteの場合
-            placeholders = ', '.join(['?'] * 47)
+            placeholders = ', '.join(['?'] * 40)
             c.execute(f"""INSERT OR REPLACE INTO current_states 
                          (symbol, timestamp, tf, price,
                           daily_dow_status, daily_dow_bos, daily_dow_time,
                           swing_dow_status, swing_dow_bos, swing_dow_time,
                           row_order,
                           cloud_order,
-                          alignment_up, alignment_down, alignment_elapsed,
-                          cloud_diffs, price_diffs,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
                           cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
@@ -453,8 +434,12 @@ def webhook():
         conn.commit()
         conn.close()
         
+        print(f"💾 Data saved to database for {symbol}")
+        
         # Analyze clouds and generate notifications (発火時のみ通知)
         notifications = analyze_clouds(symbol, price, clouds)
+        
+        print(f"🔔 Notifications generated: {len(notifications)}")
         
         # 発火履歴を保存（通知が発生した時のみ）
         if len(notifications) > 0:
@@ -494,7 +479,7 @@ def webhook():
         return jsonify({'status': 'success', 'message': 'State updated', 'notifications': len(notifications)}), 200
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Error in webhook: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -512,6 +497,7 @@ def dashboard():
 def get_current_states():
     """全通貨ペアの現在状態を取得"""
     try:
+        print("📊 /current_states endpoint called")
         conn = get_db_connection()
         if is_postgresql():
             try:
@@ -525,6 +511,8 @@ def get_current_states():
                 c.execute("""SELECT * FROM current_states ORDER BY symbol""")
                 states = c.fetchall()
                 conn.close()
+                
+                print(f"✅ PostgreSQL: Found {len(states)} states")
                 
                 result = []
                 for s in states:
@@ -545,13 +533,6 @@ def get_current_states():
                         },
                         'row_order': s['row_order'].split(',') if s['row_order'] else ['price', '5m', '15m', '1H', '4H'],
                         'cloud_order': s['cloud_order'].split(',') if s['cloud_order'] else ['5m', '15m', '1H', '4H'],
-                        'alignment': {
-                            'up': bool(s.get('alignment_up', 0)),
-                            'down': bool(s.get('alignment_down', 0)),
-                            'elapsed': s.get('alignment_elapsed', 0)
-                        },
-                        'cloud_diffs': s.get('cloud_diffs', []),
-                        'price_diffs': s.get('price_diffs', []),
                         'clouds': {
                             '5m': {
                                 'gc': bool(s['cloud_5m_gc']),
@@ -592,6 +573,7 @@ def get_current_states():
                         }
                     })
                 
+                print(f"📤 Returning {len(result)} states to client")
                 return jsonify({
                     'status': 'success',
                     'states': result
@@ -602,6 +584,8 @@ def get_current_states():
                 c.execute("""SELECT * FROM current_states ORDER BY symbol""")
                 states = c.fetchall()
                 conn.close()
+                
+                print(f"✅ SQLite fallback: Found {len(states)} states")
                 
                 result = []
                 for s in states:
@@ -622,20 +606,6 @@ def get_current_states():
                         },
                         'row_order': s[10].split(',') if s[10] else ['price', '5m', '15m', '1H', '4H'],
                         'cloud_order': s[11].split(',') if s[11] else ['5m', '15m', '1H', '4H'],
-                        'alignment': {
-                            'up': bool(s[12]),
-                            'down': bool(s[13]),
-                            'elapsed': s[14]
-                        },
-                        'cloud_diffs': s[15].split(',') if s[15] else [],
-                        'price_diffs': s[16].split(',') if s[16] else [],
-                        'alignment': {
-                            'up': bool(s[12]),
-                            'down': bool(s[13]),
-                            'elapsed': s[14]
-                        },
-                        'cloud_diffs': s[15].split(',') if s[15] else [],
-                        'price_diffs': s[16].split(',') if s[16] else [],
                         'clouds': {
                             '5m': {
                                 'gc': bool(s[12]),
