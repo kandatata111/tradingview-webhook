@@ -18,7 +18,9 @@ PAYLOAD = {
             "max_reached": False,
             "thickness": 1.2250927251,
             "angle": -21.8826924485,
-            "elapsed": 80
+            "elapsed": 80,
+            "distance_from_price": 0.5,
+            "distance_from_prev": 1.2
         },
         {
             "label": "15m",
@@ -28,7 +30,9 @@ PAYLOAD = {
             "max_reached": False,
             "thickness": 0.111211148,
             "angle": -24.6340678976,
-            "elapsed": 103
+            "elapsed": 103,
+            "distance_from_price": -0.3,
+            "distance_from_prev": 0.8
         },
         {
             "label": "1H",
@@ -38,7 +42,9 @@ PAYLOAD = {
             "max_reached": False,
             "thickness": 0.286961272,
             "angle": 1.553924035,
-            "elapsed": 95
+            "elapsed": 95,
+            "distance_from_price": 1.1,
+            "distance_from_prev": -0.5
         },
         {
             "label": "4H",
@@ -48,14 +54,16 @@ PAYLOAD = {
             "max_reached": False,
             "thickness": 23.0627544224,
             "angle": -12.858702161,
-            "elapsed": 2540
+            "elapsed": 2540,
+            "distance_from_price": -2.0,
+            "distance_from_prev": 3.5
         }
     ],
     "price": 151.219
 }
 
 if __name__ == "__main__":
-    # ローカルテスト用
-    response = requests.post("http://localhost:5000/webhook", json=PAYLOAD, timeout=10)
+    # クラウドテスト用
+    response = requests.post("https://tradingview-webhook-s5x1.onrender.com/webhook", json=PAYLOAD, timeout=10)
     print(response.status_code)
     print(response.text)

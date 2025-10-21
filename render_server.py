@@ -297,6 +297,16 @@ def webhook():
         row_order = data.get('row_order', ['price', '5m', '15m', '1H', '4H'])
         cloud_order = data.get('cloud_order', ['5m', '15m', '1H', '4H'])
         
+        # 整列情報
+        alignment = data.get('alignment', {})
+        alignment_up = 1 if alignment.get('up', False) else 0
+        alignment_down = 1 if alignment.get('down', False) else 0
+        alignment_elapsed = alignment.get('elapsed', 0)
+        
+        # 雲間差分と価格差分
+        cloud_diffs = data.get('cloud_diffs', [])
+        price_diffs = data.get('price_diffs', [])
+        
         # 雲データをパース
         cloud_data = {}
         for cloud in clouds:
@@ -321,6 +331,8 @@ def webhook():
             daily_dow['status'], daily_dow['bos'], daily_dow['time'],
             swing_dow['status'], swing_dow['bos'], swing_dow['time'],
             ','.join(row_order), ','.join(cloud_order),
+            alignment_up, alignment_down, alignment_elapsed,
+            ','.join(map(str, cloud_diffs)), ','.join(map(str, price_diffs)),
             cloud_data.get('5m', {}).get('gc', 0),
             cloud_data.get('5m', {}).get('thickness', 0),
             cloud_data.get('5m', {}).get('angle', 0),
@@ -359,6 +371,8 @@ def webhook():
                           swing_dow_status, swing_dow_bos, swing_dow_time,
                           row_order,
                           cloud_order,
+                          alignment_up, alignment_down, alignment_elapsed,
+                          cloud_diffs, price_diffs,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
                           cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
@@ -367,7 +381,7 @@ def webhook():
                           cloud_1h_distance_from_price, cloud_1h_distance_from_prev,
                           cloud_4h_gc, cloud_4h_thickness, cloud_4h_angle, cloud_4h_fire_count, cloud_4h_elapsed,
                           cloud_4h_distance_from_price, cloud_4h_distance_from_prev)
-                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                          ON CONFLICT (symbol) DO UPDATE SET
                              timestamp = EXCLUDED.timestamp,
                              tf = EXCLUDED.tf,
@@ -380,6 +394,11 @@ def webhook():
                              swing_dow_time = EXCLUDED.swing_dow_time,
                              row_order = EXCLUDED.row_order,
                              cloud_order = EXCLUDED.cloud_order,
+                             alignment_up = EXCLUDED.alignment_up,
+                             alignment_down = EXCLUDED.alignment_down,
+                             alignment_elapsed = EXCLUDED.alignment_elapsed,
+                             cloud_diffs = EXCLUDED.cloud_diffs,
+                             price_diffs = EXCLUDED.price_diffs,
                              cloud_5m_gc = EXCLUDED.cloud_5m_gc,
                              cloud_5m_thickness = EXCLUDED.cloud_5m_thickness,
                              cloud_5m_angle = EXCLUDED.cloud_5m_angle,
@@ -411,13 +430,15 @@ def webhook():
                       values)
         else:
             # SQLiteの場合
-            placeholders = ', '.join(['?'] * 40)
+            placeholders = ', '.join(['?'] * 47)
             c.execute(f"""INSERT OR REPLACE INTO current_states 
                          (symbol, timestamp, tf, price,
                           daily_dow_status, daily_dow_bos, daily_dow_time,
                           swing_dow_status, swing_dow_bos, swing_dow_time,
                           row_order,
                           cloud_order,
+                          alignment_up, alignment_down, alignment_elapsed,
+                          cloud_diffs, price_diffs,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
                           cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
@@ -524,6 +545,13 @@ def get_current_states():
                         },
                         'row_order': s['row_order'].split(',') if s['row_order'] else ['price', '5m', '15m', '1H', '4H'],
                         'cloud_order': s['cloud_order'].split(',') if s['cloud_order'] else ['5m', '15m', '1H', '4H'],
+                        'alignment': {
+                            'up': bool(s.get('alignment_up', 0)),
+                            'down': bool(s.get('alignment_down', 0)),
+                            'elapsed': s.get('alignment_elapsed', 0)
+                        },
+                        'cloud_diffs': s.get('cloud_diffs', []),
+                        'price_diffs': s.get('price_diffs', []),
                         'clouds': {
                             '5m': {
                                 'gc': bool(s['cloud_5m_gc']),
@@ -594,6 +622,20 @@ def get_current_states():
                         },
                         'row_order': s[10].split(',') if s[10] else ['price', '5m', '15m', '1H', '4H'],
                         'cloud_order': s[11].split(',') if s[11] else ['5m', '15m', '1H', '4H'],
+                        'alignment': {
+                            'up': bool(s[12]),
+                            'down': bool(s[13]),
+                            'elapsed': s[14]
+                        },
+                        'cloud_diffs': s[15].split(',') if s[15] else [],
+                        'price_diffs': s[16].split(',') if s[16] else [],
+                        'alignment': {
+                            'up': bool(s[12]),
+                            'down': bool(s[13]),
+                            'elapsed': s[14]
+                        },
+                        'cloud_diffs': s[15].split(',') if s[15] else [],
+                        'price_diffs': s[16].split(',') if s[16] else [],
                         'clouds': {
                             '5m': {
                                 'gc': bool(s[12]),

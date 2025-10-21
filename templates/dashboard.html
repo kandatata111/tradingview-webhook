@@ -1237,6 +1237,7 @@
             // デバッグ情報をコンソールに出力
             console.log('Daily Dow Status:', state.daily_dow.status, '→ Class:', dailyDirectionClass);
             console.log('Swing Dow Status:', state.swing_dow.status, '→ Class:', swingDirectionClass);
+            console.log('Row Order:', rowOrder);
 
             // 設定に基づいて行の表示/非表示クラスを決定
             const showDailyDow = settings.filters ? settings.filters.showDailyDow !== false : true;
