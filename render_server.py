@@ -273,14 +273,26 @@ def webhook():
         # Extract data from complex JSON structure
         symbol = data.get('symbol', 'UNKNOWN')
         tf = data.get('tf', '5')
-        price = data.get('price', 0)
-        clouds = data.get('clouds', [])
+        price = float(data.get('price', 0))
+        clouds_raw = data.get('clouds', {})
         
-        print(f"✅ Parsed - Symbol: {symbol}, TF: {tf}, Price: {price}, Clouds: {len(clouds)}")
+        # cloudsがdictかlistかを判定して処理
+        if isinstance(clouds_raw, dict):
+            # dict形式の場合（新しい形式）
+            clouds_dict = clouds_raw
+        elif isinstance(clouds_raw, list):
+            # list形式の場合（古い形式）- dictに変換
+            clouds_dict = {}
+            for cloud in clouds_raw:
+                label = cloud.get('label', cloud.get('tf', ''))
+                if label:
+                    clouds_dict[label] = cloud
+        else:
+            clouds_dict = {}
+        
+        print(f"✅ Parsed - Symbol: {symbol}, TF: {tf}, Price: {price}, Clouds: {len(clouds_dict)}")
         
         # デイトレード/スイングダウ情報の取得
-        # 'daytrade'/'swing' または 'daily_dow'/'swing_dow' の両方をサポート
-        # 受け取ったデータをそのまま使用
         daytrade_raw = data.get('daytrade', data.get('daily_dow', {}))
         swing_raw = data.get('swing', data.get('swing_dow', {}))
         
@@ -299,25 +311,48 @@ def webhook():
         row_order = data.get('row_order', ['price', '5m', '15m', '1H', '4H'])
         cloud_order = data.get('cloud_order', ['5m', '15m', '1H', '4H'])
         
-        # 雲データをパース
+        # 雲データをパース（topPrice/bottomPriceを含む）
         cloud_data = {}
-        for cloud in clouds:
-            label = cloud.get('label', '')
+        for label in ['5m', '15m', '1H', '4H']:
+            cloud_info = clouds_dict.get(label, {})
+            
+            # topPriceとbottomPriceを取得し、"na"の場合は0.0に変換
+            top_price_raw = cloud_info.get('topPrice', 0)
+            bottom_price_raw = cloud_info.get('bottomPrice', 0)
+            
+            if isinstance(top_price_raw, str) and top_price_raw.lower() == 'na':
+                top_price = 0.0
+            else:
+                try:
+                    top_price = float(top_price_raw)
+                except (ValueError, TypeError):
+                    top_price = 0.0
+            
+            if isinstance(bottom_price_raw, str) and bottom_price_raw.lower() == 'na':
+                bottom_price = 0.0
+            else:
+                try:
+                    bottom_price = float(bottom_price_raw)
+                except (ValueError, TypeError):
+                    bottom_price = 0.0
+            
             cloud_data[label] = {
-                'gc': 1 if cloud.get('gc', False) else 0,
-                'thickness': cloud.get('thickness', 0),
-                'angle': cloud.get('angle', 0),
-                'fire_count': cloud.get('fire_count', 0),
-                'elapsed': str(cloud.get('elapsed', '')),
-                'distance_from_price': cloud.get('distance_from_price', 0),
-                'distance_from_prev': cloud.get('distance_from_prev', 0)
+                'gc': 1 if cloud_info.get('gc', False) else 0,
+                'thickness': float(cloud_info.get('thickness', 0)),
+                'angle': float(cloud_info.get('angle', 0)),
+                'fire_count': int(cloud_info.get('fire_count', 0)),
+                'elapsed': str(cloud_info.get('elapsed', '')),
+                'distance_from_price': float(cloud_info.get('distance_from_price', 0)),
+                'distance_from_prev': float(cloud_info.get('distance_from_prev', 0)),
+                'topPrice': top_price,
+                'bottomPrice': bottom_price
             }
         
         # Save to database
         conn = get_db_connection()
         c = conn.cursor()
         
-        # values変数を定義
+        # values変数を定義（topPrice/bottomPriceを含む）
         values = (
             symbol, datetime.now().isoformat(), tf, price,
             daily_dow['status'], daily_dow['bos'], daily_dow['time'],
@@ -330,6 +365,8 @@ def webhook():
             cloud_data.get('5m', {}).get('elapsed', ''),
             cloud_data.get('5m', {}).get('distance_from_price', 0),
             cloud_data.get('5m', {}).get('distance_from_prev', 0),
+            cloud_data.get('5m', {}).get('topPrice', 0),
+            cloud_data.get('5m', {}).get('bottomPrice', 0),
             cloud_data.get('15m', {}).get('gc', 0),
             cloud_data.get('15m', {}).get('thickness', 0),
             cloud_data.get('15m', {}).get('angle', 0),
@@ -337,6 +374,8 @@ def webhook():
             cloud_data.get('15m', {}).get('elapsed', ''),
             cloud_data.get('15m', {}).get('distance_from_price', 0),
             cloud_data.get('15m', {}).get('distance_from_prev', 0),
+            cloud_data.get('15m', {}).get('topPrice', 0),
+            cloud_data.get('15m', {}).get('bottomPrice', 0),
             cloud_data.get('1H', {}).get('gc', 0),
             cloud_data.get('1H', {}).get('thickness', 0),
             cloud_data.get('1H', {}).get('angle', 0),
@@ -344,13 +383,17 @@ def webhook():
             cloud_data.get('1H', {}).get('elapsed', ''),
             cloud_data.get('1H', {}).get('distance_from_price', 0),
             cloud_data.get('1H', {}).get('distance_from_prev', 0),
+            cloud_data.get('1H', {}).get('topPrice', 0),
+            cloud_data.get('1H', {}).get('bottomPrice', 0),
             cloud_data.get('4H', {}).get('gc', 0),
             cloud_data.get('4H', {}).get('thickness', 0),
             cloud_data.get('4H', {}).get('angle', 0),
             cloud_data.get('4H', {}).get('fire_count', 0),
             cloud_data.get('4H', {}).get('elapsed', ''),
             cloud_data.get('4H', {}).get('distance_from_price', 0),
-            cloud_data.get('4H', {}).get('distance_from_prev', 0)
+            cloud_data.get('4H', {}).get('distance_from_prev', 0),
+            cloud_data.get('4H', {}).get('topPrice', 0),
+            cloud_data.get('4H', {}).get('bottomPrice', 0)
         )
         
         if is_postgresql():
@@ -362,14 +405,14 @@ def webhook():
                           row_order,
                           cloud_order,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
-                          cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
+                          cloud_5m_distance_from_price, cloud_5m_distance_from_prev, cloud_5m_topPrice, cloud_5m_bottomPrice,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
-                          cloud_15m_distance_from_price, cloud_15m_distance_from_prev,
+                          cloud_15m_distance_from_price, cloud_15m_distance_from_prev, cloud_15m_topPrice, cloud_15m_bottomPrice,
                           cloud_1h_gc, cloud_1h_thickness, cloud_1h_angle, cloud_1h_fire_count, cloud_1h_elapsed,
-                          cloud_1h_distance_from_price, cloud_1h_distance_from_prev,
+                          cloud_1h_distance_from_price, cloud_1h_distance_from_prev, cloud_1h_topPrice, cloud_1h_bottomPrice,
                           cloud_4h_gc, cloud_4h_thickness, cloud_4h_angle, cloud_4h_fire_count, cloud_4h_elapsed,
-                          cloud_4h_distance_from_price, cloud_4h_distance_from_prev)
-                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                          cloud_4h_distance_from_price, cloud_4h_distance_from_prev, cloud_4h_topPrice, cloud_4h_bottomPrice)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                          ON CONFLICT (symbol) DO UPDATE SET
                              timestamp = EXCLUDED.timestamp,
                              tf = EXCLUDED.tf,
@@ -389,6 +432,8 @@ def webhook():
                              cloud_5m_elapsed = EXCLUDED.cloud_5m_elapsed,
                              cloud_5m_distance_from_price = EXCLUDED.cloud_5m_distance_from_price,
                              cloud_5m_distance_from_prev = EXCLUDED.cloud_5m_distance_from_prev,
+                             cloud_5m_topPrice = EXCLUDED.cloud_5m_topPrice,
+                             cloud_5m_bottomPrice = EXCLUDED.cloud_5m_bottomPrice,
                              cloud_15m_gc = EXCLUDED.cloud_15m_gc,
                              cloud_15m_thickness = EXCLUDED.cloud_15m_thickness,
                              cloud_15m_angle = EXCLUDED.cloud_15m_angle,
@@ -396,6 +441,8 @@ def webhook():
                              cloud_15m_elapsed = EXCLUDED.cloud_15m_elapsed,
                              cloud_15m_distance_from_price = EXCLUDED.cloud_15m_distance_from_price,
                              cloud_15m_distance_from_prev = EXCLUDED.cloud_15m_distance_from_prev,
+                             cloud_15m_topPrice = EXCLUDED.cloud_15m_topPrice,
+                             cloud_15m_bottomPrice = EXCLUDED.cloud_15m_bottomPrice,
                              cloud_1h_gc = EXCLUDED.cloud_1h_gc,
                              cloud_1h_thickness = EXCLUDED.cloud_1h_thickness,
                              cloud_1h_angle = EXCLUDED.cloud_1h_angle,
@@ -403,17 +450,21 @@ def webhook():
                              cloud_1h_elapsed = EXCLUDED.cloud_1h_elapsed,
                              cloud_1h_distance_from_price = EXCLUDED.cloud_1h_distance_from_price,
                              cloud_1h_distance_from_prev = EXCLUDED.cloud_1h_distance_from_prev,
+                             cloud_1h_topPrice = EXCLUDED.cloud_1h_topPrice,
+                             cloud_1h_bottomPrice = EXCLUDED.cloud_1h_bottomPrice,
                              cloud_4h_gc = EXCLUDED.cloud_4h_gc,
                              cloud_4h_thickness = EXCLUDED.cloud_4h_thickness,
                              cloud_4h_angle = EXCLUDED.cloud_4h_angle,
                              cloud_4h_fire_count = EXCLUDED.cloud_4h_fire_count,
                              cloud_4h_elapsed = EXCLUDED.cloud_4h_elapsed,
                              cloud_4h_distance_from_price = EXCLUDED.cloud_4h_distance_from_price,
-                             cloud_4h_distance_from_prev = EXCLUDED.cloud_4h_distance_from_prev""",
+                             cloud_4h_distance_from_prev = EXCLUDED.cloud_4h_distance_from_prev,
+                             cloud_4h_topPrice = EXCLUDED.cloud_4h_topPrice,
+                             cloud_4h_bottomPrice = EXCLUDED.cloud_4h_bottomPrice""",
                       values)
         else:
             # SQLiteの場合
-            placeholders = ', '.join(['?'] * 40)
+            placeholders = ', '.join(['?'] * 48)
             c.execute(f"""INSERT OR REPLACE INTO current_states 
                          (symbol, timestamp, tf, price,
                           daily_dow_status, daily_dow_bos, daily_dow_time,
@@ -421,13 +472,13 @@ def webhook():
                           row_order,
                           cloud_order,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
-                          cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
+                          cloud_5m_distance_from_price, cloud_5m_distance_from_prev, cloud_5m_topPrice, cloud_5m_bottomPrice,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
-                          cloud_15m_distance_from_price, cloud_15m_distance_from_prev,
-                          cloud_1H_gc, cloud_1H_thickness, cloud_1H_angle, cloud_1H_fire_count, cloud_1H_elapsed,
-                          cloud_1H_distance_from_price, cloud_1H_distance_from_prev,
-                          cloud_4H_gc, cloud_4H_thickness, cloud_4H_angle, cloud_4H_fire_count, cloud_4H_elapsed,
-                          cloud_4H_distance_from_price, cloud_4H_distance_from_prev)
+                          cloud_15m_distance_from_price, cloud_15m_distance_from_prev, cloud_15m_topPrice, cloud_15m_bottomPrice,
+                          cloud_1h_gc, cloud_1h_thickness, cloud_1h_angle, cloud_1h_fire_count, cloud_1h_elapsed,
+                          cloud_1h_distance_from_price, cloud_1h_distance_from_prev, cloud_1h_topPrice, cloud_1h_bottomPrice,
+                          cloud_4h_gc, cloud_4h_thickness, cloud_4h_angle, cloud_4h_fire_count, cloud_4h_elapsed,
+                          cloud_4h_distance_from_price, cloud_4h_distance_from_prev, cloud_4h_topPrice, cloud_4h_bottomPrice)
                          VALUES ({placeholders})""",
                       values)
         
@@ -437,7 +488,8 @@ def webhook():
         print(f"💾 Data saved to database for {symbol}")
         
         # Analyze clouds and generate notifications (発火時のみ通知)
-        notifications = analyze_clouds(symbol, price, clouds)
+        # 一時的に無効化
+        notifications = []  # analyze_clouds(symbol, price, clouds)
         
         print(f"🔔 Notifications generated: {len(notifications)}")
         
@@ -541,7 +593,9 @@ def get_current_states():
                                 'fire_count': s['cloud_5m_fire_count'],
                                 'elapsed': s['cloud_5m_elapsed'],
                                 'distance_from_price': s['cloud_5m_distance_from_price'],
-                                'distance_from_prev': s['cloud_5m_distance_from_prev']
+                                'distance_from_prev': s['cloud_5m_distance_from_prev'],
+                                'topPrice': s.get('cloud_5m_topprice', 0),
+                                'bottomPrice': s.get('cloud_5m_bottomprice', 0)
                             },
                             '15m': {
                                 'gc': bool(s['cloud_15m_gc']),
@@ -550,7 +604,9 @@ def get_current_states():
                                 'fire_count': s['cloud_15m_fire_count'],
                                 'elapsed': s['cloud_15m_elapsed'],
                                 'distance_from_price': s['cloud_15m_distance_from_price'],
-                                'distance_from_prev': s['cloud_15m_distance_from_prev']
+                                'distance_from_prev': s['cloud_15m_distance_from_prev'],
+                                'topPrice': s.get('cloud_15m_topprice', 0),
+                                'bottomPrice': s.get('cloud_15m_bottomprice', 0)
                             },
                             '1H': {
                                 'gc': bool(s['cloud_1h_gc']),
@@ -559,7 +615,9 @@ def get_current_states():
                                 'fire_count': s['cloud_1h_fire_count'],
                                 'elapsed': s['cloud_1h_elapsed'],
                                 'distance_from_price': s['cloud_1h_distance_from_price'],
-                                'distance_from_prev': s['cloud_1h_distance_from_prev']
+                                'distance_from_prev': s['cloud_1h_distance_from_prev'],
+                                'topPrice': s.get('cloud_1h_topprice', 0),
+                                'bottomPrice': s.get('cloud_1h_bottomprice', 0)
                             },
                             '4H': {
                                 'gc': bool(s['cloud_4h_gc']),
@@ -568,7 +626,9 @@ def get_current_states():
                                 'fire_count': s['cloud_4h_fire_count'],
                                 'elapsed': s['cloud_4h_elapsed'],
                                 'distance_from_price': s['cloud_4h_distance_from_price'],
-                                'distance_from_prev': s['cloud_4h_distance_from_prev']
+                                'distance_from_prev': s['cloud_4h_distance_from_prev'],
+                                'topPrice': s.get('cloud_4h_topprice', 0),
+                                'bottomPrice': s.get('cloud_4h_bottomprice', 0)
                             }
                         }
                     })
@@ -684,34 +744,42 @@ def get_current_states():
                             'fire_count': s[15],
                             'elapsed': s[16],
                             'distance_from_price': s[17],
-                            'distance_from_prev': s[18]
+                            'distance_from_prev': s[18],
+                            'topPrice': s[19],
+                            'bottomPrice': s[20]
                         },
                         '15m': {
-                            'gc': bool(s[19]),
-                            'thickness': s[20],
-                            'angle': s[21],
-                            'fire_count': s[22],
-                            'elapsed': s[23],
-                            'distance_from_price': s[24],
-                            'distance_from_prev': s[25]
+                            'gc': bool(s[21]),
+                            'thickness': s[22],
+                            'angle': s[23],
+                            'fire_count': s[24],
+                            'elapsed': s[25],
+                            'distance_from_price': s[26],
+                            'distance_from_prev': s[27],
+                            'topPrice': s[28],
+                            'bottomPrice': s[29]
                         },
                         '1H': {
-                            'gc': bool(s[26]),
-                            'thickness': s[27],
-                            'angle': s[28],
-                            'fire_count': s[29],
-                            'elapsed': s[30],
-                            'distance_from_price': s[31],
-                            'distance_from_prev': s[32]
+                            'gc': bool(s[30]),
+                            'thickness': s[31],
+                            'angle': s[32],
+                            'fire_count': s[33],
+                            'elapsed': s[34],
+                            'distance_from_price': s[35],
+                            'distance_from_prev': s[36],
+                            'topPrice': s[37],
+                            'bottomPrice': s[38]
                         },
                         '4H': {
-                            'gc': bool(s[33]),
-                            'thickness': s[34],
-                            'angle': s[35],
-                            'fire_count': s[36],
-                            'elapsed': s[37],
-                            'distance_from_price': s[38],
-                            'distance_from_prev': s[39]
+                            'gc': bool(s[39]),
+                            'thickness': s[40],
+                            'angle': s[41],
+                            'fire_count': s[42],
+                            'elapsed': s[43],
+                            'distance_from_price': s[44],
+                            'distance_from_prev': s[45],
+                            'topPrice': s[46],
+                            'bottomPrice': s[47]
                         }
                     }
                 })

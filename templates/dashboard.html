@@ -31,7 +31,7 @@
         
         /* ライトモード */
         body.theme-light {
-            background: #f5f7fa;
+            background: white;
             color: #2d3748;
         }
         
@@ -118,14 +118,14 @@
         
         .tables-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(850px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
             gap: 20px;
         }
         
         .pine-table-wrapper {
             background: #16213e;
             border-radius: 8px;
-            padding: 15px;
+            padding: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
             overflow-x: auto;
             transition: background-color 0.3s;
@@ -137,9 +137,9 @@
         }
         
         .pine-table {
-            width: 100%;
+            width: auto;
             border-collapse: collapse;
-            font-size: 15px;
+            font-size: 13px;
             background: #1a1f3a;
             transition: background-color 0.3s;
         }
@@ -151,7 +151,7 @@
         .pine-table th,
         .pine-table td {
             border: 1px solid #2a3f5f;
-            padding: 8px 10px;
+            padding: 4px 3px;
             text-align: center;
             font-size: inherit; /* 親要素のフォントサイズを継承 */
             font-weight: 700 !important; /* 全ての文字を太字に統一 */
@@ -174,6 +174,34 @@
             color: #4a5568;
         }
         
+        /* 指定されたヘッダー行の黒背景白文字スタイル - 最高優先度（他のthスタイルより後に配置） */
+        table.pine-table tr.data-headers th,
+        table.pine-table th.data-header-cell {
+            background-color: #000000 !important;
+            background: #000000 !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            text-transform: none !important;
+        }
+        
+        body.theme-light table.pine-table tr.data-headers th,
+        body.theme-light table.pine-table th.data-header-cell {
+            background-color: #000000 !important;
+            background: #000000 !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            text-transform: none !important;
+        }
+        
+        body.theme-dark table.pine-table tr.data-headers th,
+        body.theme-dark table.pine-table th.data-header-cell {
+            background-color: #000000 !important;
+            background: #000000 !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            text-transform: none !important;
+        }
+        
         /* 列の表示/非表示 */
         .pine-table th.hidden-col,
         .pine-table td.hidden-col {
@@ -183,10 +211,10 @@
         .table-header {
             background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
             color: white;
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 700;
             text-align: left;
-            padding: 12px 15px !important;
+            padding: 8px 10px !important;
         }
         
         .dow-section {
@@ -222,7 +250,7 @@
         
         .dow-label {
             text-align: left !important;
-            font-size: 15px;
+            font-size: 13px;
         }
         
         .dow-status {
@@ -232,7 +260,7 @@
         .price-row {
             background: #1e3a5f !important;
             font-weight: 700;
-            font-size: 15px;
+            font-size: 13px;
         }
         
         body.theme-light .price-row {
@@ -257,9 +285,9 @@
         
         .cloud-label {
             font-weight: 700;
-            font-size: 15px;
+            font-size: 13px;
             text-align: left !important;
-            padding-left: 15px !important;
+            padding-left: 8px !important;
         }
         
         /* 個別の雲ラベル背景色と文字色 */
@@ -279,6 +307,27 @@
         }
         
         .cloud-label[data-cloud-label="4H"] {
+            background-color: #F99BFE !important;
+            color: #000000 !important;
+        }
+        
+        /* ライトモード用の雲ラベル背景色 */
+        body.theme-light .cloud-label[data-cloud-label="5m"] {
+            background-color: #AFE899 !important;
+            color: #000000 !important;
+        }
+        
+        body.theme-light .cloud-label[data-cloud-label="15m"] {
+            background-color: #FBCCA2 !important;
+            color: #000000 !important;
+        }
+        
+        body.theme-light .cloud-label[data-cloud-label="1H"] {
+            background-color: #9BD0FD !important;
+            color: #000000 !important;
+        }
+        
+        body.theme-light .cloud-label[data-cloud-label="4H"] {
             background-color: #F99BFE !important;
             color: #000000 !important;
         }
@@ -387,8 +436,9 @@
         }
         
         body.theme-light .settings-panel {
-            background: white;
+            background: #f8fafc;
             box-shadow: -4px 0 12px rgba(0,0,0,0.1);
+            border-left: 2px solid #cbd5e1;
         }
         
         .settings-panel.open {
@@ -795,7 +845,16 @@
             <div class="setting-section-title">📐 表示調整</div>
             <div class="slider-group">
                 <label for="font-size-slider">フォントサイズ: <span id="font-size-value">18px</span></label>
-                <input type="range" id="font-size-slider" min="10" max="18" value="15" step="1" oninput="updateFontSize(this.value)">
+                <input type="range" id="font-size-slider" min="10" max="18" value="13" step="1" oninput="updateFontSize(this.value)">
+            </div>
+            <div class="select-group">
+                <label for="elapsed-display-mode">経過時間の表示:</label>
+                <select id="elapsed-display-mode" onchange="updateElapsedDisplayMode()">
+                    <option value="bars">バー</option>
+                    <option value="days_hours_mins">日/時/分</option>
+                    <option value="hours_mins">時/分</option>
+                    <option value="mins_only">分のみ</option>
+                </select>
             </div>
         </div>
         
@@ -804,11 +863,11 @@
             <div class="setting-section-title">🎨 色カスタマイズ</div>
             <div class="color-picker-group">
                 <div class="color-item">
-                    <label for="gc-bg-color">GC背景色</label>
+                    <label for="gc-bg-color">上昇背景色</label>
                     <input type="color" id="gc-bg-color" value="#22c55e" onchange="updateColors()">
                 </div>
                 <div class="color-item">
-                    <label for="dc-bg-color">DC背景色</label>
+                    <label for="dc-bg-color">下降背景色</label>
                     <input type="color" id="dc-bg-color" value="#ef4444" onchange="updateColors()">
                 </div>
                 <div class="color-item">
@@ -818,32 +877,8 @@
                         <input type="color" id="col-color-label" value="#000000" onchange="updateColors()">
                     </div>
                     <div class="threshold-inputs">
-                        <span style="width: 80px; display: inline-block;">雲方向:</span>
-                        <input type="color" id="col-color-direction" value="#e0e0e0" onchange="updateColors()">
-                    </div>
-                    <div class="threshold-inputs">
-                        <span style="width: 80px; display: inline-block;">発火数:</span>
-                        <input type="color" id="col-color-fire" value="#e0e0e0" onchange="updateColors()">
-                    </div>
-                    <div class="threshold-inputs">
-                        <span style="width: 80px; display: inline-block;">各雲間:</span>
-                        <input type="color" id="col-color-cloud-dist" value="#e0e0e0" onchange="updateColors()">
-                    </div>
-                    <div class="threshold-inputs">
-                        <span style="width: 80px; display: inline-block;">価格間:</span>
-                        <input type="color" id="col-color-price-dist" value="#e0e0e0" onchange="updateColors()">
-                    </div>
-                    <div class="threshold-inputs">
-                        <span style="width: 80px; display: inline-block;">雲角度:</span>
-                        <input type="color" id="col-color-angle" value="#e0e0e0" onchange="updateColors()">
-                    </div>
-                    <div class="threshold-inputs">
-                        <span style="width: 80px; display: inline-block;">雲厚み:</span>
-                        <input type="color" id="col-color-thickness" value="#e0e0e0" onchange="updateColors()">
-                    </div>
-                    <div class="threshold-inputs">
-                        <span style="width: 80px; display: inline-block;">経過時間:</span>
-                        <input type="color" id="col-color-elapsed" value="#e0e0e0" onchange="updateColors()">
+                        <span style="width: 80px; display: inline-block;">他縦列:</span>
+                        <input type="color" id="col-color-other" value="#e0e0e0" onchange="updateColors()">
                     </div>
                 </div>
             </div>
@@ -894,7 +929,8 @@
             },
             // フェーズ2: 表示調整
             display: {
-                fontSize: 15
+                fontSize: 13,
+                elapsedDisplayMode: 'mins_only'
             },
             // フェーズ3: 色設定
             colors: {
@@ -902,13 +938,7 @@
                 dcBg: '#ef4444',
                 // 列毎の文字色設定
                 colLabel: '#000000',      // 雲整列列
-                colDirection: '#e0e0e0',  // 雲方向列
-                colFire: '#e0e0e0',       // 発火数列
-                colCloudDist: '#e0e0e0',  // 各雲間列
-                colPriceDist: '#e0e0e0',  // 価格間列
-                colAngle: '#e0e0e0',      // 雲角度列
-                colThickness: '#e0e0e0',  // 雲厚み列
-                colElapsed: '#e0e0e0'     // 経過時間列
+                colOther: '#e0e0e0'       // 他縦列（雲方向～経過時間）
             }
         };
         
@@ -955,6 +985,9 @@
                 document.getElementById('font-size-slider').value = fontSize;
                 document.getElementById('font-size-value').textContent = fontSize + 'px';
                 updateFontSize(fontSize);
+                
+                const elapsedMode = settings.display.elapsedDisplayMode || 'mins_only';
+                document.getElementById('elapsed-display-mode').value = elapsedMode;
             }
             
             // フェーズ3: 色設定を適用
@@ -963,13 +996,7 @@
                 document.getElementById('dc-bg-color').value = settings.colors.dcBg || '#ef4444';
                 // 列毎の文字色設定
                 document.getElementById('col-color-label').value = settings.colors.colLabel || '#000000';
-                document.getElementById('col-color-direction').value = settings.colors.colDirection || '#e0e0e0';
-                document.getElementById('col-color-fire').value = settings.colors.colFire || '#e0e0e0';
-                document.getElementById('col-color-cloud-dist').value = settings.colors.colCloudDist || '#e0e0e0';
-                document.getElementById('col-color-price-dist').value = settings.colors.colPriceDist || '#e0e0e0';
-                document.getElementById('col-color-angle').value = settings.colors.colAngle || '#e0e0e0';
-                document.getElementById('col-color-thickness').value = settings.colors.colThickness || '#e0e0e0';
-                document.getElementById('col-color-elapsed').value = settings.colors.colElapsed || '#e0e0e0';
+                document.getElementById('col-color-other').value = settings.colors.colOther || '#e0e0e0';
                 updateColors();
             }
             
@@ -1011,7 +1038,8 @@
             
             // フェーズ2: 表示調整を保存
             settings.display = {
-                fontSize: parseInt(document.getElementById('font-size-slider').value)
+                fontSize: parseInt(document.getElementById('font-size-slider').value),
+                elapsedDisplayMode: document.getElementById('elapsed-display-mode').value
             };
             
             // フェーズ3: 色設定を保存
@@ -1020,13 +1048,7 @@
                 dcBg: document.getElementById('dc-bg-color').value,
                 // 列毎の文字色設定
                 colLabel: document.getElementById('col-color-label').value,
-                colDirection: document.getElementById('col-color-direction').value,
-                colFire: document.getElementById('col-color-fire').value,
-                colCloudDist: document.getElementById('col-color-cloud-dist').value,
-                colPriceDist: document.getElementById('col-color-price-dist').value,
-                colAngle: document.getElementById('col-color-angle').value,
-                colThickness: document.getElementById('col-color-thickness').value,
-                colElapsed: document.getElementById('col-color-elapsed').value
+                colOther: document.getElementById('col-color-other').value
             };
             
             localStorage.setItem('pineTableSettings', JSON.stringify(settings));
@@ -1093,6 +1115,13 @@
             
             document.querySelectorAll('.pine-table-wrapper').forEach(wrapper => {
                 const symbol = wrapper.dataset.symbol;
+                
+                // "UNKNOWN"は常に非表示
+                if (symbol && symbol.toLowerCase() === 'unknown') {
+                    wrapper.classList.add('hidden-symbol');
+                    return;
+                }
+                
                 if (symbol && settings.symbols[symbol] !== undefined) {
                     wrapper.classList.toggle('hidden-symbol', !settings.symbols[symbol]);
                 }
@@ -1104,9 +1133,10 @@
         
         // 通貨ペアフィルター生成
         function generateSymbolFilter(symbols) {
-            allSymbols = symbols;
+            // "unknown"を除外（大文字・小文字を区別しない）
+            allSymbols = symbols.filter(symbol => symbol.toLowerCase() !== 'unknown');
             const container = document.getElementById('symbol-filter');
-            container.innerHTML = symbols.map(symbol => {
+            container.innerHTML = allSymbols.map(symbol => {
                 const checked = settings.symbols[symbol] !== false;
                 return `
                     <div class="checkbox-item">
@@ -1116,12 +1146,26 @@
                 `;
             }).join('');
             
-            // 設定を更新
-            symbols.forEach(symbol => {
+            // 設定を更新（"unknown"を除外）
+            allSymbols.forEach(symbol => {
                 if (settings.symbols[symbol] === undefined) {
                     settings.symbols[symbol] = true;
                 }
             });
+            // settings.symbolsから"UNKNOWN"/"unknown"を削除
+            ['unknown', 'UNKNOWN', 'Unknown'].forEach(key => {
+                if (settings.symbols[key] !== undefined) {
+                    delete settings.symbols[key];
+                }
+            });
+            localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+        }
+        
+        function formatDowStatus(status, type) {
+            if (!status) return '-';
+            if (type === 'daily') return 'Dow';
+            if (type === 'swing') return 'Dow+';
+            return status;
         }
         
         function formatTimeShort(timestamp) {
@@ -1151,6 +1195,7 @@
                     updateSymbolVisibility();
                     updateRowVisibility();
                     updateDataFilter();
+                    updateColors();  // テーブル生成後に色設定を適用
                 } else {
                     container.innerHTML = '<div class="no-data">データがありません</div>';
                 }
@@ -1259,26 +1304,26 @@
                             </th>
                         </tr>
                         <tr class="dow-section dow-row ${dailyDirectionClass} ${showDailyDow ? '' : 'hidden-row'}">
-                            <td class="dow-label">デイ</td>
-                            <td class="dow-status" colspan="2">${state.daily_dow.status || '-'}</td>
+                            <td class="dow-label">Day</td>
+                            <td class="dow-status">${formatDowStatus(state.daily_dow.status, 'daily')}</td>
                             <td>${state.daily_dow.bos || '-'}</td>
-                            <td colspan="4">${state.daily_dow.time || '-'}</td>
+                            <td colspan="5" style="text-align: right;">${formatElapsedTime(state.daily_dow.time, 5)}</td>
                         </tr>
                         <tr class="dow-section dow-row ${swingDirectionClass} ${showSwingDow ? '' : 'hidden-row'}">
-                            <td class="dow-label">スイング</td>
-                            <td class="dow-status" colspan="2">${state.swing_dow.status || '-'}</td>
+                            <td class="dow-label">Swing</td>
+                            <td class="dow-status">${formatDowStatus(state.swing_dow.status, 'swing')}</td>
                             <td>${state.swing_dow.bos || '-'}</td>
-                            <td colspan="4">${state.swing_dow.time || '-'}</td>
+                            <td colspan="5" style="text-align: right;">${formatElapsedTime(state.swing_dow.time, 5)}</td>
                         </tr>
-                        <tr>
-                            <th>雲整列</th>
-                            <th>雲方向</th>
-                            <th>発火数</th>
-                            <th>各雲間</th>
-                            <th>価格間</th>
-                            <th>雲角度</th>
-                            <th>雲厚み</th>
-                            <th>経過時間</th>
+                        <tr class="data-headers">
+                            <th class="data-header-cell" style="background-color: #000000 !important; color: #ffffff !important;">雲整列</th>
+                            <th class="data-header-cell" style="background-color: #000000 !important; color: #ffffff !important;">雲方向</th>
+                            <th class="data-header-cell" style="background-color: #000000 !important; color: #ffffff !important;">発火数</th>
+                            <th class="data-header-cell" style="background-color: #000000 !important; color: #ffffff !important;">各雲間</th>
+                            <th class="data-header-cell" style="background-color: #000000 !important; color: #ffffff !important;">価格間</th>
+                            <th class="data-header-cell" style="background-color: #000000 !important; color: #ffffff !important;">雲角度</th>
+                            <th class="data-header-cell" style="background-color: #000000 !important; color: #ffffff !important;">雲厚み</th>
+                            <th class="data-header-cell" style="background-color: #000000 !important; color: #ffffff !important;">経過時間</th>
                         </tr>
                         ${rowOrder.map(label => renderRow(label, state, {showCloud4H, showCloud1H, showCloud15m, showCloud5m})).join('')}
                     </table>
@@ -1286,7 +1331,7 @@
             `;
         }
         
-        function renderCloudRow(label, cloud, shouldHide = false) {
+        function renderCloudRow(label, cloud, state, shouldHide = false) {
             if (!cloud) {
                 return `
                     <tr class="cloud-row ${shouldHide ? 'hidden-row' : ''}">
@@ -1310,16 +1355,34 @@
             const distancePriceClass = cloud.distance_from_price >= 0 ? 'distance-positive' : 'distance-negative';
             const distancePrevClass = cloud.distance_from_prev >= 0 ? 'distance-positive' : 'distance-negative';
             
+            // 価格がクラウド範囲内にあるかチェックして★マークを追加
+            let starMark = '';
+            if (cloud.topPrice && cloud.bottomPrice && state && state.price) {
+                const price = parseFloat(state.price);
+                const topPrice = parseFloat(cloud.topPrice);
+                const bottomPrice = parseFloat(cloud.bottomPrice);
+                if (price >= bottomPrice && price <= topPrice) {
+                    starMark = ' ★';
+                }
+            }
+            
+            // 時間足を分単位で取得
+            let tfMinutes = 1;
+            if (label === '5m') tfMinutes = 5;
+            else if (label === '15m') tfMinutes = 15;
+            else if (label === '1H') tfMinutes = 60;
+            else if (label === '4H') tfMinutes = 240;
+            
             return `
                 <tr class="cloud-row ${gcClass} ${shouldHide ? 'hidden-row' : ''}" data-cloud-label="${label}">
-                    <td class="cloud-label" data-cloud-label="${label}">${label}</td>
-                    <td class="${directionClass}">${directionText}</td>
-                    <td class="${fireClass}">${cloud.fire_count || 0}</td>
-                    <td class="${distancePrevClass}">${cloud.distance_from_prev?.toFixed(2) || '-'}</td>
-                    <td class="${distancePriceClass}">${cloud.distance_from_price?.toFixed(2) || '-'}</td>
-                    <td class="${angleClass}">${cloud.angle?.toFixed(2) || '-'}°</td>
-                    <td>${cloud.thickness?.toFixed(2) || '-'}</td>
-                    <td>${cloud.elapsed || '-'}</td>
+                    <td class="cloud-label" data-cloud-label="${label}">${label}${starMark}</td>
+                    <td class="${directionClass} ${gcClass}-bg">${directionText}</td>
+                    <td class="${fireClass} ${gcClass}-bg">${cloud.fire_count || 0}</td>
+                    <td class="${distancePrevClass} ${cloud.distance_from_prev < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${cloud.distance_from_prev?.toFixed(1) || '-'}</td>
+                    <td class="${distancePriceClass} ${cloud.distance_from_price < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${cloud.distance_from_price?.toFixed(1) || '-'}</td>
+                    <td class="${angleClass} ${cloud.angle < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${cloud.angle?.toFixed(1) || '-'}°</td>
+                    <td class="gc-bg" style="text-align: right;">${cloud.thickness?.toFixed(1) || '-'}</td>
+                    <td class="${gcClass}-bg" style="text-align: right;">${formatElapsedTime(cloud.elapsed, tfMinutes)}</td>
                 </tr>
             `;
         }
@@ -1351,7 +1414,7 @@
                     shouldHide = true;
                 }
                 
-                return renderCloudRow(label, state.clouds[label], shouldHide);
+                return renderCloudRow(label, state.clouds[label], state, shouldHide);
             }
         }
         
@@ -1414,19 +1477,49 @@
             localStorage.setItem('pineTableSettings', JSON.stringify(settings));
         }
         
+        // 経過時間の表示モード変更
+        function updateElapsedDisplayMode() {
+            const mode = document.getElementById('elapsed-display-mode').value;
+            settings.display.elapsedDisplayMode = mode;
+            localStorage.setItem('pineTableSettings', JSON.stringify(settings));
+            // テーブルを再レンダリング
+            loadCurrentStates();
+        }
+        
+        // 経過時間をフォーマット
+        function formatElapsedTime(minutes, tfMinutes = null) {
+            const mode = settings.display.elapsedDisplayMode || 'mins_only';
+            if (minutes === null || minutes === undefined || minutes === '-') return '-';
+            
+            const numMinutes = parseInt(minutes);
+            if (isNaN(numMinutes)) return minutes;
+            
+            switch (mode) {
+                case 'bars':
+                    if (!tfMinutes) return numMinutes + 'm'; // デイトレ/スイング用（分表示）
+                    return Math.floor(numMinutes / tfMinutes) + 'bar';
+                case 'days_hours_mins':
+                    const days = Math.floor(numMinutes / (24 * 60));
+                    const hours = Math.floor((numMinutes % (24 * 60)) / 60);
+                    const mins = numMinutes % 60;
+                    return `${days.toString().padStart(2, '0')}/${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+                case 'hours_mins':
+                    const totalHours = Math.floor(numMinutes / 60);
+                    const remainingMins = numMinutes % 60;
+                    return `${totalHours.toString().padStart(2, '0')}:${remainingMins.toString().padStart(2, '0')}`;
+                case 'mins_only':
+                default:
+                    return numMinutes + 'm';
+            }
+        }
+        
         // 色設定を適用
         function updateColors() {
             const gcBg = document.getElementById('gc-bg-color').value;
             const dcBg = document.getElementById('dc-bg-color').value;
             // 列毎の文字色
             const colLabel = document.getElementById('col-color-label').value;
-            const colDirection = document.getElementById('col-color-direction').value;
-            const colFire = document.getElementById('col-color-fire').value;
-            const colCloudDist = document.getElementById('col-color-cloud-dist').value;
-            const colPriceDist = document.getElementById('col-color-price-dist').value;
-            const colAngle = document.getElementById('col-color-angle').value;
-            const colThickness = document.getElementById('col-color-thickness').value;
-            const colElapsed = document.getElementById('col-color-elapsed').value;
+            const colOther = document.getElementById('col-color-other').value;
             
             // CSS変数を更新
             const style = document.documentElement.style;
@@ -1452,23 +1545,56 @@
                 body.theme-light .dow-row.gc, body.theme-light .dow-row.gc td { background: ${gcBg} !important; color: #ffffff !important; }
                 body.theme-light .dow-row.dc, body.theme-light .dow-row.dc td { background: ${dcBg} !important; color: #ffffff !important; }
                 
+                /* セルごとの背景色 */
+                .gc-bg { background: ${gcBg} !important; }
+                .dc-bg { background: ${dcBg} !important; }
+                
+                /* データヘッダー行の黒背景白文字（最高優先度） */
+                table.pine-table tr.data-headers th,
+                table.pine-table th.data-header-cell {
+                    background-color: #000000 !important;
+                    background: #000000 !important;
+                    color: #ffffff !important;
+                    font-weight: 700 !important;
+                }
+                body.theme-light table.pine-table tr.data-headers th,
+                body.theme-light table.pine-table th.data-header-cell {
+                    background-color: #000000 !important;
+                    background: #000000 !important;
+                    color: #ffffff !important;
+                    font-weight: 700 !important;
+                }
+                body.theme-dark table.pine-table tr.data-headers th,
+                body.theme-dark table.pine-table th.data-header-cell {
+                    background-color: #000000 !important;
+                    background: #000000 !important;
+                    color: #ffffff !important;
+                    font-weight: 700 !important;
+                }
+                
                 /* 雲ラベルの背景色（個別設定を維持） */
                 .cloud-label[data-cloud-label="4H"] { color: #000000 !important; }
                 .cloud-label[data-cloud-label="1H"] { color: #000000 !important; }
                 .cloud-label[data-cloud-label="15m"] { color: #000000 !important; }
                 .cloud-label[data-cloud-label="5m"] { color: #000000 !important; }
                 
+                /* 雲ラベルの背景色（ライトモード用） */
+                body.theme-light .cloud-label[data-cloud-label="5m"] { background-color: #AFE899 !important; color: #000000 !important; }
+                body.theme-light .cloud-label[data-cloud-label="15m"] { background-color: #FBCCA2 !important; color: #000000 !important; }
+                body.theme-light .cloud-label[data-cloud-label="1H"] { background-color: #9BD0FD !important; color: #000000 !important; }
+                body.theme-light .cloud-label[data-cloud-label="4H"] { background-color: #F99BFE !important; color: #000000 !important; }
+                
+                /* 雲ラベルの背景色（ダークモード用） */
+                body.theme-dark .cloud-label[data-cloud-label="5m"] { background-color: #AFE899 !important; color: #000000 !important; }
+                body.theme-dark .cloud-label[data-cloud-label="15m"] { background-color: #FBCCA2 !important; color: #000000 !important; }
+                body.theme-dark .cloud-label[data-cloud-label="1H"] { background-color: #9BD0FD !important; color: #000000 !important; }
+                body.theme-dark .cloud-label[data-cloud-label="4H"] { background-color: #F99BFE !important; color: #000000 !important; }
+                
                 /* 列毎の文字色設定 */
                 .pine-table .cloud-label { color: ${colLabel} !important; }
-                .pine-table .direction-gc, .pine-table .direction-dc { color: ${colDirection} !important; }
-                .pine-table .fire-positive, .pine-table .fire-negative { color: ${colFire} !important; }
-                .pine-table td:nth-child(2) { color: ${colDirection} !important; }
-                .pine-table td:nth-child(3) { color: ${colFire} !important; }
-                .pine-table td:nth-child(4) { color: ${colCloudDist} !important; }
-                .pine-table td:nth-child(5) { color: ${colPriceDist} !important; }
-                .pine-table td:nth-child(6) { color: ${colAngle} !important; }
-                .pine-table td:nth-child(7) { color: ${colThickness} !important; }
-                .pine-table td:nth-child(8) { color: ${colElapsed} !important; }
+                .pine-table td:nth-child(2), .pine-table td:nth-child(3), .pine-table td:nth-child(4),
+                .pine-table td:nth-child(5), .pine-table td:nth-child(6), .pine-table td:nth-child(7),
+                .pine-table td:nth-child(8) { color: ${colOther} !important; }
             `;
             
             // 色設定を即座に保存
@@ -1476,13 +1602,7 @@
                 gcBg: gcBg,
                 dcBg: dcBg,
                 colLabel: colLabel,
-                colDirection: colDirection,
-                colFire: colFire,
-                colCloudDist: colCloudDist,
-                colPriceDist: colPriceDist,
-                colAngle: colAngle,
-                colThickness: colThickness,
-                colElapsed: colElapsed
+                colOther: colOther
             };
             localStorage.setItem('pineTableSettings', JSON.stringify(settings));
         }
@@ -1523,10 +1643,10 @@
             // デイ/スイングダウ行
             document.querySelectorAll('.dow-row').forEach(row => {
                 const label = row.cells[0].textContent.trim();
-                if (label === 'デイ') {
+                if (label === 'Day') {
                     row.classList.toggle('hidden-row', !showDailyDow);
                     console.log('Daily Dow row visibility:', !showDailyDow);
-                } else if (label === 'スイング') {
+                } else if (label === 'Swing') {
                     row.classList.toggle('hidden-row', !showSwingDow);
                     console.log('Swing Dow row visibility:', !showSwingDow);
                 }
