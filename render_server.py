@@ -344,7 +344,7 @@ def webhook():
         else:
             clouds_dict = {}
         
-        print(f"✅ Parsed - Symbol: {symbol}, TF: {tf}, Price: {price}, Clouds: {len(clouds_dict)}")
+        print(f"✅ Parsed - Symbol: {symbol}, TF: {tf}, Price: {price}, Clouds: {len(clouds_dict)}", flush=True)
         
         # デイトレード/スイングダウ情報の取得
         daytrade_raw = data.get('daytrade', data.get('daily_dow', {}))
@@ -370,9 +370,14 @@ def webhook():
         for label in ['5m', '15m', '1H', '4H']:
             cloud_info = clouds_dict.get(label, {})
             
+            # デバッグ: 受信したcloud_infoの内容を表示
+            print(f"🔍 cloud_info[{label}] = {cloud_info}", flush=True)
+            
             # topPriceとbottomPriceを取得し、"na"の場合は0.0に変換
             top_price_raw = cloud_info.get('topPrice', 0)
             bottom_price_raw = cloud_info.get('bottomPrice', 0)
+            
+            print(f"🔍 [{label}] RAW: topPrice={top_price_raw}, bottomPrice={bottom_price_raw}", flush=True)
             
             if isinstance(top_price_raw, str) and top_price_raw.lower() == 'na':
                 top_price = 0.0
@@ -389,6 +394,8 @@ def webhook():
                     bottom_price = float(bottom_price_raw)
                 except (ValueError, TypeError):
                     bottom_price = 0.0
+            
+            print(f"🔍 [{label}] CONVERTED: topPrice={top_price}, bottomPrice={bottom_price}", flush=True)
             
             cloud_data[label] = {
                 'gc': 1 if cloud_info.get('gc', False) else 0,
@@ -450,11 +457,11 @@ def webhook():
             cloud_data.get('4H', {}).get('bottomPrice', 0)
         )
         
-        # デバッグ: topPrice/bottomPriceの値を表示
-        print(f"🔍 INSERT VALUES - 5m topPrice={values[40]}, bottomPrice={values[41]}")
-        print(f"🔍 INSERT VALUES - 15m topPrice={values[42]}, bottomPrice={values[43]}")
-        print(f"🔍 INSERT VALUES - 1H topPrice={values[44]}, bottomPrice={values[45]}")
-        print(f"🔍 INSERT VALUES - 4H topPrice={values[46]}, bottomPrice={values[47]}")
+        # デバッグ: topPrice/bottomPriceの値を表示（flush=Trueで即座に出力）
+        print(f"🔍 INSERT VALUES - 5m topPrice={values[40]}, bottomPrice={values[41]}", flush=True)
+        print(f"🔍 INSERT VALUES - 15m topPrice={values[42]}, bottomPrice={values[43]}", flush=True)
+        print(f"🔍 INSERT VALUES - 1H topPrice={values[44]}, bottomPrice={values[45]}", flush=True)
+        print(f"🔍 INSERT VALUES - 4H topPrice={values[46]}, bottomPrice={values[47]}", flush=True)
         
         if is_postgresql():
             # PostgreSQLの場合
