@@ -450,6 +450,12 @@ def webhook():
             cloud_data.get('4H', {}).get('bottomPrice', 0)
         )
         
+        # デバッグ: topPrice/bottomPriceの値を表示
+        print(f"🔍 INSERT VALUES - 5m topPrice={values[40]}, bottomPrice={values[41]}")
+        print(f"🔍 INSERT VALUES - 15m topPrice={values[42]}, bottomPrice={values[43]}")
+        print(f"🔍 INSERT VALUES - 1H topPrice={values[44]}, bottomPrice={values[45]}")
+        print(f"🔍 INSERT VALUES - 4H topPrice={values[46]}, bottomPrice={values[47]}")
+        
         if is_postgresql():
             # PostgreSQLの場合
             c.execute("""INSERT INTO current_states 
