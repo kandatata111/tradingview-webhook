@@ -1361,9 +1361,13 @@
                 const price = parseFloat(state.price);
                 const topPrice = parseFloat(cloud.topPrice);
                 const bottomPrice = parseFloat(cloud.bottomPrice);
+                console.log(`[${label}] price=${price}, topPrice=${topPrice}, bottomPrice=${bottomPrice}, inRange=${price >= bottomPrice && price <= topPrice}`);
                 if (price >= bottomPrice && price <= topPrice) {
                     starMark = ' ★';
+                    console.log(`[${label}] ★マーク表示`);
                 }
+            } else {
+                console.log(`[${label}] 条件不足: topPrice=${cloud.topPrice}, bottomPrice=${cloud.bottomPrice}, state=${state}, price=${state?.price}`);
             }
             
             // 時間足を分単位で取得
