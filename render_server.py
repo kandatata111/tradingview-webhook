@@ -230,6 +230,44 @@ def init_db():
         conn.commit()
         conn.close()
 
+def migrate_db():
+    """データベースマイグレーション: topPrice/bottomPrice カラムを追加"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        print("🔧 データベースマイグレーション開始...")
+        
+        # 追加するカラム
+        columns_to_add = [
+            ("cloud_5m_topPrice", "REAL DEFAULT 0"),
+            ("cloud_5m_bottomPrice", "REAL DEFAULT 0"),
+            ("cloud_15m_topPrice", "REAL DEFAULT 0"),
+            ("cloud_15m_bottomPrice", "REAL DEFAULT 0"),
+            ("cloud_1h_topPrice", "REAL DEFAULT 0"),
+            ("cloud_1h_bottomPrice", "REAL DEFAULT 0"),
+            ("cloud_4h_topPrice", "REAL DEFAULT 0"),
+            ("cloud_4h_bottomPrice", "REAL DEFAULT 0")
+        ]
+        
+        for col_name, col_type in columns_to_add:
+            try:
+                c.execute(f"ALTER TABLE current_states ADD COLUMN {col_name} {col_type}")
+                print(f"✅ カラム追加: {col_name}")
+            except Exception as e:
+                error_msg = str(e).lower()
+                if 'already exists' in error_msg or 'duplicate column' in error_msg:
+                    print(f"⏭️  既存カラム: {col_name}")
+                else:
+                    print(f"⚠️  警告: {col_name} - {e}")
+        
+        conn.commit()
+        conn.close()
+        print("✅ データベースマイグレーション完了")
+        
+    except Exception as e:
+        print(f"❌ マイグレーションエラー: {e}")
+
 # Send Discord notification
 def send_discord_notification(message):
     webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
@@ -880,6 +918,7 @@ def open_browser():
 
 if __name__ == '__main__':
     init_db()
+    migrate_db()  # マイグレーションを実行
     port = int(os.environ.get('PORT', 5000))
     
     # Render環境ではブラウザ自動起動を無効化
