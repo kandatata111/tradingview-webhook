@@ -1377,15 +1377,26 @@
             else if (label === '1H') tfMinutes = 60;
             else if (label === '4H') tfMinutes = 240;
             
+            // 数値の安全な変換
+            const safeNumber = (val) => {
+                const num = parseFloat(val);
+                return isNaN(num) ? null : num;
+            };
+            
+            const distancePrev = safeNumber(cloud.distance_from_prev);
+            const distancePrice = safeNumber(cloud.distance_from_price);
+            const angle = safeNumber(cloud.angle);
+            const thickness = safeNumber(cloud.thickness);
+            
             return `
                 <tr class="cloud-row ${gcClass} ${shouldHide ? 'hidden-row' : ''}" data-cloud-label="${label}">
                     <td class="cloud-label" data-cloud-label="${label}">${label}${starMark}</td>
                     <td class="${directionClass} ${gcClass}-bg">${directionText}</td>
                     <td class="${fireClass} ${gcClass}-bg">${cloud.fire_count || 0}</td>
-                    <td class="${distancePrevClass} ${cloud.distance_from_prev < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${cloud.distance_from_prev?.toFixed(1) || '-'}</td>
-                    <td class="${distancePriceClass} ${cloud.distance_from_price < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${cloud.distance_from_price?.toFixed(1) || '-'}</td>
-                    <td class="${angleClass} ${cloud.angle < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${cloud.angle?.toFixed(1) || '-'}°</td>
-                    <td class="gc-bg" style="text-align: right;">${cloud.thickness?.toFixed(1) || '-'}</td>
+                    <td class="${distancePrevClass} ${distancePrev !== null && distancePrev < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${distancePrev !== null ? distancePrev.toFixed(1) : '-'}</td>
+                    <td class="${distancePriceClass} ${distancePrice !== null && distancePrice < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${distancePrice !== null ? distancePrice.toFixed(1) : '-'}</td>
+                    <td class="${angleClass} ${angle !== null && angle < 0 ? 'dc-bg' : 'gc-bg'}" style="text-align: right;">${angle !== null ? angle.toFixed(1) : '-'}°</td>
+                    <td class="gc-bg" style="text-align: right;">${thickness !== null ? thickness.toFixed(1) : '-'}</td>
                     <td class="${gcClass}-bg" style="text-align: right;">${formatElapsedTime(cloud.elapsed, tfMinutes)}</td>
                 </tr>
             `;
