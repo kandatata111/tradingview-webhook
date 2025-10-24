@@ -464,13 +464,12 @@ def webhook():
         print(f"🔍 INSERT VALUES - 4H topPrice={values[46]}, bottomPrice={values[47]}", flush=True)
         
         if is_postgresql():
-            # PostgreSQLの場合
+            # PostgreSQLの場合 - カラム順序はデータベースと完全一致させる
             c.execute("""INSERT INTO current_states 
                          (symbol, timestamp, tf, price,
                           daily_dow_status, daily_dow_bos, daily_dow_time,
                           swing_dow_status, swing_dow_bos, swing_dow_time,
-                          row_order,
-                          cloud_order,
+                          row_order, cloud_order,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
                           cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
@@ -483,7 +482,7 @@ def webhook():
                           cloud_15m_topPrice, cloud_15m_bottomPrice,
                           cloud_1h_topPrice, cloud_1h_bottomPrice,
                           cloud_4h_topPrice, cloud_4h_bottomPrice)
-                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                          ON CONFLICT (symbol) DO UPDATE SET
                              timestamp = EXCLUDED.timestamp,
                              tf = EXCLUDED.tf,
@@ -558,6 +557,20 @@ def webhook():
                       values)
         
         conn.commit()
+        
+        # 🔍 デバッグ: 保存直後にDBから値を読み取って確認
+        c_check = conn.cursor()
+        if is_postgresql():
+            c_check.execute("SELECT cloud_5m_topPrice, cloud_5m_bottomPrice, cloud_15m_topPrice, cloud_15m_bottomPrice, cloud_1h_topPrice, cloud_1h_bottomPrice, cloud_4h_topPrice, cloud_4h_bottomPrice FROM current_states WHERE symbol = %s", (symbol,))
+        else:
+            c_check.execute("SELECT cloud_5m_topPrice, cloud_5m_bottomPrice, cloud_15m_topPrice, cloud_15m_bottomPrice, cloud_1h_topPrice, cloud_1h_bottomPrice, cloud_4h_topPrice, cloud_4h_bottomPrice FROM current_states WHERE symbol = ?", (symbol,))
+        saved_values = c_check.fetchone()
+        if saved_values:
+            print(f"🔍 DB SAVED - 5m: top={saved_values[0]}, bottom={saved_values[1]}", flush=True)
+            print(f"🔍 DB SAVED - 15m: top={saved_values[2]}, bottom={saved_values[3]}", flush=True)
+            print(f"🔍 DB SAVED - 1H: top={saved_values[4]}, bottom={saved_values[5]}", flush=True)
+            print(f"🔍 DB SAVED - 4H: top={saved_values[6]}, bottom={saved_values[7]}", flush=True)
+        
         conn.close()
         
         print(f"💾 Data saved to database for {symbol}")
