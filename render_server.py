@@ -713,7 +713,7 @@ def get_current_states():
         else:
             # SQLiteの場合
             c = conn.cursor()
-            c.execute("""SELECT * FROM current_states ORDER BY symbol""")
+            c.execute("""SELECT * FROM current_states ORDER BY timestamp DESC""")
             states = c.fetchall()
             conn.close()
             
