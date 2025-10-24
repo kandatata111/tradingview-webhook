@@ -948,6 +948,25 @@ def debug_db():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/reset_db_DANGER', methods=['POST'])
+def reset_db():
+    """データベースを完全にリセット（開発用）"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("DROP TABLE IF EXISTS current_states")
+        c.execute("DROP TABLE IF EXISTS fire_history")
+        conn.commit()
+        conn.close()
+        
+        # テーブルを再作成
+        init_db()
+        migrate_db()
+        
+        return jsonify({'status': 'success', 'message': 'Database reset complete'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 def open_browser():
     """サーバー起動後にブラウザを自動で開く"""
     webbrowser.open('http://localhost:5000')
