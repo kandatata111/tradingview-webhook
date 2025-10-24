@@ -154,7 +154,15 @@ def init_db():
                       cloud_4h_fire_count INTEGER,
                       cloud_4h_elapsed TEXT,
                       cloud_4h_distance_from_price REAL,
-                      cloud_4h_distance_from_prev REAL)''')
+                      cloud_4h_distance_from_prev REAL,
+                      cloud_5m_topPrice REAL DEFAULT 0,
+                      cloud_5m_bottomPrice REAL DEFAULT 0,
+                      cloud_15m_topPrice REAL DEFAULT 0,
+                      cloud_15m_bottomPrice REAL DEFAULT 0,
+                      cloud_1h_topPrice REAL DEFAULT 0,
+                      cloud_1h_bottomPrice REAL DEFAULT 0,
+                      cloud_4h_topPrice REAL DEFAULT 0,
+                      cloud_4h_bottomPrice REAL DEFAULT 0)''')
         
         # 発火履歴テーブル（通知用）
         c.execute('''CREATE TABLE IF NOT EXISTS fire_history
@@ -215,7 +223,15 @@ def init_db():
                       cloud_4h_fire_count INTEGER,
                       cloud_4h_elapsed TEXT,
                       cloud_4h_distance_from_price REAL,
-                      cloud_4h_distance_from_prev REAL)''')
+                      cloud_4h_distance_from_prev REAL,
+                      cloud_5m_topPrice REAL DEFAULT 0,
+                      cloud_5m_bottomPrice REAL DEFAULT 0,
+                      cloud_15m_topPrice REAL DEFAULT 0,
+                      cloud_15m_bottomPrice REAL DEFAULT 0,
+                      cloud_1h_topPrice REAL DEFAULT 0,
+                      cloud_1h_bottomPrice REAL DEFAULT 0,
+                      cloud_4h_topPrice REAL DEFAULT 0,
+                      cloud_4h_bottomPrice REAL DEFAULT 0)''')
         
         # 発火履歴テーブル（通知用）
         c.execute('''CREATE TABLE IF NOT EXISTS fire_history
