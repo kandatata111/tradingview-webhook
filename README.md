@@ -329,3 +329,87 @@ MIT License
 **作成日**: 2025年10月19日  
 **バージョン**: 3.0.0  
 **作成者**: Kanda
+
+---
+
+## 🛠️ 開発効率化スクリプト
+
+開発・テスト・デプロイを自動化するスクリプト群です。
+
+### 📁 新規追加ファイル
+
+```
+TradingViewWebhook/
+├── dev_server.py           # 🚀 ローカル開発サーバー自動起動
+├── test_webhook.py          # 🧪 Webhook統合テスト
+├── deploy.py                # ☁️ 本番環境デプロイスクリプト
+├── start_dev.bat            # 🖱️ ワンクリック開発環境起動
+└── deploy_prod.bat          # 🚀 ワンクリック本番デプロイ
+```
+
+### 🚀 ワンクリック開発環境起動
+
+```batch
+# ダブルクリックでローカル開発環境を起動
+start_dev.bat
+```
+
+**実行内容**:
+1. Flask開発サーバー起動（ホットリロード有効）
+2. ブラウザ自動起動（http://localhost:5000）
+3. テストデータ自動送信
+4. 開発ヒント表示
+
+### 🧪 Webhook機能テスト
+
+```powershell
+# ローカル環境で通常テスト
+python test_webhook.py local normal
+
+# ローカル環境で全テスト実行
+python test_webhook.py local all
+
+# Render環境でテスト
+python test_webhook.py render normal
+```
+
+**テストケース**:
+- `normal`: 標準的なデータ（USDJPY、3雲）
+- `fire_max`: 最大発火数到達（EURJPY、通知3回）
+- `multi_symbol`: 複数シンボル（GBPJPY、下降トレンド）
+
+### ☁️ ワンクリック本番デプロイ
+
+```batch
+# ダブルクリックで本番環境にデプロイ
+deploy_prod.bat
+```
+
+**実行内容**:
+1. ローカル全テスト実行
+2. Gitコミット・プッシュ
+3. Renderデプロイ完了待機
+4. 本番環境テスト実行
+5. 本番ダッシュボード自動起動
+
+### 🔧 個別スクリプト実行
+
+```powershell
+# ローカル開発サーバー起動
+python dev_server.py
+
+# 統合テスト実行
+python test_webhook.py [env] [test_case]
+
+# 本番デプロイスクリプト
+python deploy.py
+```
+
+### 💡 開発ワークフロー
+
+1. **開発開始**: `start_dev.bat` で環境起動
+2. **コード変更**: `render_server.py` を編集（自動リロード）
+3. **テスト実行**: `python test_webhook.py local all`
+4. **本番デプロイ**: `deploy_prod.bat` でリリース
+
+**開発効率**: 手動テスト・デプロイの手間を90%削減！

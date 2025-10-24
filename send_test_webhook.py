@@ -1,69 +1,76 @@
 import json
 import requests
+import sys
 
-PAYLOAD = {
+# デフォルトのテストデータ
+DEFAULT_PAYLOAD = {
     "symbol": "USDJPY",
     "tf": "5",
-    "time": 1760621400000,
+    "time": 176110700000,
     "state": {"flag": "", "word": ""},
-    "daytrade": {"status": "上昇ダウ", "bos": "BOS-1", "time": "65バー"},
-    "swing": {"status": "下降ダウ", "bos": "BOS+1", "time": "245バー"},
-    "row_order": ["4H", "1H", "price", "15m", "5m"],  # 価格が真ん中に来る例
+    "daytrade": {"status": "上昇ダウ", "bos": "", "time": "90バ一", "swing": {"status": "上昇ダウ", "bos": "", "time": "1665バ一"}},
+    "row_order": ["5m", "15m", "price", "1H", "4H"],
+    "cloud_order": ["5m", "15m", "1H", "4H"],
     "clouds": [
         {
             "label": "5m",
-            "tf": "5m",
-            "gc": False,
-            "fire_count": 0,
-            "max_reached": False,
-            "thickness": 1.2250927251,
-            "angle": -21.8826924485,
-            "elapsed": 80,
-            "distance_from_price": 0.5,
-            "distance_from_prev": 1.2
-        },
-        {
-            "label": "15m",
             "tf": "15m",
             "gc": False,
             "fire_count": 0,
             "max_reached": False,
-            "thickness": 0.111211148,
-            "angle": -24.6340678976,
-            "elapsed": 103,
-            "distance_from_price": -0.3,
-            "distance_from_prev": 0.8
+            "thickness": 0.3898628362,
+            "angle": -2.2053648999,
+            "elapsed": "10",
+            "distance_from_price": -1.0888977796,
+            "distance_from_prev": -0.3042852534
+        },
+        {
+            "label": "15m",
+            "tf": "15m",
+            "gc": True,
+            "fire_count": 0,
+            "max_reached": False,
+            "thickness": 0.039661755,
+            "angle": -0.3235691074,
+            "elapsed": "10",
+            "distance_from_price": -0.7046404526,
+            "distance_from_prev": -2.3611390073
         },
         {
             "label": "1H",
             "tf": "1H",
             "gc": True,
-            "fire_count": 2,
-            "max_reached": False,
-            "thickness": 0.286961272,
-            "angle": 1.553924035,
-            "elapsed": 95,
-            "distance_from_price": 1.1,
-            "distance_from_prev": -0.5
-        },
-        {
-            "label": "4H",
-            "tf": "4H",
-            "gc": False,
-            "fire_count": 0,
-            "max_reached": False,
-            "thickness": 23.0627544224,
-            "angle": -12.858702161,
-            "elapsed": 2540,
-            "distance_from_price": -2.0,
-            "distance_from_prev": 3.5
+            "fire_count": 10,
+            "max_reached": True,
+            "thickness": 7.2063262372
         }
-    ],
-    "price": 151.219
+    ]
 }
 
+def load_payload_from_file(filepath):
+    """JSONファイルからペイロードを読み込む"""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading JSON file: {e}")
+        return None
+
 if __name__ == "__main__":
-    # ローカルテスト用
-    response = requests.post("http://localhost:5000/webhook", json=PAYLOAD, timeout=10)
-    print(response.status_code)
-    print(response.text)
+    # コマンドライン引数からJSONファイルを受け取る
+    if len(sys.argv) > 1:
+        json_file = sys.argv[1]
+        PAYLOAD = load_payload_from_file(json_file)
+        if PAYLOAD is None:
+            print("Failed to load JSON file. Using default payload.")
+            PAYLOAD = DEFAULT_PAYLOAD
+    else:
+        PAYLOAD = DEFAULT_PAYLOAD
+    
+    # Webhook送信
+    try:
+        response = requests.post("http://localhost:5000/webhook", json=PAYLOAD, timeout=10)
+        print(f"Status: {response.status_code}")
+        print(f"Response: {response.text}")
+    except Exception as e:
+        print(f"Error sending webhook: {e}")
