@@ -914,6 +914,32 @@ def get_fire_history():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/debug_db')
+def debug_db():
+    """データベーススキーマをデバッグ"""
+    try:
+        conn = get_db_connection()
+        if is_postgresql():
+            import psycopg2
+            c = conn.cursor()
+            c.execute("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'current_states'
+                ORDER BY ordinal_position
+            """)
+            columns = c.fetchall()
+            conn.close()
+            return jsonify({'type': 'PostgreSQL', 'columns': columns})
+        else:
+            c = conn.cursor()
+            c.execute("PRAGMA table_info(current_states)")
+            columns = c.fetchall()
+            conn.close()
+            return jsonify({'type': 'SQLite', 'columns': [{'name': c[1], 'type': c[2]} for c in columns]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 def open_browser():
     """サーバー起動後にブラウザを自動で開く"""
     webbrowser.open('http://localhost:5000')
