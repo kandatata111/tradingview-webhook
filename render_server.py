@@ -588,6 +588,8 @@ def get_current_states():
     """全通貨ペアの現在状態を取得"""
     try:
         print("📊 /current_states endpoint called")
+        print(f"🔍 is_postgresql(): {is_postgresql()}")
+        print(f"🔍 DATABASE_URL in env: {'DATABASE_URL' in os.environ}")
         conn = get_db_connection()
         if is_postgresql():
             try:
@@ -598,7 +600,7 @@ def get_current_states():
             
             if cursor_factory:
                 c = conn.cursor(cursor_factory=cursor_factory)
-                c.execute("""SELECT * FROM current_states ORDER BY symbol""")
+                c.execute("""SELECT * FROM current_states ORDER BY timestamp DESC""")
                 states = c.fetchall()
                 conn.close()
                 
@@ -679,7 +681,7 @@ def get_current_states():
             else:
                 # psycopg2が利用できない場合はSQLiteとして扱う
                 c = conn.cursor()
-                c.execute("""SELECT * FROM current_states ORDER BY symbol""")
+                c.execute("""SELECT * FROM current_states ORDER BY timestamp DESC""")
                 states = c.fetchall()
                 conn.close()
                 
