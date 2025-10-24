@@ -403,8 +403,6 @@ def webhook():
             cloud_data.get('5m', {}).get('elapsed', ''),
             cloud_data.get('5m', {}).get('distance_from_price', 0),
             cloud_data.get('5m', {}).get('distance_from_prev', 0),
-            cloud_data.get('5m', {}).get('topPrice', 0),
-            cloud_data.get('5m', {}).get('bottomPrice', 0),
             cloud_data.get('15m', {}).get('gc', 0),
             cloud_data.get('15m', {}).get('thickness', 0),
             cloud_data.get('15m', {}).get('angle', 0),
@@ -412,8 +410,6 @@ def webhook():
             cloud_data.get('15m', {}).get('elapsed', ''),
             cloud_data.get('15m', {}).get('distance_from_price', 0),
             cloud_data.get('15m', {}).get('distance_from_prev', 0),
-            cloud_data.get('15m', {}).get('topPrice', 0),
-            cloud_data.get('15m', {}).get('bottomPrice', 0),
             cloud_data.get('1H', {}).get('gc', 0),
             cloud_data.get('1H', {}).get('thickness', 0),
             cloud_data.get('1H', {}).get('angle', 0),
@@ -421,8 +417,6 @@ def webhook():
             cloud_data.get('1H', {}).get('elapsed', ''),
             cloud_data.get('1H', {}).get('distance_from_price', 0),
             cloud_data.get('1H', {}).get('distance_from_prev', 0),
-            cloud_data.get('1H', {}).get('topPrice', 0),
-            cloud_data.get('1H', {}).get('bottomPrice', 0),
             cloud_data.get('4H', {}).get('gc', 0),
             cloud_data.get('4H', {}).get('thickness', 0),
             cloud_data.get('4H', {}).get('angle', 0),
@@ -430,6 +424,12 @@ def webhook():
             cloud_data.get('4H', {}).get('elapsed', ''),
             cloud_data.get('4H', {}).get('distance_from_price', 0),
             cloud_data.get('4H', {}).get('distance_from_prev', 0),
+            cloud_data.get('5m', {}).get('topPrice', 0),
+            cloud_data.get('5m', {}).get('bottomPrice', 0),
+            cloud_data.get('15m', {}).get('topPrice', 0),
+            cloud_data.get('15m', {}).get('bottomPrice', 0),
+            cloud_data.get('1H', {}).get('topPrice', 0),
+            cloud_data.get('1H', {}).get('bottomPrice', 0),
             cloud_data.get('4H', {}).get('topPrice', 0),
             cloud_data.get('4H', {}).get('bottomPrice', 0)
         )
@@ -443,13 +443,17 @@ def webhook():
                           row_order,
                           cloud_order,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
-                          cloud_5m_distance_from_price, cloud_5m_distance_from_prev, cloud_5m_topPrice, cloud_5m_bottomPrice,
+                          cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
-                          cloud_15m_distance_from_price, cloud_15m_distance_from_prev, cloud_15m_topPrice, cloud_15m_bottomPrice,
+                          cloud_15m_distance_from_price, cloud_15m_distance_from_prev,
                           cloud_1h_gc, cloud_1h_thickness, cloud_1h_angle, cloud_1h_fire_count, cloud_1h_elapsed,
-                          cloud_1h_distance_from_price, cloud_1h_distance_from_prev, cloud_1h_topPrice, cloud_1h_bottomPrice,
+                          cloud_1h_distance_from_price, cloud_1h_distance_from_prev,
                           cloud_4h_gc, cloud_4h_thickness, cloud_4h_angle, cloud_4h_fire_count, cloud_4h_elapsed,
-                          cloud_4h_distance_from_price, cloud_4h_distance_from_prev, cloud_4h_topPrice, cloud_4h_bottomPrice)
+                          cloud_4h_distance_from_price, cloud_4h_distance_from_prev,
+                          cloud_5m_topPrice, cloud_5m_bottomPrice,
+                          cloud_15m_topPrice, cloud_15m_bottomPrice,
+                          cloud_1h_topPrice, cloud_1h_bottomPrice,
+                          cloud_4h_topPrice, cloud_4h_bottomPrice)
                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                          ON CONFLICT (symbol) DO UPDATE SET
                              timestamp = EXCLUDED.timestamp,
@@ -510,13 +514,17 @@ def webhook():
                           row_order,
                           cloud_order,
                           cloud_5m_gc, cloud_5m_thickness, cloud_5m_angle, cloud_5m_fire_count, cloud_5m_elapsed,
-                          cloud_5m_distance_from_price, cloud_5m_distance_from_prev, cloud_5m_topPrice, cloud_5m_bottomPrice,
+                          cloud_5m_distance_from_price, cloud_5m_distance_from_prev,
                           cloud_15m_gc, cloud_15m_thickness, cloud_15m_angle, cloud_15m_fire_count, cloud_15m_elapsed,
-                          cloud_15m_distance_from_price, cloud_15m_distance_from_prev, cloud_15m_topPrice, cloud_15m_bottomPrice,
+                          cloud_15m_distance_from_price, cloud_15m_distance_from_prev,
                           cloud_1h_gc, cloud_1h_thickness, cloud_1h_angle, cloud_1h_fire_count, cloud_1h_elapsed,
-                          cloud_1h_distance_from_price, cloud_1h_distance_from_prev, cloud_1h_topPrice, cloud_1h_bottomPrice,
+                          cloud_1h_distance_from_price, cloud_1h_distance_from_prev,
                           cloud_4h_gc, cloud_4h_thickness, cloud_4h_angle, cloud_4h_fire_count, cloud_4h_elapsed,
-                          cloud_4h_distance_from_price, cloud_4h_distance_from_prev, cloud_4h_topPrice, cloud_4h_bottomPrice)
+                          cloud_4h_distance_from_price, cloud_4h_distance_from_prev,
+                          cloud_5m_topPrice, cloud_5m_bottomPrice,
+                          cloud_15m_topPrice, cloud_15m_bottomPrice,
+                          cloud_1h_topPrice, cloud_1h_bottomPrice,
+                          cloud_4h_topPrice, cloud_4h_bottomPrice)
                          VALUES ({placeholders})""",
                       values)
         
