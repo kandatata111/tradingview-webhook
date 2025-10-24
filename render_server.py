@@ -764,7 +764,9 @@ def get_current_states():
                                 'fire_count': s[15],
                                 'elapsed': s[16],
                                 'distance_from_price': s[17],
-                                'distance_from_prev': s[18]
+                                'distance_from_prev': s[18],
+                                'topPrice': s[40],
+                                'bottomPrice': s[41]
                             },
                             '15m': {
                                 'gc': bool(s[19]),
@@ -773,7 +775,9 @@ def get_current_states():
                                 'fire_count': s[22],
                                 'elapsed': s[23],
                                 'distance_from_price': s[24],
-                                'distance_from_prev': s[25]
+                                'distance_from_prev': s[25],
+                                'topPrice': s[42],
+                                'bottomPrice': s[43]
                             },
                             '1H': {
                                 'gc': bool(s[26]),
@@ -782,7 +786,9 @@ def get_current_states():
                                 'fire_count': s[29],
                                 'elapsed': s[30],
                                 'distance_from_price': s[31],
-                                'distance_from_prev': s[32]
+                                'distance_from_prev': s[32],
+                                'topPrice': s[44],
+                                'bottomPrice': s[45]
                             },
                             '4H': {
                                 'gc': bool(s[33]),
@@ -791,7 +797,9 @@ def get_current_states():
                                 'fire_count': s[36],
                                 'elapsed': s[37],
                                 'distance_from_price': s[38],
-                                'distance_from_prev': s[39]
+                                'distance_from_prev': s[39],
+                                'topPrice': s[46],
+                                'bottomPrice': s[47]
                             }
                         }
                     })
@@ -835,39 +843,39 @@ def get_current_states():
                             'elapsed': s[16],
                             'distance_from_price': s[17],
                             'distance_from_prev': s[18],
-                            'topPrice': s[19],
-                            'bottomPrice': s[20]
+                            'topPrice': s[40],
+                            'bottomPrice': s[41]
                         },
                         '15m': {
-                            'gc': bool(s[21]),
-                            'thickness': s[22],
-                            'angle': s[23],
-                            'fire_count': s[24],
-                            'elapsed': s[25],
-                            'distance_from_price': s[26],
-                            'distance_from_prev': s[27],
-                            'topPrice': s[28],
-                            'bottomPrice': s[29]
+                            'gc': bool(s[19]),
+                            'thickness': s[20],
+                            'angle': s[21],
+                            'fire_count': s[22],
+                            'elapsed': s[23],
+                            'distance_from_price': s[24],
+                            'distance_from_prev': s[25],
+                            'topPrice': s[42],
+                            'bottomPrice': s[43]
                         },
                         '1H': {
-                            'gc': bool(s[30]),
-                            'thickness': s[31],
-                            'angle': s[32],
-                            'fire_count': s[33],
-                            'elapsed': s[34],
-                            'distance_from_price': s[35],
-                            'distance_from_prev': s[36],
-                            'topPrice': s[37],
-                            'bottomPrice': s[38]
+                            'gc': bool(s[26]),
+                            'thickness': s[27],
+                            'angle': s[28],
+                            'fire_count': s[29],
+                            'elapsed': s[30],
+                            'distance_from_price': s[31],
+                            'distance_from_prev': s[32],
+                            'topPrice': s[44],
+                            'bottomPrice': s[45]
                         },
                         '4H': {
-                            'gc': bool(s[39]),
-                            'thickness': s[40],
-                            'angle': s[41],
-                            'fire_count': s[42],
-                            'elapsed': s[43],
-                            'distance_from_price': s[44],
-                            'distance_from_prev': s[45],
+                            'gc': bool(s[33]),
+                            'thickness': s[34],
+                            'angle': s[35],
+                            'fire_count': s[36],
+                            'elapsed': s[37],
+                            'distance_from_price': s[38],
+                            'distance_from_prev': s[39],
                             'topPrice': s[46],
                             'bottomPrice': s[47]
                         }
