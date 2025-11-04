@@ -1,0 +1,128 @@
+from flask import Flask, request, jsonify, render_template
+import os, sqlite3, json
+from datetime import datetime
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
+DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS states (
+        symbol TEXT NOT NULL,
+        tf TEXT NOT NULL,
+        timestamp TEXT,
+        price REAL,
+        time INTEGER,
+        state_flag TEXT,
+        state_word TEXT,
+        daytrade_status TEXT,
+        daytrade_bos TEXT,
+        daytrade_time TEXT,
+        swing_status TEXT,
+        swing_bos TEXT,
+        swing_time TEXT,
+        row_order TEXT,
+        cloud_order TEXT,
+        clouds_json TEXT,
+        meta_json TEXT,
+        PRIMARY KEY (symbol, tf)
+    )''')
+    conn.commit()
+    conn.close()
+    print('[OK] DB initialized')
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'}), 200
+
+@app.route('/')
+def dashboard():
+    print('[ACCESS] Dashboard request')
+    try:
+        return render_template('dashboard.html')
+    except Exception as e:
+        print(f'[ERROR] Dashboard error: {e}')
+        return f'Error: {e}', 500
+
+@app.route('/test')
+def test():
+    return render_template('test.html')
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'status': 'error', 'msg': 'No JSON'}), 400
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('''INSERT OR REPLACE INTO states (
+                symbol, tf, timestamp, price, time,
+                state_flag, state_word,
+                daytrade_status, daytrade_bos, daytrade_time,
+                swing_status, swing_bos, swing_time,
+                row_order, cloud_order, clouds_json, meta_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (data.get('symbol', 'UNKNOWN'), data.get('tf', '5'),
+             datetime.now().isoformat(), float(data.get('price', 0)),
+             data.get('time', 0),
+             data.get('state', {}).get('flag', ''),
+             data.get('state', {}).get('word', ''),
+             data.get('daytrade', {}).get('status', ''),
+             data.get('daytrade', {}).get('bos', ''),
+             data.get('daytrade', {}).get('time', ''),
+             data.get('swing', {}).get('status', ''),
+             data.get('swing', {}).get('bos', ''),
+             data.get('swing', {}).get('time', ''),
+             ','.join(data.get('row_order', [])),
+             ','.join(data.get('cloud_order', [])),
+             json.dumps(data.get('clouds', []), ensure_ascii=False),
+             json.dumps(data.get('meta', {}), ensure_ascii=False)))
+        conn.commit()
+        conn.close()
+        symbol_val = data.get('symbol', 'UNKNOWN')
+        tf_val = data.get('tf', '5')
+        print(f'[OK] Saved {symbol_val}/{tf_val}')
+        return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        print(f'[ERROR] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/current_states')
+def current_states():
+    print('[ACCESS] Current states request')
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT * FROM states')
+        rows, cols = c.fetchall(), [d[0] for d in c.description]
+        conn.close()
+        
+        print(f'[INFO] Found {len(rows)} states in DB')
+        
+        states = []
+        for r in rows:
+            d = dict(zip(cols, r))
+            d['clouds'] = json.loads(d.get('clouds_json', '[]'))
+            d['meta'] = json.loads(d.get('meta_json', '{}'))
+            d['row_order'] = d.get('row_order', '').split(',') if d.get('row_order') else []
+            d['cloud_order'] = d.get('cloud_order', '').split(',') if d.get('cloud_order') else []
+            d['state'] = {'flag': d.get('state_flag', ''), 'word': d.get('state_word', '')}
+            d['daytrade'] = {'status': d.get('daytrade_status', ''), 'bos': d.get('daytrade_bos', ''), 'time': d.get('daytrade_time', '')}
+            d['swing'] = {'status': d.get('swing_status', ''), 'bos': d.get('swing_bos', ''), 'time': d.get('swing_time', '')}
+            print(f'[INFO] State: {d.get("symbol")}/{d.get("tf")}')
+            states.append(d)
+        return jsonify({'status': 'success', 'states': states}), 200
+    except Exception as e:
+        print(f'[ERROR] {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+if __name__ == '__main__':
+    init_db()
+    print('[START] Port 5000')
+    app.run(host='0.0.0.0', port=5000, debug=False)
