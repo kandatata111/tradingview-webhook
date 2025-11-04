@@ -1,0 +1,67 @@
+{
+  "symbol": "USDJPY",
+  "tf": "5m",
+  "time": "2025-10-18 21:30:00",
+  "price": 149.856,
+  "daily_dow": {
+    "status": "ダウ",
+    "bos": "BOS-3",
+    "time": "00/10:05"
+  },
+  "swing_dow": {
+    "status": "ダウ+",
+    "bos": "BOS+1",
+    "time": "00/08:40"
+  },
+  "cloud_order": ["4H", "5m", "15m", "1H"],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 8,
+      "max_reached": false,
+      "thickness": 3.1,
+      "angle": 31.9,
+      "elapsed": "00/04:45",
+      "distance_from_price": 8.6,
+      "distance_from_prev": 8.6
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 6,
+      "max_reached": false,
+      "thickness": 5.2,
+      "angle": 30.2,
+      "elapsed": "00/09:45",
+      "distance_from_price": 6.3,
+      "distance_from_prev": 15.0
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 1,
+      "max_reached": false,
+      "thickness": 27.7,
+      "angle": 29.6,
+      "elapsed": "00/03:10",
+      "distance_from_price": 1.0,
+      "distance_from_prev": 14.6
+    },
+    {
+      "label": "4H",
+      "tf": "4H",
+      "gc": false,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 35.5,
+      "angle": -2.8,
+      "elapsed": "03/01:45",
+      "distance_from_price": -29.6,
+      "distance_from_prev": -2.8
+    }
+  ]
+}

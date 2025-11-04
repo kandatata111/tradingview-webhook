@@ -1,0 +1,6989 @@
+
+
+==== 2025-10-23 11:40:34.441173 ====
+📩 Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=151.5, bottomPrice=151.3, cloud_data[5m]={'gc': 1, 'thickness': 8.49, 'angle': 34.95, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 10.5, 'distance_from_prev': 5.3, 'topPrice': 151.5, 'bottomPrice': 151.3}
+🔍 Parsed cloud 15m: topPrice=151.6, bottomPrice=151.4, cloud_data[15m]={'gc': 1, 'thickness': 8.19, 'angle': 34.11, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 15.2, 'distance_from_prev': 8.7, 'topPrice': 151.6, 'bottomPrice': 151.4}
+🔍 Parsed cloud 1H: topPrice=151.8, bottomPrice=151.2, cloud_data[1H]={'gc': 1, 'thickness': 4.87, 'angle': 1.55, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 25.8, 'distance_from_prev': 12.4, 'topPrice': 151.8, 'bottomPrice': 151.2}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 151.5
+🔍 5m bottomPrice from cloud_data: 151.3
+
+
+==== 2025-10-23 11:42:11.175750 ====
+📩 Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    }
+  ],
+  "price": 151.219
+}
+
+
+==== 2025-10-23 11:44:15.974743 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=151.5, bottomPrice=151.3, cloud_data[5m]={'gc': 1, 'thickness': 8.49, 'angle': 34.95, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 10.5, 'distance_from_prev': 5.3, 'topPrice': 151.5, 'bottomPrice': 151.3}
+🔍 Parsed cloud 15m: topPrice=151.6, bottomPrice=151.4, cloud_data[15m]={'gc': 1, 'thickness': 8.19, 'angle': 34.11, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 15.2, 'distance_from_prev': 8.7, 'topPrice': 151.6, 'bottomPrice': 151.4}
+🔍 Parsed cloud 1H: topPrice=151.8, bottomPrice=151.2, cloud_data[1H]={'gc': 1, 'thickness': 4.87, 'angle': 1.55, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 25.8, 'distance_from_prev': 12.4, 'topPrice': 151.8, 'bottomPrice': 151.2}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 151.5
+🔍 5m bottomPrice from cloud_data: 151.3
+
+
+==== 2025-10-23 11:45:24.942998 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=151.5, bottomPrice=151.3, cloud_data[5m]={'gc': 1, 'thickness': 8.49, 'angle': 34.95, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 10.5, 'distance_from_prev': 5.3, 'topPrice': 151.5, 'bottomPrice': 151.3}
+🔍 Parsed cloud 15m: topPrice=151.6, bottomPrice=151.4, cloud_data[15m]={'gc': 1, 'thickness': 8.19, 'angle': 34.11, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 15.2, 'distance_from_prev': 8.7, 'topPrice': 151.6, 'bottomPrice': 151.4}
+🔍 Parsed cloud 1H: topPrice=151.8, bottomPrice=151.2, cloud_data[1H]={'gc': 1, 'thickness': 4.87, 'angle': 1.55, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 25.8, 'distance_from_prev': 12.4, 'topPrice': 151.8, 'bottomPrice': 151.2}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 151.5
+🔍 5m bottomPrice from cloud_data: 151.3
+values[19] (cloud_5m_topPrice): 151.5
+values[20] (cloud_5m_bottomPrice): 151.3
+
+
+==== 2025-10-23 11:46:40.331387 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    }
+  ],
+  "price": 151.4
+}
+🔍 Parsed cloud 5m: topPrice=151.5, bottomPrice=151.3, cloud_data[5m]={'gc': 1, 'thickness': 8.49, 'angle': 34.95, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 10.5, 'distance_from_prev': 5.3, 'topPrice': 151.5, 'bottomPrice': 151.3}
+🔍 Parsed cloud 15m: topPrice=151.6, bottomPrice=151.4, cloud_data[15m]={'gc': 1, 'thickness': 8.19, 'angle': 34.11, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 15.2, 'distance_from_prev': 8.7, 'topPrice': 151.6, 'bottomPrice': 151.4}
+🔍 Parsed cloud 1H: topPrice=151.8, bottomPrice=151.2, cloud_data[1H]={'gc': 1, 'thickness': 4.87, 'angle': 1.55, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 25.8, 'distance_from_prev': 12.4, 'topPrice': 151.8, 'bottomPrice': 151.2}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 151.5
+🔍 5m bottomPrice from cloud_data: 151.3
+values[19] (cloud_5m_topPrice): 151.5
+values[20] (cloud_5m_bottomPrice): 151.3
+
+
+==== 2025-10-23 11:47:36.003722 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    }
+  ],
+  "price": 151.4
+}
+🔍 Parsed cloud 5m: topPrice=151.5, bottomPrice=151.3, cloud_data[5m]={'gc': 1, 'thickness': 8.49, 'angle': 34.95, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 10.5, 'distance_from_prev': 5.3, 'topPrice': 151.5, 'bottomPrice': 151.3}
+🔍 Parsed cloud 15m: topPrice=151.6, bottomPrice=151.4, cloud_data[15m]={'gc': 1, 'thickness': 8.19, 'angle': 34.11, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 15.2, 'distance_from_prev': 8.7, 'topPrice': 151.6, 'bottomPrice': 151.4}
+🔍 Parsed cloud 1H: topPrice=151.8, bottomPrice=151.2, cloud_data[1H]={'gc': 1, 'thickness': 4.87, 'angle': 1.55, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 25.8, 'distance_from_prev': 12.4, 'topPrice': 151.8, 'bottomPrice': 151.2}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 151.5
+🔍 5m bottomPrice from cloud_data: 151.3
+values[19] (cloud_5m_topPrice): 151.5
+values[20] (cloud_5m_bottomPrice): 151.3
+
+
+==== 2025-10-23 13:49:17.309199 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 2025102304350,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS-3",
+    "time": "275バー"
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "-",
+    "time": "270バー"
+  },
+  "row_order": [
+    "5m",
+    "price",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 9.7121889666,
+      "angle": 31.3448534694,
+      "elapsed": "555",
+      "distance_from_price": 6.9369021446,
+      "distance_from_prev": 6.9369021446
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 10,
+      "max_reached": false,
+      "thickness": 15.393248605,
+      "angle": 31.0223661644,
+      "elapsed": "7845",
+      "distance_from_price": 34.3072701223,
+      "distance_from_prev": 27.3703679777
+    },
+    {
+      "label": "4H",
+      "tf": "4H",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 27.5525708644,
+      "angle": 26.6684164045,
+      "elapsed": "2570",
+      "distance_from_price": 75.9987169121,
+      "distance_from_prev": 41.6914467899
+    },
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 1.4222241854,
+      "angle": 26.6856396754,
+      "elapsed": "330",
+      "distance_from_price": -1.1654577814,
+      "distance_from_prev": 0.0
+    }
+  ],
+  "price": 152.459
+}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 9.7121889666, 'angle': 31.3448534694, 'fire_count': 0, 'elapsed': '555', 'distance_from_price': 6.9369021446, 'distance_from_prev': 6.9369021446, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 15.393248605, 'angle': 31.0223661644, 'fire_count': 10, 'elapsed': '7845', 'distance_from_price': 34.3072701223, 'distance_from_prev': 27.3703679777, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 4H: topPrice=0, bottomPrice=0, cloud_data[4H]={'gc': 1, 'thickness': 27.5525708644, 'angle': 26.6684164045, 'fire_count': 0, 'elapsed': '2570', 'distance_from_price': 75.9987169121, 'distance_from_prev': 41.6914467899, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 1.4222241854, 'angle': 26.6856396754, 'fire_count': 0, 'elapsed': '330', 'distance_from_price': -1.1654577814, 'distance_from_prev': 0.0, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['15m', '1H', '4H', '5m'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:08:31.569508 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:08:50.809629 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:09:35.163219 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:09:47.735710 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:09:49.111125 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:10:28.598918 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:10:51.531640 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:11:04.283045 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:11:34.770026 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:12:12.898210 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:12:25.984210 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:12:57.032990 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:13:17.640025 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:13:36.375904 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:14:36.407332 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:16:04.944120 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:17:08.213555 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:17:24.317446 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:18:40.030910 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:19:08.285740 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:19:21.648629 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:19:30.595911 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:19:45.143580 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:19:55.599149 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:20:03.250691 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:20:30.395438 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:20:38.765746 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:20:46.283919 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:21:09.575933 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:21:19.084766 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:21:26.376245 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:21:55.089871 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:22:14.555267 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:22:20.836711 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:22:37.237481 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:23:16.781132 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:23:24.687932 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:33:17.146193 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:33:31.550345 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:33:39.395463 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:33:53.403944 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:34:59.417644 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:35:08.504259 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:35:26.149282 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:35:41.910737 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:35:49.061295 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:36:06.863349 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:36:31.877323 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:36:40.596431 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:45:37.449840 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 14:46:04.462720 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 14:46:11.240609 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "",
+    "word": ""
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 85
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": [
+    {
+      "label": "5m",
+      "tf": "5m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.4931644999,
+      "angle": 34.9518849832,
+      "elapsed": 80,
+      "distance_from_price": 13.8942757109,
+      "distance_from_prev": 14.09754284913
+    },
+    {
+      "label": "15m",
+      "tf": "15m",
+      "gc": true,
+      "fire_count": 0,
+      "max_reached": false,
+      "thickness": 8.1868170684,
+      "angle": 34.1117507595,
+      "elapsed": 65,
+      "distance_from_price": 27.9738185599,
+      "distance_from_prev": 12.16005330563
+    },
+    {
+      "label": "1H",
+      "tf": "1H",
+      "gc": true,
+      "fire_count": 2,
+      "max_reached": false,
+      "thickness": 4.8675369955,
+      "angle": 1.5,
+      "elapsed": 95,
+      "distance_from_price": 0.29,
+      "distance_from_prev": 0.5
+    }
+  ],
+  "price": 151.219
+}
+🔍 Parsed cloud 5m: topPrice=0, bottomPrice=0, cloud_data[5m]={'gc': 1, 'thickness': 8.4931644999, 'angle': 34.9518849832, 'fire_count': 0, 'elapsed': '80', 'distance_from_price': 13.8942757109, 'distance_from_prev': 14.09754284913, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 15m: topPrice=0, bottomPrice=0, cloud_data[15m]={'gc': 1, 'thickness': 8.1868170684, 'angle': 34.1117507595, 'fire_count': 0, 'elapsed': '65', 'distance_from_price': 27.9738185599, 'distance_from_prev': 12.16005330563, 'topPrice': 0, 'bottomPrice': 0}
+🔍 Parsed cloud 1H: topPrice=0, bottomPrice=0, cloud_data[1H]={'gc': 1, 'thickness': 4.8675369955, 'angle': 1.5, 'fire_count': 2, 'elapsed': '95', 'distance_from_price': 0.29, 'distance_from_prev': 0.5, 'topPrice': 0, 'bottomPrice': 0}
+🔍 cloud_data keys: dict_keys(['5m', '15m', '1H'])
+🔍 5m topPrice from cloud_data: 0
+🔍 5m bottomPrice from cloud_data: 0
+values[19] (cloud_5m_topPrice): 0
+values[20] (cloud_5m_bottomPrice): 0
+
+
+==== 2025-10-23 15:08:16.416014 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 18:03:16.631810 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 18:05:26.189660 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 18:35:23.823214 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:13:03.576836 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:16:31.853854 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:27:55.170654 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:31:21.324612 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:33:44.862697 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:36:28.192112 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:40:39.389605 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:45:45.685921 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:47:37.852575 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 20:54:37.923582 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:00:13.577810 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:02:24.949361 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:05:17.335901 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:07:42.552366 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:10:12.646289 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:13:10.051561 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:15:07.784474 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:17:56.720296 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:20:22.347188 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:23:13.308827 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:25:31.532937 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
+
+
+==== 2025-10-23 21:27:10.201752 ====
+Received webhook: {
+  "symbol": "USDJPY",
+  "tf": "5",
+  "time": 1761015000000,
+  "state": {
+    "flag": "買",
+    "word": "強気"
+  },
+  "daytrade": {
+    "status": "上昇ダウ",
+    "bos": "BOS+1",
+    "time": 50
+  },
+  "swing": {
+    "status": "上昇ダウ",
+    "bos": "",
+    "time": 70
+  },
+  "row_order": [
+    "price",
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "cloud_order": [
+    "5m",
+    "15m",
+    "1H",
+    "4H"
+  ],
+  "clouds": {
+    "5m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.49,
+      "angle": 34.95,
+      "elapsed": 80,
+      "distance_from_price": 10.5,
+      "distance_from_prev": 5.3,
+      "topPrice": 151.5,
+      "bottomPrice": 151.3
+    },
+    "15m": {
+      "gc": true,
+      "fire_count": 0,
+      "thickness": 8.19,
+      "angle": 34.11,
+      "elapsed": 65,
+      "distance_from_price": 15.2,
+      "distance_from_prev": 8.7,
+      "topPrice": 151.6,
+      "bottomPrice": 151.4
+    },
+    "1H": {
+      "gc": true,
+      "fire_count": 2,
+      "thickness": 4.87,
+      "angle": 1.55,
+      "elapsed": 95,
+      "distance_from_price": 25.8,
+      "distance_from_prev": 12.4,
+      "topPrice": 151.8,
+      "bottomPrice": 151.2
+    },
+    "4H": {
+      "gc": false,
+      "fire_count": 0,
+      "thickness": 0.0,
+      "angle": 0.0,
+      "elapsed": 0,
+      "distance_from_price": 0.0,
+      "distance_from_prev": 0.0,
+      "topPrice": "na",
+      "bottomPrice": "na"
+    }
+  },
+  "price": 151.4
+}
