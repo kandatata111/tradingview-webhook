@@ -65,8 +65,8 @@ if errorlevel 1 (
 timeout /t 1 /nobreak >nul
 
 REM Push to GitHub (using main branch)
-echo [Step 5/6] Pushing to GitHub...
-git push origin master:main
+echo [Step 7/7] Pushing to GitHub...
+git push origin HEAD:main
 if errorlevel 1 (
     echo    ^> ERROR: Failed to push to GitHub
     echo    ^> Trying alternative push...
@@ -81,7 +81,7 @@ echo    ^> Pushed to GitHub successfully
 timeout /t 1 /nobreak >nul
 
 REM Notify about Render deployment
-echo [Step 6/6] Triggering Render deployment...
+echo [Step 7/7] Triggering Render deployment...
 echo    ^> Changes pushed to GitHub
 echo    ^> Render will auto-deploy in a few moments
 timeout /t 1 /nobreak >nul
