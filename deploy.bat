@@ -31,8 +31,23 @@ echo    ^> Done
 timeout /t 1 /nobreak >nul
 
 REM Add all changes
-echo [Step 3/6] Adding changes to Git...
+echo [Step 5/7] Adding changes to Git...
 git add .
+echo    ^> Done
+timeout /t 1 /nobreak >nul
+
+REM Ensure requirements_render.txt exists
+echo [Step 5.5/7] Ensuring requirements_render.txt exists...
+if not exist requirements_render.txt (
+    echo    ^> Creating requirements_render.txt from requirements.txt
+    copy requirements.txt requirements_render.txt
+)
+echo    ^> Done
+timeout /t 1 /nobreak >nul
+
+REM Add requirements_render.txt if created
+echo [Step 5.6/7] Adding requirements_render.txt...
+git add requirements_render.txt
 echo    ^> Done
 timeout /t 1 /nobreak >nul
 
