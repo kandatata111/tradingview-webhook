@@ -9,7 +9,7 @@ echo Starting deployment process...
 echo.
 
 REM Check if in git repository
-echo [Step 1/5] Checking Git repository...
+echo [Step 1/6] Checking Git repository...
 cd /d C:\Users\kanda\Desktop\PythonData\TradingViewWebhook
 git status >nul 2>&1
 if errorlevel 1 (
@@ -20,14 +20,24 @@ if errorlevel 1 (
 echo    ^> Done
 timeout /t 1 /nobreak >nul
 
+REM Pull latest changes from remote
+echo [Step 2/6] Pulling latest changes from GitHub...
+git pull origin main --rebase
+if errorlevel 1 (
+    echo    ^> WARNING: Pull had conflicts or failed
+    echo    ^> Attempting to continue...
+)
+echo    ^> Done
+timeout /t 1 /nobreak >nul
+
 REM Add all changes
-echo [Step 2/5] Adding changes to Git...
+echo [Step 3/6] Adding changes to Git...
 git add .
 echo    ^> Done
 timeout /t 1 /nobreak >nul
 
 REM Commit changes
-echo [Step 3/5] Committing changes...
+echo [Step 4/6] Committing changes...
 set commit_msg=Update dashboard - %date% %time%
 git commit -m "%commit_msg%"
 if errorlevel 1 (
@@ -37,19 +47,24 @@ if errorlevel 1 (
 )
 timeout /t 1 /nobreak >nul
 
-REM Push to GitHub
-echo [Step 4/5] Pushing to GitHub...
-git push origin master
+REM Push to GitHub (using main branch)
+echo [Step 5/6] Pushing to GitHub...
+git push origin master:main
 if errorlevel 1 (
     echo    ^> ERROR: Failed to push to GitHub
-    pause
-    exit /b 1
+    echo    ^> Trying alternative push...
+    git push origin HEAD:main --force-with-lease
+    if errorlevel 1 (
+        echo    ^> ERROR: All push attempts failed
+        pause
+        exit /b 1
+    )
 )
 echo    ^> Pushed to GitHub successfully
 timeout /t 1 /nobreak >nul
 
 REM Notify about Render deployment
-echo [Step 5/5] Triggering Render deployment...
+echo [Step 6/6] Triggering Render deployment...
 echo    ^> Changes pushed to GitHub
 echo    ^> Render will auto-deploy in a few moments
 timeout /t 1 /nobreak >nul
