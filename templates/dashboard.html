@@ -27,7 +27,7 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .modal .row { margin-bottom:12px }
 .modal label { color:#f5f7ff; }
 .modal select, .modal input[type="checkbox"], .modal input[type="radio"] { accent-color:#7ea6ff; }
-.modal select { min-width:140px; background:rgba(15,27,65,0.45); color:#f5f7ff; border:1px solid rgba(255,255,255,0.35); border-radius:8px; padding:6px 10px; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15); }
+.modal select { min-width:140px; background:rgba(15,27,65,0.7); color:#f5f7ff; border:1px solid rgba(255,255,255,0.35); border-radius:8px; padding:6px 10px; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15); }
 .modal button { background:rgba(10,20,55,0.6) !important; color:#f5f7ff !important; border:1px solid rgba(255,255,255,0.35) !important; padding:6px 12px !important; border-radius:8px !important; box-shadow:0 8px 18px rgba(0,0,0,0.35); transition:background 0.2s ease, transform 0.2s ease; }
 .modal button:hover { background:rgba(30,60,140,0.7) !important; transform:translateY(-1px); }
   .modal .section-header { background:#000; color:#fff; padding:6px 10px; margin:8px 0 10px 0; border-radius:6px; font-weight:600; font-size:0.95em; letter-spacing:0.3px; display:flex; justify-content:space-between; align-items:center; }
@@ -65,8 +65,13 @@ table th { font-weight: bold; font-size: 1.1em; }
 table td { font-family: 'Yu Gothic', 'Meiryo', sans-serif !important; font-weight: 600; font-size: 1.1em; }
 /* ダウ時間(9列目) と 交差時間(10列目) を右揃えにする */
 table th:nth-child(9), table td:nth-child(9),
-table th:nth-child(10), table td:nth-child(10) {
+table th:nth-child(10), table td:nth-child(10),
+table th:nth-child(11), table td:nth-child(11) {
   text-align: right;
+}
+/* ヘッダーのダウ時間と交差時間をセンター揃え */
+table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
+  text-align: center;
 }
 </style>
 </head>
@@ -135,6 +140,7 @@ table th:nth-child(10), table td:nth-child(10) {
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="7" checked> 雲厚み</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="8" checked> ダウ時間</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="9" checked> 交差時間</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="10" checked> 時間差</label>
       </div>
     </div>
     
@@ -195,6 +201,7 @@ table th:nth-child(10), table td:nth-child(10) {
           <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;padding:6px;border-radius:6px;background:rgba(0,0,0,0.02);">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <strong style="margin-right:6px">雲整列条件</strong>
+              <label style="font-size:0.9em"><input type="checkbox" id="alignAllTf"> 全時間</label>
               <label style="font-size:0.9em"><input type="checkbox" class="align-tf" data-tf="5m"> 5m</label>
               <label style="font-size:0.9em"><input type="checkbox" class="align-tf" data-tf="15m"> 15m</label>
               <label style="font-size:0.9em"><input type="checkbox" class="align-tf" data-tf="1H"> 1H</label>
@@ -203,14 +210,14 @@ table th:nth-child(10), table td:nth-child(10) {
             <div style="display:flex;align-items:center;gap:12px">
               <div style="display:flex;align-items:center;gap:8px">
                 <label style="font-size:0.95em">欠損</label>
-                <select id="alignMissing" style="padding:6px;border-radius:6px;background:rgba(15,27,65,0.45);color:inherit;border:1px solid rgba(255,255,255,0.12)">
+                <select id="alignMissing" style="padding:6px;border-radius:6px;background:rgba(15,27,65,0.7);color:inherit;border:1px solid rgba(255,255,255,0.12)">
                   <option value="ignore">無視</option>
                   <option value="fail">不一致</option>
                 </select>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <label style="font-size:0.95em">閾値N</label>
-                <select id="alignN" style="padding:6px;border-radius:6px;background:rgba(15,27,65,0.45);color:inherit;border:1px solid rgba(255,255,255,0.12)">
+                <select id="alignN" style="padding:6px;border-radius:6px;background:rgba(15,27,65,0.7);color:inherit;border:1px solid rgba(255,255,255,0.12)">
                   <option value="2">2</option>
                   <option value="3">3</option>
                   <option value="4">4</option>
@@ -610,7 +617,10 @@ function formatElapsedTime(datetimeStr, format) {
     const elapsedMs = now - startTime;
     const elapsedMinutes = Math.floor(elapsedMs / 60000);
     
-    console.log('Parsed:', { year, month, day, hour, minute, elapsedMinutes });
+    // 5分刻みに丸める
+    const roundedElapsedMinutes = Math.floor(elapsedMinutes / 5) * 5;
+    
+    console.log('Parsed:', { year, month, day, hour, minute, elapsedMinutes, roundedElapsedMinutes });
     
     if (elapsedMinutes < 0) {
       console.log('Negative elapsed time');
@@ -619,16 +629,16 @@ function formatElapsedTime(datetimeStr, format) {
     
     if (format === 'm') {
       // 分のみ: "7320m"
-      return elapsedMinutes + 'm';
+      return roundedElapsedMinutes + 'm';
     } else if (format === 'hm') {
       // 時/分: "122:00" または "05:00"
-      const hours = Math.floor(elapsedMinutes / 60);
-      const mins = elapsedMinutes % 60;
+      const hours = Math.floor(roundedElapsedMinutes / 60);
+      const mins = roundedElapsedMinutes % 60;
       return String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
     } else if (format === 'dhm') {
       // 日/時/分: "05/02:00"
-      const days = Math.floor(elapsedMinutes / 1440);
-      const remainMins = elapsedMinutes % 1440;
+      const days = Math.floor(roundedElapsedMinutes / 1440);
+      const remainMins = roundedElapsedMinutes % 1440;
       const hours = Math.floor(remainMins / 60);
       const mins = remainMins % 60;
       return String(days).padStart(2, '0') + '/' + String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
@@ -641,7 +651,72 @@ function formatElapsedTime(datetimeStr, format) {
   }
 }
 
+function calculateTransferTimeDiff(cloud) {
+  const dautenTimeStr = cloud.dauten_start_time_str;
+  const crossTimeStr = cloud.elapsed_str;
+  if (!dautenTimeStr || !crossTimeStr || dautenTimeStr === '-' || crossTimeStr === '-') return { diff: null, sameDirection: false };
+  
+  const dautenDir = cloud.dauten; // 'up' or 'down'
+  const crossDir = cloud.gc; // true or false
+  
+  // 同方向チェック: dauten 'up' matches gc true (GC), dauten 'down' matches gc false (DC)
+  const dautenUp = dautenDir === 'up';
+  const crossUp = crossDir === true;
+  const sameDirection = dautenUp === crossUp;
+  
+  if (!sameDirection) return { diff: null, sameDirection: false };
+  
+  // 時間差計算
+  function parseTime(str) {
+    if (!str || str === '-') return null;
+    const segments = str.split('/');
+    if (segments.length < 4) return null;
+    const year = 2000 + parseInt(segments[0]);
+    const month = parseInt(segments[1]) - 1;
+    const day = parseInt(segments[2]);
+    const timePart = segments[3];
+    let hour = 0, minute = 0;
+    if (timePart.includes(':')) {
+      const tp = timePart.split(':');
+      hour = parseInt(tp[0]);
+      minute = parseInt(tp[1]);
+    } else {
+      hour = parseInt(timePart);
+    }
+    return new Date(year, month, day, hour, minute);
+  }
+  
+  const dautenTime = parseTime(dautenTimeStr);
+  const crossTime = parseTime(crossTimeStr);
+  if (!dautenTime || !crossTime) return { diff: null, sameDirection: false };
+  
+  const diffMs = Math.abs(dautenTime - crossTime);
+  const diffMin = Math.floor(diffMs / 60000);
+  return { diff: diffMin, sameDirection: true };
+}
+
+function formatTimeDiff(diffMin, format) {
+  if (format === 'datetime') return '-';
+  if (diffMin === null) return '-';
+  if (format === 'm') return diffMin + 'm';
+  if (format === 'hm') {
+    const hours = Math.floor(diffMin / 60);
+    const mins = diffMin % 60;
+    return String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
+  }
+  if (format === 'dhm') {
+    const days = Math.floor(diffMin / 1440);
+    const remainMins = diffMin % 1440;
+    const hours = Math.floor(remainMins / 60);
+    const mins = remainMins % 60;
+    return String(days).padStart(2, '0') + '/' + String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
+  }
+  return diffMin + 'm';
+}
+
 async function load() {
+  const update_at = new Date().toISOString();
+  console.log('[CLIENT UPDATE START]', update_at);
   console.log('Loading data...');
   try {
     const r = await fetch('/current_states');
@@ -675,6 +750,9 @@ async function load() {
         document.getElementById('dashboard').innerHTML = '<div class="loading">5mデータがありません</div>';
         return;
       }
+      
+      // 更新時刻を計算（JST）
+      const updateTime = state5m.timestamp ? new Date(state5m.timestamp).toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', hour12: false}).split(' ')[1] : 'N/A';
       
       // 5m のクラウド配列をベースに統合
       const mergedClouds = (state5m.clouds || []).map(cloud => {
@@ -738,14 +816,14 @@ async function load() {
         }
       });
       
-  let html = '<div class="table-wrap"><table><tr><th colspan="10">' + state5m.symbol + ' - ' + state5m.price + '</th></tr>';
-  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th></tr>';
+  let html = '<div class="table-wrap"><table><tr><th colspan="11" style="text-align: center;">' + state5m.symbol + ' - ' + state5m.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
+  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th></tr>';
 
       orderedRows.forEach(row => {
         if (row.type === 'price') {
           // 価格行（背景白、文字黒）
           html += '<tr class="price-row"><td class="tf-label">価格</td>';
-          html += '<td colspan="9"></td></tr>';
+          html += '<td colspan="10"></td></tr>';
         } else {
           // 雲の行
           const c = row;
@@ -819,7 +897,7 @@ async function load() {
           else html += '<td>' + (ang !== null ? ang.toFixed(1) + '°' : '-') + '</td>';
 
           // 雲厚み
-          if (thColor) html += '<td style="background:' + thColor + '; color:#fff">' + (th !== null ? th.toFixed(1) : '-') + '</td>';
+          if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + (th !== null ? th.toFixed(1) : '-') + '</td>';
           else html += '<td>' + (th !== null ? th.toFixed(1) : '-') + '</td>';
 
           // 経過時間形式を取得
@@ -830,10 +908,36 @@ async function load() {
           if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + dautenTimeFormatted + '</td>';
           else html += '<td>' + dautenTimeFormatted + '</td>';
 
-          // 交差時間: 形式変換を適用し、雲交差セルと同じ背景色
+      // 交差時間: 形式変換を適用し、雲交差セルと同じ背景色
           const elapsedTimeFormatted = formatElapsedTime(c.elapsed_str || '-', timeFormat);
-          if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + elapsedTimeFormatted + '</td></tr>';
-          else html += '<td>' + elapsedTimeFormatted + '</td></tr>';
+          if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + elapsedTimeFormatted + '</td>';
+          else html += '<td>' + elapsedTimeFormatted + '</td>';
+
+          // 時間差: 計算とフォーマット
+          const timeDiffResult = calculateTransferTimeDiff(c);
+          const timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
+          let timeDiffBg = '';
+          let timeDiffColor = '#fff'; // 白抜き文字
+          if (timeFormat === 'datetime') {
+            // datetimeの場合: 同方向ならダウ時間の背景色、逆方向ならグレー
+            if (timeDiffResult.sameDirection) {
+              timeDiffBg = dautenColor || '';
+            } else {
+              timeDiffBg = 'rgba(128,128,128,0.5)'; // グレー
+            }
+          } else {
+            // それ以外: 同方向ならダウ時間の背景色、逆方向ならグレー
+            if (timeDiffResult.sameDirection) {
+              timeDiffBg = dautenColor || '';
+            } else {
+              timeDiffBg = 'rgba(128,128,128,0.5)'; // グレー
+            }
+          }
+          if (timeDiffBg) {
+            html += '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td></tr>';
+          } else {
+            html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td></tr>';
+          }
         }
       });
 
@@ -854,7 +958,7 @@ async function load() {
   }
 }
 load();
-setInterval(load, 60000);
+setInterval(load, 300000);
 
 // --- Rules UI / API ---
 async function loadRules() {
@@ -946,6 +1050,7 @@ function renderRulesList(rules) {
     title.style.fontWeight = '600'; 
     title.style.marginLeft = '12px';
     title.style.opacity = isEnabled ? '1' : '0.5'; // 無効な場合は薄く表示
+    btns.style.opacity = isEnabled ? '1' : '0.5'; // ボタンも薄く表示
     left.appendChild(btns); left.appendChild(title);
     li.appendChild(left);
     ul.appendChild(li);
@@ -1028,6 +1133,10 @@ function validateAlignmentForSave(){
 // wire align checkbox changes to keep UI consistent
 document.addEventListener('DOMContentLoaded', ()=>{
   document.querySelectorAll('.align-tf').forEach(cb=> cb.addEventListener('change', ()=>{ /* no-op for now; validation on save/test */ }));
+  document.getElementById('alignAllTf').addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('.align-tf').forEach(cb => cb.checked = checked);
+  });
 });
 
 function createConditionRow(c) {

@@ -1,6 +1,8 @@
 ﻿from flask import Flask, request, jsonify, render_template
 import os, sqlite3, json
 from datetime import datetime
+import threading
+import pytz
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
@@ -79,35 +81,51 @@ def webhook():
         if not data:
             return jsonify({'status': 'error', 'msg': 'No JSON'}), 400
         
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute('''INSERT OR REPLACE INTO states (
-                symbol, tf, timestamp, price, time,
-                state_flag, state_word,
-                daytrade_status, daytrade_bos, daytrade_time,
-                swing_status, swing_bos, swing_time,
-                row_order, cloud_order, clouds_json, meta_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-            (data.get('symbol', 'UNKNOWN'), data.get('tf', '5'),
-             datetime.now().isoformat(), float(data.get('price', 0)),
-             data.get('time', 0),
-             data.get('state', {}).get('flag', ''),
-             data.get('state', {}).get('word', ''),
-             data.get('daytrade', {}).get('status', ''),
-             data.get('daytrade', {}).get('bos', ''),
-             data.get('daytrade', {}).get('time', ''),
-             data.get('swing', {}).get('status', ''),
-             data.get('swing', {}).get('bos', ''),
-             data.get('swing', {}).get('time', ''),
-             ','.join(data.get('row_order', [])),
-             ','.join(data.get('cloud_order', [])),
-             json.dumps(data.get('clouds', []), ensure_ascii=False),
-             json.dumps(data.get('meta', {}), ensure_ascii=False)))
-        conn.commit()
-        conn.close()
-        symbol_val = data.get('symbol', 'UNKNOWN')
-        tf_val = data.get('tf', '5')
-        print(f'[OK] Saved {symbol_val}/{tf_val}')
+        # 受信タイムスタンプをログ（JST）
+        jst = pytz.timezone('Asia/Tokyo')
+        received_at = datetime.now(jst).isoformat()
+        print(f'[WEBHOOK RECEIVED] {received_at} - {data.get("symbol", "UNKNOWN")}/{data.get("tf", "5")}')
+        
+        # 10秒後にデータを保存するタイマーをセット
+        def save_data():
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+                c.execute('''INSERT OR REPLACE INTO states (
+                        symbol, tf, timestamp, price, time,
+                        state_flag, state_word,
+                        daytrade_status, daytrade_bos, daytrade_time,
+                        swing_status, swing_bos, swing_time,
+                        row_order, cloud_order, clouds_json, meta_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (data.get('symbol', 'UNKNOWN'), data.get('tf', '5'),
+                     datetime.now(jst).isoformat(), float(data.get('price', 0)),
+                     data.get('time', 0),
+                     data.get('state', {}).get('flag', ''),
+                     data.get('state', {}).get('word', ''),
+                     data.get('daytrade', {}).get('status', ''),
+                     data.get('daytrade', {}).get('bos', ''),
+                     data.get('daytrade', {}).get('time', ''),
+                     data.get('swing', {}).get('status', ''),
+                     data.get('swing', {}).get('bos', ''),
+                     data.get('swing', {}).get('time', ''),
+                     ','.join(data.get('row_order', [])),
+                     ','.join(data.get('cloud_order', [])),
+                     json.dumps(data.get('clouds', []), ensure_ascii=False),
+                     json.dumps(data.get('meta', {}), ensure_ascii=False)))
+                conn.commit()
+                conn.close()
+                symbol_val = data.get('symbol', 'UNKNOWN')
+                tf_val = data.get('tf', '5')
+                saved_at = datetime.now(jst).isoformat()
+                print(f'[OK] Saved after 10s delay: {symbol_val}/{tf_val} at {saved_at}')
+            except Exception as e:
+                print(f'[ERROR] Saving data after delay: {e}')
+        
+        # 10秒タイマーで保存
+        timer = threading.Timer(10.0, save_data)
+        timer.start()
+        
         return jsonify({'status': 'success'}), 200
     except Exception as e:
         print(f'[ERROR] {e}')
