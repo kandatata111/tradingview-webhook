@@ -41,6 +41,8 @@ echo [Step 5.5/7] Ensuring requirements_render.txt exists...
 if not exist requirements_render.txt (
     echo    ^> Creating requirements_render.txt from requirements.txt
     copy requirements.txt requirements_render.txt
+    REM Remove problematic packages for Render
+    powershell -Command "(Get-Content requirements_render.txt) -replace 'playsound2==1.3.0', '' | Set-Content requirements_render.txt"
 )
 echo    ^> Done
 timeout /t 1 /nobreak >nul
@@ -52,8 +54,8 @@ echo    ^> Done
 timeout /t 1 /nobreak >nul
 
 REM Commit changes
-echo [Step 4/6] Committing changes...
-set commit_msg=Update dashboard - %date% %time%
+echo [Step 6/7] Committing changes...
+set commit_msg=Deploy: Update dashboard and fix requirements - %date% %time%
 git commit -m "%commit_msg%"
 if errorlevel 1 (
     echo    ^> No changes to commit
