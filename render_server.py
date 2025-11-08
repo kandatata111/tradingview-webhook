@@ -86,7 +86,18 @@ def webhook():
         received_at = datetime.now(jst).isoformat()
         print(f'[WEBHOOK RECEIVED] {received_at} - {data.get("symbol", "UNKNOWN")}/{data.get("tf", "5")}')
         
-        # 10秒後にデータを保存するタイマーをセット
+        # 設定から更新遅延時間を取得
+        settings_path = os.path.join(BASE_DIR, 'settings.json')
+        delay_seconds = 10.0  # デフォルト
+        try:
+            if os.path.exists(settings_path):
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                delay_seconds = float(settings.get('update_delay_seconds', 10.0))
+        except Exception as e:
+            print(f'[WARNING] Failed to load settings: {e}')
+        
+        # 遅延後にデータを保存するタイマーをセット
         def save_data():
             try:
                 conn = sqlite3.connect(DB_PATH)
@@ -118,12 +129,15 @@ def webhook():
                 symbol_val = data.get('symbol', 'UNKNOWN')
                 tf_val = data.get('tf', '5')
                 saved_at = datetime.now(jst).isoformat()
-                print(f'[OK] Saved after 10s delay: {symbol_val}/{tf_val} at {saved_at}')
+                print(f'[OK] Saved after {delay_seconds}s delay: {symbol_val}/{tf_val} at {saved_at}')
+                
+                # データ保存後にルール評価と発火
+                evaluate_and_fire_rules(data)
             except Exception as e:
                 print(f'[ERROR] Saving data after delay: {e}')
         
-        # 10秒タイマーで保存
-        timer = threading.Timer(10.0, save_data)
+        # 設定された遅延時間でタイマーセット
+        timer = threading.Timer(delay_seconds, save_data)
         timer.start()
         
         return jsonify({'status': 'success'}), 200
@@ -187,6 +201,10 @@ def rules():
         payload = request.json
         if not payload:
             return jsonify({'status': 'error', 'msg': 'no json payload'}), 400
+        
+        # Debug: log the incoming payload for voice settings
+        print(f'[DEBUG] Received payload: {json.dumps(payload, ensure_ascii=False, indent=2)}')
+        
         # server-side validation: ensure alignment settings (if present) are sane
         rule_obj = payload.get('rule') or {}
         align = rule_obj.get('alignment')
@@ -974,6 +992,261 @@ def rules_test():
         print('[ERROR][rules/test]', e)
         import traceback; traceback.print_exc()
         return jsonify({'status':'error','msg': str(e)}), 500
+
+@app.route('/api/settings', methods=['GET', 'POST'])
+def api_settings():
+    settings_path = os.path.join(BASE_DIR, 'settings.json')
+    try:
+        if request.method == 'GET':
+            if os.path.exists(settings_path):
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+            else:
+                settings = {"update_delay_seconds": 10}
+            return jsonify({'status': 'success', 'settings': settings}), 200
+        else:  # POST
+            data = request.json
+            if not data or 'update_delay_seconds' not in data:
+                return jsonify({'status': 'error', 'msg': 'Invalid data'}), 400
+            try:
+                delay = int(data['update_delay_seconds'])
+                if delay < 0 or delay > 300:  # 0-5分
+                    return jsonify({'status': 'error', 'msg': 'Delay must be 0-300 seconds'}), 400
+            except ValueError:
+                return jsonify({'status': 'error', 'msg': 'Delay must be integer'}), 400
+            
+            settings = {"update_delay_seconds": delay}
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+            return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/notifications', methods=['GET'])
+def api_notifications():
+    # Log client info for debugging
+    client_ip = request.remote_addr
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    print(f'[API/NOTIFICATIONS] Client: {client_ip}, User-Agent: {user_agent[:50]}...')
+    
+    notifications_path = os.path.join(BASE_DIR, 'notifications.json')
+    try:
+        if os.path.exists(notifications_path):
+            with open(notifications_path, 'r', encoding='utf-8') as f:
+                notifications = json.load(f)
+        else:
+            notifications = []
+        
+        # Return latest 50 notifications
+        return jsonify({'status': 'success', 'notifications': notifications[-50:]}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/test_fire', methods=['POST'])
+def api_test_fire():
+    """テスト発火：ダミーの通知を追加"""
+    try:
+        jst = pytz.timezone('Asia/Tokyo')
+        now = datetime.now(jst)
+        
+        # Create a test notification
+        test_notification = {
+            'timestamp': now.isoformat(),
+            'symbol': 'USDJPY',
+            'rule_name': 'テストルール',
+            'message': 'テストルール が上昇方向で発火しました',
+            'direction': '上昇',
+            'details': 'これはテスト発火です'
+        }
+        
+        # Load existing notifications
+        notifications_path = os.path.join(BASE_DIR, 'notifications.json')
+        notifications = []
+        if os.path.exists(notifications_path):
+            with open(notifications_path, 'r', encoding='utf-8') as f:
+                notifications = json.load(f)
+        
+        # Add test notification
+        notifications.append(test_notification)
+        
+        # Keep only latest 100 notifications
+        notifications = notifications[-100:]
+        
+        # Save notifications
+        with open(notifications_path, 'w', encoding='utf-8') as f:
+            json.dump(notifications, f, ensure_ascii=False, indent=2)
+        
+        print(f'[TEST_FIRE] Test notification added at {now.isoformat()}')
+        
+        return jsonify({
+            'status': 'success',
+            'notification': test_notification
+        }), 200
+    except Exception as e:
+        print(f'[TEST_FIRE ERROR] {str(e)}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+def evaluate_and_fire_rules(data):
+    """Evaluate all enabled rules against the incoming data and fire notifications if matched."""
+    try:
+        # Get all enabled rules
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, name, enabled, scope_json, rule_json FROM rules WHERE enabled = 1')
+        rows = c.fetchall()
+        conn.close()
+        
+        if not rows:
+            return  # No enabled rules
+        
+        jst = pytz.timezone('Asia/Tokyo')
+        fired_notifications = []
+        
+        for row in rows:
+            rule_id, rule_name, enabled, scope_json, rule_json = row
+            try:
+                scope = json.loads(scope_json) if scope_json else {}
+                rule = json.loads(rule_json) if rule_json else {}
+                
+                # Check scope: if scope has symbol, must match
+                if scope.get('symbol') and scope['symbol'] != data.get('symbol'):
+                    continue
+                
+                # Test the rule using existing rules_test logic
+                # Prepare payload for rules_test
+                payload = {
+                    'rule': rule,
+                    'scope': scope,
+                    'state_override': data  # Use the incoming data directly
+                }
+                
+                # Call rules_test internally (simulate the POST request)
+                from flask import Flask
+                with app.test_request_context('/rules/test', method='POST', json=payload):
+                    response = rules_test()
+                    result = response.get_json()
+                
+                if result.get('status') == 'success' and result.get('matched'):
+                    # Rule fired! Determine direction from dauten, bos_count, and gc fields
+                    direction = None
+                    details = result.get('details', [])
+                    
+                    # Collect directions from all relevant fields
+                    directions_found = []
+                    
+                    # Extract direction from conditions that passed
+                    for detail in details:
+                        cond = detail.get('cond', '')
+                        if '.' in cond:
+                            label, field = cond.split('.', 1)
+                            if field in ('dauten', 'gc', 'bos_count'):
+                                actual = detail.get('actual')
+                                if actual is not None:
+                                    if field == 'dauten':
+                                        if '上昇' in str(actual) or 'up' in str(actual).lower():
+                                            directions_found.append('上昇')
+                                        elif '下降' in str(actual) or 'down' in str(actual).lower():
+                                            directions_found.append('下降')
+                                    elif field == 'gc':
+                                        if str(actual).upper() == 'GC':
+                                            directions_found.append('上昇')
+                                        elif str(actual).upper() == 'DC':
+                                            directions_found.append('下降')
+                                    elif field == 'bos_count':
+                                        try:
+                                            bos_val = float(actual)
+                                            if bos_val > 0:
+                                                directions_found.append('上昇')
+                                            elif bos_val < 0:
+                                                directions_found.append('下降')
+                                        except:
+                                            pass
+                    
+                    # Determine overall direction: majority vote, or first if tie
+                    if directions_found:
+                        up_count = directions_found.count('上昇')
+                        down_count = directions_found.count('下降')
+                        if up_count > down_count:
+                            direction = '上昇'
+                        elif down_count > up_count:
+                            direction = '下降'
+                        else:
+                            direction = directions_found[0]  # Tie, use first
+                    
+                    # If no direction found, default to '上昇'
+                    if direction is None:
+                        direction = '上昇'
+                    
+                    # Get custom messages from rule
+                    voice_settings = rule.get('voice', {})
+                    message_up = voice_settings.get('message_up', f'{rule_name} が上昇方向で発火しました')
+                    message_down = voice_settings.get('message_down', f'{rule_name} が下降方向で発火しました')
+                    common_message = voice_settings.get('message', '')
+                    message_position = voice_settings.get('message_position', 'suffix')
+                    
+                    # Select direction-specific message
+                    direction_message = message_up if direction == '上昇' else message_down
+                    
+                    # Combine messages based on position
+                    if message_position == 'prefix':
+                        combined_message = direction_message + ' ' + common_message if common_message else direction_message
+                    elif message_position == 'suffix':
+                        combined_message = common_message + ' ' + direction_message if common_message else direction_message
+                    elif message_position == 'both':
+                        combined_message = direction_message + ' ' + common_message + ' ' + direction_message if common_message else direction_message + ' ' + direction_message
+                    else:
+                        combined_message = direction_message
+                    
+                    # Ensure message is not empty
+                    if not combined_message.strip():
+                        combined_message = f'{rule_name} が発火しました'
+                    
+                    # Create notification
+                    notification = {
+                        'rule_id': rule_id,
+                        'rule_name': rule_name,
+                        'symbol': data.get('symbol', 'UNKNOWN'),
+                        'tf': data.get('tf', '5'),
+                        'direction': direction,
+                        'message': combined_message,
+                        'timestamp': datetime.now(jst).isoformat(),
+                        'price': float(data.get('price', 0))
+                    }
+                    
+                    fired_notifications.append(notification)
+                    
+                    print(f'[RULE FIRED] {rule_name} - {direction} - {combined_message}')
+            
+            except Exception as e:
+                print(f'[ERROR] Evaluating rule {rule_id}: {e}')
+                continue
+        
+        # Save notifications to file
+        if fired_notifications:
+            notifications_path = os.path.join(BASE_DIR, 'notifications.json')
+            try:
+                if os.path.exists(notifications_path):
+                    with open(notifications_path, 'r', encoding='utf-8') as f:
+                        existing = json.load(f)
+                else:
+                    existing = []
+                
+                existing.extend(fired_notifications)
+                
+                # Keep only last 100 notifications
+                if len(existing) > 100:
+                    existing = existing[-100:]
+                
+                with open(notifications_path, 'w', encoding='utf-8') as f:
+                    json.dump(existing, f, ensure_ascii=False, indent=2)
+                
+                print(f'[NOTIFICATIONS] Saved {len(fired_notifications)} notifications')
+            
+            except Exception as e:
+                print(f'[ERROR] Saving notifications: {e}')
+    
+    except Exception as e:
+        print(f'[ERROR] evaluate_and_fire_rules: {e}')
 
 if __name__ == '__main__':
     init_db()
