@@ -1,0 +1,26 @@
+[
+  {
+    "timestamp": "2025-11-08T10:45:32.481595+09:00",
+    "symbol": "USDJPY",
+    "rule_name": "テストルール",
+    "message": "テストルール が上昇方向で発火しました",
+    "direction": "上昇",
+    "details": "これはテスト発火です"
+  },
+  {
+    "timestamp": "2025-11-08T10:54:36.617257+09:00",
+    "symbol": "USDJPY",
+    "rule_name": "テストルール",
+    "message": "テストルール が上昇方向で発火しました",
+    "direction": "上昇",
+    "details": "これはテスト発火です"
+  },
+  {
+    "timestamp": "2025-11-08T10:54:42.963459+09:00",
+    "symbol": "USDJPY",
+    "rule_name": "テストルール",
+    "message": "テストルール が上昇方向で発火しました",
+    "direction": "上昇",
+    "details": "これはテスト発火です"
+  }
+]

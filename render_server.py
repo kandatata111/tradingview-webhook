@@ -1042,50 +1042,6 @@ def api_notifications():
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
-@app.route('/api/test_fire', methods=['POST'])
-def api_test_fire():
-    """テスト発火：ダミーの通知を追加"""
-    try:
-        jst = pytz.timezone('Asia/Tokyo')
-        now = datetime.now(jst)
-        
-        # Create a test notification
-        test_notification = {
-            'timestamp': now.isoformat(),
-            'symbol': 'USDJPY',
-            'rule_name': 'テストルール',
-            'message': 'テストルール が上昇方向で発火しました',
-            'direction': '上昇',
-            'details': 'これはテスト発火です'
-        }
-        
-        # Load existing notifications
-        notifications_path = os.path.join(BASE_DIR, 'notifications.json')
-        notifications = []
-        if os.path.exists(notifications_path):
-            with open(notifications_path, 'r', encoding='utf-8') as f:
-                notifications = json.load(f)
-        
-        # Add test notification
-        notifications.append(test_notification)
-        
-        # Keep only latest 100 notifications
-        notifications = notifications[-100:]
-        
-        # Save notifications
-        with open(notifications_path, 'w', encoding='utf-8') as f:
-            json.dump(notifications, f, ensure_ascii=False, indent=2)
-        
-        print(f'[TEST_FIRE] Test notification added at {now.isoformat()}')
-        
-        return jsonify({
-            'status': 'success',
-            'notification': test_notification
-        }), 200
-    except Exception as e:
-        print(f'[TEST_FIRE ERROR] {str(e)}')
-        return jsonify({'status': 'error', 'msg': str(e)}), 500
-
 def evaluate_and_fire_rules(data):
     """Evaluate all enabled rules against the incoming data and fire notifications if matched."""
     try:

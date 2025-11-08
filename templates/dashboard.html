@@ -83,44 +83,16 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   border: 1px solid rgba(255,255,255,0.25); 
   border-radius: 8px; 
   padding: 12px; 
-  overflow: hidden;
+  max-height: 600px; 
+  overflow-y: auto;
   backdrop-filter: blur(8px);
-  display: flex;
-  flex-direction: column;
-}
-#fire-history-header { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.2);
-  flex-shrink: 0;
 }
 #fire-history h3 { 
-  margin: 0; 
-  font-size: 1em;
+  margin: 0 0 10px 0; 
+  font-size: 1.1em; 
   color: #f5f7ff; 
-  font-weight: 600;
-}
-#test-fire-btn {
-  background: rgba(102, 126, 234, 0.2);
-  color: #667eea;
-  border: 1px solid #667eea;
-  padding: 4px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.85em;
-  transition: background 0.2s ease;
-  flex-shrink: 0;
-}
-#test-fire-btn:hover {
-  background: rgba(102, 126, 234, 0.4);
-}
-#fire-history-list {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.2); 
+  padding-bottom: 6px;
 }
 .fire-item { 
   padding: 8px; 
@@ -129,20 +101,16 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   border-radius: 6px; 
   font-size: 0.9em; 
   border-left: 3px solid #667eea;
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
 }
 .fire-item:hover { background: rgba(0,0,0,0.3); }
-.fire-time { color: #a0c4ff; font-weight: 600; white-space: nowrap; }
+.fire-time { color: #a0c4ff; font-weight: 600; margin-bottom: 3px; }
 .fire-name { color: #ffd700; font-weight: 600; }
+.fire-symbol { color: #90ee90; }
 .light-mode #fire-history { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.2); }
-.light-mode #fire-history-header { border-bottom-color: rgba(0,0,0,0.2); }
-.light-mode #test-fire-btn { background: rgba(102, 126, 234, 0.15); color: #4a5eb4; border-color: #4a5eb4; }
-.light-mode #test-fire-btn:hover { background: rgba(102, 126, 234, 0.3); }
 .light-mode .fire-item { background: rgba(0,0,0,0.08); border-left-color: #667eea; }
 .light-mode .fire-time { color: #2962ff; }
 .light-mode .fire-name { color: #d97706; }
+.light-mode .fire-symbol { color: #059669; }
 </style>
 </head>
 <body>
@@ -192,6 +160,10 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         <option value="m">分のみ</option>
       </select>
     </div>
+    <div class="row">
+      <label for="updateDelayInput">更新時間の調整 (秒)</label>
+      <input type="number" id="updateDelayInput" min="0" max="300" step="1" value="10" aria-label="データ更新の遅延時間（秒）" style="min-width:80px; background:rgba(15,27,65,0.7); color:#f5f7ff; border:1px solid rgba(255,255,255,0.35); border-radius:8px; padding:6px 10px; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15);">
+    </div>
     
     <!-- 列の表示セクション -->
   </div>
@@ -239,6 +211,21 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   </div>
   </div>
 
+    <!-- 音声設定セクション（グローバル設定のみ） -->
+    <div class="section-header" data-section="voice">音声設定 <button class="section-toggle" data-section="voice" aria-expanded="true">▾</button></div>
+    <div class="section-body" data-section-body="voice">
+    <div class="row">
+      <label for="voiceVolume">音量</label>
+      <input type="range" id="voiceVolume" min="0" max="1" step="0.01" value="0.8" aria-label="音量" style="min-width:150px;">
+      <span id="voiceVolumeValue" style="margin-left:8px">80%</span>
+    </div>
+    <div class="row">
+      <label for="voiceRate">音速</label>
+      <input type="range" id="voiceRate" min="0.5" max="2.0" step="0.1" value="1.0" aria-label="音速" style="min-width:150px;">
+      <span id="voiceRateValue" style="margin-left:8px">1.0x</span>
+    </div>
+    </div>
+
     <!-- 発火条件セクション -->
     <div class="section-header" data-section="rules">発火条件（ルール） <button class="section-toggle" data-section="rules" aria-expanded="true">▾</button></div>
     <div class="section-body" data-section-body="rules">
@@ -267,6 +254,44 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
           <select id="ruleScope" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit">
             <option value="">全通貨</option>
           </select>
+          
+          <!-- 音声設定（ルール個別設定） -->
+          <div style="margin-top:12px;padding:8px;border-radius:6px;background:rgba(0,0,0,0.04);">
+            <div style="font-weight:600;margin-bottom:6px">音声設定</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:0.9em">
+                音声メッセージ:
+                <input id="voiceMessage" placeholder="例: ルールが発火しました" style="margin-left:8px;padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:300px">
+              </label>
+              <label style="font-size:0.9em">
+                <input type="checkbox" id="voiceDirectionBased"> 方向別アラーム
+                <select id="voiceMessagePosition" style="margin-left:8px;padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;">
+                  <option value="prefix">先頭</option>
+                  <option value="suffix">最後</option>
+                  <option value="both">先頭と最後</option>
+                </select>
+              </label>
+              <div id="directionMessages" style="display:none;flex-direction:row;gap:12px;margin-left:8px;align-items:center">
+                <label style="font-size:0.9em;display:flex;align-items:center;gap:4px">
+                  上昇：
+                  <input id="voiceMessageUp" placeholder="例: 上昇トレンドが検出されました" style="padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:144px">
+                </label>
+                <label style="font-size:0.9em;display:flex;align-items:center;gap:4px">
+                  下降：
+                  <input id="voiceMessageDown" placeholder="例: 下降トレンドが検出されました" style="padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:144px">
+                </label>
+              </div>
+              <label style="font-size:0.9em;display:flex;align-items:center;gap:8px">
+                音声選択:
+                <select id="voiceSelect" style="margin-left:8px;padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:200px">
+                  <option value="">グローバル設定を使用</option>
+                  <!-- 音声リストは動的に追加 -->
+                </select>
+                <button id="testVoiceBtn" style="padding:6px 12px;">テスト再生</button>
+              </label>
+            </div>
+          </div>
+          
           <!-- 雲整列条件 UI（ユーザー指定レイアウト） -->
           <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;padding:6px;border-radius:6px;background:rgba(0,0,0,0.02);">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -327,48 +352,6 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
               <button class="removeCond" style="padding:4px 8px">削除</button>
             </div>
           </div>
-          
-          <!-- 音声発火設定 -->
-          <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;padding:8px;border-radius:6px;background:rgba(0,0,0,0.02);border:1px solid rgba(255,255,255,0.08)">
-            <strong style="margin-bottom:4px">音声発火設定</strong>
-            
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-              <label style="display:flex;align-items:center;gap:6px">
-                <input type="checkbox" id="voiceEnabled">
-                <span>音声アラート有効</span>
-              </label>
-            </div>
-            
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-              <div style="display:flex;align-items:center;gap:8px">
-                <label style="font-size:0.95em">音量</label>
-                <input type="range" id="voiceVolume" min="0" max="100" value="80" style="width:120px">
-                <span id="voiceVolumeValue" style="min-width:40px">0.8</span>
-              </div>
-              
-              <div style="display:flex;align-items:center;gap:8px">
-                <label style="font-size:0.95em">速度</label>
-                <input type="range" id="voiceRate" min="50" max="200" value="100" style="width:120px">
-                <span id="voiceRateValue" style="min-width:40px">1.0</span>
-              </div>
-            </div>
-            
-            <div style="display:flex;flex-direction:column;gap:6px">
-              <label style="font-size:0.95em">上昇発火メッセージ</label>
-              <input id="voiceMessageUp" placeholder="例: ルール名 が上昇方向で発火しました" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:100%">
-            </div>
-            
-            <div style="display:flex;flex-direction:column;gap:6px">
-              <label style="font-size:0.95em">下降発火メッセージ</label>
-              <input id="voiceMessageDown" placeholder="例: ルール名 が下降方向で発火しました" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:100%">
-            </div>
-            
-            <div style="display:flex;gap:8px;margin-top:4px">
-              <button id="testVoiceBtn" style="padding:6px 12px;font-size:0.9em">音声テスト</button>
-              <span style="font-size:0.85em;opacity:0.7;align-self:center">※メッセージ内の「ルール名」は実際のルール名に置き換わります</span>
-            </div>
-          </div>
-          
           <div style="display:flex;gap:8px">
             <button id="addCondBtn">条件を追加</button>
             <button id="testRuleBtn">ルールをテスト</button>
@@ -395,10 +378,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 <div class="main-content">
   <div id="dashboard" class="loading">読み込み中...</div>
   <div id="fire-history">
-    <div id="fire-history-header">
-      <h3>ドル円発火履歴</h3>
-      <button id="test-fire-btn">テスト発火</button>
-    </div>
+    <h3>発火履歴</h3>
     <div id="fire-history-list">
       <div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">
         履歴なし
@@ -408,6 +388,21 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 </div>
 </div>
 <script>
+// Version check and cache buster - 2025-11-07-v1
+(function() {
+  const REQUIRED_VERSION = '2025-11-07-v1';
+  const currentVersion = localStorage.getItem('app_version');
+  if (currentVersion !== REQUIRED_VERSION) {
+    console.log('[VERSION] Updating from', currentVersion, 'to', REQUIRED_VERSION);
+    localStorage.setItem('app_version', REQUIRED_VERSION);
+    if (currentVersion && currentVersion !== REQUIRED_VERSION) {
+      console.log('[VERSION] Hard reload required');
+      window.location.reload(true);
+      return;
+    }
+  }
+})();
+
 // 設定パネルの動作: モード切替（body にクラス付与）とフォントサイズの適用
 function applyMode(mode) {
   document.body.classList.remove('light-mode','dark-mode');
@@ -422,9 +417,9 @@ function applyFontSize(px) {
     el.style.fontSize = px + 'px';
   });
   
-  // 発火履歴の全要素にフォントサイズを適用
-  const fireHistoryEls = document.querySelectorAll('#fire-history h3, #test-fire-btn, .fire-item, .fire-time, .fire-name, #fire-history-list');
-  fireHistoryEls.forEach(el => {
+  // 発火履歴の要素にもフォントサイズを適用
+  const firingEls = document.querySelectorAll('#fire-history h3, .fire-item, .fire-time, .fire-name, .fire-symbol, #fire-history-list > div');
+  firingEls.forEach(el => {
     el.style.fontSize = px + 'px';
   });
 }
@@ -541,12 +536,20 @@ function loadSettings() {
   const savedCols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   const savedRows = JSON.parse(localStorage.getItem('tv_rows') || '{}');
   const savedTimeFormat = localStorage.getItem('tv_time_format') || 'datetime';
+  const savedUpdateDelay = localStorage.getItem('tv_update_delay') || '10';
+  const savedVoiceVolume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
+  const savedVoiceRate = parseFloat(localStorage.getItem('tv_voice_rate') || '1.0');
   
   // set UI
   document.getElementById('modeDark').checked = (savedMode === 'dark');
   document.getElementById('modeLight').checked = (savedMode === 'light');
   document.getElementById('fontSizeSelect').value = savedSize;
   document.getElementById('timeFormatSelect').value = savedTimeFormat;
+  document.getElementById('updateDelayInput').value = savedUpdateDelay;
+  document.getElementById('voiceVolume').value = savedVoiceVolume;
+  document.getElementById('voiceVolumeValue').textContent = Math.round(savedVoiceVolume * 100) + '%';
+  document.getElementById('voiceRate').value = savedVoiceRate;
+  document.getElementById('voiceRateValue').textContent = savedVoiceRate.toFixed(1) + 'x';
   
   // 列チェックボックス
   document.querySelectorAll('.col-toggle').forEach(cb => {
@@ -607,6 +610,44 @@ function wireSettings() {
     localStorage.setItem('tv_time_format', e.target.value);
     load(); // 再読み込みして表示を更新
   });
+  
+  // 更新時間の調整
+  document.getElementById('updateDelayInput').addEventListener('change', async e => {
+    const delay = parseInt(e.target.value);
+    if (isNaN(delay) || delay < 0 || delay > 300) {
+      alert('更新時間は0-300秒の範囲で入力してください');
+      e.target.value = localStorage.getItem('tv_update_delay') || '10';
+      return;
+    }
+    localStorage.setItem('tv_update_delay', delay.toString());
+    // サーバーに設定を保存
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ update_delay_seconds: delay })
+      });
+      const data = await res.json();
+      if (data.status !== 'success') {
+        alert('設定保存に失敗しました: ' + (data.msg || '不明なエラー'));
+      }
+    } catch (err) {
+      console.error('設定保存エラー:', err);
+      alert('設定保存中にエラーが発生しました');
+    }
+  });
+  
+  // 音声設定（グローバル）
+  document.getElementById('voiceVolume').addEventListener('input', e => {
+    const vol = parseFloat(e.target.value);
+    document.getElementById('voiceVolumeValue').textContent = Math.round(vol * 100) + '%';
+    localStorage.setItem('tv_voice_volume', vol.toString());
+  });
+  document.getElementById('voiceRate').addEventListener('input', e => {
+    const rate = parseFloat(e.target.value);
+    document.getElementById('voiceRateValue').textContent = rate.toFixed(1) + 'x';
+    localStorage.setItem('tv_voice_rate', rate.toString());
+  });
 }
 
 function wireSectionToggles() {
@@ -665,21 +706,26 @@ function wireSubsectionToggles() {
 }
 
 // 初期化: 設定を読み込み、UI を配線
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   try { 
     loadSettings(); 
     wireSettings(); 
     wireSectionToggles(); 
-    wireSubsectionToggles(); 
+    wireSubsectionToggles();
     
-    // 発火履歴のフォントサイズも初期化時に適用
-    setTimeout(() => {
-      const savedSize = localStorage.getItem('tv_font_size') || '14';
-      applyFontSize(savedSize);
-    }, 100);
-  } catch (err) { 
-    console.log('settings init error', err); 
-  }
+    // サーバーから最新の更新遅延設定を取得して同期
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      if (data.status === 'success' && data.settings) {
+        const serverDelay = data.settings.update_delay_seconds || 10;
+        document.getElementById('updateDelayInput').value = serverDelay.toString();
+        localStorage.setItem('tv_update_delay', serverDelay.toString());
+      }
+    } catch (err) {
+      console.log('サーバー設定取得エラー:', err);
+    }
+  } catch (err) { console.log('settings init error', err); }
 });
 
 // モーダル開閉とドラッグ機能
@@ -1087,7 +1133,6 @@ async function load() {
 
   html += '</table></div>';
       document.getElementById('dashboard').innerHTML = html;
-      
       // テーブル再描画後に設定を再適用
       try {
         const sz = localStorage.getItem('tv_font_size') || document.getElementById('fontSizeSelect')?.value || '14';
@@ -1095,9 +1140,6 @@ async function load() {
         applyColumnVisibility();
         applyRowVisibility();
       } catch (e) { /* ignore */ }
-      
-      // Sync fire history height with table
-      setTimeout(syncFireHistoryHeight, 100);
     } else {
       document.getElementById('dashboard').innerHTML = '<div class="loading">データなし</div>';
     }
@@ -1207,6 +1249,7 @@ function renderRulesList(rules) {
 
 function openRuleEditor(rule) {
   // populate editor fields
+  console.log('[DEBUG] Editing rule:', JSON.stringify(rule, null, 2));
   document.getElementById('ruleName').value = rule.name || '';
   const scopeSel = document.getElementById('ruleScope');
   if (rule.scope && rule.scope.symbol) { scopeSel.value = rule.scope.symbol; }
@@ -1219,31 +1262,7 @@ function openRuleEditor(rule) {
     const row = createConditionRow(c);
     condCont.appendChild(row);
   });
-  
-  // populate voice settings
-  try {
-    const voice = rule.rule && rule.rule.voice;
-    if (voice) {
-      document.getElementById('voiceEnabled').checked = voice.enabled !== false;
-      document.getElementById('voiceVolume').value = (voice.volume !== undefined ? voice.volume * 100 : 80);
-      document.getElementById('voiceVolumeValue').textContent = (voice.volume !== undefined ? voice.volume.toFixed(1) : '0.8');
-      document.getElementById('voiceRate').value = (voice.rate !== undefined ? voice.rate * 100 : 100);
-      document.getElementById('voiceRateValue').textContent = (voice.rate !== undefined ? voice.rate.toFixed(1) : '1.0');
-      document.getElementById('voiceMessageUp').value = voice.message_up || '';
-      document.getElementById('voiceMessageDown').value = voice.message_down || '';
-    } else {
-      // reset to defaults
-      document.getElementById('voiceEnabled').checked = true;
-      document.getElementById('voiceVolume').value = 80;
-      document.getElementById('voiceVolumeValue').textContent = '0.8';
-      document.getElementById('voiceRate').value = 100;
-      document.getElementById('voiceRateValue').textContent = '1.0';
-      document.getElementById('voiceMessageUp').value = '';
-      document.getElementById('voiceMessageDown').value = '';
-    }
-  } catch(e) { console.log('voice settings error', e); }
-  
-  // populate alignment UI if present
+    // populate alignment UI if present
   try {
     const align = rule.rule && rule.rule.alignment;
     if (align) {
@@ -1263,6 +1282,28 @@ function openRuleEditor(rule) {
       document.getElementById('alignN').value = 'off';
     }
   } catch(e) { /* ignore */ }
+  
+  // populate voice settings
+  const voice = rule.rule && rule.rule.voice;
+  const isDirectionBased = voice && (voice.message_up !== undefined || voice.message_down !== undefined);
+  document.getElementById('voiceDirectionBased').checked = isDirectionBased;
+  document.getElementById('directionMessages').style.display = isDirectionBased ? 'flex' : 'none';
+  document.getElementById('voiceMessagePosition').value = (voice && voice.message_position) || 'suffix';
+  
+  // Always populate common message if present
+  document.getElementById('voiceMessage').value = (voice && voice.message) || '';
+  
+  // Populate direction-based messages if present
+  if (isDirectionBased) {
+    document.getElementById('voiceMessageUp').value = (voice && voice.message_up) || '';
+    document.getElementById('voiceMessageDown').value = (voice && voice.message_down) || '';
+  } else {
+    document.getElementById('voiceMessageUp').value = '';
+    document.getElementById('voiceMessageDown').value = '';
+  }
+  
+  document.getElementById('voiceSelect').value = (voice && voice.voice_name) || '';
+  
   // store editing id on save button
   document.getElementById('saveRuleBtn').dataset.editing = rule.id;
 }
@@ -1369,27 +1410,96 @@ function addConditionRow() {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('newRuleBtn')?.addEventListener('click', () => {
     document.getElementById('ruleName').value = '';
-    document.getElementById('ruleScope').value = '';
     document.getElementById('conditionsContainer').innerHTML = '';
     addConditionRow();
+    document.getElementById('saveRuleBtn').dataset.editing = '';
     
-    // Reset voice settings to defaults
-    document.getElementById('voiceEnabled').checked = true;
-    document.getElementById('voiceVolume').value = 80;
-    document.getElementById('voiceVolumeValue').textContent = '0.8';
-    document.getElementById('voiceRate').value = 100;
-    document.getElementById('voiceRateValue').textContent = '1.0';
+    // clear voice settings
+    document.getElementById('voiceMessage').value = '';
     document.getElementById('voiceMessageUp').value = '';
     document.getElementById('voiceMessageDown').value = '';
-    
-    // Reset alignment settings
-    document.querySelectorAll('.align-tf').forEach(cb => cb.checked = false);
-    document.getElementById('alignMissing').value = 'ignore';
-    document.getElementById('alignN').value = 'off';
-    
-    document.getElementById('saveRuleBtn').dataset.editing = '';
+    document.getElementById('voiceDirectionBased').checked = false;
+    document.getElementById('directionMessages').style.display = 'none';
+    document.getElementById('voiceMessagePosition').value = 'suffix';
+    document.getElementById('voiceSelect').value = '';
   });
-  document.getElementById('addCondBtn')?.addEventListener('click', addConditionRow);
+  
+  // Wire voice direction based checkbox
+  document.getElementById('voiceDirectionBased')?.addEventListener('change', e => {
+    const directionDiv = document.getElementById('directionMessages');
+    directionDiv.style.display = e.target.checked ? 'flex' : 'none';
+  });
+  
+  // Wire test voice button
+  document.getElementById('testVoiceBtn')?.addEventListener('click', () => {
+    const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
+    const voiceName = document.getElementById('voiceSelect').value;
+    const messagePosition = document.getElementById('voiceMessagePosition').value;
+    
+    let testMessage = '';
+    if (isDirectionBased) {
+      const messageUp = document.getElementById('voiceMessageUp').value.trim();
+      const messageDown = document.getElementById('voiceMessageDown').value.trim();
+      const directionMessage = messageUp || 'テストメッセージ（上昇）';
+      const baseMessage = document.getElementById('voiceMessage').value.trim() || 'ルールが発火しました';
+      
+      if (messagePosition === 'prefix') {
+        testMessage = directionMessage + ' ' + baseMessage;
+      } else if (messagePosition === 'suffix') {
+        testMessage = baseMessage + ' ' + directionMessage;
+      } else if (messagePosition === 'both') {
+        testMessage = directionMessage + ' ' + baseMessage + ' ' + directionMessage;
+      }
+    } else {
+      testMessage = document.getElementById('voiceMessage').value.trim() || 'テストメッセージ';
+    }
+    
+    const voiceSettings = voiceName ? { voice_name: voiceName } : null;
+    const rateSuffix = testMessage ? '' : '。音速は' + document.getElementById('voiceRate').value + '倍です。';
+    playVoiceAlert(testMessage + rateSuffix, voiceSettings);
+  });
+  
+  // Populate voice select with available voices
+  function populateVoiceSelect() {
+    if (!('speechSynthesis' in window)) return;
+    
+    const select = document.getElementById('voiceSelect');
+    const currentValue = select.value;
+    
+    select.innerHTML = '';
+    
+    const voices = speechSynthesis.getVoices();
+    const allowedVoices = {
+      'Microsoft 七海 Online (Natural) - Japanese (Japan)': '七海［女性］',
+      'Microsoft 圭太 Online (Natural) - Japanese (Japan)': '圭太［男性］',
+      'Microsoft 碧衣 Online (Natural) - Japanese (Japan)': '碧衣［女性］',
+      'Microsoft 大智 Online (Natural) - Japanese (Japan)': '大智［男性］',
+      'Microsoft 真夕 Online (Natural) - Japanese (Japan)': '真夕［女性］',
+      'Microsoft 直紀 Online (Natural) - Japanese (Japan)': '直紀［男性］',
+      'Microsoft 志織 Online (Natural) - Japanese (Japan)': '志織［女性］'
+    };
+    
+    voices.forEach(voice => {
+      if (voice.lang.startsWith('ja') && allowedVoices[voice.name]) {
+        const option = document.createElement('option');
+        option.value = voice.name;
+        option.textContent = allowedVoices[voice.name];
+        select.appendChild(option);
+      }
+    });
+    
+    // Restore previous selection if it still exists
+    if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
+      select.value = currentValue;
+    }
+  }
+  
+  // Populate voices when available
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = populateVoiceSelect;
+  }
+  populateVoiceSelect();
+  
   document.getElementById('saveRuleBtn')?.addEventListener('click', async () => {
     // validate alignment first
     const alignValid = validateAlignmentForSave();
@@ -1407,25 +1517,70 @@ document.addEventListener('DOMContentLoaded', () => {
       const valVal = valEl ? valEl.value : null;
       return { label: tf, field: fld, op: opVal, value: valVal };
     });
+  const alignment = getAlignmentSettingsFromUI();
+  const ruleObj = { conditions: conditions };
+  // include alignment only if enabled (N not 'off') and TFs selected
+  if(alignment.n && alignment.tfs && alignment.tfs.length > 0){ ruleObj.alignment = alignment; }
+  
+  // include voice settings
+  const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
+  const voiceName = document.getElementById('voiceSelect').value;
+  const messagePosition = document.getElementById('voiceMessagePosition').value;
+  const commonMessage = document.getElementById('voiceMessage').value.trim();
+  const messageUp = document.getElementById('voiceMessageUp').value.trim();
+  const messageDown = document.getElementById('voiceMessageDown').value.trim();
+  
+  console.log('[DEBUG] Voice settings - isDirectionBased:', isDirectionBased, 'voiceName:', voiceName, 'messagePosition:', messagePosition);
+  console.log('[DEBUG] Messages - common:', commonMessage, 'up:', messageUp, 'down:', messageDown);
+  
+  // Check if any voice setting exists
+  if (commonMessage || messageUp || messageDown || voiceName) {
+    ruleObj.voice = {};
     
-    // Get voice settings
-    const voiceSettings = {
-      enabled: document.getElementById('voiceEnabled').checked,
-      volume: parseFloat(document.getElementById('voiceVolume').value) / 100,
-      rate: parseFloat(document.getElementById('voiceRate').value) / 100,
-      message_up: document.getElementById('voiceMessageUp').value || '',
-      message_down: document.getElementById('voiceMessageDown').value || ''
-    };
+    // Always save common message if present
+    if (commonMessage) {
+      ruleObj.voice.message = commonMessage;
+    }
     
-    const alignment = getAlignmentSettingsFromUI();
-    const ruleObj = { conditions: conditions, voice: voiceSettings };
-    // include alignment only if enabled (N not 'off') and TFs selected
-    if(alignment.n && alignment.tfs && alignment.tfs.length > 0){ ruleObj.alignment = alignment; }
+    // Save direction-based messages if direction-based mode is enabled
+    if (isDirectionBased) {
+      ruleObj.voice.message_up = messageUp;
+      ruleObj.voice.message_down = messageDown;
+      ruleObj.voice.message_position = messagePosition;
+    }
+    
+    // Always save voice name if selected
+    if (voiceName) {
+      ruleObj.voice.voice_name = voiceName;
+    }
+  }
+  
+  console.log('[DEBUG] ruleObj after voice settings:', JSON.stringify(ruleObj, null, 2));
+  
     const payload = { id: document.getElementById('saveRuleBtn').dataset.editing || name, name: name, enabled: true, scope: scope, rule: ruleObj };
+    console.log('[DEBUG] Saving payload:', JSON.stringify(payload, null, 2));
     try {
       const res = await fetch('/rules', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       const j = await res.json();
-      if (j.status === 'success') { alert('ルールを保存しました'); await loadRules(); }
+      if (j.status === 'success') { 
+        alert('ルールを保存しました'); 
+        // ルール一覧を再度読み込んで、最新のデータを取得
+        await loadRules();
+        // 保存したルールを再度開いて、UIを最新の状態に更新
+        try {
+          const rulesRes = await fetch('/rules');
+          const rulesData = await rulesRes.json();
+          if (rulesData.status === 'success') {
+            const savedRule = rulesData.rules.find(r => r.id === payload.id);
+            if (savedRule) {
+              console.log('[DEBUG] Reloading saved rule for display:', JSON.stringify(savedRule, null, 2));
+              openRuleEditor(savedRule);
+            }
+          }
+        } catch (e) {
+          console.log('Error reloading rule after save:', e);
+        }
+      }
       else { alert('保存失敗: ' + (j.msg || JSON.stringify(j))); }
     } catch (e) { console.log('save error', e); alert('保存時エラー: ' + e.message); }
   });
@@ -1666,56 +1821,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // initial load of rules
   loadRules();
-  
-  // Wire voice settings UI
-  document.getElementById('voiceVolume')?.addEventListener('input', (e) => {
-    const value = parseFloat(e.target.value) / 100;
-    document.getElementById('voiceVolumeValue').textContent = value.toFixed(1);
-  });
-  
-  document.getElementById('voiceRate')?.addEventListener('input', (e) => {
-    const value = parseFloat(e.target.value) / 100;
-    document.getElementById('voiceRateValue').textContent = value.toFixed(1);
-  });
-  
-  document.getElementById('testVoiceBtn')?.addEventListener('click', () => {
-    const enabled = document.getElementById('voiceEnabled').checked;
-    if (!enabled) {
-      alert('音声アラートが無効になっています');
-      return;
-    }
-    
-    const volume = parseFloat(document.getElementById('voiceVolume').value) / 100;
-    const rate = parseFloat(document.getElementById('voiceRate').value) / 100;
-    const messageUp = document.getElementById('voiceMessageUp').value || 'テストルール が上昇方向で発火しました';
-    const ruleName = document.getElementById('ruleName').value || 'テストルール';
-    
-    // Replace "ルール名" placeholder with actual rule name
-    const message = messageUp.replace(/ルール名/g, ruleName);
-    
-    try {
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = 'ja-JP';
-      utterance.volume = volume;
-      utterance.rate = rate;
-      
-      // Use Japanese voice if available
-      const voices = speechSynthesis.getVoices();
-      const japaneseVoice = voices.find(voice => voice.lang.startsWith('ja'));
-      if (japaneseVoice) {
-        utterance.voice = japaneseVoice;
-      }
-      
-      speechSynthesis.speak(utterance);
-      console.log('Voice test:', message, 'volume:', volume, 'rate:', rate);
-    } catch (e) {
-      console.log('Voice test error:', e);
-      alert('音声テストエラー: ' + e.message);
-    }
-  });
-  
-  // Wire test fire button
-  document.getElementById('test-fire-btn')?.addEventListener('click', testFire);
 });
 
 // --- Notifications and Voice Alerts ---
@@ -1768,9 +1873,8 @@ function updateFireHistory(notifications) {
     return;
   }
   
-  // Display latest 20 notifications (USDJPY only)
-  const usdJpyNotifications = notifications.filter(n => n.symbol === 'USDJPY');
-  const displayNotifications = usdJpyNotifications.slice(0, 20);
+  // Display latest 20 notifications
+  const displayNotifications = notifications.slice(0, 20);
   
   let html = '';
   displayNotifications.forEach(notif => {
@@ -1783,68 +1887,24 @@ function updateFireHistory(notifications) {
     const minute = String(dt.getMinutes()).padStart(2, '0');
     const timeStr = year + '/' + month + '/' + day + ' ' + hour + ':' + minute;
     
+    // Symbol mapping
+    const symbolMap = {
+      'USDJPY': 'ドル円',
+      'EURJPY': 'ユーロ円',
+      'GBPJPY': 'ポンド円',
+      'AUDJPY': '豪ドル円',
+      'EURUSD': 'ユーロドル'
+    };
+    const symbolJp = symbolMap[notif.symbol] || notif.symbol;
+    
     html += '<div class="fire-item">';
-    html += '<span class="fire-time">' + timeStr + '</span>';
-    html += '<span class="fire-name">' + (notif.rule_name || '不明') + '</span>';
+    html += '<div class="fire-time">' + timeStr + '</div>';
+    html += '<div class="fire-name">' + (notif.rule_name || '不明') + '</div>';
+    html += '<div class="fire-symbol">' + symbolJp + '</div>';
     html += '</div>';
   });
   
   listEl.innerHTML = html;
-  
-  // Apply current font size to newly created elements
-  const savedSize = localStorage.getItem('tv_font_size') || '14';
-  applyFontSize(savedSize);
-}
-
-// Sync fire history height with table
-function syncFireHistoryHeight() {
-  const dashboard = document.getElementById('dashboard');
-  const fireHistory = document.getElementById('fire-history');
-  
-  if (!dashboard || !fireHistory) return;
-  
-  // Get the actual height of the dashboard content
-  const tableWrap = dashboard.querySelector('.table-wrap');
-  if (!tableWrap) return;
-  
-  const table = tableWrap.querySelector('table');
-  if (!table) return;
-  
-  // Get the exact table height
-  const tableHeight = table.offsetHeight;
-  
-  // Set fire history to match table height exactly (accounting for padding)
-  const fireHistoryPadding = 24; // 12px top + 12px bottom
-  const headerHeight = document.getElementById('fire-history-header')?.offsetHeight || 0;
-  const headerMargin = 10; // margin-bottom
-  
-  // Calculate available height for the list
-  const availableHeight = tableHeight - fireHistoryPadding - headerHeight - headerMargin;
-  
-  // Set the fire history container to match table height
-  fireHistory.style.height = tableHeight + 'px';
-  
-  console.log('[SYNC] Table height:', tableHeight, 'Fire history height:', tableHeight);
-}
-
-// Test fire button handler
-async function testFire() {
-  try {
-    const res = await fetch('/api/test_fire', { method: 'POST' });
-    const data = await res.json();
-    
-    if (data.status === 'success') {
-      console.log('Test fire sent:', data);
-      // Refresh notifications immediately
-      setTimeout(checkNotifications, 500);
-    } else {
-      console.log('Test fire failed:', data);
-      alert('テスト発火に失敗しました: ' + (data.msg || JSON.stringify(data)));
-    }
-  } catch (e) {
-    console.log('Test fire error:', e);
-    alert('テスト発火エラー: ' + e.message);
-  }
 }
 
 function playVoiceAlert(message, voiceSettings = null) {
@@ -1894,20 +1954,12 @@ function playVoiceAlert(message, voiceSettings = null) {
 
 // Start notification checking
 document.addEventListener('DOMContentLoaded', () => {
-  // Version check - force reload if version mismatch
-  const REQUIRED_VERSION = '2025-11-08-v4';
+  // Version check - prevent old code from running
+  const REQUIRED_VERSION = '2025-11-07-v1';
   const currentVersion = localStorage.getItem('app_version');
-  
   if (currentVersion !== REQUIRED_VERSION) {
-    console.log('[VERSION] Updating from', currentVersion, 'to', REQUIRED_VERSION);
-    localStorage.setItem('app_version', REQUIRED_VERSION);
-    
-    // Force hard reload to clear cache
-    if (currentVersion && currentVersion !== REQUIRED_VERSION) {
-      console.log('[VERSION] Force reloading to clear cache');
-      window.location.reload(true);
-      return;
-    }
+    console.log('[NOTIFICATIONS] Version mismatch, waiting for reload');
+    return;
   }
   
   // Check if already initialized
