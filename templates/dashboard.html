@@ -83,16 +83,44 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   border: 1px solid rgba(255,255,255,0.25); 
   border-radius: 8px; 
   padding: 12px; 
-  max-height: 600px; 
-  overflow-y: auto;
+  overflow: hidden;
   backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+}
+#fire-history-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
 }
 #fire-history h3 { 
-  margin: 0 0 10px 0; 
-  font-size: 1.1em; 
+  margin: 0; 
+  font-size: 1em;
   color: #f5f7ff; 
-  border-bottom: 1px solid rgba(255,255,255,0.2); 
-  padding-bottom: 6px;
+  font-weight: 600;
+}
+#test-fire-btn {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border: 1px solid #667eea;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+#test-fire-btn:hover {
+  background: rgba(102, 126, 234, 0.4);
+}
+#fire-history-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 .fire-item { 
   padding: 8px; 
@@ -101,16 +129,20 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   border-radius: 6px; 
   font-size: 0.9em; 
   border-left: 3px solid #667eea;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
 }
 .fire-item:hover { background: rgba(0,0,0,0.3); }
-.fire-time { color: #a0c4ff; font-weight: 600; margin-bottom: 3px; }
+.fire-time { color: #a0c4ff; font-weight: 600; white-space: nowrap; }
 .fire-name { color: #ffd700; font-weight: 600; }
-.fire-symbol { color: #90ee90; }
 .light-mode #fire-history { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.2); }
+.light-mode #fire-history-header { border-bottom-color: rgba(0,0,0,0.2); }
+.light-mode #test-fire-btn { background: rgba(102, 126, 234, 0.15); color: #4a5eb4; border-color: #4a5eb4; }
+.light-mode #test-fire-btn:hover { background: rgba(102, 126, 234, 0.3); }
 .light-mode .fire-item { background: rgba(0,0,0,0.08); border-left-color: #667eea; }
 .light-mode .fire-time { color: #2962ff; }
 .light-mode .fire-name { color: #d97706; }
-.light-mode .fire-symbol { color: #059669; }
 </style>
 </head>
 <body>
@@ -378,7 +410,10 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 <div class="main-content">
   <div id="dashboard" class="loading">読み込み中...</div>
   <div id="fire-history">
-    <h3>発火履歴</h3>
+    <div id="fire-history-header">
+      <h3>ドル円発火履歴</h3>
+      <button id="test-fire-btn">テスト発火</button>
+    </div>
     <div id="fire-history-list">
       <div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">
         履歴なし
@@ -388,9 +423,9 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 </div>
 </div>
 <script>
-// Version check and cache buster - 2025-11-07-v1
+// Version check and cache buster - 2025-11-08-v1
 (function() {
-  const REQUIRED_VERSION = '2025-11-07-v1';
+  const REQUIRED_VERSION = '2025-11-08-v1';
   const currentVersion = localStorage.getItem('app_version');
   if (currentVersion !== REQUIRED_VERSION) {
     console.log('[VERSION] Updating from', currentVersion, 'to', REQUIRED_VERSION);
@@ -417,9 +452,9 @@ function applyFontSize(px) {
     el.style.fontSize = px + 'px';
   });
   
-  // 発火履歴の要素にもフォントサイズを適用
-  const firingEls = document.querySelectorAll('#fire-history h3, .fire-item, .fire-time, .fire-name, .fire-symbol, #fire-history-list > div');
-  firingEls.forEach(el => {
+  // 発火履歴の全要素にフォントサイズを適用
+  const fireHistoryEls = document.querySelectorAll('#fire-history h3, #test-fire-btn, .fire-item, .fire-time, .fire-name, #fire-history-list');
+  fireHistoryEls.forEach(el => {
     el.style.fontSize = px + 'px';
   });
 }
@@ -1133,6 +1168,7 @@ async function load() {
 
   html += '</table></div>';
       document.getElementById('dashboard').innerHTML = html;
+      
       // テーブル再描画後に設定を再適用
       try {
         const sz = localStorage.getItem('tv_font_size') || document.getElementById('fontSizeSelect')?.value || '14';
@@ -1140,6 +1176,9 @@ async function load() {
         applyColumnVisibility();
         applyRowVisibility();
       } catch (e) { /* ignore */ }
+      
+      // Sync fire history height with table
+      setTimeout(syncFireHistoryHeight, 100);
     } else {
       document.getElementById('dashboard').innerHTML = '<div class="loading">データなし</div>';
     }
@@ -1821,6 +1860,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // initial load of rules
   loadRules();
+  
+  // Wire test fire button
+  document.getElementById('test-fire-btn')?.addEventListener('click', testFire);
 });
 
 // --- Notifications and Voice Alerts ---
@@ -1873,8 +1915,9 @@ function updateFireHistory(notifications) {
     return;
   }
   
-  // Display latest 20 notifications
-  const displayNotifications = notifications.slice(0, 20);
+  // Display latest 20 notifications (USDJPY only)
+  const usdJpyNotifications = notifications.filter(n => n.symbol === 'USDJPY');
+  const displayNotifications = usdJpyNotifications.slice(0, 20);
   
   let html = '';
   displayNotifications.forEach(notif => {
@@ -1887,24 +1930,68 @@ function updateFireHistory(notifications) {
     const minute = String(dt.getMinutes()).padStart(2, '0');
     const timeStr = year + '/' + month + '/' + day + ' ' + hour + ':' + minute;
     
-    // Symbol mapping
-    const symbolMap = {
-      'USDJPY': 'ドル円',
-      'EURJPY': 'ユーロ円',
-      'GBPJPY': 'ポンド円',
-      'AUDJPY': '豪ドル円',
-      'EURUSD': 'ユーロドル'
-    };
-    const symbolJp = symbolMap[notif.symbol] || notif.symbol;
-    
     html += '<div class="fire-item">';
-    html += '<div class="fire-time">' + timeStr + '</div>';
-    html += '<div class="fire-name">' + (notif.rule_name || '不明') + '</div>';
-    html += '<div class="fire-symbol">' + symbolJp + '</div>';
+    html += '<span class="fire-time">' + timeStr + '</span>';
+    html += '<span class="fire-name">' + (notif.rule_name || '不明') + '</span>';
     html += '</div>';
   });
   
   listEl.innerHTML = html;
+  
+  // Apply current font size to newly created elements
+  const savedSize = localStorage.getItem('tv_font_size') || '14';
+  applyFontSize(savedSize);
+}
+
+// Sync fire history height with table
+function syncFireHistoryHeight() {
+  const dashboard = document.getElementById('dashboard');
+  const fireHistory = document.getElementById('fire-history');
+  
+  if (!dashboard || !fireHistory) return;
+  
+  // Get the actual height of the dashboard content
+  const tableWrap = dashboard.querySelector('.table-wrap');
+  if (!tableWrap) return;
+  
+  const table = tableWrap.querySelector('table');
+  if (!table) return;
+  
+  // Get the exact table height
+  const tableHeight = table.offsetHeight;
+  
+  // Set fire history to match table height exactly (accounting for padding)
+  const fireHistoryPadding = 24; // 12px top + 12px bottom
+  const headerHeight = document.getElementById('fire-history-header')?.offsetHeight || 0;
+  const headerMargin = 10; // margin-bottom
+  
+  // Calculate available height for the list
+  const availableHeight = tableHeight - fireHistoryPadding - headerHeight - headerMargin;
+  
+  // Set the fire history container to match table height
+  fireHistory.style.height = tableHeight + 'px';
+  
+  console.log('[SYNC] Table height:', tableHeight, 'Fire history height:', tableHeight);
+}
+
+// Test fire button handler
+async function testFire() {
+  try {
+    const res = await fetch('/api/test_fire', { method: 'POST' });
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      console.log('Test fire sent:', data);
+      // Refresh notifications immediately
+      setTimeout(checkNotifications, 500);
+    } else {
+      console.log('Test fire failed:', data);
+      alert('テスト発火に失敗しました: ' + (data.msg || JSON.stringify(data)));
+    }
+  } catch (e) {
+    console.log('Test fire error:', e);
+    alert('テスト発火エラー: ' + e.message);
+  }
 }
 
 function playVoiceAlert(message, voiceSettings = null) {
@@ -1955,7 +2042,7 @@ function playVoiceAlert(message, voiceSettings = null) {
 // Start notification checking
 document.addEventListener('DOMContentLoaded', () => {
   // Version check - prevent old code from running
-  const REQUIRED_VERSION = '2025-11-07-v1';
+  const REQUIRED_VERSION = '2025-11-08-v1';
   const currentVersion = localStorage.getItem('app_version');
   if (currentVersion !== REQUIRED_VERSION) {
     console.log('[NOTIFICATIONS] Version mismatch, waiting for reload');
