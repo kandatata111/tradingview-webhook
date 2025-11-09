@@ -1,4 +1,4 @@
-﻿from flask import Flask, request, jsonify, render_template
+﻿from flask import Flask, request, jsonify, render_template, send_from_directory
 import os, sqlite3, json
 from datetime import datetime
 import threading
@@ -7,6 +7,14 @@ import pytz
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    return jsonify({'status': 'error', 'msg': 'Method not allowed'}), 405
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    return jsonify({'status': 'error', 'msg': 'Internal server error'}), 500
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -57,9 +65,9 @@ def init_db():
     conn.close()
     print('[OK] Rules table ensured')
 
-@app.route('/health')
-def health():
-    return jsonify({'status': 'ok'}), 200
+@app.route('/Alarm/<path:filename>')
+def serve_alarm_file(filename):
+    return send_from_directory(os.path.join(BASE_DIR, 'Alarm'), filename)
 
 @app.route('/')
 def dashboard():
@@ -482,7 +490,7 @@ def _compare_values(a, op, b):
     return False
 
 
-@app.route('/rules/test', methods=['POST'])
+@app.route('/rules/test', methods=['GET', 'POST'])
 def rules_test():
     try:
         payload = request.json
@@ -495,8 +503,35 @@ def rules_test():
 
         # determine state to use
         used_state = None
+        states_for_symbol = []
+        
         if state_override:
+            # state_override を使用（5m JSON には全TFの雲データが含まれる）
             used_state = state_override
+            
+            # Ensure proper data structure
+            if 'clouds' not in used_state:
+                try:
+                    if 'clouds_json' in used_state:
+                        used_state['clouds'] = json.loads(used_state.get('clouds_json','[]')) if isinstance(used_state.get('clouds_json'), str) else used_state.get('clouds_json', [])
+                    else:
+                        used_state['clouds'] = []
+                except Exception:
+                    used_state['clouds'] = []
+            
+            # Ensure row_order is a list
+            if 'row_order' in used_state and isinstance(used_state['row_order'], str):
+                used_state['row_order'] = used_state['row_order'].split(',') if used_state['row_order'] else []
+            elif 'row_order' not in used_state:
+                used_state['row_order'] = []
+            
+            # Ensure nested objects exist
+            if 'state' not in used_state:
+                used_state['state'] = {'flag': used_state.get('state_flag', ''), 'word': used_state.get('state_word', '')}
+            if 'daytrade' not in used_state:
+                used_state['daytrade'] = {'status': used_state.get('daytrade_status', ''), 'bos': used_state.get('daytrade_bos', ''), 'time': used_state.get('daytrade_time', '')}
+            if 'swing' not in used_state:
+                used_state['swing'] = {'status': used_state.get('swing_status', ''), 'bos': used_state.get('swing_bos', ''), 'time': used_state.get('swing_time', '')}
         else:
             # query DB for latest state matching scope.symbol if provided
             conn = sqlite3.connect(DB_PATH)
@@ -526,29 +561,29 @@ def rules_test():
             d['swing'] = {'status': d.get('swing_status',''), 'bos': d.get('swing_bos',''), 'time': d.get('swing_time','')}
             used_state = d
 
-            # Load other states for the same symbol to allow fallback when a requested TF/cloud is missing
+        # Load other states for the same symbol to allow fallback when a requested TF/cloud is missing
+        # (This applies to both state_override and DB-queried cases)
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            sym = used_state.get('symbol') if used_state else None
+            if sym:
+                c.execute('SELECT * FROM states WHERE symbol = ?', (sym,))
+                rows = c.fetchall()
+                cols = [d[0] for d in c.description] if c.description else []
+                for r in rows:
+                    dd = dict(zip(cols, r))
+                    try:
+                        dd['clouds'] = json.loads(dd.get('clouds_json','[]'))
+                    except Exception:
+                        dd['clouds'] = dd.get('clouds_json')
+                    states_for_symbol.append(dd)
+            conn.close()
+        except Exception:
             states_for_symbol = []
-            try:
-                conn = sqlite3.connect(DB_PATH)
-                c = conn.cursor()
-                sym = used_state.get('symbol') if used_state else None
-                if sym:
-                    c.execute('SELECT * FROM states WHERE symbol = ?', (sym,))
-                    rows = c.fetchall()
-                    cols = [d[0] for d in c.description] if c.description else []
-                    for r in rows:
-                        dd = dict(zip(cols, r))
-                        try:
-                            dd['clouds'] = json.loads(dd.get('clouds_json','[]'))
-                        except Exception:
-                            dd['clouds'] = dd.get('clouds_json')
-                        states_for_symbol.append(dd)
-                conn.close()
-            except Exception:
-                states_for_symbol = []
 
-            # helper to find a field, with debug info: search used_state first then other states
-            def _find_field_with_fallback(label, field):
+        # helper to find a field, with debug info: search used_state first then other states
+        def _find_field_with_fallback(label, field):
                 searched = []
                 # normalize helper (reuse same normalization logic as _find_cloud_field)
                 def _tf_to_minutes_local(s):
@@ -638,21 +673,21 @@ def rules_test():
                 # Not found anywhere
                 return {'value': None, 'found_in': None, 'searched': searched}
 
-            # wrapper to ensure callers always get a dict with value/found_in/searched
-            def _get_info(label, field):
-                try:
-                    info = _find_field_with_fallback(label, field)
-                    if isinstance(info, dict):
-                        # ensure keys exist
-                        if 'searched' not in info:
-                            info['searched'] = []
-                        if 'found_in' not in info:
-                            info['found_in'] = None
-                        return info
-                    # non-dict (e.g., boolean False or raw value) -> wrap
-                    return {'value': info, 'found_in': None, 'searched': []}
-                except Exception:
-                    return {'value': None, 'found_in': None, 'searched': []}
+        # wrapper to ensure callers always get a dict with value/found_in/searched
+        def _get_info(label, field):
+            try:
+                info = _find_field_with_fallback(label, field)
+                if isinstance(info, dict):
+                    # ensure keys exist
+                    if 'searched' not in info:
+                        info['searched'] = []
+                    if 'found_in' not in info:
+                        info['found_in'] = None
+                    return info
+                # non-dict (e.g., boolean False or raw value) -> wrap
+                return {'value': info, 'found_in': None, 'searched': []}
+            except Exception:
+                return {'value': None, 'found_in': None, 'searched': []}
 
         # evaluate conditions
         conditions = (rule.get('conditions') or [])
@@ -662,57 +697,48 @@ def rules_test():
 
         # --- evaluate alignment if present ---
         align = rule.get('alignment') or rule.get('rule',{}).get('alignment')
-        if align:
+        if align and align.get('tfs'):
             try:
                 tfs = align.get('tfs', [])
                 missing_mode = align.get('missing', 'fail')
-                n_raw = align.get('n', None)
-                try:
-                    n = int(n_raw) if n_raw is not None else None
-                except Exception:
-                    n = None
-
-                # if N is not set, treat alignment as disabled (skip)
-                if not n:
-                    # do not add a condition for alignment
-                    pass
+                
+                # Get row_order from used_state
+                row_order = used_state.get('row_order', []) if used_state else []
+                
+                reason = None
+                align_ok = False
+                missingFound = False
+                missing_tfs = []
+                effective_tfs = []
+                row_order_effective = []
+                
+                if not row_order:
+                    align_ok = False; reason = 'no_row_order'
+                elif len(tfs) == 0:
+                    align_ok = False; reason = 'no_selection'
+                elif len(tfs) == 1:
+                    align_ok = False; reason = 'need_at_least_2'
                 else:
-                    match_up = 0
-                    match_down = 0
-                    effectiveCount = 0
-                    missingFound = False
-                    for tf in tfs:
-                        info = _get_info(tf, 'dauten')
-                        actual = _normalize_actual('dauten', info.get('value'))
-                        # attach debug info when missing
-                        if actual is None:
-                            details.append({'cond': f'alignment.{tf}', 'label': tf, 'found_in': info.get('found_in') if isinstance(info, dict) else None, 'searched': info.get('searched') if isinstance(info, dict) else None})
-                        if actual is None:
-                            missingFound = True
-                        else:
-                            effectiveCount += 1
-                            if str(actual) == '上昇': match_up += 1
-                            if str(actual) == '下降': match_down += 1
-
-                    reason = None
-                    align_ok = False
-                    if len(tfs) == 0:
-                        align_ok = False; reason = 'no_selection'
-                    elif len(tfs) == 1:
-                        align_ok = False; reason = 'need_at_least_2'
+                    # Check which tfs are missing in row_order
+                    missing_tfs = [tf for tf in tfs if tf not in row_order]
+                    missingFound = len(missing_tfs) > 0
+                    
+                    if missing_mode == 'fail' and missingFound:
+                        align_ok = False; reason = 'missing_fail'
                     else:
-                        if missing_mode == 'fail' and missingFound:
-                            align_ok = False; reason = 'missing_fail'
+                        # Exclude missing tfs and check if remaining tfs match the corresponding subsequence in row_order or its reverse
+                        effective_tfs = [tf for tf in tfs if tf in row_order]
+                        if len(effective_tfs) < 2:
+                            align_ok = False; reason = 'too_few_effective_tfs'
                         else:
-                            if missing_mode == 'ignore' and effectiveCount < n:
-                                align_ok = False; reason = 'effective_lt_n'
-                            else:
-                                # alignment succeeds if either up or down count meets N
-                                max_match = max(match_up, match_down)
-                                align_ok = (max_match >= n)
-
-                    details.append({'cond':'alignment','tfs':tfs,'missing_mode':missing_mode,'n':n,'match_up':match_up,'match_down':match_down,'effectiveCount':effectiveCount,'result':bool(align_ok),'reason':reason})
-                    results.append(bool(align_ok))
+                            # Get the subsequence of row_order that matches effective_tfs
+                            row_order_effective = [tf for tf in row_order if tf in effective_tfs]
+                            align_ok = (effective_tfs == row_order_effective or effective_tfs == row_order_effective[::-1])
+                            if not align_ok:
+                                reason = 'order_mismatch'
+                
+                details.append({'cond':'alignment','tfs':tfs,'row_order':row_order,'missing_mode':missing_mode,'missing_found':missingFound,'missing_tfs':missing_tfs,'effective_tfs':effective_tfs,'row_order_effective':row_order_effective,'result':bool(align_ok),'reason':reason})
+                results.append(bool(align_ok))
             except Exception as e:
                 details.append({'cond':'alignment','error':str(e),'result':False})
                 results.append(False)
@@ -993,6 +1019,78 @@ def rules_test():
         import traceback; traceback.print_exc()
         return jsonify({'status':'error','msg': str(e)}), 500
 
+@app.route('/api/test_fire', methods=['POST'])
+def api_test_fire():
+    """テスト発火エンドポイント: 指定通貨の最新 5m 状態を取得してテスト通知を作成"""
+    try:
+        payload = request.json or {}
+        symbol = payload.get('symbol', 'USDJPY')
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        # 指定通貨の最新 5m データを取得
+        c.execute('SELECT * FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol, '5'))
+        row = c.fetchone()
+        cols = [d[0] for d in c.description] if c.description else []
+        conn.close()
+        
+        if not row:
+            return jsonify({'status': 'error', 'msg': f'No data available for {symbol}'}), 404
+        
+        # 行データを辞書に変換
+        state_dict = dict(zip(cols, row))
+        
+        # JSON フィールドをパース
+        try:
+            state_dict['clouds'] = json.loads(state_dict.get('clouds_json', '[]'))
+        except:
+            state_dict['clouds'] = []
+        
+        try:
+            state_dict['meta'] = json.loads(state_dict.get('meta_json', '{}'))
+        except:
+            state_dict['meta'] = {}
+        
+        # テスト通知を作成
+        jst = pytz.timezone('Asia/Tokyo')
+        test_notification = {
+            'rule_id': 'test-fire',
+            'rule_name': 'テスト発火',
+            'symbol': state_dict.get('symbol', symbol),
+            'tf': state_dict.get('tf', '5'),
+            'direction': '上昇',  # デフォルト方向
+            'message': 'テスト発火メッセージ',
+            'timestamp': datetime.now(jst).isoformat(),
+            'price': float(state_dict.get('price', 0))
+        }
+        
+        # 通知をファイルに保存
+        notifications_path = os.path.join(BASE_DIR, 'notifications.json')
+        try:
+            if os.path.exists(notifications_path):
+                with open(notifications_path, 'r', encoding='utf-8') as f:
+                    existing = json.load(f)
+            else:
+                existing = []
+            
+            existing.append(test_notification)
+            
+            # 最新100件のみ保持
+            if len(existing) > 100:
+                existing = existing[-100:]
+            
+            with open(notifications_path, 'w', encoding='utf-8') as f:
+                json.dump(existing, f, ensure_ascii=False, indent=2)
+            
+            print(f'[TEST FIRE] Test notification created for {symbol}: {test_notification}')
+        except Exception as e:
+            print(f'[ERROR] Saving test notification: {e}')
+        
+        return jsonify({'status': 'success', 'notification': test_notification}), 200
+    except Exception as e:
+        print(f'[ERROR][api/test_fire] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 @app.route('/api/settings', methods=['GET', 'POST'])
 def api_settings():
     settings_path = os.path.join(BASE_DIR, 'settings.json')
@@ -1042,9 +1140,44 @@ def api_notifications():
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
+@app.route('/api/chime_files')
+def api_chime_files():
+    try:
+        alarm_dir = os.path.join(BASE_DIR, 'Alarm')
+        if not os.path.exists(alarm_dir):
+            return jsonify({'status': 'success', 'files': []}), 200
+        
+        files = []
+        for f in os.listdir(alarm_dir):
+            if f.lower().endswith('.mp3'):
+                files.append(f)
+        
+        return jsonify({'status': 'success', 'files': files}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 def evaluate_and_fire_rules(data):
     """Evaluate all enabled rules against the incoming data and fire notifications if matched."""
     try:
+        # Currency name mapping for Japanese pronunciation
+        currency_names = {
+            'USDJPY': 'ドル円',
+            'EURUSD': 'ユーロドル',
+            'GBPUSD': 'ポンドドル',
+            'GBPJPY': 'ポンド円',
+            'AUDUSD': 'オージードル',
+            'AUDJPY': 'オージー円',
+            'NZDUSD': 'ニュージードル',
+            'NZDJPY': 'ニュージー円',
+            'CADJPY': 'カナダ円',
+            'CHFJPY': 'スイス円',
+            'EURJPY': 'ユーロ円',
+            'GBPAUD': 'ポンドオージー',
+            'EURGBP': 'ユーロポンド',
+            'USDCAD': 'ドルカナダ',
+            'USDCHF': 'ドルスイス'
+        }
+        
         # Get all enabled rules
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -1156,6 +1289,22 @@ def evaluate_and_fire_rules(data):
                     # Ensure message is not empty
                     if not combined_message.strip():
                         combined_message = f'{rule_name} が発火しました'
+                    
+                    # Replace {symbol} placeholder with Japanese currency name or insert based on position
+                    symbol = data.get('symbol', 'UNKNOWN')
+                    japanese_name = currency_names.get(symbol, symbol)
+                    
+                    if voice_settings.get('insert_symbol'):
+                        position = voice_settings.get('symbol_insert_position', 'prefix')
+                        if position == 'prefix':
+                            combined_message = japanese_name + ' ' + combined_message
+                        elif position == 'suffix':
+                            combined_message = combined_message + ' ' + japanese_name
+                        elif position == 'both':
+                            combined_message = japanese_name + ' ' + combined_message + ' ' + japanese_name
+                    else:
+                        # Legacy behavior: replace {symbol} placeholder
+                        combined_message = combined_message.replace('{symbol}', japanese_name)
                     
                     # Create notification
                     notification = {

@@ -37,6 +37,26 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
   .subsection-toggle { background:transparent; border:none; color:inherit; cursor:pointer; font-size:1.2em; line-height:1; padding:2px 6px; margin:0; transition:transform 0.2s ease; }
   .subsection-toggle:hover { opacity:0.7; }
 
+  /* --- unify sub-item typography inside modal section bodies ---
+     Use the "列の表示" labels as the canonical size/weight (0.9em/600)
+     This affects labels, selects, buttons and inline texts within section bodies
+  */
+  .modal .section-body {
+    font-size: 0.9em;
+    font-weight: 400; /* reduced weight for subitems */
+    color: inherit;
+  }
+  .modal .section-body label,
+  .modal .section-body select,
+  .modal .section-body button,
+  .modal .section-body input,
+  .modal .section-body .col-toggle + label,
+  .modal .section-body .row-toggle + label {
+    font-size: 0.9em;
+    font-weight: 400; /* reduced weight for subitems */
+    color: inherit;
+  }
+
 /* ライト／ダークモード（テーブル色は JS で変更しないように注意） */
 .light-mode { background: #f5f5f5 !important; color: #111 !important; }
 .light-mode .header-row { border-bottom: 1px solid rgba(0,0,0,0.5); }
@@ -75,7 +95,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 
 /* 発火履歴ウィンドウ */
-.main-content { display: flex; gap: 12px; align-items: flex-start; }
+.main-content { display: flex; gap: 12px; align-items: flex-start; padding-left: 6px; }
 #dashboard { flex: 0 0 auto; }
 #fire-history { 
   flex: 0 0 300px; 
@@ -87,7 +107,133 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  max-height: calc(100vh - 200px);
 }
+
+/* 通貨ごとのコンテナ */
+.currency-section {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 20px;
+}
+.currency-section.hidden {
+  display: none;
+}
+.currency-dashboard {
+  flex: 0 0 auto;
+}
+.currency-fire-history {
+  flex: 1 1 auto;
+  min-width: 300px;
+  max-width: calc(100vw - 400px);
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  padding: 12px;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.currency-fire-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+.currency-fire-history h3 {
+  margin: 0;
+  font-size: 1em;
+  color: #f5f7ff;
+  font-weight: 600;
+}
+.currency-fire-history button {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border: 1px solid #667eea;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+.currency-fire-history button:hover {
+  background: rgba(102, 126, 234, 0.4);
+}
+.currency-fire-history-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 100%;
+}
+.fire-item {
+  padding: 8px;
+  margin-bottom: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  font-size: 0.9em;
+  border-left: 3px solid #667eea;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.fire-item:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+.fire-time {
+  color: #a0c4ff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.fire-name {
+  color: #ffd700;
+  font-weight: 600;
+}
+.light-mode .currency-fire-history {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+.light-mode .currency-fire-history-header {
+  border-bottom-color: rgba(0, 0, 0, 0.2);
+}
+/* Light mode: make titles and buttons dark for readability */
+.light-mode .currency-fire-history h3,
+.light-mode #fire-history h3,
+.light-mode .currency-fire-history .currency-fire-history-header h3 {
+  color: #111 !important;
+}
+.light-mode .currency-fire-history button,
+.light-mode #test-fire-btn,
+.light-mode #clear-fire-history-btn {
+  background: rgba(0,0,0,0.05);
+  color: #111;
+  border-color: rgba(0,0,0,0.6);
+}
+.light-mode .currency-fire-history button:hover,
+.light-mode #test-fire-btn:hover,
+.light-mode #clear-fire-history-btn:hover {
+  background: rgba(0,0,0,0.08);
+}
+.light-mode .fire-item {
+  background: rgba(0, 0, 0, 0.08);
+  border-left-color: #667eea;
+}
+.light-mode .fire-time {
+  color: #2962ff;
+}
+.light-mode .fire-name {
+  color: #d97706;
+}
+
 #fire-history-header { 
   display: flex; 
   justify-content: space-between; 
@@ -117,10 +263,25 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 #test-fire-btn:hover {
   background: rgba(102, 126, 234, 0.4);
 }
+#clear-fire-history-btn {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border: 1px solid #667eea;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+#clear-fire-history-btn:hover {
+  background: rgba(102, 126, 234, 0.4);
+}
 #fire-history-list {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  max-height: 100%;
 }
 .fire-item { 
   padding: 8px; 
@@ -138,11 +299,36 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .fire-name { color: #ffd700; font-weight: 600; }
 .light-mode #fire-history { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.2); }
 .light-mode #fire-history-header { border-bottom-color: rgba(0,0,0,0.2); }
-.light-mode #test-fire-btn { background: rgba(102, 126, 234, 0.15); color: #4a5eb4; border-color: #4a5eb4; }
-.light-mode #test-fire-btn:hover { background: rgba(102, 126, 234, 0.3); }
+.light-mode #test-fire-btn { background: rgba(0,0,0,0.05); color: #111; border-color: rgba(0,0,0,0.6); }
+.light-mode #test-fire-btn:hover { background: rgba(0,0,0,0.08); }
+.light-mode #clear-fire-history-btn { background: rgba(0,0,0,0.05); color: #111; border-color: rgba(0,0,0,0.6); }
+.light-mode #clear-fire-history-btn:hover { background: rgba(0,0,0,0.08); }
 .light-mode .fire-item { background: rgba(0,0,0,0.08); border-left-color: #667eea; }
 .light-mode .fire-time { color: #2962ff; }
 .light-mode .fire-name { color: #d97706; }
+
+/* Dark mode: make fire-history buttons high-contrast (white text + white-ish border) */
+.dark-mode .currency-fire-history button,
+.dark-mode #test-fire-btn,
+.dark-mode #clear-fire-history-btn {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.9);
+}
+.dark-mode .currency-fire-history button:hover,
+.dark-mode #test-fire-btn:hover,
+.dark-mode #clear-fire-history-btn:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+/* Light mode adjustments */
+.light-mode .modal {
+  color: #111 !important;
+  background: rgba(255,255,255,0.05) !important;
+}
+.light-mode .modal select {
+  color: #f5f7ff !important;
+}
 </style>
 </head>
 <body>
@@ -282,10 +468,18 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         </div>
         <div class="subsection-body" data-subsection-body="ruleEditor">
         <div style="display:flex;gap:8px;flex-direction:column">
-          <input id="ruleName" placeholder="ルール名" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit">
-          <select id="ruleScope" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit">
-            <option value="">全通貨</option>
-          </select>
+          <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:0.9em;min-width:72px">ルール名：</label>
+              <input id="ruleName" placeholder="ルール名" style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:0.9em;min-width:72px">通貨選択：</label>
+              <select id="ruleScope" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:160px">
+                <option value="">全選択</option>
+              </select>
+            </div>
+          </div>
           
           <!-- 音声設定（ルール個別設定） -->
           <div style="margin-top:12px;padding:8px;border-radius:6px;background:rgba(0,0,0,0.04);">
@@ -293,11 +487,19 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
             <div style="display:flex;flex-direction:column;gap:6px">
               <label style="font-size:0.9em">
                 音声メッセージ:
-                <input id="voiceMessage" placeholder="例: ルールが発火しました" style="margin-left:8px;padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:300px">
+                <input id="voiceMessage" placeholder="例: ルールが発火しました" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:300px">
+              </label>
+              <label style="font-size:0.9em">
+                <input type="checkbox" id="insertSymbol"> 通貨名挿入
+                <select id="symbolInsertPosition" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;">
+                  <option value="prefix">先頭</option>
+                  <option value="suffix">最後</option>
+                  <option value="both">先頭と最後</option>
+                </select>
               </label>
               <label style="font-size:0.9em">
                 <input type="checkbox" id="voiceDirectionBased"> 方向別アラーム
-                <select id="voiceMessagePosition" style="margin-left:8px;padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;">
+                <select id="voiceMessagePosition" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;">
                   <option value="prefix">先頭</option>
                   <option value="suffix">最後</option>
                   <option value="both">先頭と最後</option>
@@ -306,16 +508,22 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
               <div id="directionMessages" style="display:none;flex-direction:row;gap:12px;margin-left:8px;align-items:center">
                 <label style="font-size:0.9em;display:flex;align-items:center;gap:4px">
                   上昇：
-                  <input id="voiceMessageUp" placeholder="例: 上昇トレンドが検出されました" style="padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:144px">
+                  <input id="voiceMessageUp" placeholder="例: 上昇トレンドが検出されました" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:144px">
                 </label>
                 <label style="font-size:0.9em;display:flex;align-items:center;gap:4px">
                   下降：
-                  <input id="voiceMessageDown" placeholder="例: 下降トレンドが検出されました" style="padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:144px">
+                  <input id="voiceMessageDown" placeholder="例: 下降トレンドが検出されました" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:144px">
                 </label>
               </div>
               <label style="font-size:0.9em;display:flex;align-items:center;gap:8px">
+                <input type="checkbox" id="playChimeFirst"> 最初に電子音を鳴らす：
+                <select id="chimeSelect" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:160px">
+                  <option value="">なし</option>
+                </select>
+              </label>
+              <label style="font-size:0.9em;display:flex;align-items:center;gap:8px">
                 音声選択:
-                <select id="voiceSelect" style="margin-left:8px;padding:4px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:200px">
+                <select id="voiceSelect" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:200px">
                   <option value="">グローバル設定を使用</option>
                   <!-- 音声リストは動的に追加 -->
                 </select>
@@ -336,20 +544,12 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
             </div>
             <div style="display:flex;align-items:center;gap:12px">
               <div style="display:flex;align-items:center;gap:8px">
-                <label style="font-size:0.95em">欠損</label>
+                <label style="font-size:0.9em">欠損</label>
                 <select id="alignMissing" style="padding:6px;border-radius:6px;background:rgba(15,27,65,0.7);color:inherit;border:1px solid rgba(255,255,255,0.12)">
                   <option value="ignore">無視</option>
                   <option value="fail">不一致</option>
                 </select>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <label style="font-size:0.95em">閾値N</label>
-                <select id="alignN" style="padding:6px;border-radius:6px;background:rgba(15,27,65,0.7);color:inherit;border:1px solid rgba(255,255,255,0.12)">
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="off">無効</option>
-                </select>
+                <span id="alignMissingTooltip" style="cursor:pointer;font-size:1.2em;color:white;">ⓘ</span>
               </div>
             </div>
             <div id="alignError" style="color:#ffb4b4;font-weight:600;margin-top:6px;display:none;width:100%"></div>
@@ -381,13 +581,13 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
                 <option value="<">&lt;</option>
               </select>
               <input class="cond-value" placeholder="値" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:inherit;width:120px">
-              <button class="removeCond" style="padding:4px 8px">削除</button>
+              <button class="removeCond" style="padding:6px 12px">削除</button>
             </div>
           </div>
           <div style="display:flex;gap:8px">
-            <button id="addCondBtn">条件を追加</button>
-            <button id="testRuleBtn">ルールをテスト</button>
-            <button id="saveRuleBtn" style="margin-left:auto">ルールを保存</button>
+            <button id="addCondBtn" style="padding:6px 12px">条件を追加</button>
+            <button id="testRuleBtn" style="padding:6px 12px">ルールをテスト</button>
+            <button id="saveRuleBtn" style="margin-left:auto;padding:6px 12px">ルールを保存</button>
           </div>
           <div style="margin-top:8px">
             <div style="font-weight:600;margin-bottom:4px">テスト結果</div>
@@ -408,19 +608,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 </div>
 
 <div class="main-content">
-  <div id="dashboard" class="loading">読み込み中...</div>
-  <div id="fire-history">
-    <div id="fire-history-header">
-      <h3>ドル円発火履歴</h3>
-      <button id="test-fire-btn">テスト発火</button>
-    </div>
-    <div id="fire-history-list">
-      <div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">
-        履歴なし
-      </div>
-    </div>
+  <div id="dashboards-container">
+    <!-- 通貨ごとの表と発火履歴が動的に生成されます -->
   </div>
 </div>
+
 </div>
 <script>
 // Version check and cache buster - 2025-11-08-v1
@@ -438,6 +630,28 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   }
 })();
 
+// 通貨名マッピング（サーバー側と同じ）
+const currencyNames = {
+  'USDJPY': 'ドル円',
+  'EURUSD': 'ユーロドル',
+  'GBPUSD': 'ポンドドル',
+  'GBPJPY': 'ポンド円',
+  'AUDUSD': 'オージードル',
+  'AUDJPY': 'オージー円',
+  'NZDUSD': 'ニュージードル',
+  'NZDJPY': 'ニュージー円',
+  'CADJPY': 'カナダ円',
+  'CHFJPY': 'スイス円',
+  'EURJPY': 'ユーロ円',
+  'GBPAUD': 'ポンドオージー',
+  'EURGBP': 'ユーロポンド',
+  'USDCAD': 'ドルカナダ',
+  'USDCHF': 'ドルスイス'
+};
+
+// グローバル変数: 現在のダッシュボードデータ（テスト時に使用）
+let currentDashboardData = null;
+
 // 設定パネルの動作: モード切替（body にクラス付与）とフォントサイズの適用
 function applyMode(mode) {
   document.body.classList.remove('light-mode','dark-mode');
@@ -452,10 +666,21 @@ function applyFontSize(px) {
     el.style.fontSize = px + 'px';
   });
   
-  // 発火履歴の全要素にフォントサイズを適用
-  const fireHistoryEls = document.querySelectorAll('#fire-history h3, #test-fire-btn, .fire-item, .fire-time, .fire-name, #fire-history-list');
+  // 発火履歴ウィンドウの全要素にフォントサイズを適用
+  const fireHistoryEls = document.querySelectorAll('.currency-fire-history h3, .currency-fire-history button, .fire-item, .fire-time, .fire-name, .currency-fire-history-list');
   fireHistoryEls.forEach(el => {
     el.style.fontSize = px + 'px';
+  });
+  
+  // 発火履歴ウィンドウの横幅を文字サイズに合わせて調整
+  // 基本: 300px (14px時) + 追加幅
+  const baseFontSize = 14;
+  const additionalWidth = Math.max(0, (px - baseFontSize) * 8); // 文字サイズが1px増えるごとに8px横幅を増やす
+  const newWidth = 300 + additionalWidth;
+  
+  const fireHistories = document.querySelectorAll('.currency-fire-history');
+  fireHistories.forEach(fh => {
+    fh.style.minWidth = newWidth + 'px';
   });
 }
 
@@ -502,19 +727,13 @@ function applyCurrencyFilter() {
     if (cb.checked) enabled.add(cb.dataset.currency);
   });
   
-  // テーブル全体を通貨でフィルター
-  // 現在は単一通貨のみ表示なので、選択された通貨かどうかで表示制御
-  const allTables = document.querySelectorAll('table');
-  allTables.forEach(table => {
-    const header = table.querySelector('th');
-    if (header) {
-      const headerText = header.textContent.trim();
-      const symbol = headerText.split(' ')[0]; // "USDJPY - 153.45" → "USDJPY"
-      if (enabled.has(symbol)) {
-        table.style.display = '';
-      } else {
-        table.style.display = 'none';
-      }
+  // 通貨ごとのセクションを表示/非表示
+  document.querySelectorAll('.currency-section').forEach(section => {
+    const symbol = section.dataset.symbol;
+    if (enabled.has(symbol)) {
+      section.classList.remove('hidden');
+    } else {
+      section.classList.add('hidden');
     }
   });
 }
@@ -740,6 +959,23 @@ function wireSubsectionToggles() {
   }
 }
 
+// Populate the rule scope select (通貨選択) with available currencies
+function populateRuleScopeSelect(availableCurrencies) {
+  try {
+    const sel = document.getElementById('ruleScope');
+    if (!sel) return;
+    const cur = sel.value;
+    // Always keep the default '全選択' option
+    sel.innerHTML = '';
+    const optAll = document.createElement('option'); optAll.value = ''; optAll.textContent = '全選択'; sel.appendChild(optAll);
+    (availableCurrencies || []).forEach(sym => {
+      const o = document.createElement('option'); o.value = sym; o.textContent = sym; sel.appendChild(o);
+    });
+    // restore previous selection if still present
+    if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+  } catch (e) { console.log('populateRuleScopeSelect error', e); }
+}
+
 // 初期化: 設定を読み込み、UI を配線
 document.addEventListener('DOMContentLoaded', async () => {
   try { 
@@ -760,6 +996,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.log('サーバー設定取得エラー:', err);
     }
+    
+    // Populate voice and chime selects
+    populateVoiceSelect();
+    await populateChimeSelect();
   } catch (err) { console.log('settings init error', err); }
 });
 
@@ -955,219 +1195,80 @@ async function load() {
     console.log('Data received:', data);
     
     if (data.status === 'success' && data.states.length > 0) {
-      // 利用可能な通貨を抽出して通貨フィルターを更新
+      // 現在のダッシュボードデータを保存（テスト時に使用）
+      currentDashboardData = data.states;
+      
+      // 利用可能な通貨を抽出
       const availableCurrencies = [...new Set(data.states.map(s => s.symbol))];
-      updateCurrencyFilter(availableCurrencies);
+  updateCurrencyFilter(availableCurrencies);
+  // Populate rule editor scope select with current available currencies
+  try { populateRuleScopeSelect(availableCurrencies); } catch (e) { console.log('populateRuleScopeSelect call error', e); }
       
-      // USDJPY の全時間足データを取得
-      const symbol = 'USDJPY';
-      const state5m = data.states.find(x => x.symbol === symbol && x.tf === '5');
-      const state15m = data.states.find(x => x.symbol === symbol && x.tf === '15');
-      const state1h = data.states.find(x => x.symbol === symbol && x.tf === '60');
-      const state4h = data.states.find(x => x.symbol === symbol && x.tf === '240');
+      // 通貨ごとにコンテナを生成
+      const container = document.getElementById('dashboards-container');
+      container.innerHTML = '';
       
-      console.log('5m:', state5m);
-      console.log('15m:', state15m);
-      console.log('1H:', state1h);
-      console.log('4H:', state4h);
-      
-      if (!state5m) {
-        document.getElementById('dashboard').innerHTML = '<div class="loading">5mデータがありません</div>';
-        return;
-      }
-      
-      // 更新時刻を計算（JST）
-      const updateTime = state5m.timestamp ? new Date(state5m.timestamp).toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', hour12: false}).split(' ')[1] : 'N/A';
-      
-      // 5m のクラウド配列をベースに統合
-      const mergedClouds = (state5m.clouds || []).map(cloud => {
-        const merged = {...cloud};
+      availableCurrencies.forEach(symbol => {
+        // 各通貨のセクションを作成
+        const section = document.createElement('div');
+        section.className = 'currency-section';
+        section.dataset.symbol = symbol;
         
-        console.log('Original cloud data:', cloud.label, {
-          dauten_start_time_str: cloud.dauten_start_time_str,
-          elapsed_str: cloud.elapsed_str
-        });
-        
-        // 15m/1H/4H の行は、該当する tf のデータで上書き
-        // 突破数はdaytradeのbosを使用（cloudsのbos_countは使用しない）
-        if (cloud.label === '15m' && state15m) {
-          merged.dauten = state15m.clouds?.[0]?.dauten || cloud.dauten;
-          merged.bos_count = state15m.daytrade?.bos || cloud.bos_count;
-          merged.dauten_start_time_str = state15m.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
-          merged.elapsed_str = state15m.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
-        } else if (cloud.label === '1H' && state1h) {
-          merged.dauten = state1h.clouds?.[0]?.dauten || cloud.dauten;
-          merged.bos_count = state1h.daytrade?.bos || cloud.bos_count;
-          merged.dauten_start_time_str = state1h.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
-          merged.elapsed_str = state1h.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
-        } else if (cloud.label === '4H' && state4h) {
-          merged.dauten = state4h.clouds?.[0]?.dauten || cloud.dauten;
-          merged.bos_count = state4h.daytrade?.bos || cloud.bos_count;
-          merged.dauten_start_time_str = state4h.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
-          merged.elapsed_str = state4h.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
-        } else if (cloud.label === '5m') {
-          // 5m は state5m の daytrade.bos を使用
-          merged.bos_count = state5m.daytrade?.bos || cloud.bos_count;
-        } else if (cloud.label !== '5m') {
-          // 5m 以外で個別データがない場合は空欄
-          merged.dauten = '';
-          merged.bos_count = null;
-          merged.dauten_start_time_str = '';
-          merged.elapsed_str = '';
+        const isVisible = JSON.parse(localStorage.getItem('tv_currencies') || '{}')[symbol] !== false;
+        if (!isVisible) {
+          section.classList.add('hidden');
         }
         
-        console.log('Merged cloud data:', merged.label, {
-          dauten_start_time_str: merged.dauten_start_time_str,
-          elapsed_str: merged.elapsed_str
-        });
+        // 通貨ごとのテーブルを作成
+        const dashboardDiv = document.createElement('div');
+        dashboardDiv.className = 'currency-dashboard';
+        section.appendChild(dashboardDiv);
         
-        return merged;
+        // 通貨ごとの発火履歴ウィンドウを作成
+        const fireHistoryDiv = document.createElement('div');
+        fireHistoryDiv.className = 'currency-fire-history';
+        fireHistoryDiv.dataset.symbol = symbol;
+        
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'currency-fire-history-header';
+        
+        const titleH3 = document.createElement('h3');
+        titleH3.textContent = symbol + '発火履歴';
+        
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.style.display = 'flex';
+        buttonsDiv.style.gap = '8px';
+        
+        const testBtn = document.createElement('button');
+        testBtn.textContent = 'テスト発火';
+        testBtn.dataset.symbol = symbol;
+        testBtn.addEventListener('click', () => testFire(symbol));
+        
+        const clearBtn = document.createElement('button');
+        clearBtn.textContent = 'クリア';
+        clearBtn.dataset.symbol = symbol;
+        clearBtn.addEventListener('click', () => clearFireHistory(symbol));
+        
+        buttonsDiv.appendChild(testBtn);
+        buttonsDiv.appendChild(clearBtn);
+        
+        headerDiv.appendChild(titleH3);
+        headerDiv.appendChild(buttonsDiv);
+        fireHistoryDiv.appendChild(headerDiv);
+        
+        const listDiv = document.createElement('div');
+        listDiv.className = 'currency-fire-history-list';
+        listDiv.dataset.symbol = symbol;
+        listDiv.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+        
+        fireHistoryDiv.appendChild(listDiv);
+        section.appendChild(fireHistoryDiv);
+        
+        container.appendChild(section);
+        
+        // テーブルを生成
+        renderCurrencyTable(symbol, data.states, dashboardDiv);
       });
-      
-      // row_order に従って行を並べ替え
-      const rowOrder = state5m.row_order || ['5m', '15m', 'price', '1H', '4H'];
-      const orderedRows = [];
-      
-      rowOrder.forEach(label => {
-        if (label === 'price') {
-          // 価格行を追加
-          orderedRows.push({ type: 'price', price: state5m.price });
-        } else {
-          // 対応する雲データを追加
-          const cloud = mergedClouds.find(c => c.label === label);
-          if (cloud) {
-            orderedRows.push({ type: 'cloud', ...cloud });
-          }
-        }
-      });
-      
-  let html = '<div class="table-wrap"><table><tr><th colspan="11" style="text-align: center;">' + state5m.symbol + ' - ' + state5m.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
-  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th></tr>';
-
-      orderedRows.forEach(row => {
-        if (row.type === 'price') {
-          // 価格行（背景白、文字黒）
-          html += '<tr class="price-row"><td class="tf-label">価格</td>';
-          html += '<td colspan="10"></td></tr>';
-        } else {
-          // 雲の行
-          const c = row;
-          html += '<tr>';
-          
-          // 雲整列セルの背景色を時間足ごとに設定（70%透過相当）
-          let tfBgColor = '';
-          if (c.label === '5m') tfBgColor = '#a9e88c';
-          else if (c.label === '15m') tfBgColor = '#fbd0b2';
-          else if (c.label === '1H') tfBgColor = '#8dc7fc';
-          else if (c.label === '4H') tfBgColor = '#fa8dfe';
-          
-          // 雲整列（背景色付き、文字は黒）
-          if (tfBgColor) {
-            html += '<td class="tf-label" style="background:' + tfBgColor + '; color:#000">' + c.label + '</td>';
-          } else {
-            html += '<td class="tf-label col-cloud-label">' + c.label + '</td>';
-          }
-
-          // 色算出: ダウ転、雲交差、各雲間、価格間、雲角度、雲厚み
-          // 緑色を #2962ff に変更
-          let dautenColor = '';
-          if (c.dauten === 'up') dautenColor = '#2962ff';
-          else if (c.dauten === 'down') dautenColor = '#f23645';
-
-          // 雲交差(gc)
-          let gcColor = '';
-          if (c.gc === true) gcColor = '#2962ff';
-          else if (c.gc === false) gcColor = '#f23645';
-
-          // 突破数値を取得
-          let bosVal = c.bos_count;
-
-          // 数値系
-          const toNum = v => (v === null || v === undefined || v === '' ? null : Number(v));
-          const prev = toNum(c.distance_from_prev);
-          const prevColor = (prev !== null ? (prev > 0 ? '#2962ff' : (prev < 0 ? '#f23645' : '')) : '');
-          const dp = toNum(c.distance_from_price);
-          const dpColor = (dp !== null ? (dp > 0 ? '#2962ff' : (dp < 0 ? '#f23645' : '')) : '');
-          const ang = toNum(c.angle);
-          const angColor = (ang !== null ? (ang > 0 ? '#2962ff' : (ang < 0 ? '#f23645' : '')) : '');
-          const th = toNum(c.thickness);
-          const thColor = (th !== null ? (th > 0 ? '#2962ff' : (th < 0 ? '#f23645' : '')) : '');
-
-          // ダウ転セル
-          if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
-          else html += '<td>' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
-
-          // 突破数セル: 常にダウ転と同じ背景色にする（値が '-' の場合でも色を付ける）
-          const displayBos = (bosVal === null || bosVal === undefined || bosVal === '' ? '-' : bosVal);
-          if (dautenColor) {
-            html += '<td style="background:' + dautenColor + '; color:#fff">' + displayBos + '</td>';
-          } else {
-            html += '<td>' + displayBos + '</td>';
-          }
-
-          // 雲交差セル
-          if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + (c.gc ? '▲GC' : '▼DC') + '</td>';
-          else html += '<td>' + (c.gc ? '▲GC' : '▼DC') + '</td>';
-
-          // 各雲間
-          if (prevColor) html += '<td style="background:' + prevColor + '; color:#fff">' + (prev !== null ? prev.toFixed(1) : '-') + '</td>';
-          else html += '<td>' + (prev !== null ? prev.toFixed(1) : '-') + '</td>';
-
-          // 価格間
-          if (dpColor) html += '<td style="background:' + dpColor + '; color:#fff">' + (dp !== null ? dp.toFixed(1) : '-') + '</td>';
-          else html += '<td>' + (dp !== null ? dp.toFixed(1) : '-') + '</td>';
-
-          // 雲角度
-          if (angColor) html += '<td style="background:' + angColor + '; color:#fff">' + (ang !== null ? ang.toFixed(1) + '°' : '-') + '</td>';
-          else html += '<td>' + (ang !== null ? ang.toFixed(1) + '°' : '-') + '</td>';
-
-          // 雲厚み
-          if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + (th !== null ? th.toFixed(1) : '-') + '</td>';
-          else html += '<td>' + (th !== null ? th.toFixed(1) : '-') + '</td>';
-
-          // 経過時間形式を取得
-          const timeFormat = localStorage.getItem('tv_time_format') || 'datetime';
-          
-          // ダウ時間: 形式変換を適用し、同じ行のダウ転セルと同じ背景色
-          const dautenTimeFormatted = formatElapsedTime(c.dauten_start_time_str || '-', timeFormat);
-          if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + dautenTimeFormatted + '</td>';
-          else html += '<td>' + dautenTimeFormatted + '</td>';
-
-      // 交差時間: 形式変換を適用し、雲交差セルと同じ背景色
-          const elapsedTimeFormatted = formatElapsedTime(c.elapsed_str || '-', timeFormat);
-          if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + elapsedTimeFormatted + '</td>';
-          else html += '<td>' + elapsedTimeFormatted + '</td>';
-
-          // 時間差: 計算とフォーマット
-          const timeDiffResult = calculateTransferTimeDiff(c);
-          const timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
-          let timeDiffBg = '';
-          let timeDiffColor = '#fff'; // 白抜き文字
-          if (timeFormat === 'datetime') {
-            // datetimeの場合: 同方向ならダウ時間の背景色、逆方向ならグレー
-            if (timeDiffResult.sameDirection) {
-              timeDiffBg = dautenColor || '';
-            } else {
-              timeDiffBg = 'rgba(128,128,128,0.5)'; // グレー
-            }
-          } else {
-            // それ以外: 同方向ならダウ時間の背景色、逆方向ならグレー
-            if (timeDiffResult.sameDirection) {
-              timeDiffBg = dautenColor || '';
-            } else {
-              timeDiffBg = 'rgba(128,128,128,0.5)'; // グレー
-            }
-          }
-          if (timeDiffBg) {
-            html += '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td></tr>';
-          } else {
-            html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td></tr>';
-          }
-        }
-      });
-
-  html += '</table></div>';
-      document.getElementById('dashboard').innerHTML = html;
       
       // テーブル再描画後に設定を再適用
       try {
@@ -1177,17 +1278,182 @@ async function load() {
         applyRowVisibility();
       } catch (e) { /* ignore */ }
       
-      // Sync fire history height with table
-      setTimeout(syncFireHistoryHeight, 100);
+      // 高さ同期を実行
+      setTimeout(syncAllFireHistoryHeights, 100);
     } else {
-      document.getElementById('dashboard').innerHTML = '<div class="loading">データなし</div>';
+      document.getElementById('dashboards-container').innerHTML = '<div class="loading">データなし</div>';
     }
   } catch (e) {
-    document.getElementById('dashboard').innerHTML = '<div class="loading">エラー: ' + e.message + '</div>';
+    document.getElementById('dashboards-container').innerHTML = '<div class="loading">エラー: ' + e.message + '</div>';
   }
 }
-load();
-setInterval(load, 300000);
+
+// 通貨ごとのテーブルを生成する関数
+function renderCurrencyTable(symbol, allStates, container) {
+  const state5m = allStates.find(x => x.symbol === symbol && x.tf === '5');
+  const state15m = allStates.find(x => x.symbol === symbol && x.tf === '15');
+  const state1h = allStates.find(x => x.symbol === symbol && x.tf === '60');
+  const state4h = allStates.find(x => x.symbol === symbol && x.tf === '240');
+  
+  if (!state5m) {
+    container.innerHTML = '<div class="loading">5mデータがありません</div>';
+    return;
+  }
+  
+  // 更新時刻を計算（JST）
+  const updateTime = state5m.timestamp ? new Date(state5m.timestamp).toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', hour12: false}).split(' ')[1] : 'N/A';
+  
+  // 5m のクラウド配列をベースに統合
+  const mergedClouds = (state5m.clouds || []).map(cloud => {
+    const merged = {...cloud};
+    
+    if (cloud.label === '15m' && state15m) {
+      merged.dauten = state15m.clouds?.[0]?.dauten || cloud.dauten;
+      merged.bos_count = state15m.daytrade?.bos || cloud.bos_count;
+      merged.dauten_start_time_str = state15m.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
+      merged.elapsed_str = state15m.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
+    } else if (cloud.label === '1H' && state1h) {
+      merged.dauten = state1h.clouds?.[0]?.dauten || cloud.dauten;
+      merged.bos_count = state1h.daytrade?.bos || cloud.bos_count;
+      merged.dauten_start_time_str = state1h.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
+      merged.elapsed_str = state1h.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
+    } else if (cloud.label === '4H' && state4h) {
+      merged.dauten = state4h.clouds?.[0]?.dauten || cloud.dauten;
+      merged.bos_count = state4h.daytrade?.bos || cloud.bos_count;
+      merged.dauten_start_time_str = state4h.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
+      merged.elapsed_str = state4h.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
+    } else if (cloud.label === '5m') {
+      merged.bos_count = state5m.daytrade?.bos || cloud.bos_count;
+    } else if (cloud.label !== '5m') {
+      merged.dauten = '';
+      merged.bos_count = null;
+      merged.dauten_start_time_str = '';
+      merged.elapsed_str = '';
+    }
+    
+    return merged;
+  });
+  
+  // row_order に従って行を並べ替え
+  const rowOrder = state5m.row_order || ['5m', '15m', 'price', '1H', '4H'];
+  const orderedRows = [];
+  
+  rowOrder.forEach(label => {
+    if (label === 'price') {
+      orderedRows.push({ type: 'price', price: state5m.price });
+    } else {
+      const cloud = mergedClouds.find(c => c.label === label);
+      if (cloud) {
+        orderedRows.push({ type: 'cloud', ...cloud });
+      }
+    }
+  });
+  
+  let html = '<div class="table-wrap"><table><tr><th colspan="11" style="text-align: center;">' + state5m.symbol + ' - ' + state5m.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
+  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th></tr>';
+
+  orderedRows.forEach(row => {
+    if (row.type === 'price') {
+      html += '<tr class="price-row"><td class="tf-label">価格</td>';
+      html += '<td colspan="10"></td></tr>';
+    } else {
+      const c = row;
+      html += '<tr>';
+      
+      let tfBgColor = '';
+      if (c.label === '5m') tfBgColor = '#a9e88c';
+      else if (c.label === '15m') tfBgColor = '#fbd0b2';
+      else if (c.label === '1H') tfBgColor = '#8dc7fc';
+      else if (c.label === '4H') tfBgColor = '#fa8dfe';
+      
+      if (tfBgColor) {
+        html += '<td class="tf-label" style="background:' + tfBgColor + '; color:#000">' + c.label + '</td>';
+      } else {
+        html += '<td class="tf-label col-cloud-label">' + c.label + '</td>';
+      }
+
+      let dautenColor = '';
+      if (c.dauten === 'up') dautenColor = '#2962ff';
+      else if (c.dauten === 'down') dautenColor = '#f23645';
+
+      let gcColor = '';
+      if (c.gc === true) gcColor = '#2962ff';
+      else if (c.gc === false) gcColor = '#f23645';
+
+      let bosVal = c.bos_count;
+
+      const toNum = v => (v === null || v === undefined || v === '' ? null : Number(v));
+      const prev = toNum(c.distance_from_prev);
+      const prevColor = (prev !== null ? (prev > 0 ? '#2962ff' : (prev < 0 ? '#f23645' : '')) : '');
+      const dp = toNum(c.distance_from_price);
+      const dpColor = (dp !== null ? (dp > 0 ? '#2962ff' : (dp < 0 ? '#f23645' : '')) : '');
+      const ang = toNum(c.angle);
+      const angColor = (ang !== null ? (ang > 0 ? '#2962ff' : (ang < 0 ? '#f23645' : '')) : '');
+      const th = toNum(c.thickness);
+      const thColor = (th !== null ? (th > 0 ? '#2962ff' : (th < 0 ? '#f23645' : '')) : '');
+
+      if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
+      else html += '<td>' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
+
+      const displayBos = (bosVal === null || bosVal === undefined || bosVal === '' ? '-' : bosVal);
+      if (dautenColor) {
+        html += '<td style="background:' + dautenColor + '; color:#fff">' + displayBos + '</td>';
+      } else {
+        html += '<td>' + displayBos + '</td>';
+      }
+
+      if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + (c.gc ? '▲GC' : '▼DC') + '</td>';
+      else html += '<td>' + (c.gc ? '▲GC' : '▼DC') + '</td>';
+
+      if (prevColor) html += '<td style="background:' + prevColor + '; color:#fff">' + (prev !== null ? prev.toFixed(1) : '-') + '</td>';
+      else html += '<td>' + (prev !== null ? prev.toFixed(1) : '-') + '</td>';
+
+      if (dpColor) html += '<td style="background:' + dpColor + '; color:#fff">' + (dp !== null ? dp.toFixed(1) : '-') + '</td>';
+      else html += '<td>' + (dp !== null ? dp.toFixed(1) : '-') + '</td>';
+
+      if (angColor) html += '<td style="background:' + angColor + '; color:#fff">' + (ang !== null ? ang.toFixed(1) + '°' : '-') + '</td>';
+      else html += '<td>' + (ang !== null ? ang.toFixed(1) + '°' : '-') + '</td>';
+
+      if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + (th !== null ? th.toFixed(1) : '-') + '</td>';
+      else html += '<td>' + (th !== null ? th.toFixed(1) : '-') + '</td>';
+
+      const timeFormat = localStorage.getItem('tv_time_format') || 'datetime';
+      
+      const dautenTimeFormatted = formatElapsedTime(c.dauten_start_time_str || '-', timeFormat);
+      if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + dautenTimeFormatted + '</td>';
+      else html += '<td>' + dautenTimeFormatted + '</td>';
+
+      const elapsedTimeFormatted = formatElapsedTime(c.elapsed_str || '-', timeFormat);
+      if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + elapsedTimeFormatted + '</td>';
+      else html += '<td>' + elapsedTimeFormatted + '</td>';
+
+      const timeDiffResult = calculateTransferTimeDiff(c);
+      const timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
+      let timeDiffBg = '';
+      let timeDiffColor = '#fff';
+      if (timeDiffResult.sameDirection) {
+        timeDiffBg = dautenColor || '';
+      } else {
+        timeDiffBg = 'rgba(128,128,128,0.5)';
+      }
+      if (timeDiffBg) {
+        html += '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td></tr>';
+      } else {
+        html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td></tr>';
+      }
+    }
+  });
+
+  html += '</table></div>';
+  container.innerHTML = html;
+}
+
+// 初期読み込みと定期的な更新
+document.addEventListener('DOMContentLoaded', () => {
+  load();
+  setInterval(load, 300000);  // 5分ごとに更新
+});
+
 
 // --- Rules UI / API ---
 async function loadRules() {
@@ -1312,13 +1578,10 @@ function openRuleEditor(rule) {
         if(el) el.checked = true;
       });
       if (align.missing) document.getElementById('alignMissing').value = align.missing;
-      if (align.n !== undefined && align.n !== null) document.getElementById('alignN').value = String(align.n);
-      else document.getElementById('alignN').value = 'off';
     } else {
       // reset to defaults
       document.querySelectorAll('.align-tf').forEach(cb=> cb.checked = false);
       document.getElementById('alignMissing').value = 'ignore';
-      document.getElementById('alignN').value = 'off';
     }
   } catch(e) { /* ignore */ }
   
@@ -1343,6 +1606,14 @@ function openRuleEditor(rule) {
   
   document.getElementById('voiceSelect').value = (voice && voice.voice_name) || '';
   
+  // Populate chime settings
+  document.getElementById('playChimeFirst').checked = !!(voice && voice.chime_file);
+  document.getElementById('chimeSelect').value = (voice && voice.chime_file) || '';
+  
+  // Populate symbol insert setting
+  document.getElementById('insertSymbol').checked = !!(voice && voice.insert_symbol);
+  document.getElementById('symbolInsertPosition').value = (voice && voice.symbol_insert_position) || 'prefix';
+  
   // store editing id on save button
   document.getElementById('saveRuleBtn').dataset.editing = rule.id;
 }
@@ -1351,33 +1622,19 @@ function openRuleEditor(rule) {
 function getAlignmentSettingsFromUI(){
   const tfs = Array.from(document.querySelectorAll('.align-tf')).filter(cb=>cb.checked).map(cb=>cb.dataset.tf);
   const missing = document.getElementById('alignMissing').value; // 'ignore' or 'fail'
-  const nVal = document.getElementById('alignN').value;
-  const n = (nVal === 'off') ? null : Number(nVal);
-  return { tfs, missing, n };
+  return { tfs, missing };
 }
 
 function validateAlignmentForSave(){
   const s = getAlignmentSettingsFromUI();
   const errEl = document.getElementById('alignError'); errEl.style.display = 'none'; errEl.textContent = '';
-  if(!s.n){
-    // N is off -> treat alignment as disabled regardless of selection
-    return {ok:true, msg:'alignment disabled'};
-  }
   if(s.tfs.length === 0){
-    errEl.style.display='block'; errEl.textContent='エラー: 判定対象の時間は 2 個以上選択してください';
-    return {ok:false, msg:'need_2_tfs'};
+    // No TFs selected, that's fine - alignment is optional
+    return {ok:true, msg:'no_alignment_selected'};
   }
   if(s.tfs.length === 1){
     errEl.style.display='block'; errEl.textContent='エラー: 判定対象の時間は 2 個以上選択してください';
     return {ok:false, msg:'need_2_tfs'};
-  }
-  if(isNaN(s.n) || s.n < 2){
-    errEl.style.display='block'; errEl.textContent='エラー: 閾値 N は 2 以上を選択してください';
-    return {ok:false, msg:'invalid_n'};
-  }
-  if(s.n > s.tfs.length){
-    errEl.style.display='block'; errEl.textContent='エラー: 閾値 N が選択個数より大きいため選べません';
-    return {ok:false, msg:'n_gt_selected'};
   }
   return {ok:true, msg:'ok'};
 }
@@ -1393,11 +1650,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 function createConditionRow(c) {
   const div = document.createElement('div'); div.className = 'cond-row'; div.style.display='flex'; div.style.gap='6px'; div.style.alignItems='center';
-  const tf = document.createElement('select'); tf.className='cond-tf'; tf.innerHTML = '<option value="5m">5m</option><option value="15m">15m</option><option value="1H">1H</option><option value="4H">4H</option>';
-  const field = document.createElement('select'); field.className='cond-field'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="bos_count">突破数</option><option value="gc">雲交差</option><option value="distance_from_prev">各雲間</option><option value="distance_from_price">価格間</option><option value="angle">雲角度</option><option value="thickness">雲厚み</option><option value="transfer_time_diff">転換時間差</option>';
-  const op = document.createElement('select'); op.className='cond-op'; op.innerHTML = '<option value==>==</option><option value=">=">&gt;=</option><option value=">">&gt;</option><option value="<=">&lt;=</option><option value="<">&lt;</option>';
+  const tf = document.createElement('select'); tf.className='cond-tf'; tf.style.padding='6px'; tf.style.borderRadius='6px'; tf.style.background='rgba(15,27,65,0.7)'; tf.style.color='inherit'; tf.style.border='1px solid rgba(255,255,255,0.12)'; tf.innerHTML = '<option value="5m">5m</option><option value="15m">15m</option><option value="1H">1H</option><option value="4H">4H</option>';
+  const field = document.createElement('select'); field.className='cond-field'; field.style.padding='6px'; field.style.borderRadius='6px'; field.style.background='rgba(15,27,65,0.7)'; field.style.color='inherit'; field.style.border='1px solid rgba(255,255,255,0.12)'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="bos_count">突破数</option><option value="gc">雲交差</option><option value="distance_from_prev">各雲間</option><option value="distance_from_price">価格間</option><option value="angle">雲角度</option><option value="thickness">雲厚み</option><option value="transfer_time_diff">転換時間差</option>';
+  const op = document.createElement('select'); op.className='cond-op'; op.style.padding='6px'; op.style.borderRadius='6px'; op.style.background='rgba(15,27,65,0.7)'; op.style.color='inherit'; op.style.border='1px solid rgba(255,255,255,0.12)'; op.innerHTML = '<option value==>==</option><option value=">=">&gt;=</option><option value=">">&gt;</option><option value="<=">&lt;=</option><option value="<">&lt;</option>';
   const val = document.createElement('input'); val.className='cond-value'; val.placeholder='値'; val.style.padding='6px'; val.style.borderRadius='6px'; val.style.border='1px solid rgba(255,255,255,0.08)'; val.style.background='transparent'; val.style.color='inherit'; val.style.width='120px';
-  const rem = document.createElement('button'); rem.className='removeCond'; rem.textContent='削除'; rem.style.padding='4px 8px';
+  const rem = document.createElement('button'); rem.className='removeCond'; rem.textContent='削除'; rem.style.padding='6px 12px';
   rem.addEventListener('click', () => div.remove());
   div.append(tf, field, op, val, rem);
 
@@ -1461,7 +1718,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('directionMessages').style.display = 'none';
     document.getElementById('voiceMessagePosition').value = 'suffix';
     document.getElementById('voiceSelect').value = '';
+    document.getElementById('playChimeFirst').checked = false;
+    document.getElementById('chimeSelect').value = '';
   });
+  // Wire '条件を追加' button to append a new condition row
+  document.getElementById('addCondBtn')?.addEventListener('click', addConditionRow);
   
   // Wire voice direction based checkbox
   document.getElementById('voiceDirectionBased')?.addEventListener('change', e => {
@@ -1469,11 +1730,20 @@ document.addEventListener('DOMContentLoaded', () => {
     directionDiv.style.display = e.target.checked ? 'flex' : 'none';
   });
   
+  // Wire tooltip for alignMissing
+  document.getElementById('alignMissingTooltip')?.addEventListener('click', () => {
+    alert(`・無視\n欠損した TF を判定から除外し、残りの TF で整列条件を評価します。データが一部欠けていても、条件を満たせば整列成立とみなします。\n例1: 5m、15m、1H、4H全てチェック、15m欠損の場合、15mを除外して5m、1H、4Hの順序が雲の順番と一致すれば成立。\n例2: 5m、15m、1H、4H全てチェック、雲が5m、15m、4H、1H、4H欠損の場合、4Hを除外して5m、15m、1Hの順序が一致して発火。\n\n・不一致\n欠損した TF があれば、即座に整列条件を不成立と判定します。データが完全でないと条件を満たさない厳格な扱いになります。\n例: 5m、15m、1H、4H全てチェック、15m欠損の場合、欠損があるため不成立。`);
+  });
+  
   // Wire test voice button
   document.getElementById('testVoiceBtn')?.addEventListener('click', () => {
     const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
     const voiceName = document.getElementById('voiceSelect').value;
     const messagePosition = document.getElementById('voiceMessagePosition').value;
+    const playChime = document.getElementById('playChimeFirst').checked;
+    const chimeFile = document.getElementById('chimeSelect').value;
+    const insertSymbol = document.getElementById('insertSymbol').checked;
+    const ruleScope = document.getElementById('ruleScope').value;
     
     let testMessage = '';
     if (isDirectionBased) {
@@ -1493,9 +1763,32 @@ document.addEventListener('DOMContentLoaded', () => {
       testMessage = document.getElementById('voiceMessage').value.trim() || 'テストメッセージ';
     }
     
-    const voiceSettings = voiceName ? { voice_name: voiceName } : null;
+    // 通貨名挿入処理
+    if (insertSymbol && ruleScope) {
+      const japaneseName = currencyNames[ruleScope] || ruleScope;
+      const symbolInsertPosition = document.getElementById('symbolInsertPosition').value;
+      if (testMessage.includes('{symbol}')) {
+        testMessage = testMessage.replace('{symbol}', japaneseName);
+      } else {
+        if (symbolInsertPosition === 'prefix') {
+          testMessage = japaneseName + ' ' + testMessage;
+        } else if (symbolInsertPosition === 'suffix') {
+          testMessage = testMessage + ' ' + japaneseName;
+        } else if (symbolInsertPosition === 'both') {
+          testMessage = japaneseName + ' ' + testMessage + ' ' + japaneseName;
+        }
+      }
+    }
+    
+    const voiceSettings = {};
+    if (voiceName) voiceSettings.voice_name = voiceName;
+    if (playChime && chimeFile) voiceSettings.chime_file = chimeFile;
+    if (insertSymbol && ruleScope) {
+      voiceSettings.insert_symbol = true;
+      voiceSettings.symbol_insert_position = document.getElementById('symbolInsertPosition').value;
+    }
     const rateSuffix = testMessage ? '' : '。音速は' + document.getElementById('voiceRate').value + '倍です。';
-    playVoiceAlert(testMessage + rateSuffix, voiceSettings);
+    playVoiceAlert(testMessage + rateSuffix, voiceSettings, ruleScope || 'USDJPY');
   });
   
   // Populate voice select with available voices
@@ -1533,11 +1826,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
+  // Populate chime select with available chime files
+  async function populateChimeSelect() {
+    const select = document.getElementById('chimeSelect');
+    const currentValue = select.value;
+    
+    select.innerHTML = '<option value="">なし</option>';
+    
+    try {
+      const response = await fetch('/api/chime_files');
+      const data = await response.json();
+      if (data.status === 'success') {
+        data.files.forEach(file => {
+          const option = document.createElement('option');
+          option.value = file;
+          option.textContent = file.replace('.mp3', '');
+          select.appendChild(option);
+        });
+      }
+    } catch (e) {
+      console.log('Error fetching chime files:', e);
+      // Fallback to static list
+      const chimeFiles = [
+        'お寺の鐘.mp3',
+        'きらきら輝く6.mp3',
+        'ほら貝を吹き鳴らす.mp3',
+        'ドンドンパフパフ.mp3',
+        'ラッパのファンファーレ.mp3',
+        'レベルアップ.mp3',
+        '放送開始チャイム.mp3',
+        '教会の鐘2.mp3',
+        '歓声と拍手.mp3',
+        '決定ボタンを押す4.mp3',
+        '決定ボタンを押す5.mp3',
+        '男衆「イエーイ！」.mp3',
+        '男衆「イヤッホー！」.mp3',
+        '突撃ラッパ.mp3',
+        '警報が鳴る.mp3',
+        '開演ブザー.mp3'
+      ];
+      chimeFiles.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file;
+        option.textContent = file.replace('.mp3', '');
+        select.appendChild(option);
+      });
+    }
+    
+    // Restore previous selection if it still exists
+    if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
+      select.value = currentValue;
+    }
+  }
+  
   // Populate voices when available
   if (speechSynthesis.onvoiceschanged !== undefined) {
     speechSynthesis.onvoiceschanged = populateVoiceSelect;
   }
   populateVoiceSelect();
+  populateChimeSelect();
   
   document.getElementById('saveRuleBtn')?.addEventListener('click', async () => {
     // validate alignment first
@@ -1558,8 +1905,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   const alignment = getAlignmentSettingsFromUI();
   const ruleObj = { conditions: conditions };
-  // include alignment only if enabled (N not 'off') and TFs selected
-  if(alignment.n && alignment.tfs && alignment.tfs.length > 0){ ruleObj.alignment = alignment; }
+  // include alignment only if TFs selected
+  if(alignment.tfs && alignment.tfs.length > 0){ ruleObj.alignment = alignment; }
   
   // include voice settings
   const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
@@ -1568,12 +1915,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const commonMessage = document.getElementById('voiceMessage').value.trim();
   const messageUp = document.getElementById('voiceMessageUp').value.trim();
   const messageDown = document.getElementById('voiceMessageDown').value.trim();
+  const playChime = document.getElementById('playChimeFirst').checked;
+  const chimeFile = document.getElementById('chimeSelect').value;
   
   console.log('[DEBUG] Voice settings - isDirectionBased:', isDirectionBased, 'voiceName:', voiceName, 'messagePosition:', messagePosition);
   console.log('[DEBUG] Messages - common:', commonMessage, 'up:', messageUp, 'down:', messageDown);
+  console.log('[DEBUG] Chime - playChime:', playChime, 'chimeFile:', chimeFile);
   
   // Check if any voice setting exists
-  if (commonMessage || messageUp || messageDown || voiceName) {
+  if (commonMessage || messageUp || messageDown || voiceName || (playChime && chimeFile)) {
     ruleObj.voice = {};
     
     // Always save common message if present
@@ -1591,6 +1941,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Always save voice name if selected
     if (voiceName) {
       ruleObj.voice.voice_name = voiceName;
+    }
+    
+    // Save chime settings
+    if (playChime && chimeFile) {
+      ruleObj.voice.chime_file = chimeFile;
+    }
+    
+    // Save symbol insert setting
+    if (document.getElementById('insertSymbol').checked) {
+      ruleObj.voice.insert_symbol = true;
+      ruleObj.voice.symbol_insert_position = document.getElementById('symbolInsertPosition').value;
+    } else {
+      delete ruleObj.voice.insert_symbol;
+      delete ruleObj.voice.symbol_insert_position;
     }
   }
   
@@ -1646,13 +2010,42 @@ document.addEventListener('DOMContentLoaded', () => {
       const valVal = valEl ? (valEl.value || null) : null;
       return { label: tf, field: fld, op: opVal, value: valVal };
     });
-    const payload = { rule: { logic: 'AND', conditions: conditions }, scope: scope };
-    const alignment = getAlignmentSettingsFromUI();
-    if(alignment.n && alignment.tfs && alignment.tfs.length > 0){ payload.rule.alignment = alignment; }
+  const payload = { rule: { logic: 'AND', conditions: conditions }, scope: scope };
+  const alignment = getAlignmentSettingsFromUI();
+  if(alignment.tfs && alignment.tfs.length > 0){ payload.rule.alignment = alignment; }
 
     // alignment validation - we show a non-blocking warning
     const alignValid = validateAlignmentForSave();
     if(!alignValid.ok){ short.textContent = '注意: ' + alignValid.msg; }
+
+    // テスト時に現在のダッシュボードデータを state_override として送信
+    // 5m JSONには全TFの雲位置データが含まれているため、5mを優先的に使用
+    if (currentDashboardData && currentDashboardData.length > 0) {
+      let selectedState = null;
+      const ruleSymbol = scope.symbol;
+      
+      if (ruleSymbol) {
+        // ルールが特定の通貨に限定されている場合、その通貨の5mデータを使用
+        selectedState = currentDashboardData.find(s => s.symbol === ruleSymbol && (s.tf === '5' || s.tf === '5m'));
+        
+        // 5mが見つからなければ、その通貨の任意のデータを使用
+        if (!selectedState) {
+          selectedState = currentDashboardData.find(s => s.symbol === ruleSymbol);
+        }
+      } else {
+        // 通貨指定なしの場合、最初の5mデータを使用
+        selectedState = currentDashboardData.find(s => s.tf === '5' || s.tf === '5m');
+        
+        // 5mが見つからなければ最初のデータを使用
+        if (!selectedState) {
+          selectedState = currentDashboardData[0];
+        }
+      }
+      
+      if (selectedState) {
+        payload.state_override = selectedState;
+      }
+    }
 
     try {
       const res = await fetch('/rules/test', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -1728,7 +2121,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 'presence_check':'存在確認', 'missing_field':'データ欠損', 'invalid_threshold':'無効な閾値',
                 'directions_mismatch':'方向不一致', 'missing_fail':'欠損で不成立', 'effective_lt_n':'有効数が閾値未満',
                 'no_threshold_provided':'閾値未設定', 'invalid_direction':'無効な方向指定',
-                'no_selection':'TF未選択', 'need_at_least_2':'最低2つのTFが必要'
+                'no_selection':'TF未選択', 'need_at_least_2':'最低2つのTFが必要',
+                'too_few_effective_tfs':'有効TFが2つ未満', 'order_mismatch':'順序不一致', 'no_row_order':'雲順序データなし'
               };
               if (d.reason) {
                 const reasonText = reasonMap[d.reason] || d.reason;
@@ -1863,6 +2257,28 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Wire test fire button
   document.getElementById('test-fire-btn')?.addEventListener('click', testFire);
+  
+  // Wire clear fire history button
+  document.getElementById('clear-fire-history-btn')?.addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/clear_notifications', { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'success') {
+        // Clear local display
+        const listEl = document.getElementById('fire-history-list');
+        if (listEl) {
+          listEl.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+        }
+        console.log('Notifications cleared');
+      } else {
+        console.log('Clear failed:', data);
+        alert('クリアに失敗しました: ' + (data.msg || JSON.stringify(data)));
+      }
+    } catch (e) {
+      console.log('Clear error:', e);
+      alert('クリアエラー: ' + e.message);
+    }
+  });
 });
 
 // --- Notifications and Voice Alerts ---
@@ -1897,7 +2313,7 @@ async function checkNotifications() {
       lastNotificationTimestamp = latestTimestamp;
       
       // Play voice alert
-      playVoiceAlert(latest.message);
+      playVoiceAlert(latest.message, null, latest.symbol);
       
       console.log('[NOTIFICATION]', latest);
     }
@@ -1907,77 +2323,115 @@ async function checkNotifications() {
 }
 
 function updateFireHistory(notifications) {
-  const listEl = document.getElementById('fire-history-list');
-  if (!listEl) return;
-  
   if (notifications.length === 0) {
-    listEl.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+    // すべての通貨の履歴をクリア
+    document.querySelectorAll('.fire-history-list').forEach(listEl => {
+      listEl.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+    });
     return;
   }
   
-  // Display latest 20 notifications (USDJPY only)
-  const usdJpyNotifications = notifications.filter(n => n.symbol === 'USDJPY');
-  const displayNotifications = usdJpyNotifications.slice(0, 20);
-  
-  let html = '';
-  displayNotifications.forEach(notif => {
-    // Format timestamp: YY/MM/DD HH:mm
-    const dt = new Date(notif.timestamp);
-    const year = String(dt.getFullYear()).slice(-2);
-    const month = String(dt.getMonth() + 1).padStart(2, '0');
-    const day = String(dt.getDate()).padStart(2, '0');
-    const hour = String(dt.getHours()).padStart(2, '0');
-    const minute = String(dt.getMinutes()).padStart(2, '0');
-    const timeStr = year + '/' + month + '/' + day + ' ' + hour + ':' + minute;
-    
-    html += '<div class="fire-item">';
-    html += '<span class="fire-time">' + timeStr + '</span>';
-    html += '<span class="fire-name">' + (notif.rule_name || '不明') + '</span>';
-    html += '</div>';
+  // 通貨ごとに通知を分類
+  const notificationsBySymbol = {};
+  notifications.forEach(notif => {
+    const symbol = notif.symbol || 'UNKNOWN';
+    if (!notificationsBySymbol[symbol]) {
+      notificationsBySymbol[symbol] = [];
+    }
+    notificationsBySymbol[symbol].push(notif);
   });
   
-  listEl.innerHTML = html;
+  // 各通貨の発火履歴を更新
+  document.querySelectorAll('.currency-fire-history-list').forEach(listEl => {
+    const symbol = listEl.dataset.symbol;
+    const symbolNotifications = notificationsBySymbol[symbol] || [];
+    const displayNotifications = symbolNotifications.slice(0, 20);
+    
+    if (displayNotifications.length === 0) {
+      listEl.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+      return;
+    }
+    
+    let html = '';
+    displayNotifications.forEach(notif => {
+      // Format timestamp: YY/MM/DD HH:mm
+      const dt = new Date(notif.timestamp);
+      const year = String(dt.getFullYear()).slice(-2);
+      const month = String(dt.getMonth() + 1).padStart(2, '0');
+      const day = String(dt.getDate()).padStart(2, '0');
+      const hour = String(dt.getHours()).padStart(2, '0');
+      const minute = String(dt.getMinutes()).padStart(2, '0');
+      const timeStr = year + '/' + month + '/' + day + ' ' + hour + ':' + minute;
+      
+      html += '<div class="fire-item">';
+      html += '<span class="fire-time">' + timeStr + '</span>';
+      html += '<span class="fire-name">' + (notif.rule_name || '不明') + '</span>';
+      html += '</div>';
+    });
+    
+    listEl.innerHTML = html;
+  });
   
   // Apply current font size to newly created elements
   const savedSize = localStorage.getItem('tv_font_size') || '14';
   applyFontSize(savedSize);
+  
+  // Sync fire history heights after content update
+  syncAllFireHistoryHeights();
 }
 
-// Sync fire history height with table
-function syncFireHistoryHeight() {
-  const dashboard = document.getElementById('dashboard');
-  const fireHistory = document.getElementById('fire-history');
-  
-  if (!dashboard || !fireHistory) return;
-  
-  // Get the actual height of the dashboard content
-  const tableWrap = dashboard.querySelector('.table-wrap');
-  if (!tableWrap) return;
-  
-  const table = tableWrap.querySelector('table');
-  if (!table) return;
-  
-  // Get the exact table height
-  const tableHeight = table.offsetHeight;
-  
-  // Set fire history to match table height exactly (accounting for padding)
-  const fireHistoryPadding = 24; // 12px top + 12px bottom
-  const headerHeight = document.getElementById('fire-history-header')?.offsetHeight || 0;
-  const headerMargin = 10; // margin-bottom
-  
-  // Calculate available height for the list
-  const availableHeight = tableHeight - fireHistoryPadding - headerHeight - headerMargin;
-  
-  // Set the fire history container to match table height
-  fireHistory.style.height = tableHeight + 'px';
-  
-  console.log('[SYNC] Table height:', tableHeight, 'Fire history height:', tableHeight);
+// 全通貨の発火履歴ウィンドウの高さを同期する
+function syncAllFireHistoryHeights() {
+  document.querySelectorAll('.currency-section').forEach(section => {
+    const dashboard = section.querySelector('.currency-dashboard');
+    const fireHistory = section.querySelector('.currency-fire-history');
+    
+    if (!dashboard || !fireHistory) return;
+    
+    // Get the table from dashboard
+    const tableWrap = dashboard.querySelector('.table-wrap');
+    if (!tableWrap) return;
+    
+    const table = tableWrap.querySelector('table');
+    if (!table) return;
+    
+    // Use requestAnimationFrame to ensure layout is complete
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const tableHeight = table.offsetHeight;
+        
+        // Set fire history height to match table
+        fireHistory.style.height = tableHeight + 'px';
+        
+        // Adjust the list max-height to account for header
+        const headerHeight = fireHistory.querySelector('.currency-fire-history-header')?.offsetHeight || 50;
+        const padding = 24; // 12px top + 12px bottom
+        const availableHeight = tableHeight - padding - headerHeight;
+        
+        const listEl = fireHistory.querySelector('.currency-fire-history-list');
+        if (listEl) {
+          listEl.style.maxHeight = Math.max(0, availableHeight) + 'px';
+        }
+        
+        console.log('[SYNC] Table height:', tableHeight, 'Fire history height:', tableHeight);
+      });
+    });
+  });
 }
+
+// Keep fire history height synced on viewport changes
+window.addEventListener('resize', () => {
+  requestAnimationFrame(() => syncAllFireHistoryHeights());
+});
 
 // Test fire button handler
-async function testFire() {
+async function testFire(symbol = 'USDJPY') {
   try {
-    const res = await fetch('/api/test_fire', { method: 'POST' });
+    const res = await fetch('/api/test_fire', { 
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ symbol: symbol })
+    });
     const data = await res.json();
     
     if (data.status === 'success') {
@@ -1994,7 +2448,31 @@ async function testFire() {
   }
 }
 
-function playVoiceAlert(message, voiceSettings = null) {
+// Clear fire history for a specific currency
+async function clearFireHistory(symbol) {
+  try {
+    // まず即座にUIをクリア
+    const listEl = document.querySelector(`.currency-fire-history-list[data-symbol="${symbol}"]`);
+    if (listEl) {
+      listEl.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+    }
+    
+    // 次にサーバーにクリアリクエストを送信
+    const res = await fetch('/api/clear_notifications', { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'success') {
+      console.log('Notifications cleared');
+    } else {
+      console.log('Clear failed:', data);
+      alert('クリアに失敗しました: ' + (data.msg || JSON.stringify(data)));
+    }
+  } catch (e) {
+    console.log('Clear error:', e);
+    alert('クリアエラー: ' + e.message);
+  }
+}
+
+function playVoiceAlert(message, voiceSettings = null, symbol = null) {
   try {
     // Check if speech synthesis is supported
     if (!('speechSynthesis' in window)) {
@@ -2002,41 +2480,100 @@ function playVoiceAlert(message, voiceSettings = null) {
       return;
     }
     
-    // Create utterance
-    const utterance = new SpeechSynthesisUtterance(message);
-    
-    // Get global settings
-    const globalVolume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
-    const globalRate = parseFloat(localStorage.getItem('tv_voice_rate') || '1.0');
-    
-    // Apply voice settings (rule-specific or global)
-    utterance.lang = 'ja-JP';
-    utterance.volume = globalVolume;
-    utterance.rate = globalRate;
-    
-    // Set voice if specified
-    if (voiceSettings && voiceSettings.voice_name) {
-      const voices = speechSynthesis.getVoices();
-      const selectedVoice = voices.find(v => v.name === voiceSettings.voice_name);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
+    // Play chime first if specified
+    if (voiceSettings && voiceSettings.chime_file) {
+      const chimeAudio = new Audio('/Alarm/' + voiceSettings.chime_file);
+      chimeAudio.volume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
+      chimeAudio.addEventListener('ended', () => {
+        playVoiceMessage(message, voiceSettings, symbol);
+      });
+      chimeAudio.play().catch(e => {
+        console.log('Chime play error', e);
+        playVoiceMessage(message, voiceSettings, symbol);
+      });
     } else {
-      // Use default Japanese voice
-      const voices = speechSynthesis.getVoices();
-      const japaneseVoice = voices.find(voice => voice.lang.startsWith('ja'));
-      if (japaneseVoice) {
-        utterance.voice = japaneseVoice;
-      }
+      playVoiceMessage(message, voiceSettings, symbol);
     }
-    
-    // Speak
-    speechSynthesis.speak(utterance);
-    
-    console.log('Playing voice alert:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
   } catch (e) {
     console.log('playVoiceAlert error', e);
   }
+}
+
+function playVoiceMessage(message, voiceSettings = null, symbol = null) {
+  // Create utterance
+  const utterance = new SpeechSynthesisUtterance(message);
+  
+  // Get global settings
+  const globalVolume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
+  const globalRate = parseFloat(localStorage.getItem('tv_voice_rate') || '1.0');
+  
+  // Apply voice settings (rule-specific or global)
+  utterance.lang = 'ja-JP';
+  utterance.volume = globalVolume;
+  utterance.rate = globalRate;
+  
+  // Set voice if specified
+  if (voiceSettings && voiceSettings.voice_name) {
+    const voices = speechSynthesis.getVoices();
+    const selectedVoice = voices.find(v => v.name === voiceSettings.voice_name);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+  } else {
+    // Use default Japanese voice
+    const voices = speechSynthesis.getVoices();
+    const japaneseVoice = voices.find(voice => voice.lang.startsWith('ja'));
+    if (japaneseVoice) {
+      utterance.voice = japaneseVoice;
+    }
+  }
+  
+  // 通貨名挿入の場合、一拍の間を入れるために分割発声
+  if (voiceSettings && voiceSettings.insert_symbol && symbol) {
+    const japaneseName = currencyNames[symbol] || symbol;
+    const position = voiceSettings.symbol_insert_position || 'prefix';
+    
+    let parts = [];
+    if (position === 'prefix') {
+      parts = [japaneseName, message.replace(japaneseName + ' ', '')];
+    } else if (position === 'suffix') {
+      parts = [message.replace(' ' + japaneseName, ''), japaneseName];
+    } else if (position === 'both') {
+      const middleMessage = message.replace(japaneseName + ' ', '').replace(' ' + japaneseName, '');
+      parts = [japaneseName, middleMessage, japaneseName];
+    }
+    
+    if (parts.length > 1) {
+      // 分割発声
+      let currentIndex = 0;
+      
+      function speakNext() {
+        if (currentIndex < parts.length) {
+          const partUtterance = new SpeechSynthesisUtterance(parts[currentIndex]);
+          partUtterance.lang = utterance.lang;
+          partUtterance.volume = utterance.volume;
+          partUtterance.rate = utterance.rate;
+          partUtterance.voice = utterance.voice;
+          
+          partUtterance.onend = () => {
+            currentIndex++;
+            // 一拍の間を入れるために少し遅延
+            setTimeout(speakNext, 200); // 200msの間
+          };
+          
+          speechSynthesis.speak(partUtterance);
+        }
+      }
+      
+      speakNext();
+      return;
+    }
+  }
+  
+  // Speak
+  speechSynthesis.speak(utterance);
+  
+  console.log('Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
 }
 
 // Start notification checking

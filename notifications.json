@@ -1,26 +1,22 @@
 [
   {
-    "timestamp": "2025-11-08T10:45:32.481595+09:00",
+    "rule_id": "test-fire",
+    "rule_name": "テスト発火",
     "symbol": "USDJPY",
-    "rule_name": "テストルール",
-    "message": "テストルール が上昇方向で発火しました",
+    "tf": "5",
     "direction": "上昇",
-    "details": "これはテスト発火です"
+    "message": "テスト発火メッセージ",
+    "timestamp": "2025-11-09T14:30:03.742205+09:00",
+    "price": 153.419
   },
   {
-    "timestamp": "2025-11-08T10:54:36.617257+09:00",
-    "symbol": "USDJPY",
-    "rule_name": "テストルール",
-    "message": "テストルール が上昇方向で発火しました",
+    "rule_id": "test-fire",
+    "rule_name": "テスト発火",
+    "symbol": "EURUSD",
+    "tf": "5",
     "direction": "上昇",
-    "details": "これはテスト発火です"
-  },
-  {
-    "timestamp": "2025-11-08T10:54:42.963459+09:00",
-    "symbol": "USDJPY",
-    "rule_name": "テストルール",
-    "message": "テストルール が上昇方向で発火しました",
-    "direction": "上昇",
-    "details": "これはテスト発火です"
+    "message": "テスト発火メッセージ",
+    "timestamp": "2025-11-09T22:00:26.231655+09:00",
+    "price": 153.419
   }
 ]
