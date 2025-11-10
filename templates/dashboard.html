@@ -889,6 +889,8 @@ function wireSettings() {
       console.error('設定保存エラー:', err);
       alert('設定保存中にエラーが発生しました');
     }
+    // タイマーを再設定
+    startUpdateTimer();
   });
   
   // 音声設定（グローバル）
@@ -1000,6 +1002,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Populate voice and chime selects
     populateVoiceSelect();
     await populateChimeSelect();
+    
+    // 設定取得後にタイマーを開始
+    startUpdateTimer();
   } catch (err) { console.log('settings init error', err); }
 });
 
@@ -1449,9 +1454,18 @@ function renderCurrencyTable(symbol, allStates, container) {
 }
 
 // 初期読み込みと定期的な更新
-document.addEventListener('DOMContentLoaded', () => {
-  load();
-  setInterval(load, 300000);  // 5分ごとに更新
+let updateTimer = null;
+
+function startUpdateTimer() {
+  if (updateTimer) clearInterval(updateTimer);
+  const delay = parseInt(localStorage.getItem('tv_update_delay') || '10');
+  const interval = 300000 + delay * 1000; // 5分 + delay秒
+  console.log(`[TIMER] Starting update timer with interval: ${interval}ms (${Math.floor(interval/1000/60)}m ${Math.floor(interval/1000%60)}s)`);
+  updateTimer = setInterval(load, interval);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await load();
 });
 
 
