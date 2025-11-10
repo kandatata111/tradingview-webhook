@@ -64,6 +64,21 @@ def init_db():
     conn.commit()
     conn.close()
     print('[OK] Rules table ensured')
+    
+    # fire_history テーブル（発火履歴記録用）
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS fire_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rule_id TEXT NOT NULL,
+        symbol TEXT NOT NULL,
+        tf TEXT NOT NULL,
+        fired_at TEXT NOT NULL,
+        conditions_snapshot TEXT
+    )''')
+    conn.commit()
+    conn.close()
+    print('[OK] Fire history table ensured')
 
 @app.route('/Alarm/<path:filename>')
 def serve_alarm_file(filename):
@@ -1248,42 +1263,84 @@ def evaluate_and_fire_rules(data):
                     # Check for state change to avoid duplicate notifications
                     details = result.get('details', [])
                     
-                    # Detect if this is a state change (for fields like gc, dauten)
-                    is_state_change = False
+                    # Categorize condition types:
+                    # 1. State change fields (gc, dauten) - only fire when value changes
+                    # 2. Threshold fields (angle, thickness, distance_*, bos_count, transfer_time_diff) - fire when threshold is met
+                    # 3. Alignment - fire when alignment condition changes
+                    
+                    state_change_fields = ('gc', 'dauten')
+                    threshold_fields = ('angle', 'thickness', 'distance_from_prev', 'distance_from_price', 'bos_count', 'transfer_time_diff')
+                    
+                    should_fire = False
                     changed_fields = []
+                    rule_conditions = rule.get('conditions', [])
+                    has_alignment = rule.get('alignment') is not None
                     
-                    if prev_clouds:
-                        curr_clouds = data.get('clouds', [])
-                        for cond in rule.get('conditions', []):
-                            field = cond.get('field')
-                            label = cond.get('label')
+                    # Check if rule has only threshold-based conditions or alignment
+                    has_state_change_fields = any(cond.get('field') in state_change_fields for cond in rule_conditions)
+                    has_threshold_fields = any(cond.get('field') in threshold_fields for cond in rule_conditions)
+                    
+                    # Check last fire time to prevent duplicate notifications within cooldown period
+                    cooldown_minutes = 60  # Don't fire same rule for same symbol/tf within 60 minutes
+                    conn_check = sqlite3.connect(DB_PATH)
+                    c_check = conn_check.cursor()
+                    c_check.execute('''SELECT fired_at FROM fire_history 
+                                       WHERE rule_id = ? AND symbol = ? AND tf = ? 
+                                       ORDER BY fired_at DESC LIMIT 1''', (rule_id, symbol, tf))
+                    last_fire = c_check.fetchone()
+                    conn_check.close()
+                    
+                    if last_fire:
+                        try:
+                            last_fire_time = datetime.fromisoformat(last_fire[0])
+                            now = datetime.now(jst)
+                            minutes_since_fire = (now - last_fire_time).total_seconds() / 60
                             
-                            if field in ('gc', 'dauten'):
-                                # Find current and previous values
-                                curr_val = None
-                                prev_val = None
-                                
-                                for c in curr_clouds:
-                                    if c.get('label') == label:
-                                        curr_val = c.get(field)
-                                        break
-                                
-                                for c in prev_clouds:
-                                    if c.get('label') == label:
-                                        prev_val = c.get(field)
-                                        break
-                                
-                                # Check if value changed
-                                if curr_val != prev_val:
-                                    is_state_change = True
-                                    changed_fields.append(f'{label}.{field}')
-                                    print(f'[FIRE] State change detected: {label}.{field} changed from {prev_val} to {curr_val}')
-                    else:
-                        # No previous state, treat as first occurrence (state change)
-                        is_state_change = True
-                        print(f'[FIRE] No previous state, treating as state change')
+                            if minutes_since_fire < cooldown_minutes:
+                                print(f'[FIRE] Rule "{rule_name}" in cooldown period ({minutes_since_fire:.1f}m < {cooldown_minutes}m), skipping')
+                                continue
+                        except Exception as e:
+                            print(f'[FIRE] Error checking cooldown: {e}')
                     
-                    if not is_state_change:
+                    if has_alignment or has_threshold_fields:
+                        # For alignment and threshold-based rules, fire when matched (with cooldown protection)
+                        should_fire = True
+                        print(f'[FIRE] Rule "{rule_name}" has threshold/alignment conditions, firing on match')
+                    
+                    if has_state_change_fields:
+                        # For state change fields, check if value actually changed
+                        if prev_clouds:
+                            curr_clouds = data.get('clouds', [])
+                            for cond in rule_conditions:
+                                field = cond.get('field')
+                                label = cond.get('label')
+                                
+                                if field in state_change_fields:
+                                    # Find current and previous values
+                                    curr_val = None
+                                    prev_val = None
+                                    
+                                    for c in curr_clouds:
+                                        if c.get('label') == label:
+                                            curr_val = c.get(field)
+                                            break
+                                    
+                                    for c in prev_clouds:
+                                        if c.get('label') == label:
+                                            prev_val = c.get(field)
+                                            break
+                                    
+                                    # Check if value changed
+                                    if curr_val != prev_val:
+                                        should_fire = True
+                                        changed_fields.append(f'{label}.{field}')
+                                        print(f'[FIRE] State change detected: {label}.{field} changed from {prev_val} to {curr_val}')
+                        else:
+                            # No previous state, treat as first occurrence (state change)
+                            should_fire = True
+                            print(f'[FIRE] No previous state, treating as state change')
+                    
+                    if not should_fire:
                         print(f'[FIRE] Rule "{rule_name}" matched but no state change detected, skipping notification')
                         continue
                     
@@ -1391,6 +1448,19 @@ def evaluate_and_fire_rules(data):
                     }
                     
                     fired_notifications.append(notification)
+                    
+                    # Record fire event in history
+                    try:
+                        conn_hist = sqlite3.connect(DB_PATH)
+                        c_hist = conn_hist.cursor()
+                        c_hist.execute('''INSERT INTO fire_history (rule_id, symbol, tf, fired_at, conditions_snapshot)
+                                         VALUES (?, ?, ?, ?, ?)''',
+                                      (rule_id, symbol, tf, datetime.now(jst).isoformat(), 
+                                       json.dumps(rule.get('conditions', []), ensure_ascii=False)))
+                        conn_hist.commit()
+                        conn_hist.close()
+                    except Exception as e:
+                        print(f'[ERROR] Saving fire history: {e}')
                     
                     print(f'[RULE FIRED] {rule_name} - {direction} - {combined_message}')
             
