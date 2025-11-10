@@ -94,6 +94,13 @@ def webhook():
         received_at = datetime.now(jst).isoformat()
         print(f'[WEBHOOK RECEIVED] {received_at} - {data.get("symbol", "UNKNOWN")}/{data.get("tf", "5")}')
         
+        # ログをファイルに保存
+        try:
+            with open(os.path.join(BASE_DIR, 'webhook_log.txt'), 'a', encoding='utf-8') as f:
+                f.write(f'{received_at} - {data.get("symbol", "UNKNOWN")}/{data.get("tf", "5")} - {json.dumps(data, ensure_ascii=False)}\n')
+        except Exception as e:
+            print(f'[LOG ERROR] {e}')
+        
         # 設定から更新遅延時間を取得
         settings_path = os.path.join(BASE_DIR, 'settings.json')
         delay_seconds = 10.0  # デフォルト
@@ -1140,19 +1147,18 @@ def api_notifications():
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
-@app.route('/api/chime_files')
-def api_chime_files():
+@app.route('/api/webhook_logs')
+def api_webhook_logs():
     try:
-        alarm_dir = os.path.join(BASE_DIR, 'Alarm')
-        if not os.path.exists(alarm_dir):
-            return jsonify({'status': 'success', 'files': []}), 200
+        log_path = os.path.join(BASE_DIR, 'webhook_log.txt')
+        if not os.path.exists(log_path):
+            return jsonify({'status': 'success', 'logs': []}), 200
         
-        files = []
-        for f in os.listdir(alarm_dir):
-            if f.lower().endswith('.mp3'):
-                files.append(f)
+        with open(log_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
         
-        return jsonify({'status': 'success', 'files': files}), 200
+        # 最新50件を返す
+        return jsonify({'status': 'success', 'logs': lines[-50:]}), 200
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
@@ -1178,15 +1184,33 @@ def evaluate_and_fire_rules(data):
             'USDCHF': 'ドルスイス'
         }
         
-        # Get all enabled rules
+        # Get previous state from database to detect changes
+        symbol = data.get('symbol', 'UNKNOWN')
+        tf = data.get('tf', '5')
+        
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
+        
+        # Get previous state for change detection
+        c.execute('SELECT clouds_json FROM states WHERE symbol = ? AND tf = ?', (symbol, tf))
+        prev_row = c.fetchone()
+        prev_clouds = None
+        if prev_row and prev_row[0]:
+            try:
+                prev_clouds = json.loads(prev_row[0])
+            except:
+                prev_clouds = None
+        
+        # Get all enabled rules
         c.execute('SELECT id, name, enabled, scope_json, rule_json FROM rules WHERE enabled = 1')
         rows = c.fetchall()
         conn.close()
         
         if not rows:
+            print('[FIRE] No enabled rules')
             return  # No enabled rules
+        
+        print(f'[FIRE] Evaluating {len(rows)} enabled rules for {symbol}/{tf}')
         
         jst = pytz.timezone('Asia/Tokyo')
         fired_notifications = []
@@ -1199,7 +1223,10 @@ def evaluate_and_fire_rules(data):
                 
                 # Check scope: if scope has symbol, must match
                 if scope.get('symbol') and scope['symbol'] != data.get('symbol'):
+                    print(f'[FIRE] Rule "{rule_name}" scope mismatch: {scope.get("symbol")} != {data.get("symbol")}')
                     continue
+                
+                print(f'[FIRE] Testing rule "{rule_name}" for {symbol}/{tf}')
                 
                 # Test the rule using existing rules_test logic
                 # Prepare payload for rules_test
@@ -1215,10 +1242,55 @@ def evaluate_and_fire_rules(data):
                     response = rules_test()
                     result = response.get_json()
                 
+                print(f'[FIRE] Rule "{rule_name}" result: matched={result.get("matched")}')
+                
                 if result.get('status') == 'success' and result.get('matched'):
+                    # Check for state change to avoid duplicate notifications
+                    details = result.get('details', [])
+                    
+                    # Detect if this is a state change (for fields like gc, dauten)
+                    is_state_change = False
+                    changed_fields = []
+                    
+                    if prev_clouds:
+                        curr_clouds = data.get('clouds', [])
+                        for cond in rule.get('conditions', []):
+                            field = cond.get('field')
+                            label = cond.get('label')
+                            
+                            if field in ('gc', 'dauten'):
+                                # Find current and previous values
+                                curr_val = None
+                                prev_val = None
+                                
+                                for c in curr_clouds:
+                                    if c.get('label') == label:
+                                        curr_val = c.get(field)
+                                        break
+                                
+                                for c in prev_clouds:
+                                    if c.get('label') == label:
+                                        prev_val = c.get(field)
+                                        break
+                                
+                                # Check if value changed
+                                if curr_val != prev_val:
+                                    is_state_change = True
+                                    changed_fields.append(f'{label}.{field}')
+                                    print(f'[FIRE] State change detected: {label}.{field} changed from {prev_val} to {curr_val}')
+                    else:
+                        # No previous state, treat as first occurrence (state change)
+                        is_state_change = True
+                        print(f'[FIRE] No previous state, treating as state change')
+                    
+                    if not is_state_change:
+                        print(f'[FIRE] Rule "{rule_name}" matched but no state change detected, skipping notification')
+                        continue
+                    
+                    print(f'[FIRE] Rule "{rule_name}" FIRED! Creating notification...')
+                    
                     # Rule fired! Determine direction from dauten, bos_count, and gc fields
                     direction = None
-                    details = result.get('details', [])
                     
                     # Collect directions from all relevant fields
                     directions_found = []
