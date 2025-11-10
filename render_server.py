@@ -1169,6 +1169,38 @@ def api_notifications():
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
+@app.route('/api/clear_notifications', methods=['POST'])
+def api_clear_notifications():
+    """Clear all notifications"""
+    try:
+        notifications_path = os.path.join(BASE_DIR, 'notifications.json')
+        
+        # Clear notifications file
+        with open(notifications_path, 'w', encoding='utf-8') as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
+        
+        print('[API/CLEAR_NOTIFICATIONS] Notifications cleared')
+        return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        print(f'[ERROR][api/clear_notifications] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/clear_fire_history', methods=['POST'])
+def api_clear_fire_history():
+    """Clear fire history database"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('DELETE FROM fire_history')
+        conn.commit()
+        conn.close()
+        
+        print('[API/CLEAR_FIRE_HISTORY] Fire history cleared')
+        return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        print(f'[ERROR][api/clear_fire_history] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 @app.route('/api/webhook_logs')
 def api_webhook_logs():
     try:
