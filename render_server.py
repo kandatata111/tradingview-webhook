@@ -1,4 +1,4 @@
-﻿from flask import Flask, request, jsonify, render_template, send_from_directory
+﻿from flask import Flask, request, jsonify, render_template, send_from_directory, make_response
 import os, sqlite3, json
 from datetime import datetime
 import threading
@@ -95,7 +95,11 @@ def serve_alarm_file(filename):
 def dashboard():
     print('[ACCESS] Dashboard request')
     try:
-        return render_template('dashboard.html')
+        response = make_response(render_template('dashboard.html'))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except Exception as e:
         print(f'[ERROR] Dashboard error: {e}')
         return f'Error: {e}', 500
