@@ -2710,18 +2710,12 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Function to start polling
   const startNotificationPolling = () => {
-    // CRITICAL: Clear ALL existing intervals to prevent duplicates
-    // This is a nuclear option to ensure no old timers are running
-    const maxTimerId = setTimeout(function(){}, 0);
-    for (let i = 1; i <= maxTimerId; i++) {
-      clearInterval(i);
-    }
-    console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Cleared all existing timers (1-' + maxTimerId + ')');
-    
     if (notificationCheckInterval) {
-      console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Already running, skipping restart');
-      return; // Already running
+      console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Clearing existing polling interval ' + notificationCheckInterval);
+      clearInterval(notificationCheckInterval);
+      notificationCheckInterval = null;
     }
+
     const intervalMs = getPollingInterval();
     const intervalSecs = intervalMs / 1000;
     const mins = Math.floor(intervalSecs / 60);
