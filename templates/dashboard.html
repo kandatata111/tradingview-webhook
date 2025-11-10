@@ -617,7 +617,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 <script>
 // Version check and cache buster - 2025-11-10-v2
 (function() {
-  const REQUIRED_VERSION = '2025-11-10-v2';
+  const REQUIRED_VERSION = '2025-11-10-v3';
   const currentVersion = localStorage.getItem('app_version');
   if (currentVersion !== REQUIRED_VERSION) {
     console.log('[VERSION] Updating from', currentVersion, 'to', REQUIRED_VERSION);
@@ -2729,7 +2729,7 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null) {
 // Start notification checking
 document.addEventListener('DOMContentLoaded', () => {
   // Version check - prevent old code from running
-  const REQUIRED_VERSION = '2025-11-10-v2';
+  const REQUIRED_VERSION = '2025-11-10-v3';
   const currentVersion = localStorage.getItem('app_version');
   if (currentVersion !== REQUIRED_VERSION) {
     console.log('[NOTIFICATIONS] Version mismatch, waiting for reload');
