@@ -1546,25 +1546,19 @@ function computeNextUpdateTimeout(delaySeconds) {
   const now = new Date();
   const next = new Date(now);
   
-  // Reset seconds and milliseconds first
-  next.setSeconds(0, 0);
-
-  // Align minutes to the next 5-minute boundary
-  const minute = next.getMinutes();
-  const remainder = minute % 5;
-  if (remainder !== 0) {
-    next.setMinutes(minute + (5 - remainder));
-  } else {
-    // If already on a 5-minute boundary, move to the next one
-    next.setMinutes(minute + 5);
-  }
-
-  // Add delay seconds to the 5-minute boundary
-  next.setSeconds(delaySeconds);
-
-  // If the calculated time is in the past, move to the next 5-minute boundary
+  // 現在の秒数を取得
+  const currentSeconds = now.getSeconds();
+  
+  // 次の更新時刻を計算：現在の時刻から delaySeconds 秒後
+  next.setTime(now.getTime() + (delaySeconds * 1000));
+  
+  // 秒とミリ秒をリセット（delaySeconds秒後に実行）
+  next.setSeconds(delaySeconds, 0);
+  
+  // もし計算された時間が過去なら、次の分に移動
   if (next <= now) {
-    next.setMinutes(next.getMinutes() + 5);
+    next.setMinutes(next.getMinutes() + 1);
+    next.setSeconds(delaySeconds, 0);
   }
 
   return { timeout: next.getTime() - now.getTime(), target: next };
