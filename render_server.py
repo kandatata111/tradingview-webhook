@@ -74,8 +74,15 @@ def init_db():
         symbol TEXT NOT NULL,
         tf TEXT NOT NULL,
         fired_at TEXT NOT NULL,
-        conditions_snapshot TEXT
+        conditions_snapshot TEXT,
+        last_state_snapshot TEXT
     )''')
+    # Add last_state_snapshot column if it doesn't exist
+    try:
+        c.execute('ALTER TABLE fire_history ADD COLUMN last_state_snapshot TEXT')
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
     conn.commit()
     conn.close()
     print('[OK] Fire history table ensured')
@@ -1199,24 +1206,13 @@ def evaluate_and_fire_rules(data):
             'USDCHF': 'ドルスイス'
         }
         
-        # Get previous state from database to detect changes
+        # Get symbol and tf from incoming data
         symbol = data.get('symbol', 'UNKNOWN')
         tf = data.get('tf', '5')
         
+        # Get all enabled rules
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        
-        # Get previous state for change detection
-        c.execute('SELECT clouds_json FROM states WHERE symbol = ? AND tf = ?', (symbol, tf))
-        prev_row = c.fetchone()
-        prev_clouds = None
-        if prev_row and prev_row[0]:
-            try:
-                prev_clouds = json.loads(prev_row[0])
-            except:
-                prev_clouds = None
-        
-        # Get all enabled rules
         c.execute('SELECT id, name, enabled, scope_json, rule_json FROM rules WHERE enabled = 1')
         rows = c.fetchall()
         conn.close()
@@ -1260,91 +1256,143 @@ def evaluate_and_fire_rules(data):
                 print(f'[FIRE] Rule "{rule_name}" result: matched={result.get("matched")}')
                 
                 if result.get('status') == 'success' and result.get('matched'):
-                    # Check for state change to avoid duplicate notifications
-                    details = result.get('details', [])
-                    
                     # Categorize condition types:
-                    # 1. State change fields (gc, dauten) - only fire when value changes
-                    # 2. Threshold fields (angle, thickness, distance_*, bos_count, transfer_time_diff) - fire when threshold is met
-                    # 3. Alignment - fire when alignment condition changes
+                    # 1. State change fields (gc, dauten, bos_count) - fire when value changes
+                    # 2. Threshold fields (angle, thickness, distance_*, transfer_time_diff) - fire when crossing threshold
+                    # 3. Alignment - fire when alignment state changes (aligned -> not aligned -> aligned)
                     
-                    state_change_fields = ('gc', 'dauten')
-                    threshold_fields = ('angle', 'thickness', 'distance_from_prev', 'distance_from_price', 'bos_count', 'transfer_time_diff')
+                    # BOS count is now treated as state change (fires on every count change)
+                    state_change_fields = ('gc', 'dauten', 'bos_count')
+                    threshold_fields = ('angle', 'thickness', 'distance_from_prev', 'distance_from_price', 'transfer_time_diff')
                     
                     should_fire = False
                     changed_fields = []
                     rule_conditions = rule.get('conditions', [])
                     has_alignment = rule.get('alignment') is not None
                     
-                    # Check if rule has only threshold-based conditions or alignment
-                    has_state_change_fields = any(cond.get('field') in state_change_fields for cond in rule_conditions)
-                    has_threshold_fields = any(cond.get('field') in threshold_fields for cond in rule_conditions)
-                    
-                    # Check last fire time to prevent duplicate notifications within cooldown period
-                    cooldown_minutes = 60  # Don't fire same rule for same symbol/tf within 60 minutes
+                    # Get last fired state for this rule
                     conn_check = sqlite3.connect(DB_PATH)
                     c_check = conn_check.cursor()
-                    c_check.execute('''SELECT fired_at FROM fire_history 
+                    c_check.execute('''SELECT last_state_snapshot FROM fire_history 
                                        WHERE rule_id = ? AND symbol = ? AND tf = ? 
                                        ORDER BY fired_at DESC LIMIT 1''', (rule_id, symbol, tf))
                     last_fire = c_check.fetchone()
                     conn_check.close()
                     
-                    if last_fire:
+                    last_state = None
+                    if last_fire and last_fire[0]:
                         try:
-                            last_fire_time = datetime.fromisoformat(last_fire[0])
-                            now = datetime.now(jst)
-                            minutes_since_fire = (now - last_fire_time).total_seconds() / 60
+                            last_state = json.loads(last_fire[0])
+                        except:
+                            last_state = None
+                    
+                    # Build current state snapshot
+                    current_state = {}
+                    curr_clouds = data.get('clouds', [])
+                    
+                    # Check state change fields (gc, dauten, bos_count)
+                    for cond in rule_conditions:
+                        field = cond.get('field')
+                        label = cond.get('label')
+                        
+                        if field in state_change_fields:
+                            # Find current value
+                            curr_val = None
+                            for c in curr_clouds:
+                                if c.get('label') == label:
+                                    curr_val = c.get(field)
+                                    break
                             
-                            if minutes_since_fire < cooldown_minutes:
-                                print(f'[FIRE] Rule "{rule_name}" in cooldown period ({minutes_since_fire:.1f}m < {cooldown_minutes}m), skipping')
-                                continue
-                        except Exception as e:
-                            print(f'[FIRE] Error checking cooldown: {e}')
+                            state_key = f'{label}.{field}'
+                            current_state[state_key] = curr_val
+                            
+                            # Compare with last state
+                            if last_state is None or last_state.get(state_key) != curr_val:
+                                should_fire = True
+                                changed_fields.append(state_key)
+                                prev_val = last_state.get(state_key) if last_state else None
+                                print(f'[FIRE] State change: {state_key} changed from {prev_val} to {curr_val}')
                     
-                    if has_alignment or has_threshold_fields:
-                        # For alignment and threshold-based rules, fire when matched (with cooldown protection)
-                        should_fire = True
-                        print(f'[FIRE] Rule "{rule_name}" has threshold/alignment conditions, firing on match')
+                    # Check threshold fields (angle, thickness, distance_*, transfer_time_diff)
+                    for cond in rule_conditions:
+                        field = cond.get('field')
+                        label = cond.get('label')
+                        threshold_value = cond.get('value')
+                        
+                        if field in threshold_fields:
+                            # Find current value
+                            curr_val = None
+                            for c in curr_clouds:
+                                if c.get('label') == label:
+                                    curr_val = c.get(field)
+                                    break
+                            
+                            # For transfer_time_diff, calculate based on detail results
+                            if field == 'transfer_time_diff':
+                                # Find the detail for this condition
+                                details = result.get('details', [])
+                                for detail in details:
+                                    if detail.get('cond') == f'{label}.{field}':
+                                        curr_val = detail.get('delta_min') or detail.get('actual')
+                                        break
+                            
+                            state_key = f'{label}.{field}'
+                            
+                            # Determine if threshold is met
+                            threshold_met = False
+                            if curr_val is not None and threshold_value is not None:
+                                try:
+                                    curr_float = float(curr_val)
+                                    threshold_float = float(threshold_value)
+                                    
+                                    # For distance/angle/thickness: value >= threshold
+                                    # For transfer_time_diff: value <= threshold
+                                    if field == 'transfer_time_diff':
+                                        threshold_met = curr_float <= threshold_float
+                                    else:
+                                        # For angle, thickness, distance: check if >= +N or <= -N
+                                        threshold_met = (curr_float >= threshold_float) or (curr_float <= -threshold_float)
+                                except:
+                                    threshold_met = False
+                            
+                            current_state[state_key] = threshold_met
+                            
+                            # Fire if: threshold is met AND (no last state OR last state was NOT met)
+                            last_threshold_met = last_state.get(state_key) if last_state else None
+                            
+                            if threshold_met and (last_threshold_met is None or not last_threshold_met):
+                                should_fire = True
+                                changed_fields.append(state_key)
+                                print(f'[FIRE] Threshold crossed: {state_key} = {curr_val} (threshold: {threshold_value}, was_met: {last_threshold_met} -> now_met: {threshold_met})')
                     
-                    if has_state_change_fields:
-                        # For state change fields, check if value actually changed
-                        if prev_clouds:
-                            curr_clouds = data.get('clouds', [])
-                            for cond in rule_conditions:
-                                field = cond.get('field')
-                                label = cond.get('label')
-                                
-                                if field in state_change_fields:
-                                    # Find current and previous values
-                                    curr_val = None
-                                    prev_val = None
-                                    
-                                    for c in curr_clouds:
-                                        if c.get('label') == label:
-                                            curr_val = c.get(field)
-                                            break
-                                    
-                                    for c in prev_clouds:
-                                        if c.get('label') == label:
-                                            prev_val = c.get(field)
-                                            break
-                                    
-                                    # Check if value changed
-                                    if curr_val != prev_val:
-                                        should_fire = True
-                                        changed_fields.append(f'{label}.{field}')
-                                        print(f'[FIRE] State change detected: {label}.{field} changed from {prev_val} to {curr_val}')
-                        else:
-                            # No previous state, treat as first occurrence (state change)
+                    # Check alignment condition
+                    if has_alignment:
+                        alignment = rule.get('alignment')
+                        
+                        # Determine if alignment is met from details
+                        alignment_met = False
+                        details = result.get('details', [])
+                        for detail in details:
+                            if detail.get('cond') == 'alignment':
+                                alignment_met = detail.get('result', False)
+                                break
+                        
+                        state_key = 'alignment'
+                        current_state[state_key] = alignment_met
+                        
+                        # Fire if: aligned AND (no last state OR last state was NOT aligned)
+                        last_alignment_met = last_state.get(state_key) if last_state else None
+                        
+                        if alignment_met and (last_alignment_met is None or not last_alignment_met):
                             should_fire = True
-                            print(f'[FIRE] No previous state, treating as state change')
+                            changed_fields.append(state_key)
+                            print(f'[FIRE] Alignment achieved: was_aligned: {last_alignment_met} -> now_aligned: {alignment_met}')
                     
                     if not should_fire:
                         print(f'[FIRE] Rule "{rule_name}" matched but no state change detected, skipping notification')
                         continue
                     
-                    print(f'[FIRE] Rule "{rule_name}" FIRED! Creating notification...')
+                    print(f'[FIRE] Rule "{rule_name}" FIRED! Changed fields: {changed_fields}')
                     
                     # Rule fired! Determine direction from dauten, bos_count, and gc fields
                     direction = None
@@ -1449,14 +1497,15 @@ def evaluate_and_fire_rules(data):
                     
                     fired_notifications.append(notification)
                     
-                    # Record fire event in history
+                    # Record fire event in history with current state snapshot
                     try:
                         conn_hist = sqlite3.connect(DB_PATH)
                         c_hist = conn_hist.cursor()
-                        c_hist.execute('''INSERT INTO fire_history (rule_id, symbol, tf, fired_at, conditions_snapshot)
-                                         VALUES (?, ?, ?, ?, ?)''',
+                        c_hist.execute('''INSERT INTO fire_history (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                         VALUES (?, ?, ?, ?, ?, ?)''',
                                       (rule_id, symbol, tf, datetime.now(jst).isoformat(), 
-                                       json.dumps(rule.get('conditions', []), ensure_ascii=False)))
+                                       json.dumps(rule.get('conditions', []), ensure_ascii=False),
+                                       json.dumps(current_state, ensure_ascii=False)))
                         conn_hist.commit()
                         conn_hist.close()
                     except Exception as e:
