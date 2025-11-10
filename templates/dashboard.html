@@ -889,7 +889,7 @@ function wireSettings() {
       alert('設定保存中にエラーが発生しました');
     }
     // タイマーを再設定
-    startUpdateTimer();
+    scheduleNextUpdate();
   });
   
   // 音声設定（グローバル）
@@ -1093,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await populateChimeSelect();
     
     // 設定取得後にタイマーを開始
-    startUpdateTimer();
+    scheduleNextUpdate();
   } catch (err) { console.log('settings init error', err); }
 });
 
@@ -1545,16 +1545,59 @@ function renderCurrencyTable(symbol, allStates, container) {
 // 初期読み込みと定期的な更新
 let updateTimer = null;
 
-function startUpdateTimer() {
-  if (updateTimer) clearInterval(updateTimer);
-  const delay = parseInt(localStorage.getItem('tv_update_delay') || '10');
-  const interval = 300000 + delay * 1000; // 5分 + delay秒
-  console.log(`[TIMER] Starting update timer with interval: ${interval}ms (${Math.floor(interval/1000/60)}m ${Math.floor(interval/1000%60)}s)`);
-  updateTimer = setInterval(load, interval);
+function computeNextUpdateTimeout(delaySeconds) {
+  const now = new Date();
+  const next = new Date(now);
+  
+  // Reset seconds and milliseconds first
+  next.setSeconds(0, 0);
+
+  // Align minutes to the next 5-minute boundary
+  const minute = next.getMinutes();
+  const remainder = minute % 5;
+  if (remainder !== 0) {
+    next.setMinutes(minute + (5 - remainder));
+  } else {
+    // If already on a 5-minute boundary, move to the next one
+    next.setMinutes(minute + 5);
+  }
+
+  // Add delay seconds to the 5-minute boundary
+  next.setSeconds(delaySeconds);
+
+  // If the calculated time is in the past, move to the next 5-minute boundary
+  if (next <= now) {
+    next.setMinutes(next.getMinutes() + 5);
+  }
+
+  return { timeout: next.getTime() - now.getTime(), target: next };
+}
+
+function scheduleNextUpdate() {
+  if (updateTimer) {
+    clearTimeout(updateTimer);
+    updateTimer = null;
+  }
+
+  const delay = parseInt(localStorage.getItem('tv_update_delay') || '10', 10);
+  const { timeout, target } = computeNextUpdateTimeout(delay);
+
+  const secondsUntil = Math.round(timeout / 1000);
+  const targetStr = target.toLocaleString('ja-JP', { hour12: false });
+  console.log(`[TIMER] Next update scheduled at ${targetStr} (in ${secondsUntil}s)`);
+
+  updateTimer = setTimeout(async () => {
+    try {
+      await load();
+    } finally {
+      scheduleNextUpdate();
+    }
+  }, timeout);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
   await load();
+  scheduleNextUpdate();
 });
 
 
