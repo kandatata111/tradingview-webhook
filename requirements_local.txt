@@ -1,0 +1,4 @@
+Flask==3.0.0
+pydub==0.25.1
+win10toast==0.9
+requests==2.31.0
