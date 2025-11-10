@@ -1091,9 +1091,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Populate voice and chime selects
     populateVoiceSelect();
     await populateChimeSelect();
-    
-    // 設定取得後にタイマーを開始
-    scheduleNextUpdate();
   } catch (err) { console.log('settings init error', err); }
 });
 
