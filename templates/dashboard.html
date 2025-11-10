@@ -615,18 +615,17 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 
 </div>
 <script>
-// Version check and cache buster - 2025-11-10-v1
+// Version check and cache buster - 2025-11-10-v2
 (function() {
-  const REQUIRED_VERSION = '2025-11-10-v1';
+  const REQUIRED_VERSION = '2025-11-10-v2';
   const currentVersion = localStorage.getItem('app_version');
   if (currentVersion !== REQUIRED_VERSION) {
     console.log('[VERSION] Updating from', currentVersion, 'to', REQUIRED_VERSION);
     localStorage.setItem('app_version', REQUIRED_VERSION);
-    if (currentVersion && currentVersion !== REQUIRED_VERSION) {
-      console.log('[VERSION] Hard reload required');
-      window.location.reload(true);
-      return;
-    }
+    // Force hard reload to clear cache
+    console.log('[VERSION] Hard reload required - clearing cache');
+    window.location.reload(true);
+    return;
   }
 })();
 
@@ -976,6 +975,96 @@ function populateRuleScopeSelect(availableCurrencies) {
     // restore previous selection if still present
     if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
   } catch (e) { console.log('populateRuleScopeSelect error', e); }
+}
+
+// Populate voice select with available voices
+function populateVoiceSelect() {
+  if (!('speechSynthesis' in window)) return;
+  
+  const select = document.getElementById('voiceSelect');
+  if (!select) return;
+  const currentValue = select.value;
+  
+  select.innerHTML = '';
+  
+  const voices = speechSynthesis.getVoices();
+  const allowedVoices = {
+    'Microsoft 七海 Online (Natural) - Japanese (Japan)': '七海［女性］',
+    'Microsoft 圭太 Online (Natural) - Japanese (Japan)': '圭太［男性］',
+    'Microsoft 碧衣 Online (Natural) - Japanese (Japan)': '碧衣［女性］',
+    'Microsoft 大智 Online (Natural) - Japanese (Japan)': '大智［男性］',
+    'Microsoft 真夕 Online (Natural) - Japanese (Japan)': '真夕［女性］',
+    'Microsoft 直紀 Online (Natural) - Japanese (Japan)': '直紀［男性］',
+    'Microsoft 志織 Online (Natural) - Japanese (Japan)': '志織［女性］'
+  };
+  
+  voices.forEach(voice => {
+    if (voice.lang.startsWith('ja') && allowedVoices[voice.name]) {
+      const option = document.createElement('option');
+      option.value = voice.name;
+      option.textContent = allowedVoices[voice.name];
+      select.appendChild(option);
+    }
+  });
+  
+  // Restore previous selection if it still exists
+  if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
+    select.value = currentValue;
+  }
+}
+
+// Populate chime select with available chime files
+async function populateChimeSelect() {
+  const select = document.getElementById('chimeSelect');
+  if (!select) return;
+  const currentValue = select.value;
+  
+  select.innerHTML = '<option value="">なし</option>';
+  
+  try {
+    const response = await fetch('/api/chime_files');
+    const data = await response.json();
+    if (data.status === 'success') {
+      data.files.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file;
+        option.textContent = file.replace('.mp3', '');
+        select.appendChild(option);
+      });
+    }
+  } catch (e) {
+    console.log('Error fetching chime files:', e);
+    // Fallback to static list
+    const chimeFiles = [
+      'お寺の鐘.mp3',
+      'きらきら輝く6.mp3',
+      'ほら貝を吹き鳴らす.mp3',
+      'ドンドンパフパフ.mp3',
+      'ラッパのファンファーレ.mp3',
+      'レベルアップ.mp3',
+      '放送開始チャイム.mp3',
+      '教会の鐘2.mp3',
+      '歓声と拍手.mp3',
+      '決定ボタンを押す4.mp3',
+      '決定ボタンを押す5.mp3',
+      '男衆「イエーイ！」.mp3',
+      '男衆「イヤッホー！」.mp3',
+      '突撃ラッパ.mp3',
+      '警報が鳴る.mp3',
+      '開演ブザー.mp3'
+    ];
+    chimeFiles.forEach(file => {
+      const option = document.createElement('option');
+      option.value = file;
+      option.textContent = file.replace('.mp3', '');
+      select.appendChild(option);
+    });
+  }
+  
+  // Restore previous selection if it still exists
+  if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
+    select.value = currentValue;
+  }
 }
 
 // 初期化: 設定を読み込み、UI を配線
@@ -2593,7 +2682,7 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null) {
 // Start notification checking
 document.addEventListener('DOMContentLoaded', () => {
   // Version check - prevent old code from running
-  const REQUIRED_VERSION = '2025-11-08-v1';
+  const REQUIRED_VERSION = '2025-11-10-v2';
   const currentVersion = localStorage.getItem('app_version');
   if (currentVersion !== REQUIRED_VERSION) {
     console.log('[NOTIFICATIONS] Version mismatch, waiting for reload');
