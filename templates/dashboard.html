@@ -1570,6 +1570,16 @@ function computeNextUpdateTimeout(delaySeconds) {
   return { timeout: next.getTime() - now.getTime(), target: next };
 }
 
+async function executeScheduledUpdate() {
+  console.log(`[TIMER] Executing scheduled update at ${new Date().toLocaleString('ja-JP', { hour12: false })}`);
+  try {
+    await load();
+    console.log(`[TIMER] Update completed successfully`);
+  } catch (error) {
+    console.error(`[TIMER] Update failed:`, error);
+  }
+}
+
 function scheduleNextUpdate() {
   if (updateTimer) {
     clearTimeout(updateTimer);
@@ -1584,15 +1594,8 @@ function scheduleNextUpdate() {
   console.log(`[TIMER] Next update scheduled at ${targetStr} (in ${secondsUntil}s)`);
 
   updateTimer = setTimeout(async () => {
-    console.log(`[TIMER] Executing scheduled update at ${new Date().toLocaleString('ja-JP', { hour12: false })}`);
-    try {
-      await load();
-      console.log(`[TIMER] Update completed successfully`);
-    } catch (error) {
-      console.error(`[TIMER] Update failed:`, error);
-    } finally {
-      scheduleNextUpdate();
-    }
+    await executeScheduledUpdate();
+    scheduleNextUpdate(); // Reschedule after execution
   }, timeout);
 }
 
@@ -2794,9 +2797,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.hidden) {
       console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page hidden, stopping');
       stopNotificationPolling();
+      // Also clear update timer when page is hidden
+      if (updateTimer) {
+        console.log('[TIMER] Page hidden, clearing timer');
+        clearTimeout(updateTimer);
+        updateTimer = null;
+      }
     } else {
       console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page visible, resuming');
       startNotificationPolling();
+      // Reschedule update timer when page becomes visible
+      console.log('[TIMER] Page visible, rescheduling update');
+      scheduleNextUpdate();
     }
   });
   
