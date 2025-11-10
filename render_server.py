@@ -138,12 +138,11 @@ def webhook():
         except Exception as e:
             print(f'[WARNING] Failed to load settings: {e}')
         
-        # 遅延後にデータを保存するタイマーをセット
-        def save_data():
-            try:
-                conn = sqlite3.connect(DB_PATH)
-                c = conn.cursor()
-                c.execute('''INSERT OR REPLACE INTO states (
+        # 遅延処理を削除して即時保存
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('''INSERT OR REPLACE INTO states (
                         symbol, tf, timestamp, price, time,
                         state_flag, state_word,
                         daytrade_status, daytrade_bos, daytrade_time,
@@ -165,21 +164,18 @@ def webhook():
                      ','.join(data.get('cloud_order', [])),
                      json.dumps(data.get('clouds', []), ensure_ascii=False),
                      json.dumps(data.get('meta', {}), ensure_ascii=False)))
-                conn.commit()
-                conn.close()
-                symbol_val = data.get('symbol', 'UNKNOWN')
-                tf_val = data.get('tf', '5')
-                saved_at = datetime.now(jst).isoformat()
-                print(f'[OK] Saved after {delay_seconds}s delay: {symbol_val}/{tf_val} at {saved_at}')
-                
-                # データ保存後にルール評価と発火
-                evaluate_and_fire_rules(data)
-            except Exception as e:
-                print(f'[ERROR] Saving data after delay: {e}')
-        
-        # 設定された遅延時間でタイマーセット
-        timer = threading.Timer(delay_seconds, save_data)
-        timer.start()
+            conn.commit()
+            conn.close()
+            symbol_val = data.get('symbol', 'UNKNOWN')
+            tf_val = data.get('tf', '5')
+            saved_at = datetime.now(jst).isoformat()
+            print(f'[OK] Saved immediately: {symbol_val}/{tf_val} at {saved_at}')
+            
+            # データ保存後にルール評価と発火
+            evaluate_and_fire_rules(data)
+        except Exception as e:
+            print(f'[ERROR] Saving data immediately: {e}')
+            return jsonify({'status': 'error', 'msg': f'Database save failed: {str(e)}'}), 500
         
         return jsonify({'status': 'success'}), 200
     except Exception as e:
