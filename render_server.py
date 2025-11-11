@@ -1665,7 +1665,7 @@ if __name__ == '__main__':
     try:
         port = int(os.environ.get('PORT', 5000))
         print(f'[START] Starting server on port {port} with Socket.IO ({async_mode})')
-        socketio.run(app, host='0.0.0.0', port=port, debug=False)
+        socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
     except Exception as e:
         print(f'[ERROR] Failed to start server: {e}')
         import traceback
