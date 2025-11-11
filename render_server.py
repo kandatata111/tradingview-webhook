@@ -93,8 +93,6 @@ def is_fx_market_open():
     """
     FX市場の営業時間かどうかを判定
     FX市場: 月曜日 UTC 21:00 ～ 金曜日 UTC 21:00
-    サマータイム対応: 米国DST期間 (3月第2日曜日～11月第1日曜日) は UTC-4
-    通常期間は UTC-5
     """
     try:
         # UTC時刻を取得
@@ -103,25 +101,27 @@ def is_fx_market_open():
         # 曜日を取得 (0=月, 1=火, ..., 6=日)
         weekday = utc_now.weekday()
         hour = utc_now.hour
-        minute = utc_now.minute
         
-        # 月曜(0)～金曜(4)の開場時間: UTC 21:00～
-        # 金曜(4) UTC 21:00～土曜(5) UTC 21:00
+        # 日曜日: 完全休場
+        if weekday == 6:  # Sunday
+            return False
         
-        # 金曜日の場合
+        # 月曜日: UTC 21:00から開場
+        if weekday == 0:  # Monday
+            return hour >= 21
+        
+        # 火曜～木曜: 全時間開場
+        if weekday < 4:  # Tuesday to Thursday (1-3)
+            return True
+        
+        # 金曜日: UTC 21:00まで開場
         if weekday == 4:  # Friday
-            if hour >= 21 or (hour == 20 and minute >= 59):  # UTC 21:00以降
-                return True
-            return True  # 金曜日の全時間（UTC 21:00までは木曜として扱う）
+            return hour < 21
         
-        # 月曜～木曜: UTC 21:00～21:59
-        if weekday < 4:  # Monday to Thursday
-            if hour >= 21:  # UTC 21:00以降
-                return True
-            else:
-                return False
+        # 土曜日: 完全休場
+        if weekday == 5:  # Saturday
+            return False
         
-        # 土曜日、日曜日: 休場
         return False
     except Exception as e:
         print(f'[ERROR] is_fx_market_open check failed: {e}')
