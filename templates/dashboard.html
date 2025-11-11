@@ -6,6 +6,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>ダウ雲表 v2</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <style>
 body { font-family: 'Yu Gothic', 'Meiryo', sans-serif; background: #1e3c72; color: #fff; padding: 0 !important; margin: 0 !important; }
 .container { max-width: none; margin: 0 !important; padding: 0; }
@@ -63,6 +64,23 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .light-mode h1 { color: #111 !important; }
 .light-mode .settings-button { color:#111; border-color: rgba(0,0,0,0.7); }
 .light-mode .settings-button:hover { background: rgba(0,0,0,0.08); color:#000; }
+.light-mode .modal-overlay { background: rgba(255,255,255,0.7); }
+.light-mode .modal { background:rgba(255,255,255,0.95); color:#111; border:1px solid rgba(0,0,0,0.3); box-shadow:0 18px 40px rgba(0,0,0,0.15); }
+.light-mode .modal h3 { color:#111; }
+.light-mode .modal label { color:#111; }
+.light-mode .modal select { background:#2157ec; color:#fff; border:1px solid #2157ec; }
+.light-mode select { background:#2157ec !important; color:#fff !important; border:1px solid #2157ec !important; }
+.light-mode .modal input[type="checkbox"], .light-mode .modal input[type="radio"] { accent-color:#2157ec; }
+.light-mode .modal button { background:#2157ec !important; color:#fff !important; border:1px solid #2157ec !important; box-shadow:0 8px 18px rgba(0,0,0,0.1); }
+.light-mode .modal button:hover { background:#1540b8 !important; border-color:#1540b8 !important; }
+.light-mode .modal .section-header { background:#e8e8e8; color:#111; border:1px solid rgba(0,0,0,0.1); }
+.light-mode .cond-tf, .light-mode .cond-field, .light-mode .cond-op { background:#2157ec !important; color:#fff !important; border:1px solid #2157ec !important; }
+.light-mode .rule-btn { background:#2157ec !important; color:#fff !important; border:1px solid #2157ec !important; }
+.light-mode .rule-btn:hover { background:#1540b8 !important; border-color:#1540b8 !important; }
+.light-mode input[type="text"], .light-mode input[type="number"], .light-mode textarea { border:1px solid #ccc !important; background:#fff !important; color:#111 !important; }
+.light-mode #ruleName, .light-mode #voiceMessage, .light-mode #voiceMessageUp, .light-mode #voiceMessageDown, .light-mode .cond-value { border:1px solid #2157ec !important; }
+.light-mode #alignMissingTooltip { color:#000 !important; }
+.dark-mode #alignMissingTooltip { color:#fff !important; }
 .dark-mode { background: #1e3c72 !important; color: #fff !important; }
 
 table { font-family: 'Yu Gothic', 'Meiryo', sans-serif !important; width: auto; border-collapse: collapse; background: #fff; color: #333; table-layout: auto; margin: 0; }
@@ -336,6 +354,10 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 <!-- タイトルと設定ボタンを横並び -->
 <div class="header-row">
   <h1>ダウ雲表</h1>
+  <div id="marketStatus" style="display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:6px; font-size:0.9em; background:rgba(255,255,255,0.08);">
+    <span style="width:8px; height:8px; border-radius:50%; background:#90EE90; display:inline-block;" id="marketStatusLight"></span>
+    <span id="marketStatusText">市場チェック中...</span>
+  </div>
   <button id="openSettings" class="settings-button">設定</button>
 </div>
 
@@ -379,8 +401,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       </select>
     </div>
     <div class="row">
-      <label for="updateDelayInput">更新時間の調整 (秒)</label>
-      <input type="number" id="updateDelayInput" min="0" max="300" step="1" value="10" aria-label="データ更新の遅延時間（秒）" style="min-width:80px; background:rgba(15,27,65,0.7); color:#f5f7ff; border:1px solid rgba(255,255,255,0.35); border-radius:8px; padding:6px 10px; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15);">
+      <label><input type="checkbox" id="enable5mUpdateToggle" checked style="margin-right:8px;"> 5分毎更新有効</label>
     </div>
     
     <!-- 列の表示セクション -->
@@ -452,7 +473,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         <div class="subsection-header">
           <strong>保存済みルール</strong>
           <div style="display:flex;gap:6px;align-items:center">
-            <button id="newRuleBtn" style="font-size:0.9em;padding:4px 8px">新規ルール作成</button>
+            <button id="newRuleBtn" class="rule-btn" style="font-size:0.9em;padding:4px 8px">新規ルール作成</button>
             <button class="subsection-toggle" data-subsection="savedRules" aria-expanded="true">▾</button>
           </div>
         </div>
@@ -483,28 +504,37 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
           
           <!-- 音声設定（ルール個別設定） -->
           <div style="margin-top:12px;padding:8px;border-radius:6px;background:rgba(0,0,0,0.04);">
-            <div style="font-weight:600;margin-bottom:6px">音声設定</div>
+            <div style="font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+              <span>音声設定</span>
+              <button id="testVoiceBtn" class="rule-btn" style="padding:6px 12px;">音声テスト</button>
+            </div>
             <div style="display:flex;flex-direction:column;gap:6px">
               <label style="font-size:0.9em">
                 音声メッセージ:
                 <input id="voiceMessage" placeholder="例: ルールが発火しました" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:300px">
               </label>
-              <label style="font-size:0.9em">
-                <input type="checkbox" id="insertSymbol"> 通貨名挿入
-                <select id="symbolInsertPosition" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;">
+              <div style="font-size:0.9em;display:flex;align-items:center">
+                <div style="display:flex;align-items:center;gap:6px;flex:1">
+                  <input type="checkbox" id="insertSymbol" style="cursor:pointer;flex-shrink:0"> 
+                  <span onclick="document.getElementById('insertSymbol').click()" style="cursor:pointer;user-select:none">通貨名挿入</span>
+                </div>
+                <select id="symbolInsertPosition" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:104px">
                   <option value="prefix">先頭</option>
                   <option value="suffix">最後</option>
                   <option value="both">先頭と最後</option>
                 </select>
-              </label>
-              <label style="font-size:0.9em">
-                <input type="checkbox" id="voiceDirectionBased"> 方向別アラーム
-                <select id="voiceMessagePosition" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;">
+              </div>
+              <div style="font-size:0.9em;display:flex;align-items:center">
+                <div style="display:flex;align-items:center;gap:6px;flex:1">
+                  <input type="checkbox" id="voiceDirectionBased" style="cursor:pointer;flex-shrink:0">
+                  <span onclick="document.getElementById('voiceDirectionBased').click()" style="cursor:pointer;user-select:none">方向別挿入</span>
+                </div>
+                <select id="voiceMessagePosition" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:104px">
                   <option value="prefix">先頭</option>
                   <option value="suffix">最後</option>
                   <option value="both">先頭と最後</option>
                 </select>
-              </label>
+              </div>
               <div id="directionMessages" style="display:none;flex-direction:row;gap:12px;margin-left:8px;align-items:center">
                 <label style="font-size:0.9em;display:flex;align-items:center;gap:4px">
                   上昇：
@@ -515,20 +545,24 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
                   <input id="voiceMessageDown" placeholder="例: 下降トレンドが検出されました" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit;width:144px">
                 </label>
               </div>
-              <label style="font-size:0.9em;display:flex;align-items:center;gap:8px">
-                <input type="checkbox" id="playChimeFirst"> 最初に電子音を鳴らす：
-                <select id="chimeSelect" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:160px">
+              <div style="font-size:0.9em;display:flex;align-items:center">
+                <div style="display:flex;align-items:center;gap:6px;flex:1">
+                  <input type="checkbox" id="playChimeFirst" style="cursor:pointer;flex-shrink:0">
+                  <span onclick="document.getElementById('playChimeFirst').click()" style="cursor:pointer;user-select:none">電子音挿入</span>
+                </div>
+                <select id="chimeSelect" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:104px">
                   <option value="">なし</option>
                 </select>
-              </label>
-              <label style="font-size:0.9em;display:flex;align-items:center;gap:8px">
-                音声選択:
+              </div>
+              <div style="font-size:0.9em;display:flex;align-items:center">
+                <div style="display:flex;align-items:center;gap:6px;flex:1">
+                  <span>声優選択項目</span>
+                </div>
                 <select id="voiceSelect" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:200px">
                   <option value="">グローバル設定を使用</option>
                   <!-- 音声リストは動的に追加 -->
                 </select>
-                <button id="testVoiceBtn" style="padding:6px 12px;">テスト再生</button>
-              </label>
+              </div>
             </div>
           </div>
           
@@ -549,7 +583,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
                   <option value="ignore">無視</option>
                   <option value="fail">不一致</option>
                 </select>
-                <span id="alignMissingTooltip" style="cursor:pointer;font-size:1.2em;color:white;">ⓘ</span>
+                <span id="alignMissingTooltip" style="cursor:pointer;font-size:1.2em;">ⓘ</span>
               </div>
             </div>
             <div id="alignError" style="color:#ffb4b4;font-weight:600;margin-top:6px;display:none;width:100%"></div>
@@ -573,21 +607,14 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
                 <option value="thickness">雲厚み</option>
                 <option value="transfer_time_diff">転換時間差</option>
               </select>
-              <select class="cond-op" style="padding:6px;border-radius:6px;background:transparent;color:inherit">
-                <option value="==">==</option>
-                <option value=">=">&gt;=</option>
-                <option value=">">&gt;</option>
-                <option value="<=">&lt;=</option>
-                <option value="<">&lt;</option>
-              </select>
-              <input class="cond-value" placeholder="値" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:inherit;width:120px">
+              <input class="cond-value" placeholder="値" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:inherit;width:60px">
               <button class="removeCond" style="padding:6px 12px">削除</button>
             </div>
           </div>
           <div style="display:flex;gap:8px">
-            <button id="addCondBtn" style="padding:6px 12px">条件を追加</button>
-            <button id="testRuleBtn" style="padding:6px 12px">ルールをテスト</button>
-            <button id="saveRuleBtn" style="margin-left:auto;padding:6px 12px">ルールを保存</button>
+            <button id="addCondBtn" class="rule-btn" style="padding:6px 12px">条件を追加</button>
+            <button id="testRuleBtn" class="rule-btn" style="padding:6px 12px">ルールをテスト</button>
+            <button id="saveRuleBtn" class="rule-btn" style="margin-left:auto;padding:6px 12px">ルールを保存</button>
           </div>
           <div style="margin-top:8px">
             <div style="font-weight:600;margin-bottom:4px">テスト結果</div>
@@ -615,9 +642,9 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 
 </div>
 <script>
-// Version check and cache buster - 2025-11-10-v2
+// Version check and cache buster - 2025-11-11-v1
 (function() {
-  const REQUIRED_VERSION = '2025-11-10-v3';
+  const REQUIRED_VERSION = '2025-11-11-v1';
   const currentVersion = localStorage.getItem('app_version');
   if (currentVersion !== REQUIRED_VERSION) {
     console.log('[VERSION] Updating from', currentVersion, 'to', REQUIRED_VERSION);
@@ -628,6 +655,487 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
     return;
   }
 })();
+
+// すべてのイベントリスナーを設定する関数
+function setupAllEventListeners() {
+  console.log('[INIT] Setting up all event listeners');
+
+  // 設定モーダルの開閉
+  const openBtn = document.getElementById('openSettings');
+  const closeBtn = document.getElementById('closeSettings');
+  const overlay = document.getElementById('settingsModal');
+  const modal = document.querySelector('.modal');
+
+  if (openBtn) openBtn.addEventListener('click', () => { if (overlay) overlay.style.display = 'flex'; });
+  if (closeBtn) closeBtn.addEventListener('click', () => { if (overlay) overlay.style.display = 'none'; });
+  if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
+
+  // モーダルのドラッグ機能
+  let isDragging = false, offsetX = 0, offsetY = 0;
+  if (modal) {
+    modal.addEventListener('mousedown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+      isDragging = true;
+      const rect = modal.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      modal.style.position = 'fixed';
+      modal.style.margin = '0';
+    });
+  }
+
+  document.addEventListener('mousemove', e => {
+    if (!isDragging || !modal) return;
+    e.preventDefault();
+    modal.style.left = (e.clientX - offsetX) + 'px';
+    modal.style.top = (e.clientY - offsetY) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+
+  // ルール関連のイベントリスナー
+  const newRuleBtn = document.getElementById('newRuleBtn');
+  if (newRuleBtn) {
+    newRuleBtn.addEventListener('click', () => {
+      console.log('[EVENT] New rule button clicked');
+      document.getElementById('ruleName').value = '';
+      document.getElementById('conditionsContainer').innerHTML = '';
+      addConditionRow();
+      document.getElementById('saveRuleBtn').dataset.editing = '';
+
+      // clear voice settings
+      document.getElementById('voiceMessage').value = '';
+      document.getElementById('voiceMessageUp').value = '';
+      document.getElementById('voiceMessageDown').value = '';
+      document.getElementById('voiceDirectionBased').checked = false;
+      document.getElementById('directionMessages').style.display = 'none';
+      document.getElementById('voiceMessagePosition').value = 'suffix';
+      document.getElementById('voiceSelect').value = '';
+      document.getElementById('playChimeFirst').checked = false;
+      document.getElementById('chimeSelect').value = '';
+    });
+  }
+
+  const addCondBtn = document.getElementById('addCondBtn');
+  if (addCondBtn) {
+    addCondBtn.addEventListener('click', () => {
+      console.log('[EVENT] Add condition button clicked');
+      addConditionRow();
+    });
+  }
+
+  const voiceDirectionBased = document.getElementById('voiceDirectionBased');
+  if (voiceDirectionBased) {
+    voiceDirectionBased.addEventListener('change', e => {
+      console.log('[EVENT] Voice direction based changed:', e.target.checked);
+      const directionDiv = document.getElementById('directionMessages');
+      if (directionDiv) {
+        directionDiv.style.display = e.target.checked ? 'flex' : 'none';
+      }
+    });
+  }
+
+  const alignMissingTooltip = document.getElementById('alignMissingTooltip');
+  if (alignMissingTooltip) {
+    alignMissingTooltip.addEventListener('click', () => {
+      alert(`・無視\n欠損した TF を判定から除外し、残りの TF で整列条件を評価します。データが一部欠けていても、条件を満たせば整列成立とみなします。\n例1: 5m、15m、1H、4H全てチェック、15m欠損の場合、15mを除外して5m、1H、4Hの順序が雲の順番と一致すれば成立。\n例2: 5m、15m、1H、4H全てチェック、雲が5m、15m、4H、1H、4H欠損の場合、4Hを除外して5m、15m、1Hの順序が一致して発火。\n\n・不一致\n欠損した TF があれば、即座に整列条件を不成立と判定します。データが完全でないと条件を満たさない厳格な扱いになります。\n例: 5m、15m、1H、4H全てチェック、15m欠損の場合、欠損があるため不成立。`);
+    });
+  }
+
+  const testVoiceBtn = document.getElementById('testVoiceBtn');
+  if (testVoiceBtn) {
+    testVoiceBtn.addEventListener('click', () => {
+      console.log('[EVENT] Test voice button clicked');
+      const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
+      const voiceName = document.getElementById('voiceSelect').value;
+      const messagePosition = document.getElementById('voiceMessagePosition').value;
+      const playChime = document.getElementById('playChimeFirst').checked;
+      const chimeFile = document.getElementById('chimeSelect').value;
+      const insertSymbol = document.getElementById('insertSymbol').checked;
+      const ruleScope = document.getElementById('ruleScope').value;
+
+      let testMessage = '';
+      if (isDirectionBased) {
+        const messageUp = document.getElementById('voiceMessageUp').value.trim();
+        const messageDown = document.getElementById('voiceMessageDown').value.trim();
+        const directionMessage = messageUp || 'テストメッセージ（上昇）';
+        const baseMessage = document.getElementById('voiceMessage').value.trim() || 'ルールが発火しました';
+
+        if (messagePosition === 'prefix') {
+          testMessage = directionMessage + ' ' + baseMessage;
+        } else if (messagePosition === 'suffix') {
+          testMessage = baseMessage + ' ' + directionMessage;
+        } else if (messagePosition === 'both') {
+          testMessage = directionMessage + ' ' + baseMessage + ' ' + directionMessage;
+        }
+      } else {
+        testMessage = document.getElementById('voiceMessage').value.trim() || 'テストメッセージ';
+      }
+
+      // 通貨名挿入処理
+      if (insertSymbol && ruleScope) {
+        const japaneseName = currencyNames[ruleScope] || ruleScope;
+        const symbolInsertPosition = document.getElementById('symbolInsertPosition').value;
+        if (testMessage.includes('{symbol}')) {
+          testMessage = testMessage.replace('{symbol}', japaneseName);
+        } else {
+          if (symbolInsertPosition === 'prefix') {
+            testMessage = japaneseName + ' ' + testMessage;
+          } else if (symbolInsertPosition === 'suffix') {
+            testMessage = testMessage + ' ' + japaneseName;
+          } else if (symbolInsertPosition === 'both') {
+            testMessage = japaneseName + ' ' + testMessage + ' ' + japaneseName;
+          }
+        }
+      }
+
+      const voiceSettings = {};
+      if (voiceName) voiceSettings.voice_name = voiceName;
+      if (playChime && chimeFile) voiceSettings.chime_file = chimeFile;
+      if (insertSymbol && ruleScope) {
+        voiceSettings.insert_symbol = true;
+        voiceSettings.symbol_insert_position = document.getElementById('symbolInsertPosition').value;
+      }
+      const rateSuffix = testMessage ? '' : '。音速は' + document.getElementById('voiceRate').value + '倍です。';
+      playVoiceAlert(testMessage + rateSuffix, voiceSettings, ruleScope || 'USDJPY');
+    });
+  }
+
+  const saveRuleBtn = document.getElementById('saveRuleBtn');
+  if (saveRuleBtn) {
+    saveRuleBtn.addEventListener('click', async () => {
+      console.log('[EVENT] Save rule button clicked');
+      // validate alignment first
+      const alignValid = validateAlignmentForSave();
+      if(!alignValid.ok){ return; }
+
+      const name = document.getElementById('ruleName').value || ('rule-' + Date.now());
+      const scope = (document.getElementById('ruleScope').value ? { symbol: document.getElementById('ruleScope').value } : {});
+      const condRows = Array.from(document.querySelectorAll('#conditionsContainer .cond-row'));
+      const conditions = condRows.map(r => {
+        const tf = r.querySelector('.cond-tf').value;
+        const fld = r.querySelector('.cond-field').value;
+        const valEl = r.querySelector('.cond-value');
+        const valVal = valEl ? valEl.value : null;
+        return { label: tf, field: fld, value: valVal };
+      });
+      const alignment = getAlignmentSettingsFromUI();
+      const ruleObj = { conditions: conditions };
+      // include alignment only if TFs selected
+      if(alignment.tfs && alignment.tfs.length > 0){ ruleObj.alignment = alignment; }
+
+      // include voice settings
+      const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
+      const voiceName = document.getElementById('voiceSelect').value;
+      const messagePosition = document.getElementById('voiceMessagePosition').value;
+      const commonMessage = document.getElementById('voiceMessage').value.trim();
+      const messageUp = document.getElementById('voiceMessageUp').value.trim();
+      const messageDown = document.getElementById('voiceMessageDown').value.trim();
+      const playChime = document.getElementById('playChimeFirst').checked;
+      const chimeFile = document.getElementById('chimeSelect').value;
+
+      // Check if any voice setting exists
+      if (commonMessage || messageUp || messageDown || voiceName || (playChime && chimeFile)) {
+        ruleObj.voice = {};
+
+        // Always save common message if present
+        if (commonMessage) {
+          ruleObj.voice.message = commonMessage;
+        }
+
+        // Save direction-based messages if direction-based mode is enabled
+        if (isDirectionBased) {
+          ruleObj.voice.message_up = messageUp;
+          ruleObj.voice.message_down = messageDown;
+          ruleObj.voice.message_position = messagePosition;
+        }
+
+        // Always save voice name if selected
+        if (voiceName) {
+          ruleObj.voice.voice_name = voiceName;
+        }
+
+        // Save chime settings
+        if (playChime && chimeFile) {
+          ruleObj.voice.chime_file = chimeFile;
+        }
+
+        // Save symbol insert setting
+        if (document.getElementById('insertSymbol').checked) {
+          ruleObj.voice.insert_symbol = true;
+          ruleObj.voice.symbol_insert_position = document.getElementById('symbolInsertPosition').value;
+        } else {
+          delete ruleObj.voice.insert_symbol;
+          delete ruleObj.voice.symbol_insert_position;
+        }
+      }
+
+      const payload = { id: document.getElementById('saveRuleBtn').dataset.editing || name, name: name, enabled: true, scope: scope, rule: ruleObj };
+      try {
+        const res = await fetch('/rules', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const j = await res.json();
+        if (j.status === 'success') {
+          alert('ルールを保存しました');
+          // ルール一覧を再度読み込んで、最新のデータを取得
+          await loadRules();
+          // 保存したルールを再度開いて、UIを最新の状態に更新
+          try {
+            const rulesRes = await fetch('/rules');
+            const rulesData = await rulesRes.json();
+            if (rulesData.status === 'success') {
+              const savedRule = rulesData.rules.find(r => r.id === payload.id);
+              if (savedRule) {
+                openRuleEditor(savedRule);
+              }
+            }
+          } catch (e) {
+            console.log('Error reloading rule after save:', e);
+          }
+        }
+        else { alert('保存失敗: ' + (j.msg || JSON.stringify(j))); }
+      } catch (e) { console.log('save error', e); alert('保存時エラー: ' + e.message); }
+    });
+  }
+
+  const testRuleBtn = document.getElementById('testRuleBtn');
+  if (testRuleBtn) {
+    testRuleBtn.addEventListener('click', async () => {
+      console.log('[EVENT] Test rule button clicked');
+      const panel = document.getElementById('ruleTestResult');
+      const badge = document.getElementById('testBadge');
+      const short = document.getElementById('testShort');
+      const detailsEl = document.getElementById('testDetails');
+
+      badge.style.background = '#777'; badge.textContent = '実行中...';
+      short.textContent = '';
+      detailsEl.innerHTML = '';
+
+      // build payload
+      const scope = (document.getElementById('ruleScope').value ? { symbol: document.getElementById('ruleScope').value } : {});
+      const condRows = Array.from(document.querySelectorAll('#conditionsContainer .cond-row'));
+      const conditions = condRows.map(r => {
+        const tf = r.querySelector('.cond-tf').value;
+        const fld = r.querySelector('.cond-field').value;
+        const valEl = r.querySelector('.cond-value');
+        const valVal = valEl ? (valEl.value || null) : null;
+        return { label: tf, field: fld, value: valVal };
+      });
+      const payload = { rule: { logic: 'AND', conditions: conditions }, scope: scope };
+      const alignment = getAlignmentSettingsFromUI();
+      if(alignment.tfs && alignment.tfs.length > 0){ payload.rule.alignment = alignment; }
+
+      // alignment validation - we show a non-blocking warning
+      const alignValid = validateAlignmentForSave();
+      if(!alignValid.ok){ short.textContent = '注意: ' + alignValid.msg; }
+
+      // テスト時に現在のダッシュボードデータを state_override として送信
+      if (currentDashboardData && currentDashboardData.length > 0) {
+        let selectedState = null;
+        const ruleSymbol = scope.symbol;
+
+        if (ruleSymbol) {
+          // ルールが特定の通貨に限定されている場合、その通貨の5mデータを使用
+          selectedState = currentDashboardData.find(s => s.symbol === ruleSymbol && (s.tf === '5' || s.tf === '5m'));
+
+          // 5mが見つからなければ、その通貨の任意のデータを使用
+          if (!selectedState) {
+            selectedState = currentDashboardData.find(s => s.symbol === ruleSymbol);
+          }
+        } else {
+          // 通貨指定なしの場合、最初の5mデータを使用
+          selectedState = currentDashboardData.find(s => s.tf === '5' || s.tf === '5m');
+
+          // 5mが見つからなければ最初のデータを使用
+          if (!selectedState) {
+            selectedState = currentDashboardData[0];
+          }
+        }
+
+        if (selectedState) {
+          payload.state_override = selectedState;
+        }
+      }
+
+      try {
+        const res = await fetch('/rules/test', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const j = await res.json();
+        if (j.status === 'success') {
+          const matched = !!j.matched;
+          if (matched) { badge.style.background = '#2d8a3d'; badge.textContent = 'OK'; }
+          else { badge.style.background = '#b02a2a'; badge.textContent = 'NG'; }
+
+          const condCount = Array.isArray(payload.rule.conditions) ? payload.rule.conditions.length : 0;
+          const passCount = Array.isArray(j.details) ? j.details.filter(d => d.result).length : (matched ? condCount : 0);
+          short.textContent = `判定: ${matched ? 'OK' : 'NG'} — 条件合致 ${passCount}/${condCount}${payload.rule.alignment ? ' / 雲整列を含む' : ''}`;
+
+          // 生データ表示/コピー機能の追加
+          const rawDataControls = document.createElement('div');
+          rawDataControls.style.marginTop = '8px';
+          rawDataControls.style.display = 'flex';
+          rawDataControls.style.gap = '8px';
+          rawDataControls.style.alignItems = 'center';
+
+          const toggleRawBtn = document.createElement('button');
+          toggleRawBtn.textContent = '▼生データを表示';
+          toggleRawBtn.style.padding = '4px 8px';
+          toggleRawBtn.style.border = '1px solid rgba(255,255,255,0.3)';
+          toggleRawBtn.style.borderRadius = '4px';
+          toggleRawBtn.style.background = 'rgba(255,255,255,0.1)';
+          toggleRawBtn.style.color = 'inherit';
+          toggleRawBtn.style.cursor = 'pointer';
+          toggleRawBtn.style.fontSize = '0.85em';
+
+          const copyRawBtn = document.createElement('button');
+          copyRawBtn.textContent = '生データをコピー';
+          copyRawBtn.style.padding = '4px 8px';
+          copyRawBtn.style.border = '1px solid rgba(255,255,255,0.3)';
+          copyRawBtn.style.borderRadius = '4px';
+          copyRawBtn.style.background = 'rgba(255,255,255,0.1)';
+          copyRawBtn.style.color = 'inherit';
+          copyRawBtn.style.cursor = 'pointer';
+          copyRawBtn.style.fontSize = '0.85em';
+
+          const rawDataDisplay = document.createElement('pre');
+          rawDataDisplay.style.display = 'none';
+          rawDataDisplay.style.background = 'rgba(0,0,0,0.3)';
+          rawDataDisplay.style.padding = '8px';
+          rawDataDisplay.style.borderRadius = '4px';
+          rawDataDisplay.style.marginTop = '8px';
+          rawDataDisplay.style.fontSize = '0.8em';
+          rawDataDisplay.style.maxHeight = '200px';
+          rawDataDisplay.style.overflow = 'auto';
+          rawDataDisplay.style.whiteSpace = 'pre-wrap';
+          rawDataDisplay.textContent = JSON.stringify(j, null, 2);
+
+          toggleRawBtn.addEventListener('click', () => {
+            if (rawDataDisplay.style.display === 'none') {
+              rawDataDisplay.style.display = 'block';
+              toggleRawBtn.textContent = '▲生データを隠す';
+            } else {
+              rawDataDisplay.style.display = 'none';
+              toggleRawBtn.textContent = '▼生データを表示';
+            }
+          });
+
+          copyRawBtn.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(JSON.stringify(j, null, 2));
+              const originalText = copyRawBtn.textContent;
+              copyRawBtn.textContent = 'コピーしました！';
+              copyRawBtn.style.background = '#2d8a3d';
+              setTimeout(() => {
+                copyRawBtn.textContent = originalText;
+                copyRawBtn.style.background = 'rgba(255,255,255,0.1)';
+              }, 2000);
+            } catch (err) {
+              console.error('コピー失敗:', err);
+              alert('コピーに失敗しました');
+            }
+          });
+
+          rawDataControls.appendChild(toggleRawBtn);
+          rawDataControls.appendChild(copyRawBtn);
+          detailsEl.appendChild(rawDataControls);
+          detailsEl.appendChild(rawDataDisplay);
+
+          if (Array.isArray(j.details) && j.details.length > 0) {
+            const ul = document.createElement('ul');
+            ul.style.margin = '6px 0 0 14px'; ul.style.padding = '0'; ul.style.listStyle = 'disc';
+            j.details.forEach(d => {
+              const li = document.createElement('li');
+              try {
+                const rawName = d.cond || (d.label ? `${d.label}.${d.field}` : JSON.stringify(d));
+                const fieldMap = {
+                  'alignment':'雲整列', '雲整列':'雲整列',
+                  'dauten':'ダウ転換', 'gc':'雲交差', 'bos_count':'突破数', 'daytrade_bos':'突破数',
+                  'distance_from_prev':'各雲間', 'distance_from_price':'価格間',
+                  'angle':'雲角度', 'thickness':'雲厚み', 'transfer_time_diff':'転換時間差',
+                  'presence_check':'存在確認', 'direction_consistency':'方向一貫性'
+                };
+                let name = rawName;
+                const key = d.field || d.cond || rawName;
+                if (typeof rawName === 'string' && rawName.includes('.')) {
+                  const parts = rawName.split('.');
+                  const tfPart = parts[0];
+                  const fieldPart = parts[1];
+                  const mappedField = fieldMap[fieldPart] || fieldPart;
+                  name = `${tfPart}.${mappedField}`;
+                } else if (fieldMap[key]) {
+                  name = fieldMap[key];
+                }
+                const ok = d.result ? 'OK' : 'NG';
+                li.textContent = `${name}：${ok}`.trim();
+              } catch (e) { li.textContent = JSON.stringify(d); }
+              ul.appendChild(li);
+            });
+            detailsEl.appendChild(ul);
+          } else {
+            detailsEl.textContent = '詳細情報はありません。';
+          }
+        } else {
+          badge.style.background = '#aa5500'; badge.textContent = 'エラー';
+          short.textContent = 'エラー: ' + (j.msg || JSON.stringify(j));
+          detailsEl.textContent = '';
+        }
+      } catch (e) {
+        badge.style.background = '#aa5500'; badge.textContent = '実行エラー';
+        short.textContent = e.message;
+        detailsEl.textContent = '';
+      }
+    });
+  }
+
+  const testFireBtn = document.getElementById('test-fire-btn');
+  if (testFireBtn) {
+    testFireBtn.addEventListener('click', () => {
+      console.log('[EVENT] Test fire button clicked');
+      testFire();
+    });
+  }
+
+  const clearFireHistoryBtn = document.getElementById('clear-fire-history-btn');
+  if (clearFireHistoryBtn) {
+    clearFireHistoryBtn.addEventListener('click', async () => {
+      console.log('[EVENT] Clear fire history button clicked');
+      try {
+        const res = await fetch('/api/clear_notifications', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+          const listEl = document.getElementById('fire-history-list');
+          if (listEl) {
+            listEl.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+          }
+          console.log('Notifications cleared');
+        } else {
+          console.log('Clear failed:', data);
+          alert('クリアに失敗しました: ' + (data.msg || JSON.stringify(data)));
+        }
+      } catch (e) {
+        console.log('Clear error:', e);
+        alert('クリアエラー: ' + e.message);
+      }
+    });
+  }
+
+  // Align checkbox event listeners
+  document.querySelectorAll('.align-tf').forEach(cb => cb.addEventListener('change', () => {
+    console.log('[EVENT] Align TF checkbox changed');
+    // no-op for now; validation on save/test
+  }));
+
+  const alignAllTf = document.getElementById('alignAllTf');
+  if (alignAllTf) {
+    alignAllTf.addEventListener('change', (e) => {
+      console.log('[EVENT] Align all TF checkbox changed:', e.target.checked);
+      const checked = e.target.checked;
+      document.querySelectorAll('.align-tf').forEach(cb => cb.checked = checked);
+    });
+  }
+
+  console.log('[INIT] All event listeners setup complete');
+}
 
 // 通貨名マッピング（サーバー側と同じ）
 const currencyNames = {
@@ -648,14 +1156,33 @@ const currencyNames = {
   'USDCHF': 'ドルスイス'
 };
 
+// グローバル変数: Socket.IOコネクション
+let socket = null;
+
 // グローバル変数: 現在のダッシュボードデータ（テスト時に使用）
 let currentDashboardData = null;
+
+// グローバル変数: 最終WebSocket更新時刻を追跡
+let lastWebSocketUpdate = Date.now();
 
 // 設定パネルの動作: モード切替（body にクラス付与）とフォントサイズの適用
 function applyMode(mode) {
   document.body.classList.remove('light-mode','dark-mode');
-  if (mode === 'light') document.body.classList.add('light-mode');
-  else document.body.classList.add('dark-mode');
+  if (mode === 'light') {
+    document.body.classList.add('light-mode');
+    // テーブルを完全ホワイト背景にする
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => {
+      table.style.background = '#ffffff';
+    });
+  } else {
+    document.body.classList.add('dark-mode');
+    // テーブル背景をリセット
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => {
+      table.style.background = '';
+    });
+  }
 }
 
 function applyFontSize(px) {
@@ -759,13 +1286,14 @@ function updateCurrencyFilter(availableCurrencies) {
       checkbox.dataset.currency = currency;
       checkbox.checked = (savedCurrencies[currency] !== false); // デフォルトtrue
       
-      checkbox.addEventListener('change', () => {
+      checkbox.addEventListener('change', async () => {
         const currencies = {};
         document.querySelectorAll('.currency-toggle').forEach(cb => {
           currencies[cb.dataset.currency] = cb.checked;
         });
         localStorage.setItem('tv_currencies', JSON.stringify(currencies));
         applyCurrencyFilter();
+        await load(); // テーブル再描画
       });
       
       label.appendChild(checkbox);
@@ -789,7 +1317,7 @@ function loadSettings() {
   const savedCols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   const savedRows = JSON.parse(localStorage.getItem('tv_rows') || '{}');
   const savedTimeFormat = localStorage.getItem('tv_time_format') || 'datetime';
-  const savedUpdateDelay = localStorage.getItem('tv_update_delay') || '10';
+  const savedEnable5mUpdate = localStorage.getItem('tv_enable_5m_update') !== 'false'; // デフォルトtrue
   const savedVoiceVolume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
   const savedVoiceRate = parseFloat(localStorage.getItem('tv_voice_rate') || '1.0');
   
@@ -798,7 +1326,7 @@ function loadSettings() {
   document.getElementById('modeLight').checked = (savedMode === 'light');
   document.getElementById('fontSizeSelect').value = savedSize;
   document.getElementById('timeFormatSelect').value = savedTimeFormat;
-  document.getElementById('updateDelayInput').value = savedUpdateDelay;
+  document.getElementById('enable5mUpdateToggle').checked = savedEnable5mUpdate;
   document.getElementById('voiceVolume').value = savedVoiceVolume;
   document.getElementById('voiceVolumeValue').textContent = Math.round(savedVoiceVolume * 100) + '%';
   document.getElementById('voiceRate').value = savedVoiceRate;
@@ -823,38 +1351,41 @@ function loadSettings() {
 }
 
 function wireSettings() {
-  document.getElementById('modeDark').addEventListener('change', e => {
-    if (e.target.checked) { localStorage.setItem('tv_mode','dark'); applyMode('dark'); }
+  document.getElementById('modeDark').addEventListener('change', async e => {
+    if (e.target.checked) { localStorage.setItem('tv_mode','dark'); applyMode('dark'); await load(); }
   });
-  document.getElementById('modeLight').addEventListener('change', e => {
-    if (e.target.checked) { localStorage.setItem('tv_mode','light'); applyMode('light'); }
+  document.getElementById('modeLight').addEventListener('change', async e => {
+    if (e.target.checked) { localStorage.setItem('tv_mode','light'); applyMode('light'); await load(); }
   });
-  document.getElementById('fontSizeSelect').addEventListener('change', e => {
+  document.getElementById('fontSizeSelect').addEventListener('change', async e => {
     localStorage.setItem('tv_font_size', e.target.value);
     applyFontSize(e.target.value);
+    await load(); // テーブル再描画
   });
   
   // 列表示チェックボックス
   document.querySelectorAll('.col-toggle').forEach(cb => {
-    cb.addEventListener('change', () => {
+    cb.addEventListener('change', async () => {
       const cols = {};
       document.querySelectorAll('.col-toggle').forEach(c => {
         cols[c.dataset.col] = c.checked;
       });
       localStorage.setItem('tv_cols', JSON.stringify(cols));
       applyColumnVisibility();
+      await load(); // テーブル再描画
     });
   });
   
   // 行表示チェックボックス
   document.querySelectorAll('.row-toggle').forEach(cb => {
-    cb.addEventListener('change', () => {
+    cb.addEventListener('change', async () => {
       const rows = {};
       document.querySelectorAll('.row-toggle').forEach(r => {
         rows[r.dataset.row] = r.checked;
       });
       localStorage.setItem('tv_rows', JSON.stringify(rows));
       applyRowVisibility();
+      await load(); // テーブル再描画
     });
   });
   
@@ -864,32 +1395,9 @@ function wireSettings() {
     load(); // 再読み込みして表示を更新
   });
   
-  // 更新時間の調整
-  document.getElementById('updateDelayInput').addEventListener('change', async e => {
-    const delay = parseInt(e.target.value);
-    if (isNaN(delay) || delay < 0 || delay > 300) {
-      alert('更新時間は0-300秒の範囲で入力してください');
-      e.target.value = localStorage.getItem('tv_update_delay') || '10';
-      return;
-    }
-    localStorage.setItem('tv_update_delay', delay.toString());
-    // サーバーに設定を保存
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ update_delay_seconds: delay })
-      });
-      const data = await res.json();
-      if (data.status !== 'success') {
-        alert('設定保存に失敗しました: ' + (data.msg || '不明なエラー'));
-      }
-    } catch (err) {
-      console.error('設定保存エラー:', err);
-      alert('設定保存中にエラーが発生しました');
-    }
-    // タイマーを再設定
-    scheduleNextUpdate();
+  // 5分毎更新トグル
+  document.getElementById('enable5mUpdateToggle').addEventListener('change', e => {
+    localStorage.setItem('tv_enable_5m_update', e.target.checked.toString());
   });
   
   // 音声設定（グローバル）
@@ -979,15 +1487,24 @@ function populateRuleScopeSelect(availableCurrencies) {
 
 // Populate voice select with available voices
 function populateVoiceSelect() {
-  if (!('speechSynthesis' in window)) return;
+  if (!('speechSynthesis' in window)) {
+    console.log('[VOICE] speechSynthesis not supported');
+    return;
+  }
   
   const select = document.getElementById('voiceSelect');
-  if (!select) return;
+  if (!select) {
+    console.log('[VOICE] voiceSelect element not found');
+    return;
+  }
   const currentValue = select.value;
   
+  // 選択肢をクリア
   select.innerHTML = '';
   
   const voices = speechSynthesis.getVoices();
+  console.log('[VOICE] Total voices available:', voices.length);
+  
   const allowedVoices = {
     'Microsoft 七海 Online (Natural) - Japanese (Japan)': '七海［女性］',
     'Microsoft 圭太 Online (Natural) - Japanese (Japan)': '圭太［男性］',
@@ -998,14 +1515,20 @@ function populateVoiceSelect() {
     'Microsoft 志織 Online (Natural) - Japanese (Japan)': '志織［女性］'
   };
   
+  let addedCount = 0;
   voices.forEach(voice => {
+    console.log('[VOICE] Checking voice:', voice.name, 'lang:', voice.lang);
     if (voice.lang.startsWith('ja') && allowedVoices[voice.name]) {
       const option = document.createElement('option');
       option.value = voice.name;
       option.textContent = allowedVoices[voice.name];
       select.appendChild(option);
+      addedCount++;
+      console.log('[VOICE] Added:', allowedVoices[voice.name]);
     }
   });
+  
+  console.log('[VOICE] Total voices added:', addedCount);
   
   // Restore previous selection if it still exists
   if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
@@ -1023,6 +1546,9 @@ async function populateChimeSelect() {
   
   try {
     const response = await fetch('/api/chime_files');
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
     const data = await response.json();
     if (data.status === 'success') {
       data.files.forEach(file => {
@@ -1031,6 +1557,8 @@ async function populateChimeSelect() {
         option.textContent = file.replace('.mp3', '');
         select.appendChild(option);
       });
+    } else {
+      throw new Error('Invalid response status');
     }
   } catch (e) {
     console.log('Error fetching chime files:', e);
@@ -1070,66 +1598,190 @@ async function populateChimeSelect() {
 // 初期化: 設定を読み込み、UI を配線
 document.addEventListener('DOMContentLoaded', async () => {
   try { 
+    // Socket.IO 初期化
+    socket = io();
+    
+    // Socket.IO イベントハンドラー
+    socket.on('connect', () => {
+      console.log('[SOCKET] Connected:', socket.id);
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('[SOCKET] Disconnected');
+    });
+    
+    socket.on('reconnect', () => {
+      console.log('[SOCKET] Reconnected');
+    });
+    
+    // リアルタイムデータ更新イベント（複数のイベント名に対応）
+    socket.on('update_table', async (data) => {
+      console.log('[SOCKET] Received update_table:', data);
+      lastWebSocketUpdate = Date.now(); // WebSocket更新時刻を記録
+      // テーブル再描画
+      await load();
+    });
+    
+    socket.on('current_state_update', async (data) => {
+      console.log('[SOCKET] Received current_state_update:', data);
+      lastWebSocketUpdate = Date.now(); // WebSocket更新時刻を記録
+      // テーブル再描画
+      await load();
+    });
+    
+    // 市場ステータス更新
+    async function updateMarketStatus() {
+      try {
+        const res = await fetch('/api/market_status');
+        const data = await res.json();
+        if (data.status === 'success') {
+          const marketOpen = data.market_open;
+          const statusLight = document.getElementById('marketStatusLight');
+          const statusText = document.getElementById('marketStatusText');
+          
+          if (marketOpen) {
+            statusLight.style.background = '#90EE90';  // 緑
+            statusText.textContent = '市場営業中';
+          } else {
+            statusLight.style.background = '#FFB6C6';  // 赤ピンク
+            statusText.textContent = 'FX市場休場';
+          }
+        }
+      } catch (e) {
+        console.log('[MARKET_STATUS] Error:', e);
+      }
+    }
+    
+    // 初期更新
+    updateMarketStatus();
+    // 定期更新（30秒ごと）
+    setInterval(updateMarketStatus, 30000);
+    
     loadSettings(); 
     wireSettings(); 
     wireSectionToggles(); 
     wireSubsectionToggles();
     
-    // サーバーから最新の更新遅延設定を取得して同期
-    try {
-      const res = await fetch('/api/settings');
-      const data = await res.json();
-      if (data.status === 'success' && data.settings) {
-        const serverDelay = data.settings.update_delay_seconds || 10;
-        document.getElementById('updateDelayInput').value = serverDelay.toString();
-        localStorage.setItem('tv_update_delay', serverDelay.toString());
-      }
-    } catch (err) {
-      console.log('サーバー設定取得エラー:', err);
-    }
-    
-    // Populate voice and chime selects
-    populateVoiceSelect();
+    // Populate chime select
     await populateChimeSelect();
-  } catch (err) { console.log('settings init error', err); }
-});
+    
+    // Populate voices when available (for browsers that load voices asynchronously)
+    if ('speechSynthesis' in window) {
+      // 初回実行
+      populateVoiceSelect();
+      
+      // 音声リストが後から読み込まれる場合に備えて
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = () => {
+          console.log('[VOICE] Voices changed event fired');
+          populateVoiceSelect();
+        };
+      }
+      
+      // Chrome等では最初のgetVoices()呼び出しで空になることがあるため、
+      // 少し待ってから再度実行
+      setTimeout(() => {
+        console.log('[VOICE] Delayed populate attempt');
+        populateVoiceSelect();
+      }, 100);
+    }
 
-// モーダル開閉とドラッグ機能
-document.addEventListener('DOMContentLoaded', () => {
-  const openBtn = document.getElementById('openSettings');
-  const closeBtn = document.getElementById('closeSettings');
-  const overlay = document.getElementById('settingsModal');
-  const modal = document.querySelector('.modal');
-  
-  openBtn?.addEventListener('click', () => { overlay.style.display = 'flex'; });
-  closeBtn?.addEventListener('click', () => { overlay.style.display = 'none'; });
-  // クリックでオーバーレイを閉じる（モーダル内は除外）
-  overlay?.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
-  
-  // モーダルのドラッグ機能
-  let isDragging = false, offsetX = 0, offsetY = 0;
-  
-  modal?.addEventListener('mousedown', e => {
-    // input/select/button はドラッグ開始しない
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
-    isDragging = true;
-    const rect = modal.getBoundingClientRect();
-    offsetX = e.clientX - rect.left;
-    offsetY = e.clientY - rect.top;
-    modal.style.position = 'fixed';
-    modal.style.margin = '0';
-  });
-  
-  document.addEventListener('mousemove', e => {
-    if (!isDragging) return;
-    e.preventDefault();
-    modal.style.left = (e.clientX - offsetX) + 'px';
-    modal.style.top = (e.clientY - offsetY) + 'px';
-  });
-  
-  document.addEventListener('mouseup', () => {
-    isDragging = false;
-  });
+    // 初期読み込みと定期的な更新
+    await load();
+    scheduleNextUpdate();
+
+    // Rules UI 初期化
+    await loadRules();
+    
+    // すべてのイベントリスナーを設定（ルールUI要素が追加された後に実行）
+    setupAllEventListeners();
+
+    // Notification polling initialization (moved from separate DOMContentLoaded listener)
+    const REQUIRED_VERSION = '2025-11-11-v1';
+    const currentVersion = localStorage.getItem('app_version');
+    if (currentVersion === REQUIRED_VERSION && !notificationPollingStarted) {
+      notificationPollingStarted = true;
+      
+      const instanceId = Math.random().toString(36).substr(2, 9);
+      console.log('[NOTIFICATIONS] Instance ID: ' + instanceId + ' - Page loaded - Version: ' + REQUIRED_VERSION);
+      
+      // Function to get current polling interval (in milliseconds)
+      // Base interval: 5 minutes (300 seconds) + update delay offset
+      const getPollingInterval = () => {
+        const delaySecs = parseInt(localStorage.getItem('tv_update_delay') || '10');
+        const baseInterval = 300; // 5 minutes in seconds
+        const totalSeconds = baseInterval + delaySecs;
+        return totalSeconds * 1000; // Convert to milliseconds
+      };
+      
+      // Function to start polling
+      const startNotificationPolling = () => {
+        if (notificationCheckInterval) {
+          console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Clearing existing polling interval ' + notificationCheckInterval);
+          clearInterval(notificationCheckInterval);
+          notificationCheckInterval = null;
+        }
+
+        const intervalMs = getPollingInterval();
+        const intervalSecs = intervalMs / 1000;
+        const mins = Math.floor(intervalSecs / 60);
+        const secs = Math.floor(intervalSecs % 60);
+        console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Starting polling with interval: ' + intervalMs + 'ms (' + mins + 'm ' + secs + 's)');
+        checkNotifications(); // Initial check
+        notificationCheckInterval = setInterval(checkNotifications, intervalMs);
+        console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Timer ID: ' + notificationCheckInterval);
+      };
+      
+      // Function to stop polling
+      const stopNotificationPolling = () => {
+        if (notificationCheckInterval) {
+          console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Stopping polling');
+          clearInterval(notificationCheckInterval);
+          notificationCheckInterval = null;
+        }
+      };
+      
+      // Function to restart polling with new interval
+      const restartNotificationPolling = () => {
+        console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Restarting polling');
+        stopNotificationPolling();
+        startNotificationPolling();
+      };
+      
+      // Start polling when page is visible
+      startNotificationPolling();
+      
+      // Stop/resume polling when page visibility changes
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page hidden, stopping');
+          stopNotificationPolling();
+          // Also clear update timer when page is hidden
+          if (updateTimer) {
+            console.log('[TIMER] Page hidden, clearing timer');
+            clearTimeout(updateTimer);
+            updateTimer = null;
+          }
+        } else {
+          console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page visible, resuming');
+          startNotificationPolling();
+          // Reschedule update timer when page becomes visible
+          console.log('[TIMER] Page visible, rescheduling update');
+          scheduleNextUpdate();
+        }
+      });
+      
+      // Cleanup on page unload
+      window.addEventListener('beforeunload', () => {
+        console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page unloading, cleanup');
+        stopNotificationPolling();
+        notificationPollingStarted = false;
+      });
+    } else if (currentVersion !== REQUIRED_VERSION) {
+      console.log('[NOTIFICATIONS] Version mismatch, skipping notification polling');
+    }
+
+  } catch (err) { console.log('settings init error', err); }
 });
 
 // 経過時間変換関数
@@ -1586,12 +2238,36 @@ function scheduleNextUpdate() {
     updateTimer = null;
   }
 
+  // 5分毎更新が無効の場合、タイマーを設定しない
+  const enable5mUpdate = localStorage.getItem('tv_enable_5m_update') !== 'false';
+  if (!enable5mUpdate) {
+    console.log('[TIMER] 5分毎更新が無効のため、定期更新をスキップします');
+    return;
+  }
+
+  // WebSocket最終更新から5分30秒以上経過していない場合、定期更新をスキップ
+  const now = Date.now();
+  const timeSinceLastUpdate = now - lastWebSocketUpdate;
+  const fiveMinutesThirtySeconds = (5 * 60 + 30) * 1000; // 5分30秒 = 330秒 = 330000ミリ秒
+
+  if (timeSinceLastUpdate < fiveMinutesThirtySeconds) {
+    const remainingSeconds = Math.ceil((fiveMinutesThirtySeconds - timeSinceLastUpdate) / 1000);
+    const remainingMinutes = Math.floor(remainingSeconds / 60);
+    const remainingSecs = remainingSeconds % 60;
+    console.log(`[TIMER] WebSocket更新から${remainingMinutes}分${remainingSecs}秒以内のため、定期更新をスキップします`);
+    // 次回のチェックは5分30秒後にスケジュール
+    updateTimer = setTimeout(() => {
+      scheduleNextUpdate();
+    }, fiveMinutesThirtySeconds - timeSinceLastUpdate);
+    return;
+  }
+
   const delay = parseInt(localStorage.getItem('tv_update_delay') || '10', 10);
   const { timeout, target } = computeNextUpdateTimeout(delay);
 
   const secondsUntil = Math.round(timeout / 1000);
   const targetStr = target.toLocaleString('ja-JP', { hour12: false });
-  console.log(`[TIMER] Next update scheduled at ${targetStr} (in ${secondsUntil}s)`);
+  console.log(`[TIMER] WebSocket更新から5分以上経過したため、定期更新を実行します。次回: ${targetStr} (あと${secondsUntil}s)`);
 
   updateTimer = setTimeout(async () => {
     await executeScheduledUpdate();
@@ -1599,11 +2275,8 @@ function scheduleNextUpdate() {
   }, timeout);
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  await load();
-  scheduleNextUpdate();
-});
-
+// 初期読み込みと定期的な更新をメインリスナーに統合
+// loadRules()と他の初期化は最初のDOMContentLoadedリスナーで実行される
 
 // --- Rules UI / API ---
 async function loadRules() {
@@ -1672,8 +2345,8 @@ function renderRulesList(rules) {
       } catch (e) { console.log('toggle error', e); alert('トグルエラー: ' + e.message); }
     });
     
-    const edit = document.createElement('button'); edit.textContent = '編集'; edit.style.padding = '4px 8px';
-    const del = document.createElement('button'); del.textContent = '削除'; del.style.padding = '4px 8px';
+    const edit = document.createElement('button'); edit.textContent = '編集'; edit.style.padding = '4px 8px'; edit.className = 'rule-btn';
+    const del = document.createElement('button'); del.textContent = '削除'; del.style.padding = '4px 8px'; del.className = 'rule-btn';
     edit.addEventListener('click', () => openRuleEditor(rule));
     del.addEventListener('click', async () => {
       if (!confirm('ルールを削除しますか?')) return;
@@ -1790,49 +2463,35 @@ function validateAlignmentForSave(){
 }
 
 // wire align checkbox changes to keep UI consistent
-document.addEventListener('DOMContentLoaded', ()=>{
-  document.querySelectorAll('.align-tf').forEach(cb=> cb.addEventListener('change', ()=>{ /* no-op for now; validation on save/test */ }));
-  document.getElementById('alignAllTf').addEventListener('change', (e) => {
-    const checked = e.target.checked;
-    document.querySelectorAll('.align-tf').forEach(cb => cb.checked = checked);
-  });
-});
+// これらのイベントリスナーは最初のDOMContentLoadedリスナーで設定される
+// (後で統合する必要があります)
 
 function createConditionRow(c) {
   const div = document.createElement('div'); div.className = 'cond-row'; div.style.display='flex'; div.style.gap='6px'; div.style.alignItems='center';
   const tf = document.createElement('select'); tf.className='cond-tf'; tf.style.padding='6px'; tf.style.borderRadius='6px'; tf.style.background='rgba(15,27,65,0.7)'; tf.style.color='inherit'; tf.style.border='1px solid rgba(255,255,255,0.12)'; tf.innerHTML = '<option value="5m">5m</option><option value="15m">15m</option><option value="1H">1H</option><option value="4H">4H</option>';
   const field = document.createElement('select'); field.className='cond-field'; field.style.padding='6px'; field.style.borderRadius='6px'; field.style.background='rgba(15,27,65,0.7)'; field.style.color='inherit'; field.style.border='1px solid rgba(255,255,255,0.12)'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="bos_count">突破数</option><option value="gc">雲交差</option><option value="distance_from_prev">各雲間</option><option value="distance_from_price">価格間</option><option value="angle">雲角度</option><option value="thickness">雲厚み</option><option value="transfer_time_diff">転換時間差</option>';
-  const op = document.createElement('select'); op.className='cond-op'; op.style.padding='6px'; op.style.borderRadius='6px'; op.style.background='rgba(15,27,65,0.7)'; op.style.color='inherit'; op.style.border='1px solid rgba(255,255,255,0.12)'; op.innerHTML = '<option value==>==</option><option value=">=">&gt;=</option><option value=">">&gt;</option><option value="<=">&lt;=</option><option value="<">&lt;</option>';
-  const val = document.createElement('input'); val.className='cond-value'; val.placeholder='値'; val.style.padding='6px'; val.style.borderRadius='6px'; val.style.border='1px solid rgba(255,255,255,0.08)'; val.style.background='transparent'; val.style.color='inherit'; val.style.width='120px';
+  const val = document.createElement('input'); val.className='cond-value'; val.placeholder='値'; val.style.padding='6px'; val.style.borderRadius='6px'; val.style.border='1px solid rgba(255,255,255,0.08)'; val.style.background='transparent'; val.style.color='inherit'; val.style.width='60px';
   const rem = document.createElement('button'); rem.className='removeCond'; rem.textContent='削除'; rem.style.padding='6px 12px';
   rem.addEventListener('click', () => div.remove());
-  div.append(tf, field, op, val, rem);
+  div.append(tf, field, val, rem);
 
-  // hide/remove op/val when field is one of the toggle-only/time/numeric-threshold types
+  // hide/remove val when field is one of the toggle-only types
   function updateCondVisibility() {
     try {
-      const hideBoth = ['dauten','bos_count','gc','dauten_start_time_str','cross_start_time'];
-      const hideOpOnly = ['distance_from_prev','distance_from_price','angle','thickness','transfer_time_diff'];
+      const hideVal = ['dauten','bos_count','gc','dauten_start_time_str','cross_start_time'];
       
-      if (hideBoth.includes(field.value)) {
-        // remove both op and val from DOM
-        if (op.parentNode === div) div.removeChild(op);
+      if (hideVal.includes(field.value)) {
+        // remove val from DOM
         if (val.parentNode === div) div.removeChild(val);
-      } else if (hideOpOnly.includes(field.value)) {
-        // remove only op, keep val for numeric input
-        if (op.parentNode === div) div.removeChild(op);
-        if (val.parentNode !== div) div.insertBefore(val, rem);
-        val.style.display = '';
-        val.placeholder = '閾値';
       } else {
-        // ensure both op and val are present before the remove button
-        if (op.parentNode !== div) div.insertBefore(op, rem);
+        // show val for numeric input
         if (val.parentNode !== div) div.insertBefore(val, rem);
-        op.style.display = '';
         val.style.display = '';
         val.placeholder = '値';
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      console.warn('updateCondVisibility error:', e);
+    }
   }
 
   field.addEventListener('change', updateCondVisibility);
@@ -1840,7 +2499,6 @@ function createConditionRow(c) {
   if (c) {
     tf.value = c.label || tf.value;
     field.value = c.field || field.value;
-    op.value = c.op || op.value;
     val.value = c.value || '';
   }
   // initial visibility (AFTER setting field value so it checks the correct field type)
@@ -1853,583 +2511,7 @@ function addConditionRow() {
   const r = createConditionRow(); cont.appendChild(r);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('newRuleBtn')?.addEventListener('click', () => {
-    document.getElementById('ruleName').value = '';
-    document.getElementById('conditionsContainer').innerHTML = '';
-    addConditionRow();
-    document.getElementById('saveRuleBtn').dataset.editing = '';
-    
-    // clear voice settings
-    document.getElementById('voiceMessage').value = '';
-    document.getElementById('voiceMessageUp').value = '';
-    document.getElementById('voiceMessageDown').value = '';
-    document.getElementById('voiceDirectionBased').checked = false;
-    document.getElementById('directionMessages').style.display = 'none';
-    document.getElementById('voiceMessagePosition').value = 'suffix';
-    document.getElementById('voiceSelect').value = '';
-    document.getElementById('playChimeFirst').checked = false;
-    document.getElementById('chimeSelect').value = '';
-  });
-  // Wire '条件を追加' button to append a new condition row
-  document.getElementById('addCondBtn')?.addEventListener('click', addConditionRow);
-  
-  // Wire voice direction based checkbox
-  document.getElementById('voiceDirectionBased')?.addEventListener('change', e => {
-    const directionDiv = document.getElementById('directionMessages');
-    directionDiv.style.display = e.target.checked ? 'flex' : 'none';
-  });
-  
-  // Wire tooltip for alignMissing
-  document.getElementById('alignMissingTooltip')?.addEventListener('click', () => {
-    alert(`・無視\n欠損した TF を判定から除外し、残りの TF で整列条件を評価します。データが一部欠けていても、条件を満たせば整列成立とみなします。\n例1: 5m、15m、1H、4H全てチェック、15m欠損の場合、15mを除外して5m、1H、4Hの順序が雲の順番と一致すれば成立。\n例2: 5m、15m、1H、4H全てチェック、雲が5m、15m、4H、1H、4H欠損の場合、4Hを除外して5m、15m、1Hの順序が一致して発火。\n\n・不一致\n欠損した TF があれば、即座に整列条件を不成立と判定します。データが完全でないと条件を満たさない厳格な扱いになります。\n例: 5m、15m、1H、4H全てチェック、15m欠損の場合、欠損があるため不成立。`);
-  });
-  
-  // Wire test voice button
-  document.getElementById('testVoiceBtn')?.addEventListener('click', () => {
-    const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
-    const voiceName = document.getElementById('voiceSelect').value;
-    const messagePosition = document.getElementById('voiceMessagePosition').value;
-    const playChime = document.getElementById('playChimeFirst').checked;
-    const chimeFile = document.getElementById('chimeSelect').value;
-    const insertSymbol = document.getElementById('insertSymbol').checked;
-    const ruleScope = document.getElementById('ruleScope').value;
-    
-    let testMessage = '';
-    if (isDirectionBased) {
-      const messageUp = document.getElementById('voiceMessageUp').value.trim();
-      const messageDown = document.getElementById('voiceMessageDown').value.trim();
-      const directionMessage = messageUp || 'テストメッセージ（上昇）';
-      const baseMessage = document.getElementById('voiceMessage').value.trim() || 'ルールが発火しました';
-      
-      if (messagePosition === 'prefix') {
-        testMessage = directionMessage + ' ' + baseMessage;
-      } else if (messagePosition === 'suffix') {
-        testMessage = baseMessage + ' ' + directionMessage;
-      } else if (messagePosition === 'both') {
-        testMessage = directionMessage + ' ' + baseMessage + ' ' + directionMessage;
-      }
-    } else {
-      testMessage = document.getElementById('voiceMessage').value.trim() || 'テストメッセージ';
-    }
-    
-    // 通貨名挿入処理
-    if (insertSymbol && ruleScope) {
-      const japaneseName = currencyNames[ruleScope] || ruleScope;
-      const symbolInsertPosition = document.getElementById('symbolInsertPosition').value;
-      if (testMessage.includes('{symbol}')) {
-        testMessage = testMessage.replace('{symbol}', japaneseName);
-      } else {
-        if (symbolInsertPosition === 'prefix') {
-          testMessage = japaneseName + ' ' + testMessage;
-        } else if (symbolInsertPosition === 'suffix') {
-          testMessage = testMessage + ' ' + japaneseName;
-        } else if (symbolInsertPosition === 'both') {
-          testMessage = japaneseName + ' ' + testMessage + ' ' + japaneseName;
-        }
-      }
-    }
-    
-    const voiceSettings = {};
-    if (voiceName) voiceSettings.voice_name = voiceName;
-    if (playChime && chimeFile) voiceSettings.chime_file = chimeFile;
-    if (insertSymbol && ruleScope) {
-      voiceSettings.insert_symbol = true;
-      voiceSettings.symbol_insert_position = document.getElementById('symbolInsertPosition').value;
-    }
-    const rateSuffix = testMessage ? '' : '。音速は' + document.getElementById('voiceRate').value + '倍です。';
-    playVoiceAlert(testMessage + rateSuffix, voiceSettings, ruleScope || 'USDJPY');
-  });
-  
-  // Populate voice select with available voices
-  function populateVoiceSelect() {
-    if (!('speechSynthesis' in window)) return;
-    
-    const select = document.getElementById('voiceSelect');
-    const currentValue = select.value;
-    
-    select.innerHTML = '';
-    
-    const voices = speechSynthesis.getVoices();
-    const allowedVoices = {
-      'Microsoft 七海 Online (Natural) - Japanese (Japan)': '七海［女性］',
-      'Microsoft 圭太 Online (Natural) - Japanese (Japan)': '圭太［男性］',
-      'Microsoft 碧衣 Online (Natural) - Japanese (Japan)': '碧衣［女性］',
-      'Microsoft 大智 Online (Natural) - Japanese (Japan)': '大智［男性］',
-      'Microsoft 真夕 Online (Natural) - Japanese (Japan)': '真夕［女性］',
-      'Microsoft 直紀 Online (Natural) - Japanese (Japan)': '直紀［男性］',
-      'Microsoft 志織 Online (Natural) - Japanese (Japan)': '志織［女性］'
-    };
-    
-    voices.forEach(voice => {
-      if (voice.lang.startsWith('ja') && allowedVoices[voice.name]) {
-        const option = document.createElement('option');
-        option.value = voice.name;
-        option.textContent = allowedVoices[voice.name];
-        select.appendChild(option);
-      }
-    });
-    
-    // Restore previous selection if it still exists
-    if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
-      select.value = currentValue;
-    }
-  }
-  
-  // Populate chime select with available chime files
-  async function populateChimeSelect() {
-    const select = document.getElementById('chimeSelect');
-    const currentValue = select.value;
-    
-    select.innerHTML = '<option value="">なし</option>';
-    
-    try {
-      const response = await fetch('/api/chime_files');
-      const data = await response.json();
-      if (data.status === 'success') {
-        data.files.forEach(file => {
-          const option = document.createElement('option');
-          option.value = file;
-          option.textContent = file.replace('.mp3', '');
-          select.appendChild(option);
-        });
-      }
-    } catch (e) {
-      console.log('Error fetching chime files:', e);
-      // Fallback to static list
-      const chimeFiles = [
-        'お寺の鐘.mp3',
-        'きらきら輝く6.mp3',
-        'ほら貝を吹き鳴らす.mp3',
-        'ドンドンパフパフ.mp3',
-        'ラッパのファンファーレ.mp3',
-        'レベルアップ.mp3',
-        '放送開始チャイム.mp3',
-        '教会の鐘2.mp3',
-        '歓声と拍手.mp3',
-        '決定ボタンを押す4.mp3',
-        '決定ボタンを押す5.mp3',
-        '男衆「イエーイ！」.mp3',
-        '男衆「イヤッホー！」.mp3',
-        '突撃ラッパ.mp3',
-        '警報が鳴る.mp3',
-        '開演ブザー.mp3'
-      ];
-      chimeFiles.forEach(file => {
-        const option = document.createElement('option');
-        option.value = file;
-        option.textContent = file.replace('.mp3', '');
-        select.appendChild(option);
-      });
-    }
-    
-    // Restore previous selection if it still exists
-    if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
-      select.value = currentValue;
-    }
-  }
-  
-  // Populate voices when available
-  if (speechSynthesis.onvoiceschanged !== undefined) {
-    speechSynthesis.onvoiceschanged = populateVoiceSelect;
-  }
-  populateVoiceSelect();
-  populateChimeSelect();
-  
-  document.getElementById('saveRuleBtn')?.addEventListener('click', async () => {
-    // validate alignment first
-    const alignValid = validateAlignmentForSave();
-    if(!alignValid.ok){ return; }
-
-    const name = document.getElementById('ruleName').value || ('rule-' + Date.now());
-    const scope = (document.getElementById('ruleScope').value ? { symbol: document.getElementById('ruleScope').value } : {});
-    const condRows = Array.from(document.querySelectorAll('#conditionsContainer .cond-row'));
-    const conditions = condRows.map(r => {
-      const tf = r.querySelector('.cond-tf').value;
-      const fld = r.querySelector('.cond-field').value;
-      const opEl = r.querySelector('.cond-op');
-      const valEl = r.querySelector('.cond-value');
-      const opVal = opEl ? opEl.value : null;
-      const valVal = valEl ? valEl.value : null;
-      return { label: tf, field: fld, op: opVal, value: valVal };
-    });
-  const alignment = getAlignmentSettingsFromUI();
-  const ruleObj = { conditions: conditions };
-  // include alignment only if TFs selected
-  if(alignment.tfs && alignment.tfs.length > 0){ ruleObj.alignment = alignment; }
-  
-  // include voice settings
-  const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
-  const voiceName = document.getElementById('voiceSelect').value;
-  const messagePosition = document.getElementById('voiceMessagePosition').value;
-  const commonMessage = document.getElementById('voiceMessage').value.trim();
-  const messageUp = document.getElementById('voiceMessageUp').value.trim();
-  const messageDown = document.getElementById('voiceMessageDown').value.trim();
-  const playChime = document.getElementById('playChimeFirst').checked;
-  const chimeFile = document.getElementById('chimeSelect').value;
-  
-  console.log('[DEBUG] Voice settings - isDirectionBased:', isDirectionBased, 'voiceName:', voiceName, 'messagePosition:', messagePosition);
-  console.log('[DEBUG] Messages - common:', commonMessage, 'up:', messageUp, 'down:', messageDown);
-  console.log('[DEBUG] Chime - playChime:', playChime, 'chimeFile:', chimeFile);
-  
-  // Check if any voice setting exists
-  if (commonMessage || messageUp || messageDown || voiceName || (playChime && chimeFile)) {
-    ruleObj.voice = {};
-    
-    // Always save common message if present
-    if (commonMessage) {
-      ruleObj.voice.message = commonMessage;
-    }
-    
-    // Save direction-based messages if direction-based mode is enabled
-    if (isDirectionBased) {
-      ruleObj.voice.message_up = messageUp;
-      ruleObj.voice.message_down = messageDown;
-      ruleObj.voice.message_position = messagePosition;
-    }
-    
-    // Always save voice name if selected
-    if (voiceName) {
-      ruleObj.voice.voice_name = voiceName;
-    }
-    
-    // Save chime settings
-    if (playChime && chimeFile) {
-      ruleObj.voice.chime_file = chimeFile;
-    }
-    
-    // Save symbol insert setting
-    if (document.getElementById('insertSymbol').checked) {
-      ruleObj.voice.insert_symbol = true;
-      ruleObj.voice.symbol_insert_position = document.getElementById('symbolInsertPosition').value;
-    } else {
-      delete ruleObj.voice.insert_symbol;
-      delete ruleObj.voice.symbol_insert_position;
-    }
-  }
-  
-  console.log('[DEBUG] ruleObj after voice settings:', JSON.stringify(ruleObj, null, 2));
-  
-    const payload = { id: document.getElementById('saveRuleBtn').dataset.editing || name, name: name, enabled: true, scope: scope, rule: ruleObj };
-    console.log('[DEBUG] Saving payload:', JSON.stringify(payload, null, 2));
-    try {
-      const res = await fetch('/rules', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const j = await res.json();
-      if (j.status === 'success') { 
-        alert('ルールを保存しました'); 
-        // ルール一覧を再度読み込んで、最新のデータを取得
-        await loadRules();
-        // 保存したルールを再度開いて、UIを最新の状態に更新
-        try {
-          const rulesRes = await fetch('/rules');
-          const rulesData = await rulesRes.json();
-          if (rulesData.status === 'success') {
-            const savedRule = rulesData.rules.find(r => r.id === payload.id);
-            if (savedRule) {
-              console.log('[DEBUG] Reloading saved rule for display:', JSON.stringify(savedRule, null, 2));
-              openRuleEditor(savedRule);
-            }
-          }
-        } catch (e) {
-          console.log('Error reloading rule after save:', e);
-        }
-      }
-      else { alert('保存失敗: ' + (j.msg || JSON.stringify(j))); }
-    } catch (e) { console.log('save error', e); alert('保存時エラー: ' + e.message); }
-  });
-
-  document.getElementById('testRuleBtn')?.addEventListener('click', async () => {
-    const panel = document.getElementById('ruleTestResult');
-    const badge = document.getElementById('testBadge');
-    const short = document.getElementById('testShort');
-    const detailsEl = document.getElementById('testDetails');
-
-    badge.style.background = '#777'; badge.textContent = '実行中...';
-    short.textContent = '';
-    detailsEl.innerHTML = '';
-
-    // build payload
-    const scope = (document.getElementById('ruleScope').value ? { symbol: document.getElementById('ruleScope').value } : {});
-    const condRows = Array.from(document.querySelectorAll('#conditionsContainer .cond-row'));
-    const conditions = condRows.map(r => {
-      const tf = r.querySelector('.cond-tf').value;
-      const fld = r.querySelector('.cond-field').value;
-      const opEl = r.querySelector('.cond-op');
-      const valEl = r.querySelector('.cond-value');
-      const opVal = opEl ? opEl.value : null;
-      const valVal = valEl ? (valEl.value || null) : null;
-      return { label: tf, field: fld, op: opVal, value: valVal };
-    });
-  const payload = { rule: { logic: 'AND', conditions: conditions }, scope: scope };
-  const alignment = getAlignmentSettingsFromUI();
-  if(alignment.tfs && alignment.tfs.length > 0){ payload.rule.alignment = alignment; }
-
-    // alignment validation - we show a non-blocking warning
-    const alignValid = validateAlignmentForSave();
-    if(!alignValid.ok){ short.textContent = '注意: ' + alignValid.msg; }
-
-    // テスト時に現在のダッシュボードデータを state_override として送信
-    // 5m JSONには全TFの雲位置データが含まれているため、5mを優先的に使用
-    if (currentDashboardData && currentDashboardData.length > 0) {
-      let selectedState = null;
-      const ruleSymbol = scope.symbol;
-      
-      if (ruleSymbol) {
-        // ルールが特定の通貨に限定されている場合、その通貨の5mデータを使用
-        selectedState = currentDashboardData.find(s => s.symbol === ruleSymbol && (s.tf === '5' || s.tf === '5m'));
-        
-        // 5mが見つからなければ、その通貨の任意のデータを使用
-        if (!selectedState) {
-          selectedState = currentDashboardData.find(s => s.symbol === ruleSymbol);
-        }
-      } else {
-        // 通貨指定なしの場合、最初の5mデータを使用
-        selectedState = currentDashboardData.find(s => s.tf === '5' || s.tf === '5m');
-        
-        // 5mが見つからなければ最初のデータを使用
-        if (!selectedState) {
-          selectedState = currentDashboardData[0];
-        }
-      }
-      
-      if (selectedState) {
-        payload.state_override = selectedState;
-      }
-    }
-
-    try {
-      const res = await fetch('/rules/test', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const j = await res.json();
-      if (j.status === 'success') {
-        const matched = !!j.matched;
-  // badge — show compact OK/NG
-  if (matched) { badge.style.background = '#2d8a3d'; badge.textContent = 'OK'; }
-  else { badge.style.background = '#b02a2a'; badge.textContent = 'NG'; }
-
-        // short summary
-        const condCount = Array.isArray(payload.rule.conditions) ? payload.rule.conditions.length : 0;
-        const passCount = Array.isArray(j.details) ? j.details.filter(d => d.result).length : (matched ? condCount : 0);
-  short.textContent = `判定: ${matched ? 'OK' : 'NG'} — 条件合致 ${passCount}/${condCount}${payload.rule.alignment ? ' / 雲整列を含む' : ''}`;
-
-        // human-readable details
-        if (Array.isArray(j.details) && j.details.length > 0) {
-          const ul = document.createElement('ul');
-          ul.style.margin = '6px 0 0 14px'; ul.style.padding = '0'; ul.style.listStyle = 'disc';
-          j.details.forEach(d => {
-            const li = document.createElement('li');
-            try {
-              const rawName = d.cond || (d.label ? `${d.label}.${d.field}` : JSON.stringify(d));
-              // field -> Japanese name map
-              const fieldMap = {
-                'alignment':'雲整列', '雲整列':'雲整列',
-                'dauten':'ダウ転換', 'gc':'雲交差', 'bos_count':'突破数', 'daytrade_bos':'突破数',
-                'distance_from_prev':'各雲間', 'distance_from_price':'価格間',
-                'angle':'雲角度', 'thickness':'雲厚み', 'transfer_time_diff':'転換時間差',
-                'presence_check':'存在確認', 'direction_consistency':'方向一貫性'
-              };
-
-              // derive display name - extract field part after dot if present
-              let name = rawName;
-              const key = d.field || d.cond || rawName;
-              
-              // if cond contains a dot (e.g., "5m.dauten"), extract the field part
-              if (typeof rawName === 'string' && rawName.includes('.')) {
-                const parts = rawName.split('.');
-                const tfPart = parts[0];  // e.g., "5m"
-                const fieldPart = parts[1]; // e.g., "dauten"
-                const mappedField = fieldMap[fieldPart] || fieldPart;
-                name = `${tfPart}.${mappedField}`;
-              } else if (fieldMap[key]) {
-                name = fieldMap[key];
-              }
-
-              // OK/NG
-              const ok = d.result ? 'OK' : 'NG';
-
-              // helper to format actual values (handle undefined/null)
-              const formatActual = (val, fld) => {
-                if (val === undefined || val === null || val === '-') return '未測定';
-                // normalize some known display values
-                if (fld && fld.includes('dauten')) {
-                  if (val === 'up' || val === '上' || val === 'upward' || val === '▲' || val === '上昇') return '上昇';
-                  if (val === 'down' || val === '下' || val === 'downward' || val === '▼' || val === '下降') return '下降';
-                  return String(val);
-                }
-                if (fld && fld.includes('gc')) {
-                  if (String(val).toUpperCase() === 'GC') return 'GC';
-                  if (String(val).toUpperCase() === 'DC') return 'DC';
-                  return String(val);
-                }
-                return (typeof val === 'number') ? (Number(val).toFixed(2).replace(/\.00$/,'')) : String(val);
-              };
-
-              // build message by condition type / available fields
-              let msg = '';
-
-              // known reason translations
-              const reasonMap = {
-                'presence_check':'存在確認', 'missing_field':'データ欠損', 'invalid_threshold':'無効な閾値',
-                'directions_mismatch':'方向不一致', 'missing_fail':'欠損で不成立', 'effective_lt_n':'有効数が閾値未満',
-                'no_threshold_provided':'閾値未設定', 'invalid_direction':'無効な方向指定',
-                'no_selection':'TF未選択', 'need_at_least_2':'最低2つのTFが必要',
-                'too_few_effective_tfs':'有効TFが2つ未満', 'order_mismatch':'順序不一致', 'no_row_order':'雲順序データなし'
-              };
-              if (d.reason) {
-                const reasonText = reasonMap[d.reason] || d.reason;
-                // if directions array is present (for direction_consistency), show them
-                if (d.directions && Array.isArray(d.directions)) {
-                  msg = `（${reasonText}：${d.directions.join('、')}）`;
-                } else if (d.dauten_dir !== undefined || d.cross_dir !== undefined) {
-                  // show debug info for invalid_direction errors
-                  msg = `（${reasonText}：ダウ方向=${d.dauten_dir || '?'}、交差方向=${d.cross_dir || '?'}）`;
-                } else {
-                  msg = `（${reasonText}）`;
-                }
-              } else if (d.match_up !== undefined || d.match_down !== undefined) {
-                const up = d.match_up !== undefined ? d.match_up : '-';
-                const down = d.match_down !== undefined ? d.match_down : '-';
-                msg = `（上昇：${up} ／ 下降：${down}`;
-                if (d.threshold !== undefined) msg += `、閾値：${d.threshold}`;
-                msg += '）';
-              } else if (d.threshold !== undefined || d.value !== undefined) {
-                const thr = d.threshold !== undefined ? d.threshold : d.value;
-                const fieldKey = d.field || (d.cond ? d.cond.split('.')[1] : '');
-                const actual = formatActual(d.actual, fieldKey || d.cond);
-                // special-wording for some fields
-                if ((fieldKey === 'dauten') || (d.cond && d.cond.indexOf('dauten') !== -1)) {
-                  msg = `（期待方向：${thr}、実測：${actual}）`;
-                } else if ((fieldKey === 'gc') || (d.cond && d.cond.indexOf('gc') !== -1)) {
-                  msg = `（期待：${thr}、実測：${actual}）`;
-                } else if ((fieldKey === 'bos_count') || (fieldKey === 'daytrade_bos') || (d.cond && d.cond.indexOf('bos_count') !== -1)) {
-                  msg = `（閾値：${thr} 回、実測：${actual}）`;
-                } else if ((fieldKey === 'transfer_time_diff') || (d.cond && d.cond.indexOf('transfer_time_diff') !== -1)) {
-                  msg = `（閾値：${thr} 分、実測：${actual} 分）`;
-                } else if ((fieldKey === 'angle') || (d.cond && d.cond.indexOf('angle') !== -1)) {
-                  msg = `（閾値：${thr}°、実測：${actual}°）`;
-                } else if ((fieldKey === 'distance_from_prev') || (d.cond && d.cond.indexOf('distance_from_prev') !== -1)) {
-                  msg = `（閾値：${thr} pips、実測：${actual} pips）`;
-                } else if ((fieldKey === 'distance_from_price') || (d.cond && d.cond.indexOf('distance_from_price') !== -1)) {
-                  msg = `（閾値：${thr} pips、実測：${actual} pips）`;
-                } else if ((fieldKey === 'thickness') || (d.cond && d.cond.indexOf('thickness') !== -1)) {
-                  msg = `（閾値：${thr} pips、実測：${actual} pips）`;
-                } else {
-                  msg = `（閾値：${thr}、実測：${actual}）`;
-                }
-              } else if (d.delta_min !== undefined) {
-                const actualVal = (d.delta_min === undefined || d.delta_min === null) ? '未測定' : Number(d.delta_min).toFixed(1);
-                const thr = d.threshold !== undefined ? d.threshold : (d.value !== undefined ? d.value : '-');
-                msg = `（閾値：${thr} 分、実測：${actualVal} 分）`;
-              } else if (d.actual !== undefined) {
-                const actual = formatActual(d.actual, d.field || d.cond);
-                msg = `（実測：${actual}）`;
-              } else if (d.found_in) {
-                const fi = d.found_in;
-                msg = `（取得元：TF=${fi.state_tf || fi.tf || '-'}、雲=${fi.cloud_label || fi.cloud || '-'}）`;
-              }
-
-              li.textContent = `${name}：${ok} ${msg}`.trim();
-            } catch (e) { li.textContent = JSON.stringify(d); }
-            ul.appendChild(li);
-          });
-          detailsEl.appendChild(ul);
-        } else {
-          detailsEl.textContent = '詳細情報はありません。';
-        }
-
-        // collapsible raw JSON with copy button (visible copy button placed next to the toggle)
-        const raw = document.createElement('details');
-        raw.style.marginTop = '8px';
-        const sum = document.createElement('summary'); sum.textContent = '生データを表示'; raw.appendChild(sum);
-
-        const pre = document.createElement('pre');
-        pre.style.maxHeight = '240px'; pre.style.overflow = 'auto'; pre.style.background = 'transparent'; pre.style.color = 'inherit'; pre.style.whiteSpace = 'pre-wrap'; pre.style.userSelect = 'text';
-        pre.textContent = JSON.stringify(j, null, 2);
-        raw.appendChild(pre);
-
-        // copy area inside details (for expanded view)
-        const copyWrap = document.createElement('div');
-        copyWrap.style.display = 'flex'; copyWrap.style.gap = '8px'; copyWrap.style.alignItems = 'center'; copyWrap.style.marginTop = '6px';
-        const copyBtnInside = document.createElement('button');
-        copyBtnInside.textContent = '生データをコピー';
-        copyBtnInside.style.padding = '4px 8px'; copyBtnInside.style.fontSize = '0.9em'; copyBtnInside.style.cursor = 'pointer';
-        const copyNote = document.createElement('span');
-        copyNote.style.opacity = '0.85'; copyNote.style.fontSize = '0.9em'; copyNote.textContent = '';
-        copyWrap.appendChild(copyBtnInside);
-        copyWrap.appendChild(copyNote);
-        raw.appendChild(copyWrap);
-
-        // wrapper to hold details and a visible copy button next to the summary
-        const rawWrap = document.createElement('div');
-        rawWrap.style.display = 'flex'; rawWrap.style.alignItems = 'center'; rawWrap.style.gap = '8px';
-        // visible copy button placed to the right of the summary (works even when details is collapsed)
-        const copyBtnVisible = document.createElement('button');
-        copyBtnVisible.textContent = '生データをコピー';
-        copyBtnVisible.style.padding = '4px 8px'; copyBtnVisible.style.fontSize = '0.9em'; copyBtnVisible.style.cursor = 'pointer';
-        rawWrap.appendChild(raw);
-        rawWrap.appendChild(copyBtnVisible);
-        detailsEl.appendChild(rawWrap);
-
-        // copy handler (shared)
-        const doCopy = async () => {
-          try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(pre.textContent);
-            } else {
-              const range = document.createRange();
-              range.selectNodeContents(pre);
-              const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-              document.execCommand('copy');
-              sel.removeAllRanges();
-            }
-            copyNote.textContent = 'コピーしました';
-            setTimeout(() => { copyNote.textContent = ''; }, 2000);
-          } catch (e) {
-            copyNote.textContent = 'コピー失敗';
-            setTimeout(() => { copyNote.textContent = ''; }, 2000);
-          }
-        };
-        copyBtnInside.addEventListener('click', doCopy);
-        copyBtnVisible.addEventListener('click', doCopy);
-      } else {
-        badge.style.background = '#aa5500'; badge.textContent = 'エラー';
-        short.textContent = 'エラー: ' + (j.msg || JSON.stringify(j));
-        detailsEl.textContent = '';
-      }
-    } catch (e) {
-      badge.style.background = '#aa5500'; badge.textContent = '実行エラー';
-      short.textContent = e.message;
-      detailsEl.textContent = '';
-    }
-  });
-
-  // initial load of rules
-  loadRules();
-  
-  // Wire test fire button
-  document.getElementById('test-fire-btn')?.addEventListener('click', testFire);
-  
-  // Wire clear fire history button
-  document.getElementById('clear-fire-history-btn')?.addEventListener('click', async () => {
-    try {
-      const res = await fetch('/api/clear_notifications', { method: 'POST' });
-      const data = await res.json();
-      if (data.status === 'success') {
-        // Clear local display
-        const listEl = document.getElementById('fire-history-list');
-        if (listEl) {
-          listEl.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
-        }
-        console.log('Notifications cleared');
-      } else {
-        console.log('Clear failed:', data);
-        alert('クリアに失敗しました: ' + (data.msg || JSON.stringify(data)));
-      }
-    } catch (e) {
-      console.log('Clear error:', e);
-      alert('クリアエラー: ' + e.message);
-    }
-  });
-});
+// ルール UI イベントリスナーは DOMContentLoaded リスナーで初期化される
 
 // --- Notifications and Voice Alerts ---
 let lastNotificationTimestamp = null;
@@ -2725,107 +2807,6 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null) {
   
   console.log('Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
 }
-
-// Start notification checking
-document.addEventListener('DOMContentLoaded', () => {
-  // Version check - prevent old code from running
-  const REQUIRED_VERSION = '2025-11-10-v3';
-  const currentVersion = localStorage.getItem('app_version');
-  if (currentVersion !== REQUIRED_VERSION) {
-    console.log('[NOTIFICATIONS] Version mismatch, waiting for reload');
-    return;
-  }
-  
-  // Check if already initialized
-  if (notificationPollingStarted) {
-    console.log('[NOTIFICATIONS] Already initialized, skipping');
-    return;
-  }
-  notificationPollingStarted = true;
-  
-  const instanceId = Math.random().toString(36).substr(2, 9);
-  console.log('[NOTIFICATIONS] Instance ID: ' + instanceId + ' - Page loaded - Version: ' + REQUIRED_VERSION);
-  
-  // Function to get current polling interval (in milliseconds)
-  // Base interval: 5 minutes (300 seconds) + update delay offset
-  const getPollingInterval = () => {
-    const delaySecs = parseInt(localStorage.getItem('tv_update_delay') || '10');
-    const baseInterval = 300; // 5 minutes in seconds
-    const totalSeconds = baseInterval + delaySecs;
-    return totalSeconds * 1000; // Convert to milliseconds
-  };
-  
-  // Function to start polling
-  const startNotificationPolling = () => {
-    if (notificationCheckInterval) {
-      console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Clearing existing polling interval ' + notificationCheckInterval);
-      clearInterval(notificationCheckInterval);
-      notificationCheckInterval = null;
-    }
-
-    const intervalMs = getPollingInterval();
-    const intervalSecs = intervalMs / 1000;
-    const mins = Math.floor(intervalSecs / 60);
-    const secs = Math.floor(intervalSecs % 60);
-    console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Starting polling with interval: ' + intervalMs + 'ms (' + mins + 'm ' + secs + 's)');
-    checkNotifications(); // Initial check
-    notificationCheckInterval = setInterval(checkNotifications, intervalMs);
-    console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Timer ID: ' + notificationCheckInterval);
-  };
-  
-  // Function to stop polling
-  const stopNotificationPolling = () => {
-    if (notificationCheckInterval) {
-      console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Stopping polling');
-      clearInterval(notificationCheckInterval);
-      notificationCheckInterval = null;
-    }
-  };
-  
-  // Function to restart polling with new interval
-  const restartNotificationPolling = () => {
-    console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Restarting polling');
-    stopNotificationPolling();
-    startNotificationPolling();
-  };
-  
-  // Start polling when page is visible
-  startNotificationPolling();
-  
-  // Stop/resume polling when page visibility changes
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page hidden, stopping');
-      stopNotificationPolling();
-      // Also clear update timer when page is hidden
-      if (updateTimer) {
-        console.log('[TIMER] Page hidden, clearing timer');
-        clearTimeout(updateTimer);
-        updateTimer = null;
-      }
-    } else {
-      console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page visible, resuming');
-      startNotificationPolling();
-      // Reschedule update timer when page becomes visible
-      console.log('[TIMER] Page visible, rescheduling update');
-      scheduleNextUpdate();
-    }
-  });
-  
-  // Restart polling when update delay setting changes
-  document.getElementById('updateDelayInput')?.addEventListener('change', () => {
-    const newDelay = parseInt(document.getElementById('updateDelayInput').value);
-    console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Update delay changed to ' + newDelay + 's, restarting polling');
-    restartNotificationPolling();
-  });
-  
-  // Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
-    console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page unloading, cleanup');
-    stopNotificationPolling();
-    notificationPollingStarted = false;
-  });
-});
 </script>
 </body>
 </html>

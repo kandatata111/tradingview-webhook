@@ -3,9 +3,11 @@ import os, sqlite3, json
 from datetime import datetime
 import threading
 import pytz
+from flask_socketio import SocketIO, emit
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
+socketio = SocketIO(app, cors_allowed_origins="*")
 DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
 
 @app.errorhandler(405)
@@ -87,6 +89,44 @@ def init_db():
     conn.close()
     print('[OK] Fire history table ensured')
 
+def is_fx_market_open():
+    """
+    FX市場の営業時間かどうかを判定
+    FX市場: 月曜日 UTC 21:00 ～ 金曜日 UTC 21:00
+    サマータイム対応: 米国DST期間 (3月第2日曜日～11月第1日曜日) は UTC-4
+    通常期間は UTC-5
+    """
+    try:
+        # UTC時刻を取得
+        utc_now = datetime.now(pytz.UTC)
+        
+        # 曜日を取得 (0=月, 1=火, ..., 6=日)
+        weekday = utc_now.weekday()
+        hour = utc_now.hour
+        minute = utc_now.minute
+        
+        # 月曜(0)～金曜(4)の開場時間: UTC 21:00～
+        # 金曜(4) UTC 21:00～土曜(5) UTC 21:00
+        
+        # 金曜日の場合
+        if weekday == 4:  # Friday
+            if hour >= 21 or (hour == 20 and minute >= 59):  # UTC 21:00以降
+                return True
+            return True  # 金曜日の全時間（UTC 21:00までは木曜として扱う）
+        
+        # 月曜～木曜: UTC 21:00～21:59
+        if weekday < 4:  # Monday to Thursday
+            if hour >= 21:  # UTC 21:00以降
+                return True
+            else:
+                return False
+        
+        # 土曜日、日曜日: 休場
+        return False
+    except Exception as e:
+        print(f'[ERROR] is_fx_market_open check failed: {e}')
+        return True  # エラー時はデフォルトで開場と判定
+
 @app.route('/Alarm/<path:filename>')
 def serve_alarm_file(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'Alarm'), filename)
@@ -114,6 +154,12 @@ def webhook():
         data = request.json
         if not data:
             return jsonify({'status': 'error', 'msg': 'No JSON'}), 400
+        
+        # FX休場時は更新を無視
+        if not is_fx_market_open():
+            jst = pytz.timezone('Asia/Tokyo')
+            print(f'[WEBHOOK IGNORED] Market closed - {datetime.now(jst).isoformat()}')
+            return jsonify({'status': 'ignored', 'msg': 'FX market closed'}), 200
         
         # 受信タイムスタンプをログ（JST）
         jst = pytz.timezone('Asia/Tokyo')
@@ -173,6 +219,9 @@ def webhook():
             
             # データ保存後にルール評価と発火
             evaluate_and_fire_rules(data)
+            
+            # Socket.IOで即時更新通知（全クライアントに配信）
+            socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
         except Exception as e:
             print(f'[ERROR] Saving data immediately: {e}')
             return jsonify({'status': 'error', 'msg': f'Database save failed: {str(e)}'}), 500
@@ -248,18 +297,21 @@ def rules():
         if align:
             try:
                 tfs = align.get('tfs') or []
-                # n may come as string or number
-                n_raw = align.get('n')
-                if n_raw is None:
-                    return jsonify({'status':'error','msg':'alignment.n missing'}), 400
-                try:
-                    n_val = int(n_raw)
-                except Exception:
-                    return jsonify({'status':'error','msg':'alignment.n must be an integer'}), 400
                 if not isinstance(tfs, list) or any(not isinstance(x, str) for x in tfs):
                     return jsonify({'status':'error','msg':'alignment.tfs must be list of TF strings'}), 400
                 if len(tfs) < 2:
                     return jsonify({'status':'error','msg':'alignment requires at least 2 TFs to be selected'}), 400
+                
+                # n may come as string or number; if missing, default to len(tfs)
+                n_raw = align.get('n')
+                if n_raw is None:
+                    n_val = len(tfs)  # Default: require ALL TFs to match
+                else:
+                    try:
+                        n_val = int(n_raw)
+                    except Exception:
+                        return jsonify({'status':'error','msg':'alignment.n must be an integer'}), 400
+                
                 if n_val < 2:
                     return jsonify({'status':'error','msg':'alignment.n must be >= 2'}), 400
                 if n_val > len(tfs):
@@ -267,6 +319,10 @@ def rules():
                 missing_mode = align.get('missing')
                 if missing_mode not in ('ignore','fail'):
                     return jsonify({'status':'error','msg':'alignment.missing must be "ignore" or "fail"'}), 400
+                
+                # Ensure n is set in the alignment object for consistency
+                if n_raw is None:
+                    align['n'] = n_val
             except Exception as e:
                 return jsonify({'status':'error','msg': 'alignment validation error: ' + str(e)}), 400
 
@@ -1185,6 +1241,23 @@ def api_clear_notifications():
         print(f'[ERROR][api/clear_notifications] {e}')
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
+@app.route('/api/market_status', methods=['GET'])
+def api_market_status():
+    """Get current FX market status"""
+    try:
+        market_open = is_fx_market_open()
+        utc_now = datetime.now(pytz.UTC)
+        jst_now = datetime.now(pytz.timezone('Asia/Tokyo'))
+        return jsonify({
+            'status': 'success',
+            'market_open': market_open,
+            'utc_time': utc_now.isoformat(),
+            'jst_time': jst_now.isoformat()
+        }), 200
+    except Exception as e:
+        print(f'[ERROR][api/market_status] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 @app.route('/api/clear_fire_history', methods=['POST'])
 def api_clear_fire_history():
     """Clear fire history database"""
@@ -1579,4 +1652,4 @@ def evaluate_and_fire_rules(data):
 if __name__ == '__main__':
     init_db()
     print('[START] Port 5000')
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
