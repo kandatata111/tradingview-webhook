@@ -5,14 +5,9 @@ import threading
 import pytz
 from flask_socketio import SocketIO, emit
 
-# Use threading mode for Socket.IO (works both locally and on Render.com)
-async_mode = 'threading'
-print('[INFO] Using threading async mode for Socket.IO')
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode, ping_timeout=60, ping_interval=25)
+socketio = SocketIO(app, cors_allowed_origins="*")
 DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
 
 @app.errorhandler(405)
@@ -1361,11 +1356,7 @@ def evaluate_and_fire_rules(data):
                 from flask import Flask
                 with app.test_request_context('/rules/test', method='POST', json=payload):
                     response = rules_test()
-                    if isinstance(response, tuple):
-                        # Handle error handler tuple: (response, status)
-                        result = response[0].get_json()
-                    else:
-                        result = response.get_json()
+                    result = response.get_json()
                 
                 print(f'[FIRE] Rule "{rule_name}" result: matched={result.get("matched")}')
                 
@@ -1658,16 +1649,8 @@ def evaluate_and_fire_rules(data):
     except Exception as e:
         print(f'[ERROR] evaluate_and_fire_rules: {e}')
 
-# Initialize database on module load (for gunicorn)
-init_db()
-
 if __name__ == '__main__':
-    try:
-        port = int(os.environ.get('PORT', 5000))
-        print(f'[START] Starting server on port {port} with Socket.IO ({async_mode})')
-        socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
-    except Exception as e:
-        print(f'[ERROR] Failed to start server: {e}')
-        import traceback
-        traceback.print_exc()
-        raise
+    init_db()
+    port = int(os.environ.get('PORT', 5000))
+    print(f'[START] Starting server on port {port}')
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
