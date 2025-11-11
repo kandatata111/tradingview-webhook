@@ -5,9 +5,17 @@ import threading
 import pytz
 from flask_socketio import SocketIO, emit
 
+# Try to import eventlet for production
+try:
+    import eventlet
+    eventlet.monkey_patch()
+    async_mode = 'eventlet'
+except ImportError:
+    async_mode = 'threading'
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
 DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
 
 @app.errorhandler(405)
@@ -1654,7 +1662,13 @@ def evaluate_and_fire_rules(data):
         print(f'[ERROR] evaluate_and_fire_rules: {e}')
 
 if __name__ == '__main__':
-    init_db()
-    port = int(os.environ.get('PORT', 5000))
-    print(f'[START] Port {port}')
-    socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    try:
+        init_db()
+        port = int(os.environ.get('PORT', 5000))
+        print(f'[START] Starting server on port {port} with async_mode={async_mode}')
+        socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    except Exception as e:
+        print(f'[ERROR] Failed to start server: {e}')
+        import traceback
+        traceback.print_exc()
+        raise
