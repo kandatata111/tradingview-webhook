@@ -5,15 +5,9 @@ import threading
 import pytz
 from flask_socketio import SocketIO, emit
 
-# Determine async_mode based on environment
-# Production (Render.com) uses gevent, local uses threading
-try:
-    import gevent
-    async_mode = 'gevent'
-    print('[INFO] Using gevent async mode for production')
-except ImportError:
-    async_mode = 'threading'
-    print('[INFO] Using threading async mode for local development')
+# Use threading mode for Socket.IO (works both locally and on Render.com)
+async_mode = 'threading'
+print('[INFO] Using threading async mode for Socket.IO')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
