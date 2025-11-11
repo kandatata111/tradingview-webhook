@@ -1356,7 +1356,11 @@ def evaluate_and_fire_rules(data):
                 from flask import Flask
                 with app.test_request_context('/rules/test', method='POST', json=payload):
                     response = rules_test()
-                    result = response.get_json()
+                    if isinstance(response, tuple):
+                        # Handle error handler tuple: (response, status)
+                        result = response[0].get_json()
+                    else:
+                        result = response.get_json()
                 
                 print(f'[FIRE] Rule "{rule_name}" result: matched={result.get("matched")}')
                 
