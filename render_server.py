@@ -3,31 +3,12 @@ import os, sqlite3, json
 from datetime import datetime
 import threading
 import pytz
-
-# Try to import Socket.IO (optional for production)
-try:
-    from flask_socketio import SocketIO, emit
-    SOCKETIO_AVAILABLE = True
-except ImportError:
-    SOCKETIO_AVAILABLE = False
-    print('[WARNING] Socket.IO not available - running without real-time updates')
-
-# Try to import eventlet for production
-try:
-    import eventlet
-    eventlet.monkey_patch()
-    async_mode = 'eventlet'
-except ImportError:
-    async_mode = 'threading'
+from flask_socketio import SocketIO, emit
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
-
-if SOCKETIO_AVAILABLE:
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
-else:
-    socketio = None
-
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent', ping_timeout=60, ping_interval=25)
 DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
 
 @app.errorhandler(405)
@@ -241,8 +222,7 @@ def webhook():
             evaluate_and_fire_rules(data)
             
             # Socket.IOで即時更新通知（全クライアントに配信）
-            if socketio:
-                socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
+            socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
         except Exception as e:
             print(f'[ERROR] Saving data immediately: {e}')
             return jsonify({'status': 'error', 'msg': f'Database save failed: {str(e)}'}), 500
@@ -1680,12 +1660,8 @@ init_db()
 if __name__ == '__main__':
     try:
         port = int(os.environ.get('PORT', 5000))
-        if socketio:
-            print(f'[START] Starting server on port {port} with Socket.IO (async_mode={async_mode})')
-            socketio.run(app, host='0.0.0.0', port=port, debug=False)
-        else:
-            print(f'[START] Starting server on port {port} (basic Flask)')
-            app.run(host='0.0.0.0', port=port, debug=False)
+        print(f'[START] Starting server on port {port} with Socket.IO (gevent)')
+        socketio.run(app, host='0.0.0.0', port=port, debug=False)
     except Exception as e:
         print(f'[ERROR] Failed to start server: {e}')
         import traceback
