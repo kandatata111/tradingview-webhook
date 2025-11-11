@@ -1661,9 +1661,11 @@ def evaluate_and_fire_rules(data):
     except Exception as e:
         print(f'[ERROR] evaluate_and_fire_rules: {e}')
 
+# Initialize database on module load (for gunicorn)
+init_db()
+
 if __name__ == '__main__':
     try:
-        init_db()
         port = int(os.environ.get('PORT', 5000))
         print(f'[START] Starting server on port {port} with async_mode={async_mode}')
         socketio.run(app, host='0.0.0.0', port=port, debug=False)
