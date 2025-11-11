@@ -92,40 +92,82 @@ def init_db():
 def is_fx_market_open():
     """
     FX市場の営業時間かどうかを判定
-    FX市場: 月曜日 UTC 21:00 ～ 金曜日 UTC 21:00
+    FX市場: 月曜日 UTC 21:00 ～ 金曜日 UTC 21:00（通常期間）
+           月曜日 UTC 20:00 ～ 金曜日 UTC 20:00（サマータイム期間）
+
+    サマータイム期間: 3月第2日曜日～11月第1日曜日
     """
     try:
         # UTC時刻を取得
         utc_now = datetime.now(pytz.UTC)
-        
+
         # 曜日を取得 (0=月, 1=火, ..., 6=日)
         weekday = utc_now.weekday()
         hour = utc_now.hour
-        
+
         # 日曜日: 完全休場
         if weekday == 6:  # Sunday
             return False
-        
-        # 月曜日: UTC 21:00から開場
-        if weekday == 0:  # Monday
-            return hour >= 21
-        
-        # 火曜～木曜: 全時間開場
-        if weekday < 4:  # Tuesday to Thursday (1-3)
-            return True
-        
-        # 金曜日: UTC 21:00まで開場
-        if weekday == 4:  # Friday
-            return hour < 21
-        
+
+        # サマータイム期間かどうかを判定
+        # 米国東部時間: 3月第2日曜日午前2:00～11月第1日曜日午前2:00
+        # UTC時間: 3月第2日曜日午前6:00～11月第1日曜日午前6:00
+        year = utc_now.year
+        march_second_sunday = _get_nth_weekday(year, 3, 6, 2)  # 3月第2日曜日
+        november_first_sunday = _get_nth_weekday(year, 11, 6, 1)  # 11月第1日曜日
+
+        # サマータイム開始: 3月第2日曜日午前6:00 UTC
+        dst_start = datetime(year, 3, march_second_sunday, 6, 0, 0, tzinfo=pytz.UTC)
+        # サマータイム終了: 11月第1日曜日午前6:00 UTC
+        dst_end = datetime(year, 11, november_first_sunday, 6, 0, 0, tzinfo=pytz.UTC)
+
+        is_dst = dst_start <= utc_now < dst_end
+
+        # サマータイム期間中の営業時間: UTC 20:00～21:00
+        # 通常期間の営業時間: UTC 21:00～22:00
+        if is_dst:
+            # サマータイム期間
+            if weekday == 0:  # Monday
+                return hour >= 20
+            elif weekday < 4:  # Tuesday to Thursday
+                return True
+            elif weekday == 4:  # Friday
+                return hour < 20
+        else:
+            # 通常期間
+            if weekday == 0:  # Monday
+                return hour >= 21
+            elif weekday < 4:  # Tuesday to Thursday
+                return True
+            elif weekday == 4:  # Friday
+                return hour < 21
+
         # 土曜日: 完全休場
         if weekday == 5:  # Saturday
             return False
-        
+
         return False
     except Exception as e:
         print(f'[ERROR] is_fx_market_open check failed: {e}')
         return True  # エラー時はデフォルトで開場と判定
+
+
+def _get_nth_weekday(year, month, weekday, n):
+    """
+    指定された年月の第n番目の曜日を取得
+    weekday: 0=月, 1=火, ..., 6=日
+    n: 第n番目
+    """
+    first_day = datetime(year, month, 1)
+    first_weekday = first_day.weekday()
+
+    # 第1日曜日までの日数
+    days_to_first = (weekday - first_weekday) % 7
+
+    # 第n日曜日
+    target_date = 1 + days_to_first + (n - 1) * 7
+
+    return target_date
 
 @app.route('/Alarm/<path:filename>')
 def serve_alarm_file(filename):
