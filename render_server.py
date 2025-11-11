@@ -5,10 +5,20 @@ import threading
 import pytz
 from flask_socketio import SocketIO, emit
 
+# Determine async_mode based on environment
+# Production (Render.com) uses gevent, local uses threading
+try:
+    import gevent
+    async_mode = 'gevent'
+    print('[INFO] Using gevent async mode for production')
+except ImportError:
+    async_mode = 'threading'
+    print('[INFO] Using threading async mode for local development')
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent', ping_timeout=60, ping_interval=25)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode, ping_timeout=60, ping_interval=25)
 DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
 
 @app.errorhandler(405)
@@ -1660,7 +1670,7 @@ init_db()
 if __name__ == '__main__':
     try:
         port = int(os.environ.get('PORT', 5000))
-        print(f'[START] Starting server on port {port} with Socket.IO (gevent)')
+        print(f'[START] Starting server on port {port} with Socket.IO ({async_mode})')
         socketio.run(app, host='0.0.0.0', port=port, debug=False)
     except Exception as e:
         print(f'[ERROR] Failed to start server: {e}')
