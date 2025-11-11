@@ -31,21 +31,35 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .modal select { min-width:140px; background:rgba(15,27,65,0.7); color:#f5f7ff; border:1px solid rgba(255,255,255,0.35); border-radius:8px; padding:6px 10px; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15); }
 .modal button { background:rgba(10,20,55,0.6) !important; color:#f5f7ff !important; border:1px solid rgba(255,255,255,0.35) !important; padding:6px 12px !important; border-radius:8px !important; box-shadow:0 8px 18px rgba(0,0,0,0.35); transition:background 0.2s ease, transform 0.2s ease; }
 .modal button:hover { background:rgba(30,60,140,0.7) !important; transform:translateY(-1px); }
-  .modal .section-header { background:#000; color:#fff; padding:6px 10px; margin:8px 0 10px 0; border-radius:6px; font-weight:600; font-size:0.95em; letter-spacing:0.3px; display:flex; justify-content:space-between; align-items:center; }
+  .modal .section-header { background:#000; color:#fff; padding:6px 10px; margin:8px 0 10px 0; border-radius:6px; font-weight:600; font-size:0.95em; letter-spacing:0.3px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+  .modal .section-header::after { content: '+'; font-size:1.2em; margin-left:auto; transition:transform 0.3s ease; }
+  .modal .section-header.active::after { content: '-'; }
   .section-toggle { background:transparent; border:none; color:inherit; cursor:pointer; font-size:1.5em; line-height:1; padding:0; margin:0; transition:transform 0.2s ease; }
   .section-toggle:hover { transform:scale(1.15); }
-  .subsection-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .subsection-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; cursor:pointer; padding-right:30px; }
+  .subsection-header::after { content: '+'; font-size:1.2em; position:absolute; right:8px; transition:transform 0.3s ease; }
+  .subsection-header.active::after { content: '-'; }
+  .subsection-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.6s ease-in-out;
+  }
+  .subsection-body.active {
+    max-height: 2000px; /* 十分な高さに設定 */
+  }
   .subsection-toggle { background:transparent; border:none; color:inherit; cursor:pointer; font-size:1.2em; line-height:1; padding:2px 6px; margin:0; transition:transform 0.2s ease; }
   .subsection-toggle:hover { opacity:0.7; }
 
-  /* --- unify sub-item typography inside modal section bodies ---
-     Use the "列の表示" labels as the canonical size/weight (0.9em/600)
-     This affects labels, selects, buttons and inline texts within section bodies
-  */
   .modal .section-body {
     font-size: 0.9em;
     font-weight: 400; /* reduced weight for subitems */
     color: inherit;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.6s ease-in-out;
+  }
+  .modal .section-body.active {
+    max-height: 2000px; /* 十分な高さに設定 */
   }
   .modal .section-body label,
   .modal .section-body select,
@@ -187,6 +201,21 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .currency-fire-history button:hover {
   background: rgba(102, 126, 234, 0.4);
 }
+.rule-count-btn {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border: 1px solid #667eea;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.rule-count-btn:hover {
+  background: rgba(102, 126, 234, 0.4);
+}
 .currency-fire-history-list {
   flex: 1;
   overflow-y: auto;
@@ -239,6 +268,14 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .light-mode .currency-fire-history button:hover,
 .light-mode #test-fire-btn:hover,
 .light-mode #clear-fire-history-btn:hover {
+  background: rgba(0,0,0,0.08);
+}
+.light-mode .rule-count-btn {
+  background: rgba(0,0,0,0.05);
+  color: #111;
+  border-color: rgba(0,0,0,0.6);
+}
+.light-mode .rule-count-btn:hover {
   background: rgba(0,0,0,0.08);
 }
 .light-mode .fire-item {
@@ -338,6 +375,14 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .dark-mode #clear-fire-history-btn:hover {
   background: rgba(255,255,255,0.06);
 }
+.dark-mode .rule-count-btn {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.9);
+}
+.dark-mode .rule-count-btn:hover {
+  background: rgba(255,255,255,0.06);
+}
 
 /* Light mode adjustments */
 .light-mode .modal {
@@ -370,7 +415,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   </div>
     
     <!-- 表示調整セクション -->
-  <div class="section-header" data-section="displayAdjust">表示調整 <button class="section-toggle" data-section="displayAdjust" aria-expanded="true">▾</button></div>
+  <div class="section-header" data-section="displayAdjust">表示調整</div>
   <div class="section-body" data-section-body="displayAdjust">
   <div class="row">
       <label>モード</label>
@@ -406,7 +451,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
     
     <!-- 列の表示セクション -->
   </div>
-  <div class="section-header" data-section="columns">列の表示 <button class="section-toggle" data-section="columns" aria-expanded="true">▾</button></div>
+  <div class="section-header" data-section="columns">列の表示</div>
   <div class="section-body" data-section-body="columns">
   <div class="row">
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
@@ -427,7 +472,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
     
     <!-- 行の表示セクション -->
   </div>
-  <div class="section-header" data-section="rows">行の表示 <button class="section-toggle" data-section="rows" aria-expanded="true">▾</button></div>
+  <div class="section-header" data-section="rows">行の表示</div>
   <div class="section-body" data-section-body="rows">
   <div class="row">
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
@@ -441,7 +486,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
     
     <!-- 通貨フィルターセクション -->
   </div>
-  <div class="section-header" data-section="currencies">通貨フィルター <button class="section-toggle" data-section="currencies" aria-expanded="true">▾</button></div>
+  <div class="section-header" data-section="currencies">通貨フィルター</div>
   <div class="section-body" data-section-body="currencies">
   <div class="row">
       <div id="currencyFilterContainer" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
@@ -451,7 +496,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   </div>
 
     <!-- 音声設定セクション（グローバル設定のみ） -->
-    <div class="section-header" data-section="voice">音声設定 <button class="section-toggle" data-section="voice" aria-expanded="true">▾</button></div>
+    <div class="section-header" data-section="voice">音声設定</div>
     <div class="section-body" data-section-body="voice">
     <div class="row">
       <label for="voiceVolume">音量</label>
@@ -466,29 +511,24 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
     </div>
 
     <!-- 発火条件セクション -->
-    <div class="section-header" data-section="rules">発火条件（ルール） <button class="section-toggle" data-section="rules" aria-expanded="true">▾</button></div>
+    <div class="section-header" data-section="rules">発火条件（ルール）</div>
     <div class="section-body" data-section-body="rules">
     <div class="row" style="display:flex;flex-direction:column;gap:10px">
-      <div style="width:100%; max-height:220px; overflow:auto; border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:8px; background:rgba(0,0,0,0.12);">
-        <div class="subsection-header">
+      <button id="newRuleBtn" class="rule-btn" style="align-self:flex-start;padding:6px 12px">新規ルール作成</button>
+      <div style="width:100%; max-height:220px; overflow:auto; border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:8px; background:rgba(0,0,0,0.12); position:relative;">
+        <div class="subsection-header" data-subsection="savedRules">
           <strong>保存済みルール</strong>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button id="newRuleBtn" class="rule-btn" style="font-size:0.9em;padding:4px 8px">新規ルール作成</button>
-            <button class="subsection-toggle" data-subsection="savedRules" aria-expanded="true">▾</button>
-          </div>
         </div>
         <div class="subsection-body" data-subsection-body="savedRules">
           <ul id="rulesList" style="list-style:none;padding:0;margin:0;display:block"></ul>
         </div>
       </div>
 
-      <div style="width:100%; max-height:360px; overflow:auto; border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:8px; background:rgba(0,0,0,0.06);">
-        <div class="subsection-header">
+      <div style="width:100%; max-height:360px; overflow:auto; border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:8px; background:rgba(0,0,0,0.06); position:relative;">
+        <div class="subsection-header" data-subsection="ruleEditor">
           <strong>ルール編集</strong>
-          <button class="subsection-toggle" data-subsection="ruleEditor" aria-expanded="true">▾</button>
         </div>
         <div class="subsection-body" data-subsection-body="ruleEditor">
-        <div style="display:flex;gap:8px;flex-direction:column">
           <div style="display:flex;flex-direction:column;gap:8px;width:100%">
             <div style="display:flex;align-items:center;gap:8px">
               <label style="font-size:0.9em;min-width:72px">ルール名：</label>
@@ -1165,6 +1205,9 @@ let currentDashboardData = null;
 // グローバル変数: 最終WebSocket更新時刻を追跡
 let lastWebSocketUpdate = Date.now();
 
+// グローバル変数: 全ルールデータ（ルールカウントボタン用）
+let allRules = [];
+
 // 設定パネルの動作: モード切替（body にクラス付与）とフォントサイズの適用
 function applyMode(mode) {
   document.body.classList.remove('light-mode','dark-mode');
@@ -1416,20 +1459,28 @@ function wireSettings() {
 function wireSectionToggles() {
   try {
     const saved = JSON.parse(localStorage.getItem('tv_sections') || '{}');
-    document.querySelectorAll('.section-toggle').forEach(btn => {
-      const sec = btn.dataset.section;
+    document.querySelectorAll('.section-header').forEach(header => {
+      const sec = header.dataset.section;
       const body = document.querySelector(`.section-body[data-section-body="${sec}"]`);
       if (!body) return;
       const expanded = (saved[sec] !== undefined) ? !!saved[sec] : true;
-      body.style.display = expanded ? '' : 'none';
-      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-      btn.textContent = expanded ? '▾' : '▸';
-      btn.addEventListener('click', () => {
-        const cur = body.style.display !== 'none';
+      if (expanded) {
+        header.classList.add('active');
+        body.classList.add('active');
+      } else {
+        header.classList.remove('active');
+        body.classList.remove('active');
+      }
+      header.addEventListener('click', () => {
+        const cur = header.classList.contains('active');
         const next = !cur;
-        body.style.display = next ? '' : 'none';
-        btn.setAttribute('aria-expanded', next ? 'true' : 'false');
-        btn.textContent = next ? '▾' : '▸';
+        if (next) {
+          header.classList.add('active');
+          body.classList.add('active');
+        } else {
+          header.classList.remove('active');
+          body.classList.remove('active');
+        }
         const s = JSON.parse(localStorage.getItem('tv_sections') || '{}');
         s[sec] = next;
         localStorage.setItem('tv_sections', JSON.stringify(s));
@@ -1444,20 +1495,30 @@ function wireSectionToggles() {
 function wireSubsectionToggles() {
   try {
     const saved = JSON.parse(localStorage.getItem('tv_subsections') || '{}');
-    document.querySelectorAll('.subsection-toggle').forEach(btn => {
-      const subsec = btn.dataset.subsection;
+    // Handle both savedRules and ruleEditor subsections
+    ['savedRules', 'ruleEditor'].forEach(subsec => {
+      const header = document.querySelector(`.subsection-header[data-subsection="${subsec}"]`);
+      if (!header) return;
       const body = document.querySelector(`.subsection-body[data-subsection-body="${subsec}"]`);
       if (!body) return;
       const expanded = (saved[subsec] !== undefined) ? !!saved[subsec] : true;
-      body.style.display = expanded ? '' : 'none';
-      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-      btn.textContent = expanded ? '▾' : '▸';
-      btn.addEventListener('click', () => {
-        const cur = body.style.display !== 'none';
+      if (expanded) {
+        header.classList.add('active');
+        body.classList.add('active');
+      } else {
+        header.classList.remove('active');
+        body.classList.remove('active');
+      }
+      header.addEventListener('click', () => {
+        const cur = header.classList.contains('active');
         const next = !cur;
-        body.style.display = next ? '' : 'none';
-        btn.setAttribute('aria-expanded', next ? 'true' : 'false');
-        btn.textContent = next ? '▾' : '▸';
+        if (next) {
+          header.classList.add('active');
+          body.classList.add('active');
+        } else {
+          header.classList.remove('active');
+          body.classList.remove('active');
+        }
         const s = JSON.parse(localStorage.getItem('tv_subsections') || '{}');
         s[subsec] = next;
         localStorage.setItem('tv_subsections', JSON.stringify(s));
@@ -1983,7 +2044,7 @@ async function load() {
         buttonsDiv.style.gap = '8px';
         
         const testBtn = document.createElement('button');
-        testBtn.textContent = 'テスト発火';
+        testBtn.textContent = 'テスト';
         testBtn.dataset.symbol = symbol;
         testBtn.addEventListener('click', () => testFire(symbol));
         
@@ -1992,8 +2053,17 @@ async function load() {
         clearBtn.dataset.symbol = symbol;
         clearBtn.addEventListener('click', () => clearFireHistory(symbol));
         
+        // ルールカウントボタンを追加
+        const ruleCountBtn = document.createElement('button');
+        ruleCountBtn.id = 'rule-count-btn-' + symbol;
+        ruleCountBtn.className = 'rule-count-btn';
+        ruleCountBtn.textContent = '0';
+        ruleCountBtn.title = 'アクティブなルール数';
+        ruleCountBtn.addEventListener('click', () => showRuleDropdown(ruleCountBtn, symbol));
+        
         buttonsDiv.appendChild(testBtn);
         buttonsDiv.appendChild(clearBtn);
+        buttonsDiv.appendChild(ruleCountBtn);
         
         headerDiv.appendChild(titleH3);
         headerDiv.appendChild(buttonsDiv);
@@ -2285,10 +2355,12 @@ async function loadRules() {
     if (!r.ok) return;
     const data = await r.json();
     if (data.status !== 'success') return;
-    renderRulesList(data.rules || []);
+    allRules = data.rules || []; // グローバル変数に保存
+    renderRulesList(allRules);
+    updateRuleCountButtons(); // ルールカウントボタンを更新
     // populate scope select with available symbols (currencies)
     const scopeSelect = document.getElementById('ruleScope');
-    const avail = [...new Set((data.rules || []).map(x => x.scope && x.scope.symbol).filter(Boolean))];
+    const avail = [...new Set((allRules).map(x => x.scope && x.scope.symbol).filter(Boolean))];
     // keep existing options but add any new
     avail.forEach(s => {
       if (![...scopeSelect.options].some(o => o.value === s)) {
@@ -2296,6 +2368,94 @@ async function loadRules() {
       }
     });
   } catch (e) { console.log('loadRules error', e); }
+}
+
+// ルールカウントボタンを更新する関数
+function updateRuleCountButtons() {
+  console.log('updateRuleCountButtons called, allRules:', allRules.length);
+  // 各通貨の発火履歴ヘッダーのボタンを更新
+  document.querySelectorAll('.currency-fire-history').forEach(historyDiv => {
+    const symbol = historyDiv.dataset.symbol;
+    const ruleCountBtn = document.getElementById('rule-count-btn-' + symbol);
+    if (!ruleCountBtn) {
+      console.log('ruleCountBtn not found for symbol:', symbol);
+      return;
+    }
+
+    // この通貨に適用される有効なルールをカウント
+    const activeRules = allRules.filter(r => {
+      const isEnabled = r.enabled !== false;
+      const ruleSymbol = r.scope && r.scope.symbol;
+      const matches = isEnabled && (!ruleSymbol || ruleSymbol === symbol);
+      console.log('Rule:', r.name, 'enabled:', isEnabled, 'ruleSymbol:', ruleSymbol, 'symbol:', symbol, 'matches:', matches);
+      return matches;
+    });
+
+    console.log('Active rules for', symbol, ':', activeRules.length);
+    ruleCountBtn.textContent = activeRules.length.toString();
+  });
+}
+
+// ルールドロップダウンを表示する関数
+function showRuleDropdown(button, symbol) {
+  // 既存のドロップダウンを削除
+  document.querySelectorAll('.rule-dropdown').forEach(d => d.remove());
+  
+  // この通貨のアクティブなルールを取得
+  const activeRules = allRules.filter(r => {
+    const isEnabled = r.enabled !== false;
+    const ruleSymbol = r.scope && r.scope.symbol;
+    return isEnabled && (!ruleSymbol || ruleSymbol === symbol);
+  });
+  
+  // ドロップダウンを作成
+  const dropdown = document.createElement('div');
+  dropdown.className = 'rule-dropdown';
+  dropdown.style.position = 'absolute';
+  dropdown.style.background = 'rgba(0, 0, 0, 0.9)';
+  dropdown.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+  dropdown.style.borderRadius = '6px';
+  dropdown.style.padding = '8px';
+  dropdown.style.zIndex = '1000';
+  dropdown.style.maxHeight = '200px';
+  dropdown.style.overflowY = 'auto';
+  dropdown.style.minWidth = '150px';
+  
+  if (activeRules.length === 0) {
+    const item = document.createElement('div');
+    item.textContent = 'アクティブなルールなし';
+    item.style.color = 'rgba(255, 255, 255, 0.7)';
+    item.style.padding = '4px 0';
+    dropdown.appendChild(item);
+  } else {
+    activeRules.forEach(rule => {
+      const item = document.createElement('div');
+      item.textContent = rule.name || rule.id;
+      item.style.color = '#fff';
+      item.style.padding = '4px 0';
+      item.style.cursor = 'pointer';
+      item.addEventListener('mouseenter', () => item.style.background = 'rgba(255, 255, 255, 0.1)');
+      item.addEventListener('mouseleave', () => item.style.background = 'transparent');
+      dropdown.appendChild(item);
+    });
+  }
+  
+  // ボタンの位置を取得
+  const rect = button.getBoundingClientRect();
+  dropdown.style.left = rect.left + 'px';
+  dropdown.style.top = (rect.bottom + 2) + 'px';
+  
+  // ドロップダウンを追加
+  document.body.appendChild(dropdown);
+  
+  // クリックで閉じる
+  const closeDropdown = (e) => {
+    if (!dropdown.contains(e.target) && e.target !== button) {
+      dropdown.remove();
+      document.removeEventListener('click', closeDropdown);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeDropdown), 0);
 }
 
 function renderRulesList(rules) {
@@ -2373,6 +2533,9 @@ function renderRulesList(rules) {
     li.appendChild(left);
     ul.appendChild(li);
   });
+  
+  // ルールリスト更新後にボタンを更新
+  updateRuleCountButtons();
 }
 
 function openRuleEditor(rule) {
