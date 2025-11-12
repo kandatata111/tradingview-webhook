@@ -259,8 +259,9 @@ def webhook():
             saved_at = datetime.now(jst).isoformat()
             print(f'[OK] Saved immediately: {symbol_val}/{tf_val} at {saved_at}')
             
-            # データ保存後にルール評価と発火
-            evaluate_and_fire_rules(data)
+            # tf=5 の場合のみルール評価と発火を実行
+            if tf_val == '5':
+                evaluate_and_fire_rules(data, symbol_val)
             
             # Socket.IOで即時更新通知（全クライアントに配信）
             socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
@@ -1331,10 +1332,63 @@ def api_webhook_logs():
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
-def evaluate_and_fire_rules(data):
-    """Evaluate all enabled rules against the incoming data and fire notifications if matched."""
+def evaluate_and_fire_rules(data, symbol):
+    """Evaluate all enabled rules against the incoming data and fire notifications if matched.
+    
+    統合テーブルデータを構築:
+    - tf=5 から雲情報（5m、15m、1H、4H）を取得
+    - tf=15,60,240 から各時間足のダウ転・突破数・時間を統合
+    - 統合データでルール評価を実行
+    """
     try:
-        # Currency name mapping for Japanese pronunciation
+        # tf=5 のデータを基本として取得（全雲情報を含む）
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT * FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol, '5'))
+        base_row = c.fetchone()
+        base_cols = [d[0] for d in c.description] if c.description else []
+        
+        if not base_row:
+            conn.close()
+            print(f'[FIRE] No base state (tf=5) for {symbol}')
+            return
+        
+        # tf=5 のデータを辞書に変換
+        base_state = dict(zip(base_cols, base_row))
+        try:
+            base_state['clouds'] = json.loads(base_state.get('clouds_json', '[]'))
+        except:
+            base_state['clouds'] = []
+        
+        # tf=15,60,240 から各時間足のダウ転情報を取得
+        tf_daytrade_map = {
+            '15': ('15m', 'mid_'),
+            '60': ('1H', 'long_'),
+            '240': ('4H', 'ultra_')
+        }
+        
+        for tf_key, (cloud_label, prefix) in tf_daytrade_map.items():
+            c.execute('SELECT * FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol, tf_key))
+            tf_row = c.fetchone()
+            if tf_row:
+                tf_state = dict(zip(base_cols, tf_row))
+                # 各時間足のダウ転情報をbase_stateに統合
+                base_state[f'{prefix}daytrade_status'] = tf_state.get('daytrade_status', '')
+                base_state[f'{prefix}daytrade_bos'] = tf_state.get('daytrade_bos', '')
+                base_state[f'{prefix}daytrade_time'] = tf_state.get('daytrade_time', '')
+        
+        conn.close()
+        
+        # 統合データを使用してルール評価
+        _evaluate_rules_with_state(base_state)
+        
+    except Exception as e:
+        print(f'[ERROR] evaluate_and_fire_rules: {e}')
+
+
+def _evaluate_rules_with_state(base_state):
+    """統合されたstateデータを使用してルール評価を実行"""
+    try:
         currency_names = {
             'USDJPY': 'ドル円',
             'EURUSD': 'ユーロドル',
@@ -1353,9 +1407,9 @@ def evaluate_and_fire_rules(data):
             'USDCHF': 'ドルスイス'
         }
         
-        # Get symbol and tf from incoming data
-        symbol = data.get('symbol', 'UNKNOWN')
-        tf = data.get('tf', '5')
+        # 統合データから symbol と tf を取得
+        symbol = base_state.get('symbol', 'UNKNOWN')
+        tf = '5'  # 統合データは常に tf=5 ベース
         
         # Get all enabled rules
         conn = sqlite3.connect(DB_PATH)
@@ -1380,8 +1434,8 @@ def evaluate_and_fire_rules(data):
                 rule = json.loads(rule_json) if rule_json else {}
                 
                 # Check scope: if scope has symbol, must match
-                if scope.get('symbol') and scope['symbol'] != data.get('symbol'):
-                    print(f'[FIRE] Rule "{rule_name}" scope mismatch: {scope.get("symbol")} != {data.get("symbol")}')
+                if scope.get('symbol') and scope['symbol'] != base_state.get('symbol'):
+                    print(f'[FIRE] Rule "{rule_name}" scope mismatch: {scope.get("symbol")} != {base_state.get("symbol")}')
                     continue
                 
                 print(f'[FIRE] Testing rule "{rule_name}" for {symbol}/{tf}')
@@ -1391,7 +1445,7 @@ def evaluate_and_fire_rules(data):
                 payload = {
                     'rule': rule,
                     'scope': scope,
-                    'state_override': data  # Use the incoming data directly
+                    'state_override': base_state  # 統合されたbase_stateを使用
                 }
                 
                 # Call rules_test internally (simulate the POST request)
