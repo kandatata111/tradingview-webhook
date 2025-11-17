@@ -245,6 +245,22 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   color: #ffd700;
   font-weight: 600;
 }
+.fire-direction {
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+.direction-up {
+  background: #2962ff;
+  color: #ffffff;
+  border: 1px solid #2962ff;
+}
+.direction-down {
+  background: #f23645;
+  color: #ffffff;
+  border: 1px solid #f23645;
+}
 .light-mode .currency-fire-history {
   background: rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 0, 0, 0.2);
@@ -287,6 +303,19 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 .light-mode .fire-name {
   color: #d97706;
+}
+.light-mode .fire-direction {
+  border-width: 1px;
+}
+.light-mode .direction-up {
+  background: #2962ff;
+  color: #ffffff;
+  border-color: #2962ff;
+}
+.light-mode .direction-down {
+  background: #f23645;
+  color: #ffffff;
+  border-color: #f23645;
 }
 
 #fire-history-header { 
@@ -1236,7 +1265,7 @@ function applyFontSize(px) {
   });
   
   // 発火履歴ウィンドウの全要素にフォントサイズを適用
-  const fireHistoryEls = document.querySelectorAll('.currency-fire-history h3, .currency-fire-history button, .fire-item, .fire-time, .fire-name, .currency-fire-history-list');
+  const fireHistoryEls = document.querySelectorAll('.currency-fire-history h3, .currency-fire-history button, .fire-item, .fire-time, .fire-name, .fire-direction, .currency-fire-history-list');
   fireHistoryEls.forEach(el => {
     el.style.fontSize = px + 'px';
   });
@@ -1690,6 +1719,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       await load();
     });
     
+    // 新しい通知をリアルタイムで受信
+    socket.on('new_notification', async (notification) => {
+      console.log('[SOCKET] Received new_notification:', notification);
+      
+      // 通知を即座に再生
+      await playNotification(notification);
+      
+      // 発火履歴に即座に追加(APIを待たずに)
+      addNotificationToHistory(notification);
+      
+      // 念のため通知リストも更新
+      setTimeout(() => checkNotifications(), 1000);
+    });
+    
     // 市場ステータス更新
     async function updateMarketStatus() {
       try {
@@ -2010,6 +2053,16 @@ async function load() {
       
       // 通貨ごとにコンテナを生成
       const container = document.getElementById('dashboards-container');
+      
+      // 既存の発火履歴を保存
+      const existingHistories = {};
+      document.querySelectorAll('.currency-fire-history-list').forEach(list => {
+        const symbol = list.dataset.symbol;
+        if (symbol) {
+          existingHistories[symbol] = list.innerHTML;
+        }
+      });
+      
       container.innerHTML = '';
       
       availableCurrencies.forEach(symbol => {
@@ -2072,7 +2125,13 @@ async function load() {
         const listDiv = document.createElement('div');
         listDiv.className = 'currency-fire-history-list';
         listDiv.dataset.symbol = symbol;
-        listDiv.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+        
+        // 既存の履歴があれば復元、なければデフォルトメッセージ
+        if (existingHistories[symbol]) {
+          listDiv.innerHTML = existingHistories[symbol];
+        } else {
+          listDiv.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">履歴なし</div>';
+        }
         
         fireHistoryDiv.appendChild(listDiv);
         section.appendChild(fireHistoryDiv);
@@ -2093,6 +2152,9 @@ async function load() {
       
       // 高さ同期を実行
       setTimeout(syncAllFireHistoryHeights, 100);
+      
+      // ルールカウントボタンを更新（load()でDOMが再生成されるため）
+      setTimeout(updateRuleCountButtons, 150);
     } else {
       document.getElementById('dashboards-container').innerHTML = '<div class="loading">データなし</div>';
     }
@@ -2385,9 +2447,11 @@ function updateRuleCountButtons() {
     // この通貨に適用される有効なルールをカウント
     const activeRules = allRules.filter(r => {
       const isEnabled = r.enabled !== false;
-      const ruleSymbol = r.scope && r.scope.symbol;
-      const matches = isEnabled && (!ruleSymbol || ruleSymbol === symbol);
-      console.log('Rule:', r.name, 'enabled:', isEnabled, 'ruleSymbol:', ruleSymbol, 'symbol:', symbol, 'matches:', matches);
+      const scope = r.scope || {};
+      const ruleSymbol = scope.symbol;
+      // scope.symbolが空またはundefinedの場合は全通貨対象、それ以外は一致する場合のみ
+      const matches = isEnabled && (!ruleSymbol || ruleSymbol === '' || ruleSymbol === symbol);
+      console.log('Rule:', r.name, 'enabled:', isEnabled, 'scope:', scope, 'ruleSymbol:', ruleSymbol, 'symbol:', symbol, 'matches:', matches);
       return matches;
     });
 
@@ -2404,8 +2468,10 @@ function showRuleDropdown(button, symbol) {
   // この通貨のアクティブなルールを取得
   const activeRules = allRules.filter(r => {
     const isEnabled = r.enabled !== false;
-    const ruleSymbol = r.scope && r.scope.symbol;
-    return isEnabled && (!ruleSymbol || ruleSymbol === symbol);
+    const scope = r.scope || {};
+    const ruleSymbol = scope.symbol;
+    // scope.symbolが空またはundefinedの場合は全通貨対象、それ以外は一致する場合のみ
+    return isEnabled && (!ruleSymbol || ruleSymbol === '' || ruleSymbol === symbol);
   });
   
   // ドロップダウンを作成
@@ -2681,6 +2747,75 @@ let lastNotificationTimestamp = null;
 let notificationCheckInterval = null;
 let notificationPollingStarted = false; // Global flag to prevent multiple instances
 
+// 通知を再生する関数(Socket.IOとポーリングの両方で使用)
+async function playNotification(notification) {
+  if (!notification) return;
+  
+  console.log('[PLAY_NOTIFICATION]', notification);
+  
+  // 音声設定を抽出
+  const voiceSettings = notification.voice_settings || null;
+  const message = notification.message || '';
+  const symbol = notification.symbol || '';
+  
+  // チャイム音と音声を再生
+  playVoiceAlert(message, voiceSettings, symbol);
+}
+
+// 単一の通知を発火履歴に追加する関数
+function addNotificationToHistory(notification) {
+  if (!notification) return;
+  
+  console.log('[ADD_TO_HISTORY]', notification);
+  
+  const symbol = notification.symbol || 'UNKNOWN';
+  const listEl = document.querySelector(`.currency-fire-history-list[data-symbol="${symbol}"]`);
+  
+  if (!listEl) {
+    console.log('[ADD_TO_HISTORY] List element not found for symbol:', symbol);
+    return;
+  }
+  
+  // 既存の「履歴なし」メッセージを削除
+  if (listEl.innerHTML.includes('履歴なし')) {
+    listEl.innerHTML = '';
+  }
+  
+  // Format timestamp: YY/MM/DD HH:mm
+  const dt = new Date(notification.timestamp);
+  const year = String(dt.getFullYear()).slice(-2);
+  const month = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  const hour = String(dt.getHours()).padStart(2, '0');
+  const minute = String(dt.getMinutes()).padStart(2, '0');
+  const timeStr = year + '/' + month + '/' + day + ' ' + hour + ':' + minute;
+  
+  // 新しい発火アイテムを作成
+  const fireItem = document.createElement('div');
+  fireItem.className = 'fire-item';
+  fireItem.innerHTML = '<span class="fire-time">' + timeStr + '</span>';
+  if (notification.direction) {
+    const directionClass = notification.direction === '上昇' ? 'direction-up' : 'direction-down';
+    fireItem.innerHTML += '<span class="fire-direction ' + directionClass + '">' + notification.direction + '</span>';
+  }
+  fireItem.innerHTML += '<span class="fire-name">' + (notification.rule_name || '不明') + '</span>';
+  
+  // 先頭に挿入(最新が上)
+  listEl.insertBefore(fireItem, listEl.firstChild);
+  
+  // 最大20件に制限
+  while (listEl.children.length > 20) {
+    listEl.removeChild(listEl.lastChild);
+  }
+  
+  // フォントサイズとレイアウトを適用
+  const savedSize = localStorage.getItem('tv_font_size') || '14';
+  applyFontSize(savedSize);
+  syncAllFireHistoryHeights();
+  
+  console.log('[ADD_TO_HISTORY] Added notification to history for', symbol);
+}
+
 async function checkNotifications() {
   const timestamp = new Date().toISOString();
   const stackTrace = new Error().stack;
@@ -2707,8 +2842,8 @@ async function checkNotifications() {
     if (lastNotificationTimestamp !== latestTimestamp) {
       lastNotificationTimestamp = latestTimestamp;
       
-      // Play voice alert
-      playVoiceAlert(latest.message, null, latest.symbol);
+      // Play notification with voice settings
+      await playNotification(latest);
       
       console.log('[NOTIFICATION]', latest);
     }
@@ -2760,6 +2895,10 @@ function updateFireHistory(notifications) {
       
       html += '<div class="fire-item">';
       html += '<span class="fire-time">' + timeStr + '</span>';
+      if (notif.direction) {
+        const directionClass = notif.direction === '上昇' ? 'direction-up' : 'direction-down';
+        html += '<span class="fire-direction ' + directionClass + '">' + notif.direction + '</span>';
+      }
       html += '<span class="fire-name">' + (notif.rule_name || '不明') + '</span>';
       html += '</div>';
     });
@@ -2867,34 +3006,68 @@ async function clearFireHistory(symbol) {
   }
 }
 
+// 音声再生キューシステム
+let voiceQueue = [];
+let isPlayingVoice = false;
+
 function playVoiceAlert(message, voiceSettings = null, symbol = null) {
+  // キューに追加
+  voiceQueue.push({ message, voiceSettings, symbol });
+  console.log('[VOICE_QUEUE] Added to queue. Queue length:', voiceQueue.length);
+  
+  // 再生中でなければ次を再生
+  if (!isPlayingVoice) {
+    playNextInQueue();
+  }
+}
+
+function playNextInQueue() {
+  if (voiceQueue.length === 0) {
+    isPlayingVoice = false;
+    console.log('[VOICE_QUEUE] Queue empty');
+    return;
+  }
+  
+  isPlayingVoice = true;
+  const item = voiceQueue.shift();
+  console.log('[VOICE_QUEUE] Playing next. Remaining:', voiceQueue.length);
+  
   try {
     // Check if speech synthesis is supported
     if (!('speechSynthesis' in window)) {
       console.log('Speech synthesis not supported');
+      playNextInQueue();
       return;
     }
     
     // Play chime first if specified
-    if (voiceSettings && voiceSettings.chime_file) {
-      const chimeAudio = new Audio('/Alarm/' + voiceSettings.chime_file);
+    if (item.voiceSettings && item.voiceSettings.chime_file) {
+      const chimeAudio = new Audio('/Alarm/' + item.voiceSettings.chime_file);
       chimeAudio.volume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
       chimeAudio.addEventListener('ended', () => {
-        playVoiceMessage(message, voiceSettings, symbol);
+        playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
+          // 音声再生完了後、次を再生
+          playNextInQueue();
+        });
       });
       chimeAudio.play().catch(e => {
         console.log('Chime play error', e);
-        playVoiceMessage(message, voiceSettings, symbol);
+        playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
+          playNextInQueue();
+        });
       });
     } else {
-      playVoiceMessage(message, voiceSettings, symbol);
+      playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
+        playNextInQueue();
+      });
     }
   } catch (e) {
-    console.log('playVoiceAlert error', e);
+    console.log('playNextInQueue error', e);
+    playNextInQueue();
   }
 }
 
-function playVoiceMessage(message, voiceSettings = null, symbol = null) {
+function playVoiceMessage(message, voiceSettings = null, symbol = null, onComplete = null) {
   // Create utterance
   const utterance = new SpeechSynthesisUtterance(message);
   
@@ -2952,11 +3125,23 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null) {
           
           partUtterance.onend = () => {
             currentIndex++;
-            // 一拍の間を入れるために少し遅延
-            setTimeout(speakNext, 200); // 200msの間
+            if (currentIndex >= parts.length) {
+              // 全パート完了
+              if (onComplete) onComplete();
+            } else {
+              // 一拍の間を入れるために少し遅延
+              setTimeout(speakNext, 200); // 200msの間
+            }
+          };
+          
+          partUtterance.onerror = () => {
+            console.log('Part utterance error');
+            if (onComplete) onComplete();
           };
           
           speechSynthesis.speak(partUtterance);
+        } else {
+          if (onComplete) onComplete();
         }
       }
       
@@ -2964,6 +3149,17 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null) {
       return;
     }
   }
+  
+  // 完了イベントハンドラーを設定
+  utterance.onend = () => {
+    console.log('Voice message completed');
+    if (onComplete) onComplete();
+  };
+  
+  utterance.onerror = (e) => {
+    console.log('Voice message error:', e);
+    if (onComplete) onComplete();
+  };
   
   // Speak
   speechSynthesis.speak(utterance);

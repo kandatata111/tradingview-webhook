@@ -152,6 +152,25 @@ def _get_nth_weekday(year, month, weekday, n):
 def serve_alarm_file(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'Alarm'), filename)
 
+@app.route('/api/chime_files')
+def get_chime_files():
+    """Alarmフォルダ内の音声ファイルリストを返す"""
+    try:
+        alarm_dir = os.path.join(BASE_DIR, 'Alarm')
+        if not os.path.exists(alarm_dir):
+            return jsonify([])
+        
+        files = []
+        for filename in os.listdir(alarm_dir):
+            if filename.lower().endswith(('.mp3', '.wav', '.ogg')):
+                files.append(filename)
+        
+        files.sort()
+        return jsonify(files)
+    except Exception as e:
+        print(f'[ERROR] Getting chime files: {e}')
+        return jsonify([])
+
 @app.route('/')
 def dashboard():
     print('[ACCESS] Dashboard request')
@@ -1717,7 +1736,8 @@ def _evaluate_rules_with_state(base_state):
                         'direction': direction,
                         'message': combined_message,
                         'timestamp': datetime.now(jst).isoformat(),
-                        'price': float(base_state.get('price', 0))
+                        'price': float(base_state.get('price', 0)),
+                        'voice_settings': voice_settings  # 音声設定を含める
                     }
                     
                     fired_notifications.append(notification)
@@ -1762,6 +1782,11 @@ def _evaluate_rules_with_state(base_state):
                     json.dump(existing, f, ensure_ascii=False, indent=2)
                 
                 print(f'[NOTIFICATIONS] Saved {len(fired_notifications)} notifications')
+                
+                # Socket.IOで新しい通知を送信
+                for notification in fired_notifications:
+                    socketio.emit('new_notification', notification)
+                    print(f'[SOCKET.IO] Notification sent: {notification.get("rule_name")}')
             
             except Exception as e:
                 print(f'[ERROR] Saving notifications: {e}')
