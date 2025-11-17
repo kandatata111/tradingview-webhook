@@ -12,6 +12,10 @@ body { font-family: 'Yu Gothic', 'Meiryo', sans-serif; background: #1e3c72; colo
 .container { max-width: none; margin: 0 !important; padding: 0; }
 .header-row { display:flex; align-items:center; justify-content:space-between; padding: 10px 10px 12px 6px; margin: 0 8px 14px 6px; border-bottom: 1px solid rgba(255,255,255,0.45); }
 h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text-shadow: none; }
+.datetime-section { display: flex; align-items: center; gap: 15px; flex: 1; justify-content: center; }
+.datetime-small { font-size: 0.8em; color: #bbb; font-weight: 500; font-family: 'Helvetica', 'Arial', sans-serif; }
+.datetime-large { font-size: 1.8em; font-weight: bold; color: #4ade80; font-family: 'Helvetica', 'Arial', sans-serif; }
+.right-section { display: flex; align-items: center; gap: 15px; }
 #dashboard { margin: 0; padding: 0 8px 8px 6px; }
 /* 設定パネルスタイル */
 .settings { display: flex; gap: 12px; justify-content: flex-end; align-items: center; margin-bottom: 12px; }
@@ -90,6 +94,10 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .light-mode .modal .section-header { background:#e8e8e8; color:#111; border:1px solid rgba(0,0,0,0.1); }
 .light-mode .cond-tf, .light-mode .cond-field, .light-mode .cond-op { background:#2157ec !important; color:#fff !important; border:1px solid #2157ec !important; }
 .light-mode .rule-btn { background:#2157ec !important; color:#fff !important; border:1px solid #2157ec !important; }
+/* Make the small datetime legible in light mode */
+.light-mode .datetime-small {
+  color: #000 !important;
+}
 .light-mode .rule-btn:hover { background:#1540b8 !important; border-color:#1540b8 !important; }
 .light-mode input[type="text"], .light-mode input[type="number"], .light-mode textarea { border:1px solid #ccc !important; background:#fff !important; color:#111 !important; }
 .light-mode #ruleName, .light-mode #voiceMessage, .light-mode #voiceMessageUp, .light-mode #voiceMessageDown, .light-mode .cond-value { border:1px solid #2157ec !important; }
@@ -428,11 +436,17 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 <!-- タイトルと設定ボタンを横並び -->
 <div class="header-row">
   <h1>ダウ雲表</h1>
-  <div id="marketStatus" style="display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:6px; font-size:0.9em; background:rgba(255,255,255,0.08);">
-    <span style="width:8px; height:8px; border-radius:50%; background:#90EE90; display:inline-block;" id="marketStatusLight"></span>
-    <span id="marketStatusText">市場チェック中...</span>
+  <div class="datetime-section">
+    <span class="datetime-small">2025[R07]11/17 月</span>
+    <span class="datetime-large">14:32:45</span>
   </div>
-  <button id="openSettings" class="settings-button">設定</button>
+  <div class="right-section">
+    <div id="marketStatus" style="display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:6px; font-size:0.9em; background:rgba(255,255,255,0.08);">
+      <span style="width:8px; height:8px; border-radius:50%; background:#90EE90; display:inline-block;" id="marketStatusLight"></span>
+      <span id="marketStatusText">市場チェック中...</span>
+    </div>
+    <button id="openSettings" class="settings-button">設定</button>
+  </div>
 </div>
 
 <!-- 設定モーダル（初期は非表示） -->
@@ -1723,14 +1737,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     socket.on('new_notification', async (notification) => {
       console.log('[SOCKET] Received new_notification:', notification);
       
+      // Update timestamp to prevent duplicate processing
+      lastNotificationTimestamp = notification.timestamp;
+      
       // 通知を即座に再生
       await playNotification(notification);
       
       // 発火履歴に即座に追加(APIを待たずに)
       addNotificationToHistory(notification);
       
-      // 念のため通知リストも更新
-      setTimeout(() => checkNotifications(), 1000);
+      // 通知リストの更新はポーリングに任せるため、setTimeoutを削除
     });
     
     // 市場ステータス更新
@@ -1745,16 +1761,53 @@ document.addEventListener('DOMContentLoaded', async () => {
           
           if (marketOpen) {
             statusLight.style.background = '#90EE90';  // 緑
-            statusText.textContent = '市場営業中';
+            statusText.textContent = '営業中';
           } else {
             statusLight.style.background = '#FFB6C6';  // 赤ピンク
-            statusText.textContent = 'FX市場休場';
+            statusText.textContent = '休場中';
           }
         }
       } catch (e) {
         console.log('[MARKET_STATUS] Error:', e);
       }
     }
+    
+    // 日本時間でリアルタイム時間更新関数
+    function updateDateTimeDisplay() {
+      const now = new Date();
+      // 日本時間（JST）に変換
+      const jstTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+      
+      // 令和年号を計算（2019年が令和元年）
+      const wareki = jstTime.getFullYear() - 2018;
+      const year = jstTime.getFullYear();
+      const month = String(jstTime.getMonth() + 1).padStart(2, '0');
+      const day = String(jstTime.getDate()).padStart(2, '0');
+      
+      // 曜日を取得
+      const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
+      const dayOfWeek = daysOfWeek[jstTime.getDay()];
+      
+      const hours = String(jstTime.getHours()).padStart(2, '0');
+      const minutes = String(jstTime.getMinutes()).padStart(2, '0');
+      const seconds = String(jstTime.getSeconds()).padStart(2, '0');
+      
+      // HTML要素を更新
+      const dateSmall = document.querySelector('.datetime-small');
+      const timeLarge = document.querySelector('.datetime-large');
+      
+      if (dateSmall) {
+        dateSmall.textContent = year + ' R' + wareki + ' ' + month + '/' + day + ' ' + dayOfWeek;
+      }
+      if (timeLarge) {
+        timeLarge.textContent = hours + ':' + minutes + ':' + seconds;
+      }
+    }
+    
+    // 初期表示
+    updateDateTimeDisplay();
+    // 毎秒更新
+    setInterval(updateDateTimeDisplay, 1000);
     
     // 初期更新
     updateMarketStatus();
