@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "rule_id": "1Hダウ転換",
+    "rule_name": "5分ダウ転換",
+    "symbol": "USDJPY",
+    "tf": "5",
+    "direction": "上昇",
+    "message": "5分でダウが転換しました。 上昇 ドル円",
+    "timestamp": "2025-11-17T13:07:38.477044+09:00",
+    "price": 154.834
+  },
+  {
+    "rule_id": "5ｍ雲交差",
+    "rule_name": "5分雲交差",
+    "symbol": "USDJPY",
+    "tf": "5",
+    "direction": "上昇",
+    "message": "5分でMAが交差しました。 上昇です。 ドル円",
+    "timestamp": "2025-11-17T13:07:38.486376+09:00",
+    "price": 154.834
+  }
+]

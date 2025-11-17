@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Test Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: var(--input-padding, 8px);
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: var(--font-size, 14px);
+        }
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        .radio-group label {
+            font-weight: normal;
+            display: flex;
+            align-items: center;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: var(--button-padding-vertical, 10px) var(--button-padding-horizontal, 20px);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: var(--font-size, 14px);
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .json-output {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: var(--font-size, 14px);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: var(--padding-vertical, 4px) var(--padding-horizontal, 6px);
+            text-align: center;
+            font-size: inherit;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .tf-label {
+            font-weight: bold;
+            cursor: grab;
+        }
+        .tf-label:active {
+            cursor: grabbing;
+        }
+        .editable {
+            cursor: pointer;
+            min-width: 60px;
+        }
+        .blue-bg {
+            background-color: #2962ff;
+            color: white;
+        }
+        .red-bg {
+            background-color: #f23645;
+            color: white;
+        }
+        .time-display-toggle {
+            margin-bottom: 10px;
+        }
+        .time-display-toggle button {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JSON Test Panel</h1>
+        
+        <div class="form-group">
+            <label for="symbol">Symbol:</label>
+            <select id="symbol">
+                <option value="USDJPY">USDJPY</option>
+                <option value="EURUSD">EURUSD</option>
+                <option value="GBPUSD">GBPUSD</option>
+                <option value="GBPJPY">GBPJPY</option>
+                <option value="AUDUSD">AUDUSD</option>
+                <option value="AUDJPY">AUDJPY</option>
+                <option value="NZDUSD">NZDUSD</option>
+                <option value="NZDJPY">NZDJPY</option>
+                <option value="CADJPY">CADJPY</option>
+                <option value="CHFJPY">CHFJPY</option>
+                <option value="EURJPY">EURJPY</option>
+                <option value="GBPAUD">GBPAUD</option>
+                <option value="EURGBP">EURGBP</option>
+                <option value="USDCAD">USDCAD</option>
+                <option value="USDCHF">USDCHF</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="price">Price:</label>
+            <input type="number" id="price" step="0.01" value="150.00" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="fontSize">文字サイズ:</label>
+            <select id="fontSize" onchange="changeFontSize(this.value)">
+                <option value="10">10px</option>
+                <option value="11">11px</option>
+                <option value="12">12px</option>
+                <option value="13">13px</option>
+                <option value="14">14px</option>
+                <option value="15">15px</option>
+                <option value="16">16px</option>
+                <option value="17">17px</option>
+                <option value="18">18px</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="saveName">保存名称:</label>
+            <input type="text" id="saveName" placeholder="保存する名称を入力">
+            <button onclick="saveData()">保存</button>
+            <button onclick="loadData()">読み込み</button>
+            <select id="loadSelect" onchange="loadSelectedData(this.value)">
+                <option value="">-- 選択 --</option>
+            </select>
+            <button onclick="deleteData()">削除</button>
+            <button onclick="renameData()">名称変更</button>
+        </div>
+        
+        <div class="time-display-toggle">
+            <label>時間表示形式:</label>
+            <button onclick="setTimeFormat('dhm')">日/時/分 (DD/HH:mm)</button>
+            <button onclick="setTimeFormat('hm')">時/分 (HH:mm)</button>
+            <button onclick="setTimeFormat('m')">分のみ (mm)</button>
+            <button onclick="setTimeFormat('original')">測定開始日時</button>
+        </div>
+        
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>整列雲</th>
+                    <th>ダウ転</th>
+                    <th>突破数</th>
+                    <th>雲交差</th>
+                    <th>各雲間</th>
+                    <th>価格間</th>
+                    <th>雲角度</th>
+                    <th>雲厚み</th>
+                    <th>ダウ時間</th>
+                    <th>交差時間</th>
+                    <th>時間差</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr data-tf="5m">
+                    <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" style="background-color: #a9e88c;">5m</td>
+                    <td class="editable" onclick="toggleDauten(this)" data-value="up">▲Dow</td>
+                    <td class="editable" onclick="cycleBos(this)" oncontextmenu="cycleBosReverse(this); return false;" data-value="-">-</td>
+                    <td class="editable" onclick="toggleGc(this)" data-value="true">▲GC</td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_prev"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_price"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="angle"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="thickness"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="dauten_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="elapsed_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td class="time-diff">-</td>
+                </tr>
+                <tr data-tf="15m">
+                    <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" style="background-color: #fbd0b2;">15m</td>
+                    <td class="editable" onclick="toggleDauten(this)" data-value="down">▼Dow</td>
+                    <td class="editable" onclick="cycleBos(this)" oncontextmenu="cycleBosReverse(this); return false;" data-value="-">-</td>
+                    <td class="editable" onclick="toggleGc(this)" data-value="false">▼DC</td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_prev"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_price"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="angle"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="thickness"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="dauten_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="elapsed_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td class="time-diff">-</td>
+                </tr>
+                <tr data-tf="1H">
+                    <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" style="background-color: #8dc7fc;">1H</td>
+                    <td class="editable" onclick="toggleDauten(this)" data-value="up">▲Dow</td>
+                    <td class="editable" onclick="cycleBos(this)" oncontextmenu="cycleBosReverse(this); return false;" data-value="-">-</td>
+                    <td class="editable" onclick="toggleGc(this)" data-value="true">▲GC</td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_prev"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_price"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="angle"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="thickness"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="dauten_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="elapsed_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td class="time-diff">-</td>
+                </tr>
+                <tr data-tf="4H">
+                    <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" style="background-color: #fa8dfe;">4H</td>
+                    <td class="editable" onclick="toggleDauten(this)" data-value="down">▼Dow</td>
+                    <td class="editable" onclick="cycleBos(this)" oncontextmenu="cycleBosReverse(this); return false;" data-value="-">-</td>
+                    <td class="editable" onclick="toggleGc(this)" data-value="false">▼DC</td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_prev"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_price"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="angle"></td>
+                    <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="thickness"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="dauten_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="elapsed_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td class="time-diff">-</td>
+                </tr>
+                <tr data-tf="price">
+                    <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)">価格</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="radio-group">
+            <label>
+                <input type="radio" name="target" value="test" checked> テスト用 (localhost:5000)
+            </label>
+            <label>
+                <input type="radio" name="target" value="production"> 本番用 (Render)
+            </label>
+        </div>
+        
+        <button onclick="generateJson()">JSON生成</button>
+        <button onclick="sendJson()">送信</button>
+        
+        <div style="margin-top: 20px; margin-bottom: 10px;">
+            <button onclick="switchJsonView('5m')" style="padding: 8px 16px; margin-right: 5px; background-color: #a9e88c; color: #000;">5m</button>
+            <button onclick="switchJsonView('15m')" style="padding: 8px 16px; margin-right: 5px; background-color: #fbd0b2; color: #000;">15m</button>
+            <button onclick="switchJsonView('1h')" style="padding: 8px 16px; margin-right: 5px; background-color: #8dc7fc; color: #000;">1H</button>
+            <button onclick="switchJsonView('4h')" style="padding: 8px 16px; background-color: #fa8dfe; color: #000;">4H</button>
+        </div>
+        
+        <div class="json-output" id="jsonOutput5m" style="display: none;"></div>
+        <div class="json-output" id="jsonOutput15m" style="display: none;"></div>
+        <div class="json-output" id="jsonOutput1h" style="display: none;"></div>
+        <div class="json-output" id="jsonOutput4h" style="display: none;"></div>
+        
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        let timeFormat = 'original'; // 'original', 'dhm', 'hm', 'm'
+        let originalTimeData = {}; // 元の時刻データを保存
+
+        function changeFontSize(size) {
+            const root = document.documentElement;
+            root.style.setProperty('--font-size', size + 'px');
+            root.style.setProperty('--padding-vertical', (size * 0.3) + 'px');
+            root.style.setProperty('--padding-horizontal', (size * 0.4) + 'px');
+            root.style.setProperty('--input-padding', (size * 0.5) + 'px');
+            root.style.setProperty('--button-padding-vertical', (size * 0.7) + 'px');
+            root.style.setProperty('--button-padding-horizontal', (size * 1.4) + 'px');
+        }
+
+        // ドラッグ&ドロップ機能
+        let draggedRow = null;
+
+        function dragStart(event) {
+            draggedRow = event.target.closest('tr');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/html', '');
+            event.target.style.opacity = '0.5';
+        }
+
+        function dragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const targetRow = event.target.closest('tr');
+            if (targetRow && targetRow !== draggedRow) {
+                targetRow.style.borderTop = '2px solid #007bff';
+            }
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            const targetRow = event.target.closest('tr');
+            
+            // 境界線をリセット
+            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                row.style.borderTop = '';
+            });
+            
+            if (targetRow && targetRow !== draggedRow) {
+                const tbody = draggedRow.parentNode;
+                const draggedIndex = Array.from(tbody.children).indexOf(draggedRow);
+                const targetIndex = Array.from(tbody.children).indexOf(targetRow);
+                
+                if (draggedIndex < targetIndex) {
+                    tbody.insertBefore(draggedRow, targetRow.nextSibling);
+                } else {
+                    tbody.insertBefore(draggedRow, targetRow);
+                }
+            }
+            
+            // ドラッグ終了時のスタイルをリセット
+            if (draggedRow) {
+                draggedRow.querySelector('.tf-label').style.opacity = '';
+            }
+            draggedRow = null;
+        }
+
+        // ドラッグ終了時の処理
+        document.addEventListener('dragend', function(event) {
+            // 境界線をリセット
+            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                row.style.borderTop = '';
+            });
+            
+            // スタイルをリセット
+            if (event.target.classList.contains('tf-label')) {
+                event.target.style.opacity = '';
+            }
+        });
+
+        function saveData() {
+            const saveName = document.getElementById('saveName').value.trim();
+            if (!saveName) {
+                alert('保存名称を入力してください');
+                return;
+            }
+
+            const data = {
+                symbol: document.getElementById('symbol').value,
+                price: document.getElementById('price').value,
+                fontSize: document.getElementById('fontSize').value,
+                timeFormat: timeFormat,
+                originalTimeData: originalTimeData,
+                rowOrder: Array.from(document.querySelectorAll('#dataTable tbody tr')).map(row => row.getAttribute('data-tf')),
+                tableData: {}
+            };
+
+            // 表のデータを収集
+            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                const tf = row.getAttribute('data-tf');
+                data.tableData[tf] = {
+                    dauten: row.querySelector('td[data-value]').getAttribute('data-value'),
+                    bos: row.querySelector('td[onclick*="cycleBos"]').getAttribute('data-value'),
+                    gc: row.querySelector('td[onclick*="toggleGc"]').getAttribute('data-value'),
+                    distance_from_prev: row.querySelector('input[data-field="distance_from_prev"]').value,
+                    distance_from_price: row.querySelector('input[data-field="distance_from_price"]').value,
+                    angle: row.querySelector('input[data-field="angle"]').value,
+                    thickness: row.querySelector('input[data-field="thickness"]').value,
+                    dauten_start_time_str: row.querySelector('input[data-field="dauten_start_time_str"]').value,
+                    elapsed_str: row.querySelector('input[data-field="elapsed_str"]').value
+                };
+            });
+
+            // localStorageに保存
+            const savedData = JSON.parse(localStorage.getItem('jsonTestPanelSaves') || '{}');
+            savedData[saveName] = data;
+            localStorage.setItem('jsonTestPanelSaves', JSON.stringify(savedData));
+
+            // プルダウンを更新
+            updateLoadSelect();
+            alert('保存しました: ' + saveName);
+        }
+
+        function loadData() {
+            const saveName = document.getElementById('saveName').value.trim();
+            if (!saveName) {
+                alert('読み込み名称を入力してください');
+                return;
+            }
+            loadSelectedData(saveName);
+        }
+
+        function loadSelectedData(saveName) {
+            if (!saveName) return;
+
+            const savedData = JSON.parse(localStorage.getItem('jsonTestPanelSaves') || '{}');
+            const data = savedData[saveName];
+            if (!data) {
+                alert('データが見つかりません');
+                return;
+            }
+
+            // 保存名称フィールドを更新
+            document.getElementById('saveName').value = saveName;
+
+            // データを復元
+            document.getElementById('symbol').value = data.symbol || '';
+            document.getElementById('price').value = data.price || '';
+            document.getElementById('fontSize').value = data.fontSize || '14';
+            changeFontSize(data.fontSize || '14');
+            timeFormat = data.timeFormat || 'original';
+            originalTimeData = data.originalTimeData || {};
+
+            // 表の順序を復元
+            if (data.rowOrder) {
+                const tbody = document.querySelector('#dataTable tbody');
+                const rows = Array.from(tbody.children);
+                
+                // 現在の順序に基づいて行を並べ替え
+                data.rowOrder.forEach(tf => {
+                    const row = rows.find(r => r.getAttribute('data-tf') === tf);
+                    if (row) {
+                        tbody.appendChild(row);
+                    }
+                });
+            }
+
+            // 表の順序を復元
+            if (data.rowOrder) {
+                const tbody = document.querySelector('#dataTable tbody');
+                const rows = Array.from(tbody.children);
+                
+                // 現在の順序に基づいて行を並べ替え
+                data.rowOrder.forEach(tf => {
+                    const row = rows.find(r => r.getAttribute('data-tf') === tf);
+                    if (row) {
+                        tbody.appendChild(row);
+                    }
+                });
+            }
+
+            // 表のデータを復元
+            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                const tf = row.getAttribute('data-tf');
+                const rowData = data.tableData[tf];
+                if (rowData) {
+                    row.querySelector('td[data-value]').setAttribute('data-value', rowData.dauten);
+                    row.querySelector('td[data-value]').textContent = rowData.dauten === 'up' ? '▲Dow' : '▼Dow';
+                    row.querySelector('td[onclick*="cycleBos"]').setAttribute('data-value', rowData.bos);
+                    row.querySelector('td[onclick*="cycleBos"]').textContent = rowData.bos;
+                    row.querySelector('td[onclick*="toggleGc"]').setAttribute('data-value', rowData.gc);
+                    row.querySelector('td[onclick*="toggleGc"]').textContent = rowData.gc === 'true' ? '▲GC' : '▼DC';
+                    row.querySelector('input[data-field="distance_from_prev"]').value = rowData.distance_from_prev || '';
+                    row.querySelector('input[data-field="distance_from_price"]').value = rowData.distance_from_price || '';
+                    row.querySelector('input[data-field="angle"]').value = rowData.angle || '';
+                    row.querySelector('input[data-field="thickness"]').value = rowData.thickness || '';
+                    row.querySelector('input[data-field="dauten_start_time_str"]').value = rowData.dauten_start_time_str || '';
+                    row.querySelector('input[data-field="elapsed_str"]').value = rowData.elapsed_str || '';
+                }
+            });
+
+            // 背景色と計算を更新
+            document.querySelectorAll('td[data-value]').forEach(cell => {
+                cell.classList.remove('blue-bg', 'red-bg');
+                if (cell.getAttribute('data-value') === 'up' || cell.getAttribute('data-value') === 'true') {
+                    cell.classList.add('blue-bg');
+                } else if (cell.getAttribute('data-value') === 'down' || cell.getAttribute('data-value') === 'false') {
+                    cell.classList.add('red-bg');
+                }
+            });
+
+            document.querySelectorAll('td[onclick*="cycleBos"]').forEach(cell => {
+                updateBosBg(cell);
+            });
+
+            document.querySelectorAll('input[data-field]').forEach(input => {
+                if (input.type === 'number') {
+                    updateNumericBg(input);
+                } else if (input.getAttribute('data-field').includes('time')) {
+                    updateTimeBg(input);
+                }
+            });
+
+            updateAllTimeDisplays();
+            alert('読み込みました: ' + saveName);
+        }
+
+        function updateLoadSelect() {
+            const select = document.getElementById('loadSelect');
+            select.innerHTML = '<option value="">-- 選択 --</option>';
+            const savedData = JSON.parse(localStorage.getItem('jsonTestPanelSaves') || '{}');
+            Object.keys(savedData).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
+
+        function deleteData() {
+            const select = document.getElementById('loadSelect');
+            const selectedName = select.value;
+            if (!selectedName) {
+                alert('削除するデータを選択してください');
+                return;
+            }
+            
+            if (!confirm(`"${selectedName}" を削除しますか？`)) {
+                return;
+            }
+            
+            const savedData = JSON.parse(localStorage.getItem('jsonTestPanelSaves') || '{}');
+            delete savedData[selectedName];
+            localStorage.setItem('jsonTestPanelSaves', JSON.stringify(savedData));
+            
+            // プルダウンを更新
+            updateLoadSelect();
+            
+            // 保存名称フィールドが削除したものと同じならクリア
+            if (document.getElementById('saveName').value === selectedName) {
+                document.getElementById('saveName').value = '';
+            }
+            
+            alert('削除しました: ' + selectedName);
+        }
+
+        function renameData() {
+            const select = document.getElementById('loadSelect');
+            const oldName = select.value;
+            if (!oldName) {
+                alert('名称変更するデータを選択してください');
+                return;
+            }
+            
+            const newName = prompt('新しい名称を入力してください:', oldName);
+            if (!newName || newName.trim() === '') {
+                return;
+            }
+            
+            const trimmedNewName = newName.trim();
+            if (trimmedNewName === oldName) {
+                return; // 同じ名称なら何もしない
+            }
+            
+            const savedData = JSON.parse(localStorage.getItem('jsonTestPanelSaves') || '{}');
+            if (savedData[trimmedNewName]) {
+                alert('その名称は既に存在します');
+                return;
+            }
+            
+            savedData[trimmedNewName] = savedData[oldName];
+            delete savedData[oldName];
+            localStorage.setItem('jsonTestPanelSaves', JSON.stringify(savedData));
+            
+            // プルダウンを更新
+            updateLoadSelect();
+            
+            // プルダウンを新しい名称に選択
+            select.value = trimmedNewName;
+            
+            // 保存名称フィールドも更新
+            document.getElementById('saveName').value = trimmedNewName;
+            
+            alert('名称を変更しました: ' + oldName + ' → ' + trimmedNewName);
+        }
+
+        function autoSave() {
+            const data = {
+                symbol: document.getElementById('symbol').value,
+                price: document.getElementById('price').value,
+                fontSize: document.getElementById('fontSize').value,
+                timeFormat: timeFormat,
+                originalTimeData: originalTimeData,
+                rowOrder: Array.from(document.querySelectorAll('#dataTable tbody tr')).map(row => row.getAttribute('data-tf')),
+                tableData: {}
+            };
+
+            // 表のデータを収集
+            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                const tf = row.getAttribute('data-tf');
+                data.tableData[tf] = {
+                    dauten: row.querySelector('td[data-value]').getAttribute('data-value'),
+                    bos: row.querySelector('td[onclick*="cycleBos"]').getAttribute('data-value'),
+                    gc: row.querySelector('td[onclick*="toggleGc"]').getAttribute('data-value'),
+                    distance_from_prev: row.querySelector('input[data-field="distance_from_prev"]').value,
+                    distance_from_price: row.querySelector('input[data-field="distance_from_price"]').value,
+                    angle: row.querySelector('input[data-field="angle"]').value,
+                    thickness: row.querySelector('input[data-field="thickness"]').value,
+                    dauten_start_time_str: row.querySelector('input[data-field="dauten_start_time_str"]').value,
+                    elapsed_str: row.querySelector('input[data-field="elapsed_str"]').value
+                };
+            });
+
+            localStorage.setItem('jsonTestPanelAutoSave', JSON.stringify(data));
+        }
+
+        function loadAutoSave() {
+            const data = JSON.parse(localStorage.getItem('jsonTestPanelAutoSave') || 'null');
+            if (data) {
+                document.getElementById('symbol').value = data.symbol || '';
+                document.getElementById('price').value = data.price || '';
+                document.getElementById('fontSize').value = data.fontSize || '14';
+                changeFontSize(data.fontSize || '14');
+                timeFormat = data.timeFormat || 'original';
+                originalTimeData = data.originalTimeData || {};
+
+                // 表のデータを復元
+                document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                    const tf = row.getAttribute('data-tf');
+                    const rowData = data.tableData[tf];
+                    if (rowData) {
+                        row.querySelector('td[data-value]').setAttribute('data-value', rowData.dauten);
+                        row.querySelector('td[data-value]').textContent = rowData.dauten === 'up' ? '▲Dow' : '▼Dow';
+                        row.querySelector('td[onclick*="cycleBos"]').setAttribute('data-value', rowData.bos);
+                        row.querySelector('td[onclick*="cycleBos"]').textContent = rowData.bos;
+                        row.querySelector('td[onclick*="toggleGc"]').setAttribute('data-value', rowData.gc);
+                        row.querySelector('td[onclick*="toggleGc"]').textContent = rowData.gc === 'true' ? '▲GC' : '▼DC';
+                        row.querySelector('input[data-field="distance_from_prev"]').value = rowData.distance_from_prev || '';
+                        row.querySelector('input[data-field="distance_from_price"]').value = rowData.distance_from_price || '';
+                        row.querySelector('input[data-field="angle"]').value = rowData.angle || '';
+                        row.querySelector('input[data-field="thickness"]').value = rowData.thickness || '';
+                        row.querySelector('input[data-field="dauten_start_time_str"]').value = rowData.dauten_start_time_str || '';
+                        row.querySelector('input[data-field="elapsed_str"]').value = rowData.elapsed_str || '';
+                    }
+                });
+
+                // 背景色と計算を更新
+                document.querySelectorAll('td[data-value]').forEach(cell => {
+                    cell.classList.remove('blue-bg', 'red-bg');
+                    if (cell.getAttribute('data-value') === 'up' || cell.getAttribute('data-value') === 'true') {
+                        cell.classList.add('blue-bg');
+                    } else if (cell.getAttribute('data-value') === 'down' || cell.getAttribute('data-value') === 'false') {
+                        cell.classList.add('red-bg');
+                    }
+                });
+
+                document.querySelectorAll('td[onclick*="cycleBos"]').forEach(cell => {
+                    updateBosBg(cell);
+                });
+
+                document.querySelectorAll('input[data-field]').forEach(input => {
+                    if (input.type === 'number') {
+                        updateNumericBg(input);
+                    } else if (input.getAttribute('data-field').includes('time')) {
+                        updateTimeBg(input);
+                    }
+                });
+
+                updateAllTimeDisplays();
+            }
+        }
+
+        function setTimeFormat(format) {
+            timeFormat = format;
+            updateAllTimeDisplays();
+        }
+
+        function updateAllTimeDisplays() {
+            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                const tf = row.getAttribute('data-tf');
+                
+                // 行:価格はスキップ
+                if (tf === 'price') {
+                    return;
+                }
+                
+                const dautenInput = row.querySelector('input[data-field="dauten_start_time_str"]');
+                const elapsedInput = row.querySelector('input[data-field="elapsed_str"]');
+                const diffCell = row.querySelector('.time-diff');
+                
+                // 元の時刻データがなければ現在の値を保存（測定開始日時形式として）
+                if (!originalTimeData[tf]) {
+                    originalTimeData[tf] = {
+                        dauten: dautenInput.value,
+                        elapsed: elapsedInput.value
+                    };
+                }
+                
+                if (timeFormat === 'original') {
+                    // 「測定開始日時」形式 - 元の値を表示、時間差は「－」
+                    dautenInput.value = originalTimeData[tf].dauten || '';
+                    elapsedInput.value = originalTimeData[tf].elapsed || '';
+                    diffCell.textContent = '-';
+                } else {
+                    // 他の形式 - 経過時間を計算して表示
+                    const dautenTime = parseTime(originalTimeData[tf].dauten);
+                    const elapsedTime = parseTime(originalTimeData[tf].elapsed);
+                    
+                    if (dautenTime) {
+                        const now = new Date();
+                        const elapsedMs = now - dautenTime;
+                        const elapsedMinutes = Math.floor(elapsedMs / 60000);
+                        const roundedElapsedMinutes = Math.floor(elapsedMinutes / 5) * 5;
+                        dautenInput.value = formatElapsedMinutes(roundedElapsedMinutes, timeFormat);
+                    } else {
+                        dautenInput.value = originalTimeData[tf].dauten || '';
+                    }
+                    
+                    if (elapsedTime) {
+                        const now = new Date();
+                        const elapsedMs = now - elapsedTime;
+                        const elapsedMinutes = Math.floor(elapsedMs / 60000);
+                        const roundedElapsedMinutes = Math.floor(elapsedMinutes / 5) * 5;
+                        elapsedInput.value = formatElapsedMinutes(roundedElapsedMinutes, timeFormat);
+                    } else {
+                        elapsedInput.value = originalTimeData[tf].elapsed || '';
+                    }
+                    
+                    // 時間差の計算
+                    if (dautenTime && elapsedTime) {
+                        const dautenCell = row.querySelector('td[data-value]');
+                        const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+                        const dautenDirection = dautenCell ? dautenCell.getAttribute('data-value') : null;
+                        const gcDirection = gcCell ? (gcCell.getAttribute('data-value') === 'true' ? 'up' : 'down') : null;
+                        
+                        // 同方向かチェック
+                        if ((dautenDirection === 'up' && gcDirection === 'up') || (dautenDirection === 'down' && gcDirection === 'down')) {
+                            const diffMs = Math.abs(elapsedTime - dautenTime);
+                            const diffMinutes = Math.floor(diffMs / 60000);
+                            const roundedDiffMinutes = Math.floor(diffMinutes / 5) * 5;
+                            diffCell.textContent = formatElapsedMinutes(roundedDiffMinutes, timeFormat);
+                        } else {
+                            diffCell.textContent = '-';
+                        }
+                    } else {
+                        diffCell.textContent = '-';
+                    }
+                }
+                // 背景色を更新するが、元データは保存しない
+                const dautenCell = row.querySelector('td[data-value]');
+                const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+                
+                dautenInput.classList.remove('blue-bg', 'red-bg');
+                if (dautenCell && dautenCell.getAttribute('data-value') === 'up') {
+                    dautenInput.classList.add('blue-bg');
+                } else if (dautenCell && dautenCell.getAttribute('data-value') === 'down') {
+                    dautenInput.classList.add('red-bg');
+                }
+                
+                elapsedInput.classList.remove('blue-bg', 'red-bg');
+                if (gcCell && gcCell.getAttribute('data-value') === 'true') {
+                    elapsedInput.classList.add('blue-bg');
+                } else if (gcCell && gcCell.getAttribute('data-value') === 'false') {
+                    elapsedInput.classList.add('red-bg');
+                }
+            });
+        }
+
+        function formatTime(timeStr, format) {
+            if (!timeStr || timeStr === '-') return '-';
+            
+            try {
+                const now = new Date();
+                const segments = timeStr.trim().split('/');
+                
+                if (segments.length < 5) return timeStr;
+                
+                const year = 2000 + parseInt(segments[0], 10);
+                const month = parseInt(segments[1], 10) - 1;
+                const day = parseInt(segments[2], 10);
+                
+                const timePart = segments[3];
+                const timeSegments = timePart.split(':');
+                
+                if (timeSegments.length < 2) return timeStr;
+                
+                const hour = parseInt(timeSegments[0], 10);
+                const minute = parseInt(timeSegments[1], 10);
+                
+                const startTime = new Date(year, month, day, hour, minute);
+                const elapsedMs = now - startTime;
+                const elapsedMinutes = Math.floor(elapsedMs / 60000);
+                
+                const roundedElapsedMinutes = Math.floor(elapsedMinutes / 5) * 5;
+                
+                return formatElapsedMinutes(roundedElapsedMinutes, format);
+            } catch (e) {
+                return timeStr;
+            }
+        }
+
+        function formatElapsedMinutes(minutes, format) {
+            if (format === 'm') {
+                return minutes + 'm';
+            } else if (format === 'hm') {
+                const hours = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                return String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
+            } else if (format === 'dhm') {
+                const days = Math.floor(minutes / 1440);
+                const remainMins = minutes % 1440;
+                const hours = Math.floor(remainMins / 60);
+                const mins = remainMins % 60;
+                return String(days).padStart(2, '0') + '/' + String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
+            }
+            return minutes + 'm';
+        }
+
+        function toggleDauten(cell) {
+            const current = cell.getAttribute('data-value');
+            if (current === 'up') {
+                cell.textContent = '▼Dow';
+                cell.setAttribute('data-value', 'down');
+                cell.classList.remove('blue-bg');
+                cell.classList.add('red-bg');
+            } else {
+                cell.textContent = '▲Dow';
+                cell.setAttribute('data-value', 'up');
+                cell.classList.remove('red-bg');
+                cell.classList.add('blue-bg');
+            }
+            updateTimeBg(cell.closest('tr').querySelector('input[data-field="dauten_start_time_str"]'));
+            updateTimeBg(cell.closest('tr').querySelector('input[data-field="elapsed_str"]'));
+            calculateTimeDiff(cell.closest('tr'));
+        }
+
+        function cycleBos(cell) {
+            const values = ['-', 'BOS-1', 'BOS-2', 'BOS-3', 'BOS-4', 'BOS-5', 'BOS-6', 'BOS-7', 'BOS-8', 'BOS-9'];
+            let current = cell.getAttribute('data-value');
+            let index = values.indexOf(current);
+            if (index === -1) index = 0;
+            index = (index + 1) % values.length;
+            cell.textContent = values[index];
+            cell.setAttribute('data-value', values[index]);
+            updateBosBg(cell);
+        }
+
+        function cycleBosReverse(cell) {
+            const values = ['-', 'BOS-1', 'BOS-2', 'BOS-3', 'BOS-4', 'BOS-5', 'BOS-6', 'BOS-7', 'BOS-8', 'BOS-9'];
+            let current = cell.getAttribute('data-value');
+            let index = values.indexOf(current);
+            if (index === -1) index = 0;
+            index = (index - 1 + values.length) % values.length;
+            cell.textContent = values[index];
+            cell.setAttribute('data-value', values[index]);
+            updateBosBg(cell);
+        }
+
+        function updateBosBg(cell) {
+            const row = cell.closest('tr');
+            const dautenCell = row.querySelector('td[data-value]');
+            cell.classList.remove('blue-bg', 'red-bg');
+            if (dautenCell) {
+                if (dautenCell.getAttribute('data-value') === 'up') {
+                    cell.classList.add('blue-bg');
+                } else if (dautenCell.getAttribute('data-value') === 'down') {
+                    cell.classList.add('red-bg');
+                }
+            }
+        }
+
+        function toggleGc(cell) {
+            const current = cell.getAttribute('data-value') === 'true';
+            if (current) {
+                cell.textContent = '▼DC';
+                cell.setAttribute('data-value', 'false');
+                cell.classList.remove('blue-bg');
+                cell.classList.add('red-bg');
+            } else {
+                cell.textContent = '▲GC';
+                cell.setAttribute('data-value', 'true');
+                cell.classList.remove('red-bg');
+                cell.classList.add('blue-bg');
+            }
+            updateTimeBg(cell.closest('tr').querySelector('input[data-field="elapsed_str"]'));
+            calculateTimeDiff(cell.closest('tr'));
+        }
+
+        function updateNumericBg(input) {
+            const value = parseFloat(input.value);
+            input.classList.remove('blue-bg', 'red-bg');
+            if (value > 0) {
+                input.classList.add('blue-bg');
+            } else if (value < 0) {
+                input.classList.add('red-bg');
+            }
+        }
+
+        function updateTimeBg(input) {
+            const row = input.closest('tr');
+            const dautenCell = row.querySelector('td[data-value]');
+            const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+            
+            input.classList.remove('blue-bg', 'red-bg');
+            if (input.getAttribute('data-field') === 'dauten_start_time_str') {
+                if (dautenCell && dautenCell.getAttribute('data-value') === 'up') {
+                    input.classList.add('blue-bg');
+                } else if (dautenCell && dautenCell.getAttribute('data-value') === 'down') {
+                    input.classList.add('red-bg');
+                }
+            } else if (input.getAttribute('data-field') === 'elapsed_str') {
+                if (gcCell && gcCell.getAttribute('data-value') === 'true') {
+                    input.classList.add('blue-bg');
+                } else if (gcCell && gcCell.getAttribute('data-value') === 'false') {
+                    input.classList.add('red-bg');
+                }
+            }
+            // 元の時刻データを更新（測定開始日時形式の場合のみ）
+            if (timeFormat === 'original') {
+                const tf = row.getAttribute('data-tf');
+                if (!originalTimeData[tf]) {
+                    originalTimeData[tf] = {};
+                }
+                if (input.getAttribute('data-field') === 'dauten_start_time_str') {
+                    originalTimeData[tf].dauten = input.value;
+                } else if (input.getAttribute('data-field') === 'elapsed_str') {
+                    originalTimeData[tf].elapsed = input.value;
+                }
+            }
+            calculateTimeDiff(row);
+        }
+
+        function calculateTimeDiff(row) {
+            const dautenTimeInput = row.querySelector('input[data-field="dauten_start_time_str"]');
+            const elapsedTimeInput = row.querySelector('input[data-field="elapsed_str"]');
+            const diffCell = row.querySelector('.time-diff');
+            
+            if (timeFormat === 'original') {
+                diffCell.textContent = '-';
+                return;
+            }
+            
+            if (!dautenTimeInput.value || !elapsedTimeInput.value) {
+                diffCell.textContent = '-';
+                return;
+            }
+            
+            try {
+                const dautenTime = parseTime(dautenTimeInput.value);
+                const elapsedTime = parseTime(elapsedTimeInput.value);
+                
+                if (dautenTime && elapsedTime) {
+                    const dautenCell = row.querySelector('td[data-value]');
+                    const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+                    const dautenDirection = dautenCell ? dautenCell.getAttribute('data-value') : null;
+                    const gcDirection = gcCell ? (gcCell.getAttribute('data-value') === 'true' ? 'up' : 'down') : null;
+                    
+                    // 同方向かチェック
+                    if (dautenDirection === 'up' && gcDirection === 'up' || dautenDirection === 'down' && gcDirection === 'down') {
+                        const diffMs = Math.abs(elapsedTime - dautenTime);
+                        const diffMin = Math.floor(diffMs / 60000);
+                        diffCell.textContent = formatElapsedMinutes(diffMin, timeFormat);
+                    } else {
+                        diffCell.textContent = '-';
+                    }
+                } else {
+                    diffCell.textContent = '-';
+                }
+            } catch (e) {
+                diffCell.textContent = '-';
+            }
+        }
+
+        function parseTime(timeStr) {
+            if (!timeStr || timeStr === '-') return null;
+            
+            try {
+                const segments = timeStr.trim().split('/');
+                
+                if (segments.length < 4) return null;
+                
+                const year = 2000 + parseInt(segments[0], 10);
+                const month = parseInt(segments[1], 10) - 1;
+                const day = parseInt(segments[2], 10);
+                
+                const timePart = segments[3];
+                const timeSegments = timePart.split(':');
+                
+                if (timeSegments.length < 2) return null;
+                
+                const hour = parseInt(timeSegments[0], 10);
+                const minute = parseInt(timeSegments[1], 10);
+                
+                return new Date(year, month, day, hour, minute);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function generateJson() {
+            const symbol = document.getElementById('symbol').value;
+            const price = parseFloat(document.getElementById('price').value);
+            const time = Math.floor(Date.now() / 1000) * 1000; // ミリ秒単位
+            
+            const rows = document.querySelectorAll('#dataTable tbody tr');
+            const rowDataMap = {};
+            
+            // 各行のデータを取得
+            rows.forEach(row => {
+                const tf = row.getAttribute('data-tf');
+                if (tf === 'price') return; // 価格の行はスキップ
+                
+                const dauten = row.querySelector('td[data-value]').getAttribute('data-value');
+                const bosCount = row.querySelector('td[onclick*="cycleBos"]').getAttribute('data-value');
+                const gc = row.querySelector('td[onclick*="toggleGc"]').getAttribute('data-value') === 'true';
+                
+                const distanceFromPrev = parseFloat(row.querySelector('input[data-field="distance_from_prev"]').value) || 0;
+                const distanceFromPrice = parseFloat(row.querySelector('input[data-field="distance_from_price"]').value) || 0;
+                const angle = parseFloat(row.querySelector('input[data-field="angle"]').value) || 0;
+                const thickness = parseFloat(row.querySelector('input[data-field="thickness"]').value) || 0;
+                
+                const dautenStartTimeStr = row.querySelector('input[data-field="dauten_start_time_str"]').value || '';
+                const elapsedStr = row.querySelector('input[data-field="elapsed_str"]').value || '';
+                
+                rowDataMap[tf] = {
+                    dauten: dauten,
+                    bos_count: bosCount === '-' ? null : parseInt(bosCount.replace('BOS-', '')),
+                    gc: gc,
+                    distance_from_prev: distanceFromPrev,
+                    distance_from_price: distanceFromPrice,
+                    angle: angle,
+                    thickness: thickness,
+                    dauten_start_time_str: dautenStartTimeStr,
+                    elapsed_str: elapsedStr
+                };
+            });
+            
+            // 現在の表の順序に基づいてcloud_orderを生成
+            const cloudOrder = Array.from(document.querySelectorAll('#dataTable tbody tr')).map(row => row.getAttribute('data-tf'));
+            
+            // row_orderを動的に生成（ドラッグ&ドロップ後の現在の順序から）
+            const rowOrderFull = cloudOrder;  // 5m用：全時間足の順序
+            const rowOrder15m = cloudOrder.filter(tf => tf === 'price' || tf === '15m');
+            const rowOrder1H = cloudOrder.filter(tf => tf === 'price' || tf === '1H');
+            const rowOrder4H = cloudOrder.filter(tf => tf === 'price' || tf === '4H');
+            
+            // 4つのJSONコードを生成
+            const jsonConfigs = {
+                '5m': {
+                    label: '5m',
+                    tf: '5',
+                    bos: rowDataMap['5m'].bos_count,
+                    rowOrder: rowOrderFull
+                },
+                '15m': {
+                    label: '15m',
+                    tf: '15',
+                    bos: rowDataMap['15m'].bos_count,
+                    rowOrder: rowOrder15m
+                },
+                '1h': {
+                    label: '1H',
+                    tf: '60',
+                    bos: rowDataMap['1H'].bos_count,
+                    rowOrder: rowOrder1H
+                },
+                '4h': {
+                    label: '4H',
+                    tf: '240',
+                    bos: rowDataMap['4H'].bos_count,
+                    rowOrder: rowOrder4H
+                }
+            };
+            
+            // 各タイムフレームのJSONコードを生成
+            for (const [key, config] of Object.entries(jsonConfigs)) {
+                const clouds = [];
+                const tfLabel = config.label;
+                const tfData = rowDataMap[tfLabel];
+                
+                // daytrade.bosの値を設定（bos_countに基づいて）
+                let daytradeBos = "-";
+                if (config.bos !== null && config.bos !== undefined && config.bos > 0) {
+                    daytradeBos = "BOS-" + config.bos;
+                }
+                
+                // Parse dauten_start_time_str to get milliseconds
+                let dautenStartTimeMs = time;
+                if (tfData.dauten_start_time_str) {
+                    const parsedTime = parseTime(tfData.dauten_start_time_str);
+                    if (parsedTime) {
+                        dautenStartTimeMs = parsedTime.getTime();
+                    }
+                }
+                
+                // Parse elapsed_str to get milliseconds for cross_start_time
+                let crossStartTimeMs = time;
+                if (tfData.elapsed_str) {
+                    const parsedTime = parseTime(tfData.elapsed_str);
+                    if (parsedTime) {
+                        crossStartTimeMs = parsedTime.getTime();
+                    }
+                }
+                
+                // Calculate elapsed in seconds from dauten_start_time
+                const elapsedSeconds = Math.round((time - dautenStartTimeMs) / 1000);
+                
+                if (key === '5m') {
+                    // 5m用：すべてのタイムフレームを含める
+                    ['5m', '15m', '1H', '4H'].forEach(tf => {
+                        const data = rowDataMap[tf];
+                        
+                        // Parse dauten_start_time_str
+                        let dautenMs = time;
+                        if (data.dauten_start_time_str) {
+                            const parsedTime = parseTime(data.dauten_start_time_str);
+                            if (parsedTime) {
+                                dautenMs = parsedTime.getTime();
+                            }
+                        }
+                        
+                        // Parse elapsed_str
+                        let crossMs = time;
+                        if (data.elapsed_str) {
+                            const parsedTime = parseTime(data.elapsed_str);
+                            if (parsedTime) {
+                                crossMs = parsedTime.getTime();
+                            }
+                        }
+                        
+                        const elapsed = Math.round((time - dautenMs) / 1000);
+                        
+                        clouds.push({
+                            label: tf,
+                            tf: tf,
+                            gc: data.gc,
+                            thickness: data.thickness,
+                            angle: data.angle,
+                            elapsed: elapsed,
+                            cross_start_time: crossMs,
+                            elapsed_str: data.elapsed_str,
+                            in_cloud: false,
+                            star: false,
+                            distance_from_price: data.distance_from_price,
+                            distance_from_prev: data.distance_from_prev,
+                            topPrice: price,
+                            bottomPrice: price,
+                            dauten: data.dauten,
+                            bos_count: data.bos_count,
+                            dauten_start_time: dautenMs,
+                            dauten_start_time_str: data.dauten_start_time_str
+                        });
+                    });
+                } else {
+                    // 15m、1H、4H用：対応するタイムフレームのみ
+                    clouds.push({
+                        label: tfLabel,
+                        tf: tfLabel,
+                        gc: tfData.gc,
+                        topPrice: price,
+                        bottomPrice: price,
+                        dauten: tfData.dauten,
+                        bos_count: tfData.bos_count,
+                        dauten_start_time: dautenStartTimeMs,
+                        dauten_start_time_str: tfData.dauten_start_time_str
+                    });
+                }
+                
+                const jsonData = {
+                    symbol: symbol,
+                    tf: config.tf,
+                    time: time,
+                    state: {"flag": "", "word": ""},
+                    daytrade: {"status": "active", "bos": daytradeBos, "time": "25/11/12/14:30"},
+                    swing: {"status": "inactive", "bos": 0, "time": ""},
+                    row_order: config.rowOrder,
+                    cloud_order: key === '5m' ? cloudOrder : [tfLabel],
+                    clouds: clouds,
+                    meta: {},
+                    price: price
+                };
+                
+                // 生成したJSONを保存
+                window[`jsonData_${key}`] = jsonData;
+                
+                // JSONOutput欄に表示
+                document.getElementById(`jsonOutput${key === '1h' ? '1h' : (key === '4h' ? '4h' : key)}`).textContent = JSON.stringify(jsonData, null, 2);
+            }
+            
+            // 最初のタブ（5m）を表示
+            switchJsonView('5m');
+        }
+        
+        function switchJsonView(tf) {
+            // すべてのJSON出力欄を非表示
+            document.getElementById('jsonOutput5m').style.display = 'none';
+            document.getElementById('jsonOutput15m').style.display = 'none';
+            document.getElementById('jsonOutput1h').style.display = 'none';
+            document.getElementById('jsonOutput4h').style.display = 'none';
+            
+            // 選択されたタブを表示
+            document.getElementById(`jsonOutput${tf}`).style.display = 'block';
+        }
+        
+        async function sendJson() {
+            // JSONが生成されているかチェック
+            if (!window.jsonData_5m || !window.jsonData_15m || !window.jsonData_1h || !window.jsonData_4h) {
+                alert('まずJSONを生成してください');
+                return;
+            }
+            
+            const target = document.querySelector('input[name="target"]:checked').value;
+            let url;
+            if (target === 'test') {
+                url = 'http://localhost:5000/webhook';
+            } else {
+                url = 'https://tradingview-webhook-s5x1.onrender.com/webhook';
+            }
+            
+            const statusDiv = document.getElementById('status');
+            statusDiv.style.display = 'none';
+            
+            // 4つのJSONコードを順番に送信
+            const jsonArray = [
+                { name: '5m', data: window.jsonData_5m },
+                { name: '15m', data: window.jsonData_15m },
+                { name: '1H', data: window.jsonData_1h },
+                { name: '4H', data: window.jsonData_4h }
+            ];
+            
+            const results = [];
+            
+            for (const json of jsonArray) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(json.data)
+                    });
+                    
+                    const result = await response.json();
+                    results.push({
+                        tf: json.name,
+                        success: response.ok,
+                        message: response.ok ? '成功' : '失敗',
+                        details: result
+                    });
+                } catch (error) {
+                    results.push({
+                        tf: json.name,
+                        success: false,
+                        message: 'エラー',
+                        details: error.message
+                    });
+                }
+            }
+            
+            // 結果を表示
+            let resultText = '送信結果:\n';
+            let allSuccess = true;
+            results.forEach(r => {
+                resultText += `${r.tf}: ${r.message} (${JSON.stringify(r.details)})\n`;
+                if (!r.success) allSuccess = false;
+            });
+            
+            statusDiv.className = 'status ' + (allSuccess ? 'success' : 'error');
+            statusDiv.textContent = resultText;
+            statusDiv.style.display = 'block';
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // デフォルトフォントサイズを設定
+            changeFontSize(14);
+            document.getElementById('fontSize').value = '14';
+            
+            // ロードセレクトを更新
+            updateLoadSelect();
+            
+            // オートセーブを設定
+            window.addEventListener('beforeunload', autoSave);
+            
+            // オートセーブデータを読み込み
+            loadAutoSave();
+            
+            // Initialize background colors
+            document.querySelectorAll('td[data-value]').forEach(cell => {
+                if (cell.getAttribute('data-value') === 'up' || cell.getAttribute('data-value') === 'true') {
+                    cell.classList.add('blue-bg');
+                } else if (cell.getAttribute('data-value') === 'down' || cell.getAttribute('data-value') === 'false') {
+                    cell.classList.add('red-bg');
+                }
+            });
+            
+            document.querySelectorAll('td[onclick*="cycleBos"]').forEach(cell => {
+                updateBosBg(cell);
+            });
+            
+            document.querySelectorAll('input[data-field]').forEach(input => {
+                if (input.type === 'number') {
+                    updateNumericBg(input);
+                } else if (input.getAttribute('data-field').includes('time')) {
+                    updateTimeBg(input);
+                }
+            });
+            
+            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                calculateTimeDiff(row);
+            });
+        });
+    </script>
+</body>
+</html>

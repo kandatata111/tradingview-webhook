@@ -88,68 +88,47 @@ def init_db():
     conn.commit()
     conn.close()
     print('[OK] Fire history table ensured')
+    
+    # market_status テーブル（最後の受信時刻記録用）
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS market_status (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        last_receive_time TEXT
+    )''')
+    # Insert initial record if not exists
+    c.execute('INSERT OR IGNORE INTO market_status (id, last_receive_time) VALUES (1, NULL)')
+    conn.commit()
+    conn.close()
+    print('[OK] Market status table ensured')
 
 def is_fx_market_open():
     """
-    FX市場の営業時間かどうかを判定
-    FX市場: 月曜日 UTC 21:00 ～ 金曜日 UTC 21:00（通常期間）
-           月曜日 UTC 20:00 ～ 金曜日 UTC 20:00（サマータイム期間）
-
-    サマータイム期間: 3月第2日曜日～11月第1日曜日
+    FX市場の営業時間を判定（データ受信ベース）
+    最後のJSON受信から1時間以内なら営業中と判定
     """
     try:
-        # UTC時刻を取得
+        # 最後の受信時刻を取得
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT last_receive_time FROM market_status WHERE id = 1')
+        row = c.fetchone()
+        conn.close()
+        
+        if not row or not row[0]:
+            return False  # 未受信
+        
+        # 時刻をパース
+        last_time = datetime.fromisoformat(row[0])
         utc_now = datetime.now(pytz.UTC)
-
-        # 曜日を取得 (0=月, 1=火, ..., 6=日)
-        weekday = utc_now.weekday()
-        hour = utc_now.hour
-
-        # 日曜日: 完全休場
-        if weekday == 6:  # Sunday
-            return False
-
-        # サマータイム期間かどうかを判定
-        # 米国東部時間: 3月第2日曜日午前2:00～11月第1日曜日午前2:00
-        # UTC時間: 3月第2日曜日午前6:00～11月第1日曜日午前6:00
-        year = utc_now.year
-        march_second_sunday = _get_nth_weekday(year, 3, 6, 2)  # 3月第2日曜日
-        november_first_sunday = _get_nth_weekday(year, 11, 6, 1)  # 11月第1日曜日
-
-        # サマータイム開始: 3月第2日曜日午前6:00 UTC
-        dst_start = datetime(year, 3, march_second_sunday, 6, 0, 0, tzinfo=pytz.UTC)
-        # サマータイム終了: 11月第1日曜日午前6:00 UTC
-        dst_end = datetime(year, 11, november_first_sunday, 6, 0, 0, tzinfo=pytz.UTC)
-
-        is_dst = dst_start <= utc_now < dst_end
-
-        # サマータイム期間中の営業時間: UTC 20:00～21:00
-        # 通常期間の営業時間: UTC 21:00～22:00
-        if is_dst:
-            # サマータイム期間
-            if weekday == 0:  # Monday
-                return hour >= 20
-            elif weekday < 4:  # Tuesday to Thursday
-                return True
-            elif weekday == 4:  # Friday
-                return hour < 20
-        else:
-            # 通常期間
-            if weekday == 0:  # Monday
-                return hour >= 21
-            elif weekday < 4:  # Tuesday to Thursday
-                return True
-            elif weekday == 4:  # Friday
-                return hour < 21
-
-        # 土曜日: 完全休場
-        if weekday == 5:  # Saturday
-            return False
-
-        return False
+        
+        # 1時間以内受信で営業中
+        time_diff = (utc_now - last_time).total_seconds()
+        return time_diff <= 3600  # 1時間 = 3600秒
+        
     except Exception as e:
         print(f'[ERROR] is_fx_market_open check failed: {e}')
-        return True  # エラー時はデフォルトで開場と判定
+        return False  # エラー時は休場
 
 
 def _get_nth_weekday(year, month, weekday, n):
@@ -190,6 +169,10 @@ def dashboard():
 def test():
     return render_template('test.html')
 
+@app.route('/json_test_panel')
+def json_test_panel():
+    return render_template('json_test_panel.html')
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
@@ -197,11 +180,8 @@ def webhook():
         if not data:
             return jsonify({'status': 'error', 'msg': 'No JSON'}), 400
         
-        # FX休場時は更新を無視
-        if not is_fx_market_open():
-            jst = pytz.timezone('Asia/Tokyo')
-            print(f'[WEBHOOK IGNORED] Market closed - {datetime.now(jst).isoformat()}')
-            return jsonify({'status': 'ignored', 'msg': 'FX market closed'}), 200
+        # FX休場時は更新を無視（データ受信ベースなので常に保存）
+        # 受信したら営業中と判定するため、チェックを削除
         
         # 受信タイムスタンプをログ（JST）
         jst = pytz.timezone('Asia/Tokyo')
@@ -265,6 +245,22 @@ def webhook():
             
             # Socket.IOで即時更新通知（全クライアントに配信）
             socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
+            
+            # 市場ステータス更新通知
+            market_open = is_fx_market_open()
+            socketio.emit('market_status_update', {'market_open': market_open})
+            
+            # 最後の受信時刻を更新
+            try:
+                conn_time = sqlite3.connect(DB_PATH)
+                c_time = conn_time.cursor()
+                c_time.execute('UPDATE market_status SET last_receive_time = ? WHERE id = 1', 
+                              (datetime.now(pytz.UTC).isoformat(),))
+                conn_time.commit()
+                conn_time.close()
+                print(f'[OK] Updated last receive time')
+            except Exception as e:
+                print(f'[ERROR] Updating last receive time: {e}')
         except Exception as e:
             print(f'[ERROR] Saving data immediately: {e}')
             return jsonify({'status': 'error', 'msg': f'Database save failed: {str(e)}'}), 500
@@ -1440,19 +1436,43 @@ def _evaluate_rules_with_state(base_state):
                 
                 print(f'[FIRE] Testing rule "{rule_name}" for {symbol}/{tf}')
                 
-                # Test the rule using existing rules_test logic
-                # Prepare payload for rules_test
-                payload = {
-                    'rule': rule,
-                    'scope': scope,
-                    'state_override': base_state  # 統合されたbase_stateを使用
-                }
+                # Directly evaluate rule conditions against base_state (simplified version)
+                # Check if all conditions are met
+                conditions = rule.get('conditions', [])
+                all_matched = True
                 
-                # Call rules_test internally (simulate the POST request)
-                from flask import Flask
-                with app.test_request_context('/rules/test', method='POST', json=payload):
-                    response = rules_test()
-                    result = response.get_json()
+                for cond in conditions:
+                    label = cond.get('label')
+                    field = cond.get('field')
+                    value = cond.get('value')
+                    
+                    # Find the cloud field in base_state
+                    found_value = None
+                    for cloud in base_state.get('clouds', []):
+                        if cloud.get('label') == label:
+                            found_value = cloud.get(field)
+                            break
+                    
+                    # Check if condition matches
+                    condition_met = False
+                    if value is None:
+                        # Presence check: field should exist and have a value
+                        condition_met = found_value is not None
+                    else:
+                        # Value check
+                        condition_met = found_value == value
+                    
+                    if not condition_met:
+                        all_matched = False
+                        print(f'[FIRE] Condition not met: {label}.{field} (found={found_value}, expected={value})')
+                        break
+                
+                # Build result object
+                result = {
+                    'status': 'success',
+                    'matched': all_matched,
+                    'details': [{'result': all_matched}] if all_matched else []
+                }
                 
                 print(f'[FIRE] Rule "{rule_name}" result: matched={result.get("matched")}')
                 
@@ -1489,7 +1509,7 @@ def _evaluate_rules_with_state(base_state):
                     
                     # Build current state snapshot
                     current_state = {}
-                    curr_clouds = data.get('clouds', [])
+                    curr_clouds = base_state.get('clouds', [])
                     
                     # Check state change fields (gc, dauten, bos_count)
                     for cond in rule_conditions:
@@ -1598,16 +1618,19 @@ def _evaluate_rules_with_state(base_state):
                     # Rule fired! Determine direction from dauten, bos_count, and gc fields
                     direction = None
                     
-                    # Collect directions from all relevant fields
+                    # Collect directions from cloud data directly (not from details)
                     directions_found = []
                     
-                    # Extract direction from conditions that passed
-                    for detail in details:
-                        cond = detail.get('cond', '')
-                        if '.' in cond:
-                            label, field = cond.split('.', 1)
-                            if field in ('dauten', 'gc', 'bos_count'):
-                                actual = detail.get('actual')
+                    # Extract direction from cloud conditions
+                    rule_conditions = rule.get('conditions', [])
+                    for cond in rule_conditions:
+                        label = cond.get('label')
+                        field = cond.get('field')
+                        
+                        # Find cloud value
+                        for cloud in base_state.get('clouds', []):
+                            if cloud.get('label') == label:
+                                actual = cloud.get(field)
                                 if actual is not None:
                                     if field == 'dauten':
                                         if '上昇' in str(actual) or 'up' in str(actual).lower():
@@ -1615,9 +1638,9 @@ def _evaluate_rules_with_state(base_state):
                                         elif '下降' in str(actual) or 'down' in str(actual).lower():
                                             directions_found.append('下降')
                                     elif field == 'gc':
-                                        if str(actual).upper() == 'GC':
+                                        if actual is True or str(actual).upper() == 'TRUE':
                                             directions_found.append('上昇')
-                                        elif str(actual).upper() == 'DC':
+                                        elif actual is False or str(actual).upper() == 'FALSE':
                                             directions_found.append('下降')
                                     elif field == 'bos_count':
                                         try:
@@ -1628,6 +1651,7 @@ def _evaluate_rules_with_state(base_state):
                                                 directions_found.append('下降')
                                         except:
                                             pass
+                                break
                     
                     # Determine overall direction: majority vote, or first if tie
                     if directions_found:
@@ -1669,7 +1693,7 @@ def _evaluate_rules_with_state(base_state):
                         combined_message = f'{rule_name} が発火しました'
                     
                     # Replace {symbol} placeholder with Japanese currency name or insert based on position
-                    symbol = data.get('symbol', 'UNKNOWN')
+                    symbol = base_state.get('symbol', 'UNKNOWN')
                     japanese_name = currency_names.get(symbol, symbol)
                     
                     if voice_settings.get('insert_symbol'):
@@ -1688,12 +1712,12 @@ def _evaluate_rules_with_state(base_state):
                     notification = {
                         'rule_id': rule_id,
                         'rule_name': rule_name,
-                        'symbol': data.get('symbol', 'UNKNOWN'),
-                        'tf': data.get('tf', '5'),
+                        'symbol': base_state.get('symbol', 'UNKNOWN'),
+                        'tf': base_state.get('tf', '5'),
                         'direction': direction,
                         'message': combined_message,
                         'timestamp': datetime.now(jst).isoformat(),
-                        'price': float(data.get('price', 0))
+                        'price': float(base_state.get('price', 0))
                     }
                     
                     fired_notifications.append(notification)
