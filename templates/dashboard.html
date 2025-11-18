@@ -16,7 +16,7 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .datetime-small { font-size: 0.8em; color: #bbb; font-weight: 500; font-family: 'Helvetica', 'Arial', sans-serif; }
 .datetime-large { font-size: 1.8em; font-weight: bold; color: #4ade80; font-family: 'Helvetica', 'Arial', sans-serif; }
 .right-section { display: flex; align-items: center; gap: 15px; }
-#dashboard { margin: 0; padding: 0 8px 8px 6px; }
+#dashboard { margin: 0; padding: 0 8px 0 6px; }
 /* 設定パネルスタイル */
 .settings { display: flex; gap: 12px; justify-content: flex-end; align-items: center; margin-bottom: 12px; }
 .settings label { color: #fff; font-size: 0.95em; }
@@ -135,7 +135,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 
 /* 発火履歴ウィンドウ */
-.main-content { display: flex; gap: 12px; align-items: flex-start; padding-left: 6px; }
+.main-content { display: flex; flex-direction: column; gap: 1px; align-items: flex-start; padding-left: 6px; }
 #dashboard { flex: 0 0 auto; }
 #fire-history { 
   flex: 0 0 300px; 
@@ -154,11 +154,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 /* 通貨ごとのコンテナ */
 .currency-section {
   display: flex;
-  gap: 12px;
+  gap: 15px;
   align-items: flex-start;
-  padding-bottom: 20px;
+  padding-bottom: 15px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 .currency-section.hidden {
   display: none;
@@ -312,6 +312,15 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .light-mode .fire-name {
   color: #d97706;
 }
+
+/* 経済指標カレンダーセクションのライトモード対応 */
+.light-mode #economic-calendar-section {
+  background: rgba(0,0,0,0.05);
+  border-color: rgba(0,0,0,0.2);
+}
+.light-mode #economic-calendar-section h3 {
+  color: #111;
+}
 .light-mode .fire-direction {
   border-width: 1px;
 }
@@ -428,6 +437,46 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 .light-mode .modal select {
   color: #f5f7ff !important;
+}
+#economic-calendar-section {
+  display: flex;
+  flex-direction: column;
+  transition: min-height 0.3s ease;
+}
+#economic-calendar-section.hidden {
+  min-height: auto !important;
+  height: auto !important;
+  resize: none !important;
+}
+#economic-calendar-section.hidden .section-body {
+  display: none !important;
+}
+#economic-calendar-section .section-header {
+  background:#000; color:#fff; padding:6px 10px; margin: 0 0 0 0; border-radius:6px; font-weight:600; font-size:0.95em; letter-spacing:0.3px; display:flex; justify-content:space-between; align-items:center; flex-shrink: 0;
+}
+#economic-calendar-visibility {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+#economic-calendar-visibility label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+  cursor: pointer;
+  margin: 0;
+}
+#economic-calendar-visibility input[type="radio"] {
+  cursor: pointer;
+  margin: 0;
+}
+#economic-calendar-section .section-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 </style>
 </head>
@@ -720,6 +769,38 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 <div class="main-content">
   <div id="dashboards-container">
     <!-- 通貨ごとの表と発火履歴が動的に生成されます -->
+  </div>
+  <div id="economic-calendar-section" style="margin-top: 15px; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; padding: 0; background: rgba(255,255,255,0.1); resize: both; overflow: hidden; min-width: 400px; min-height: 300px;">
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin: 0; background:#000; color:#fff; padding:6px 10px; border-radius:0; font-weight:600; font-size:0.95em; letter-spacing:0.3px;">
+      <h3 style="margin: 0; font-size: 1.2em; color: #f5f7ff;">経済指標カレンダー</h3>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <select id="calendar-lang-select" style="background: rgba(128,128,128,0.5); color: #f5f7ff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 4px 8px; font-size: 11px;">
+          <option value="ja">日本語</option>
+          <option value="en">English</option>
+        </select>
+        <div id="economic-calendar-visibility" style="display: flex; gap: 8px; align-items: center;">
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; margin: 0;">
+            <input type="radio" name="calendar-visibility" value="show" checked>
+            表示
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; margin: 0;">
+            <input type="radio" name="calendar-visibility" value="hide">
+            非表示
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="section-body" data-section-body="economic-calendar" style="display: flex; flex-direction: column; flex: 1;">
+      <!-- myfxbook.com Economic Calendar Widget - Start -->
+      <iframe src="https://widget.myfxbook.com/widget/calendar.html?lang=ja&symbols=USD,JPY" style="border: 0; width:100%; flex: 1; min-height: 0;"></iframe>
+      <div style="margin-top: 0; flex-shrink: 0;">
+        <div style="width: fit-content; margin: auto;font-family: roboto,sans-serif!important; font-size: 13px; color: #666666;">
+         <a href="https://www.myfxbook.com/forex-economic-calendar?utm_source=widget13&utm_medium=link&utm_campaign=copyright" title="Economic Calendar" class="myfxbookLink" target="_blank" rel="noopener"><b style="color:#666666">Economic Calendar</b></a>
+         by Myfxbook.com
+        </div>
+      </div>
+      <!-- myfxbook.com Economic Calendar Widget - End -->
+    </div>
   </div>
 </div>
 
@@ -1217,6 +1298,45 @@ function setupAllEventListeners() {
     });
   }
 
+  // 言語選択イベントリスナー
+  const calendarLangSelect = document.getElementById('calendar-lang-select');
+  if (calendarLangSelect) {
+    calendarLangSelect.addEventListener('change', (e) => {
+      const selectedLang = e.target.value;
+      if (confirm('言語を変更すると、経済指標カレンダーの現在の設定（フィルターなど）がリセットされます。よろしいですか？')) {
+        localStorage.setItem('tv_calendar_lang', selectedLang);
+        const iframe = document.querySelector('#economic-calendar-section iframe');
+        if (iframe) {
+          const currentSrc = iframe.src;
+          const newSrc = currentSrc.replace(/lang=[^&]*/, 'lang=' + selectedLang);
+          iframe.src = newSrc;
+        }
+      } else {
+        // キャンセルされたら元の値に戻す
+        e.target.value = localStorage.getItem('tv_calendar_lang') || 'ja';
+      }
+    });
+  }
+
+  // 経済指標カレンダーの表示/非表示ラジオボタンイベント
+  const calendarVisibilityRadios = document.querySelectorAll('input[name="calendar-visibility"]');
+  console.log('[CALENDAR] Found ' + calendarVisibilityRadios.length + ' visibility radios');
+  calendarVisibilityRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      console.log('[CALENDAR] Visibility changed to:', e.target.value);
+      const calendarSection = document.getElementById('economic-calendar-section');
+      if (e.target.value === 'hide') {
+        calendarSection.classList.add('hidden');
+        localStorage.setItem('tv_calendar_visible', 'false');
+        console.log('[CALENDAR] Hidden class added');
+      } else {
+        calendarSection.classList.remove('hidden');
+        localStorage.setItem('tv_calendar_visible', 'true');
+        console.log('[CALENDAR] Hidden class removed');
+      }
+    });
+  });
+
   console.log('[INIT] All event listeners setup complete');
 }
 
@@ -1506,6 +1626,12 @@ function wireSectionToggles() {
       const sec = header.dataset.section;
       const body = document.querySelector(`.section-body[data-section-body="${sec}"]`);
       if (!body) return;
+      
+      // 既存のリスナーを削除（複数登録を防ぐ）
+      const newHeader = header.cloneNode(true);
+      header.parentNode.replaceChild(newHeader, header);
+      header = newHeader;
+      
       const expanded = (saved[sec] !== undefined) ? !!saved[sec] : true;
       if (expanded) {
         header.classList.add('active');
@@ -1514,7 +1640,15 @@ function wireSectionToggles() {
         header.classList.remove('active');
         body.classList.remove('active');
       }
-      header.addEventListener('click', () => {
+      
+      // クリックイベントを処理（子要素がクリックされても反応）
+      header.addEventListener('click', (e) => {
+        // selectクリックは無視（言語選択に干渉しないため）
+        if (e.target.tagName === 'SELECT') {
+          e.stopPropagation();
+          return;
+        }
+        
         const cur = header.classList.contains('active');
         const next = !cur;
         if (next) {
@@ -1819,6 +1953,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     wireSectionToggles(); 
     wireSubsectionToggles();
     
+    // Initialize calendar language selector
+    const savedCalendarLang = localStorage.getItem('tv_calendar_lang') || 'ja';
+    const calendarLangSelect = document.getElementById('calendar-lang-select');
+    if (calendarLangSelect) {
+      calendarLangSelect.value = savedCalendarLang;
+      // Update iframe src on initialization
+      const iframe = document.querySelector('#economic-calendar-section iframe');
+      if (iframe) {
+        const currentSrc = iframe.src;
+        const newSrc = currentSrc.replace(/lang=[^&]*/, 'lang=' + savedCalendarLang);
+        iframe.src = newSrc;
+      }
+    }
+    
+    // Initialize calendar visibility
+    const savedCalendarVisible = localStorage.getItem('tv_calendar_visible') !== 'false';
+    const calendarSection = document.getElementById('economic-calendar-section');
+    const calendarVisibilityRadios = document.querySelectorAll('input[name="calendar-visibility"]');
+    if (savedCalendarVisible) {
+      calendarSection.classList.remove('hidden');
+      calendarVisibilityRadios.forEach(radio => {
+        if (radio.value === 'show') radio.checked = true;
+      });
+    } else {
+      calendarSection.classList.add('hidden');
+      calendarVisibilityRadios.forEach(radio => {
+        if (radio.value === 'hide') radio.checked = true;
+      });
+    }
+    
     // Populate chime select
     await populateChimeSelect();
     
@@ -1937,6 +2101,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (currentVersion !== REQUIRED_VERSION) {
       console.log('[NOTIFICATIONS] Version mismatch, skipping notification polling');
     }
+
+    // Setup calendar visibility toggle
+    setTimeout(() => {
+      const calendarVisibilityRadios = document.querySelectorAll('input[name="calendar-visibility"]');
+      console.log('[CALENDAR] Setting up visibility toggle, found radios:', calendarVisibilityRadios.length);
+      calendarVisibilityRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          console.log('[CALENDAR] Visibility changed to:', e.target.value);
+          const calendarSection = document.getElementById('economic-calendar-section');
+          if (e.target.value === 'hide') {
+            calendarSection.classList.add('hidden');
+            localStorage.setItem('tv_calendar_visible', 'false');
+            console.log('[CALENDAR] Hidden class added');
+          } else {
+            calendarSection.classList.remove('hidden');
+            localStorage.setItem('tv_calendar_visible', 'true');
+            console.log('[CALENDAR] Hidden class removed');
+          }
+        });
+      });
+    }, 100);
 
   } catch (err) { console.log('settings init error', err); }
 });
