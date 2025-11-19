@@ -166,6 +166,19 @@ def init_db():
     conn.commit()
     conn.close()
     print('[OK] Market status table ensured')
+    
+    # ノートデータファイルの確認
+    notes_path = os.path.join(BASE_DIR, 'notes_data.json')
+    if os.path.exists(notes_path):
+        try:
+            with open(notes_path, 'r', encoding='utf-8') as f:
+                notes_data = json.load(f)
+            note_count = len(notes_data) if isinstance(notes_data, list) else 1
+            print(f'[OK] Notes data file found with {note_count} page(s)')
+        except Exception as e:
+            print(f'[WARNING] Notes data file exists but could not be read: {e}')
+    else:
+        print('[INFO] No notes data file found, will be created on first save')
 
 def is_fx_market_open():
     """
@@ -2041,24 +2054,50 @@ def webhook_diagnostics():
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
-@app.route('/api/webhook-log/<int:lines>', methods=['GET'])
-def get_webhook_log(lines=50):
-    """Webhook ログの最後の n 行を取得"""
+@app.route('/api/save_notes', methods=['POST'])
+def save_notes():
     try:
-        webhook_log_path = os.path.join(BASE_DIR, 'webhook_log.txt')
-        if not os.path.exists(webhook_log_path):
-            return jsonify({'status': 'error', 'msg': 'Webhook log not found'}), 404
+        payload = request.get_json()
+        if not payload:
+            return jsonify({'status': 'error', 'msg': 'No data provided'}), 400
         
-        with open(webhook_log_path, 'r', encoding='utf-8') as f:
-            all_lines = f.readlines()
-            last_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        # フロントエンドから送信される形式: {pages: [...], currentPage: ...}
+        # またはそのままnotePages配列として送信される場合もある
+        notes_data = payload
         
-        return jsonify({
-            'total_lines': len(all_lines),
-            'returned_lines': len(last_lines),
-            'entries': [line.strip() for line in last_lines]
-        }), 200
+        notes_path = os.path.join(BASE_DIR, 'notes_data.json')
+        print(f'[NOTE API] Saving notes to {notes_path}')
+        print(f'[NOTE API] Data type: {type(notes_data)}, Content: {json.dumps(notes_data, ensure_ascii=False)[:200]}...')
+        
+        # ファイルに保存
+        with open(notes_path, 'w', encoding='utf-8') as f:
+            json.dump(notes_data, f, ensure_ascii=False, indent=2)
+        
+        print(f'[NOTE API] Notes saved successfully')
+        return jsonify({'status': 'success', 'msg': 'Notes saved'})
     except Exception as e:
+        error_msg = f'[ERROR] save_notes failed: {str(e)}'
+        print(error_msg)
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/load_notes', methods=['GET'])
+def load_notes():
+    try:
+        notes_path = os.path.join(BASE_DIR, 'notes_data.json')
+        print(f'[NOTE API] Loading notes from {notes_path}')
+        
+        if os.path.exists(notes_path):
+            with open(notes_path, 'r', encoding='utf-8') as f:
+                notes_data = json.load(f)
+            print(f'[NOTE API] Loaded notes: {len(notes_data) if isinstance(notes_data, list) else "dict"} items')
+            # フロントエンドは notes フィールドを期待している
+            return jsonify({'status': 'success', 'notes': notes_data})
+        else:
+            print(f'[NOTE API] Notes file not found, returning empty array')
+            return jsonify({'status': 'success', 'notes': []})
+    except Exception as e:
+        error_msg = f'[ERROR] load_notes failed: {str(e)}'
+        print(error_msg)
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 if __name__ == '__main__':

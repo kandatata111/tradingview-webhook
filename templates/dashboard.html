@@ -1019,14 +1019,31 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
   if (noteOverlay) {
     noteOverlay.style.display = 'flex';
     isNoteModalOpen = true;
-    // 保存されたノートページを読み込む
-    await loadNotePages();
+    // 保存されたノートページを読み込む（タイムアウト付き）
+    try {
+      const loadPromise = loadNotePages();
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => {
+          console.warn('[NOTE] loadNotePages() timed out after 5 seconds');
+          resolve();
+        }, 5000);
+      });
+      await Promise.race([loadPromise, timeoutPromise]);
+    } catch (e) {
+      console.error('[NOTE] Error loading notes:', e);
+    }
     // ページナビゲーションのイベントハンドラーを設定
     setupPageNavigationHandlers();
     
     // ノートフォントサイズを適用
     const currentNoteFontSize = localStorage.getItem('tv_note_font_size') || '15';
     applyNoteFontSize(currentNoteFontSize);
+    
+    // 古い localStorage データをクリーンアップ（初回のみ）
+    if (!window.noteStorageCleanupDone) {
+      cleanupOldNoteStorage();
+      window.noteStorageCleanupDone = true;
+    }
     
     // サイズ復元を遅らせることでdisplay:flex後のサイズ適用を確実にする
     setTimeout(() => {
@@ -2117,110 +2134,158 @@ function getNotePageData(pageIndex) {
 // IndexedDB初期化
 let db = null;
 
+// IndexedDB の初期化
 async function initIndexedDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('TradingViewNotesDB', 1);
-    
-    request.onerror = () => {
-      console.log('[IndexedDB] Error opening database');
-      reject(request.error);
-    };
-    
-    request.onsuccess = () => {
-      db = request.result;
-      console.log('[IndexedDB] Database opened successfully');
-      resolve(db);
-    };
-    
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('notePages')) {
-        db.createObjectStore('notePages', { keyPath: 'id' });
-      }
-      console.log('[IndexedDB] Database upgraded');
-    };
-  });
+  // IndexedDB は一時的に無効化
+  console.log('[INDEXEDDB] Skipped - using server + localStorage only');
+  db = null;
+  return false;
+}
+
+// IndexedDB にノートデータをキャッシュ（一時的に無効）
+async function cacheNotePagesToIndexedDB(pages) {
+  return true;
+}
+
+// IndexedDB からノートデータを読み込み
+async function loadNotePagesFromIndexedDB() {
+  // IndexedDB キャッシュは一時的に無効
+  return null;
 }
 
 // ノートページを保存
 async function saveNotePages() {
-  if (isNoteModalOpen && notePages.length > 0) {
-    // 現在のページのデータを保存
+  if (notePages.length === 0) {
+    console.log('[NOTE] No pages to save');
+    return;
+  }
+  
+  // 現在のページのセクションデータを更新
+  if (currentNotePage < notePages.length) {
     notePages[currentNotePage].sections = getNotePageData(currentNotePage);
     notePages[currentNotePage].lastModified = new Date().toISOString();
-    
-    try {
-      if (db) {
-        const transaction = db.transaction(['notePages'], 'readwrite');
-        const store = transaction.objectStore('notePages');
-        
-        // 全てのページを保存
-        for (const page of notePages) {
-          await new Promise((resolve, reject) => {
-            const request = store.put(page);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-          });
-        }
-        
-        // 現在のページインデックスを保存
-        localStorage.setItem('tv_note_current_page', currentNotePage.toString());
-        
-        console.log('[NOTE] Pages saved to IndexedDB:', notePages.length, 'pages, current:', currentNotePage);
-      } else {
-        // IndexedDBが利用できない場合はlocalStorageにフォールバック
-        localStorage.setItem('tv_note_pages', JSON.stringify(notePages));
-        localStorage.setItem('tv_note_current_page', currentNotePage.toString());
-        console.log('[NOTE] Fallback to localStorage');
-      }
-    } catch (error) {
-      console.error('[NOTE] Error saving to IndexedDB:', error);
-      // IndexedDBエラー時はlocalStorageにフォールバック
-      localStorage.setItem('tv_note_pages', JSON.stringify(notePages));
-      localStorage.setItem('tv_note_current_page', currentNotePage.toString());
+    console.log('[NOTE] Updated page', currentNotePage, 'with', notePages[currentNotePage].sections.length, 'sections');
+  }
+  
+  try {
+    console.log('[NOTE] Saving', notePages.length, 'pages to server...');
+    const response = await fetch('/api/save_notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(notePages)
+    });
+    const result = await response.json();
+    if (result.status === 'success') {
+      console.log('[NOTE] Successfully saved', notePages.length, 'pages to server');
+    } else {
+      console.log('[NOTE] Server returned error:', result.msg);
     }
+  } catch (error) {
+    console.error('[NOTE] Error saving to server:', error);
   }
 }
 
 // ノートページを読み込み
 async function loadNotePages() {
-  const savedCurrentPage = parseInt(localStorage.getItem('tv_note_current_page')) || 0;
-  
   try {
-    if (db) {
-      const transaction = db.transaction(['notePages'], 'readonly');
-      const store = transaction.objectStore('notePages');
-      const request = store.getAll();
+    console.log('[NOTE] Starting to load note pages...');
+    
+    // タイムアウト機能付きで fetch を実行
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Fetch timeout')), 5000)
+    );
+    
+    const response = await Promise.race([
+      fetch('/api/load_notes'),
+      timeout
+    ]);
+    
+    if (!response.ok) {
+      throw new Error('Failed to load notes: ' + response.status);
+    }
+    const data = await response.json();
+    console.log('[NOTE] Fetched from /api/load_notes:', JSON.stringify(data).substring(0, 200));
+    
+    if (data.notes && Array.isArray(data.notes) && data.notes.length > 0) {
+      notePages = data.notes;
+      currentNotePage = Math.min(parseInt(localStorage.getItem('tv_note_current_page')) || 0, notePages.length - 1);
+      console.log('[NOTE] Loaded pages from server:', notePages.length, 'page:', currentNotePage);
+      console.log('[NOTE] First page title:', notePages[0].title, 'sections:', notePages[0].sections?.length);
       
-      return new Promise((resolve, reject) => {
-        request.onsuccess = () => {
-          const pages = request.result;
-          if (pages && pages.length > 0) {
-            notePages = pages.sort((a, b) => a.id - b.id);
-            currentNotePage = Math.min(savedCurrentPage, notePages.length - 1);
-            console.log('[NOTE] Loaded pages from IndexedDB:', notePages.length, 'current:', currentNotePage);
-            resolve();
-          } else {
-            // IndexedDBにデータがない場合はlocalStorageから移行
-            migrateFromLocalStorage();
-            resolve();
-          }
-        };
-        
-        request.onerror = () => {
-          console.error('[NOTE] Error loading from IndexedDB:', request.error);
-          // IndexedDBエラー時はlocalStorageから移行
-          migrateFromLocalStorage();
-          resolve();
-        };
-      });
+      // IndexedDB にキャッシュを保存（タイムアウト付き）
+      try {
+        const cacheTimeout = new Promise(resolve => setTimeout(() => {
+          console.warn('[NOTE] Cache operation timed out, continuing...');
+          resolve(true);
+        }, 2000));
+        await Promise.race([cacheNotePagesToIndexedDB(notePages), cacheTimeout]);
+      } catch (e) {
+        console.warn('[NOTE] Cache error (non-critical):', e);
+      }
+      
+      // UIを更新
+      updatePageNavigation();
+      loadCurrentPage();
+      console.log('[NOTE] UI updated - page navigation and content loaded');
     } else {
-      // IndexedDBが利用できない場合はlocalStorageから移行
-      migrateFromLocalStorage();
+      // サーバーにデータがない場合
+      console.log('[NOTE] No notes on server (data.notes =', data.notes, '), trying IndexedDB cache...');
+      
+      // IndexedDB からキャッシュを取得（タイムアウト付き）
+      let cachedPages = null;
+      try {
+        const loadTimeout = new Promise(resolve => setTimeout(() => {
+          console.warn('[NOTE] Load from cache timed out');
+          resolve(null);
+        }, 2000));
+        cachedPages = await Promise.race([loadNotePagesFromIndexedDB(), loadTimeout]);
+      } catch (e) {
+        console.warn('[NOTE] Error loading cache:', e);
+      }
+      
+      if (cachedPages && cachedPages.length > 0) {
+        notePages = cachedPages;
+        currentNotePage = Math.min(parseInt(localStorage.getItem('tv_note_current_page')) || 0, notePages.length - 1);
+        console.log('[NOTE] Loaded from IndexedDB cache:', notePages.length, 'pages');
+        updatePageNavigation();
+        loadCurrentPage();
+      } else {
+        // キャッシュもない場合はデフォルトを作成
+        console.log('[NOTE] No cache found, creating default pages');
+        createDefaultPages();
+        updatePageNavigation();
+        loadCurrentPage();
+      }
     }
   } catch (error) {
-    console.error('[NOTE] Error in loadNotePages:', error);
-    migrateFromLocalStorage();
+    console.error('[NOTE] Error loading from server:', error);
+    // サーバーエラー時は IndexedDB キャッシュから復旧を試みる
+    console.log('[NOTE] Server error, trying IndexedDB cache...');
+    
+    let cachedPages = null;
+    try {
+      const loadTimeout = new Promise(resolve => setTimeout(() => {
+        console.warn('[NOTE] Load from cache (after error) timed out');
+        resolve(null);
+      }, 2000));
+      cachedPages = await Promise.race([loadNotePagesFromIndexedDB(), loadTimeout]);
+    } catch (e) {
+      console.warn('[NOTE] Error loading cache (after server error):', e);
+    }
+    
+    if (cachedPages && cachedPages.length > 0) {
+      notePages = cachedPages;
+      currentNotePage = Math.min(parseInt(localStorage.getItem('tv_note_current_page')) || 0, notePages.length - 1);
+      console.log('[NOTE] Loaded from IndexedDB cache (after error):', notePages.length, 'pages');
+      updatePageNavigation();
+      loadCurrentPage();
+    } else {
+      // キャッシュもない場合はデフォルトを作成
+      console.log('[NOTE] Error and no cache, creating default pages');
+      createDefaultPages();
+      updatePageNavigation();
+      loadCurrentPage();
+    }
   }
 }
 
@@ -2270,6 +2335,28 @@ function createDefaultPages() {
     lastModified: new Date().toISOString()
   }];
   currentNotePage = 0;
+}
+
+// localStorage の古いデータをクリーンアップ
+function cleanupOldNoteStorage() {
+  try {
+    const keysToRemove = [
+      'tv_note_pages',           // 古いノートページデータ
+      'tv_note_sections',        // 古いセクションデータ
+      'tv_note_current_page',    // 現在のページは必要だが、サーバーから取得後に更新
+    ];
+    
+    keysToRemove.forEach(key => {
+      if (localStorage.getItem(key)) {
+        console.log(`[NOTE CLEANUP] Removing old key: ${key}`);
+        localStorage.removeItem(key);
+      }
+    });
+    
+    console.log('[NOTE CLEANUP] Old localStorage data cleaned up');
+  } catch (e) {
+    console.error('[NOTE CLEANUP] Error cleaning up:', e);
+  }
 }
 
 // 現在のページを読み込み
@@ -2356,44 +2443,6 @@ function setupPageNavigationHandlers() {
   const deletePageBtn = document.getElementById('deletePage');
   const pageTitleInput = document.getElementById('pageTitleInput');
   
-  // イベントハンドラー関数を定義（removeEventListener用）
-  const handlePrevPage = () => {
-    if (currentNotePage > 0) {
-      switchToPage(currentNotePage - 1);
-    }
-  };
-  
-  const handleNextPage = () => {
-    if (currentNotePage < notePages.length - 1) {
-      switchToPage(currentNotePage + 1);
-    }
-  };
-  
-  const handleAddPage = () => {
-    addNewPage();
-  };
-  
-  const handleDeletePage = () => {
-    deleteCurrentPage();
-  };
-  
-  const handlePageTitleInput = () => {
-    if (notePages.length > 0 && currentNotePage < notePages.length) {
-      notePages[currentNotePage].title = pageTitleInput.value.trim() || `ページ ${currentNotePage + 1}`;
-      notePages[currentNotePage].lastModified = new Date().toISOString();
-      saveNotePages();
-    }
-    // 文字数に応じてwidthを自動調整
-    pageTitleInput.style.width = 'auto';
-    pageTitleInput.style.width = pageTitleInput.scrollWidth + 'px';
-  };
-  
-  const handlePageTitleKeydown = (e) => {
-    if (e.key === 'Enter') {
-      pageTitleInput.blur();
-    }
-  };
-  
   if (prevBtn) {
     prevBtn.removeEventListener('click', handlePrevPage);
     prevBtn.addEventListener('click', handlePrevPage);
@@ -2420,6 +2469,44 @@ function setupPageNavigationHandlers() {
     
     pageTitleInput.removeEventListener('keydown', handlePageTitleKeydown);
     pageTitleInput.addEventListener('keydown', handlePageTitleKeydown);
+  }
+}
+
+// ページナビゲーションのハンドラー関数（グローバルに定義）
+function handlePrevPage() {
+  if (currentNotePage > 0) {
+    switchToPage(currentNotePage - 1);
+  }
+}
+
+function handleNextPage() {
+  if (currentNotePage < notePages.length - 1) {
+    switchToPage(currentNotePage + 1);
+  }
+}
+
+function handleAddPage() {
+  addNewPage();
+}
+
+function handleDeletePage() {
+  deleteCurrentPage();
+}
+
+function handlePageTitleInput() {
+  if (notePages.length > 0 && currentNotePage < notePages.length) {
+    notePages[currentNotePage].title = pageTitleInput.value.trim() || `ページ ${currentNotePage + 1}`;
+    notePages[currentNotePage].lastModified = new Date().toISOString();
+    saveNotePages();
+  }
+  // 文字数に応じてwidthを自動調整
+  pageTitleInput.style.width = 'auto';
+  pageTitleInput.style.width = pageTitleInput.scrollWidth + 'px';
+}
+
+function handlePageTitleKeydown(e) {
+  if (e.key === 'Enter') {
+    pageTitleInput.blur();
   }
 }
 
@@ -3545,7 +3632,16 @@ async function populateChimeSelect() {
 
 // 初期化: 設定を読み込み、UI を配線
 document.addEventListener('DOMContentLoaded', async () => {
-  try { 
+  try {
+    // IndexedDB を初期化（失敗しても続行）
+    try {
+      console.log('[INDEXEDDB] Skipping initialization for debugging');
+      db = null;  // 一時的に無効化
+    } catch (e) {
+      console.warn('[INDEXEDDB] Initialization failed, continuing without IndexedDB:', e);
+      db = null;
+    }
+    
     // Socket.IO 初期化
     socket = io();
     
@@ -3718,14 +3814,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 初期読み込みと定期的な更新
-    await load();
+    try {
+      // 30秒のタイムアウト付きで load() を実行
+      const loadPromise = Promise.race([
+        load(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Load timeout after 30s')), 30000)
+        )
+      ]);
+      await loadPromise;
+    } catch (e) {
+      console.error('[INIT] Load failed:', e.message);
+      console.log('[INIT] Continuing without initial data...');
+    }
+    
     scheduleNextUpdate();
 
     // Rules UI 初期化
-    await loadRules();
+    try {
+      const rulesPromise = Promise.race([
+        loadRules(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('LoadRules timeout after 10s')), 10000)
+        )
+      ]);
+      await rulesPromise;
+    } catch (e) {
+      console.error('[INIT] LoadRules failed:', e.message);
+    }
     
     // すべてのイベントリスナーを設定（ルールUI要素が追加された後に実行）
-    await setupAllEventListeners();
+    try {
+      const setupPromise = Promise.race([
+        setupAllEventListeners(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Setup timeout after 10s')), 10000)
+        )
+      ]);
+      await setupPromise;
+    } catch (e) {
+      console.error('[INIT] Setup failed:', e.message);
+    }
 
     // Notification polling initialization (moved from separate DOMContentLoaded listener)
     const REQUIRED_VERSION = '2025-11-11-v1';
