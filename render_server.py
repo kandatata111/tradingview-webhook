@@ -1,5 +1,5 @@
 ﻿from flask import Flask, request, jsonify, render_template, send_from_directory, make_response
-import os, sqlite3, json
+import os, sqlite3, json, base64, hashlib
 from datetime import datetime
 import threading
 import pytz
@@ -9,6 +9,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 socketio = SocketIO(app, cors_allowed_origins="*")
 DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
+NOTE_IMAGES_DIR = os.path.expanduser(r'C:\Users\kanda\Desktop\NoteImages')
 
 @app.errorhandler(405)
 def method_not_allowed(error):
@@ -17,6 +18,70 @@ def method_not_allowed(error):
 @app.errorhandler(500)
 def internal_server_error(error):
     return jsonify({'status': 'error', 'msg': 'Internal server error'}), 500
+
+# 画像アップロードエンドポイント
+@app.route('/api/upload-note-image', methods=['POST'])
+def upload_note_image():
+    try:
+        # ディレクトリが存在しなければ作成
+        if not os.path.exists(NOTE_IMAGES_DIR):
+            os.makedirs(NOTE_IMAGES_DIR, exist_ok=True)
+        
+        # Base64エンコード済みの画像データを取得
+        data = request.get_json()
+        image_data = data.get('imageData')
+        
+        if not image_data or ',' not in image_data:
+            return jsonify({'status': 'error', 'msg': 'Invalid image data'}), 400
+        
+        # Base64データをデコード
+        header, encoded = image_data.split(',', 1)
+        image_bytes = base64.b64decode(encoded)
+        
+        # 画像データのハッシュ値を計算
+        image_hash = hashlib.sha256(image_bytes).hexdigest()
+        
+        # ハッシュ値からファイル名を生成
+        filename = f'note_image_{image_hash}.png'
+        filepath = os.path.join(NOTE_IMAGES_DIR, filename)
+        
+        # ファイルが既に存在しない場合のみ保存
+        if not os.path.exists(filepath):
+            with open(filepath, 'wb') as f:
+                f.write(image_bytes)
+            print(f'[NOTE] Image saved: {filename}')
+        else:
+            print(f'[NOTE] Image already exists: {filename}')
+        
+        # ファイルパスをJSONで返す
+        return jsonify({
+            'status': 'success',
+            'imageHash': image_hash,
+            'filename': filename
+        }), 200
+    
+    except Exception as e:
+        print(f'[ERROR] Image upload failed: {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+# 画像取得エンドポイント
+@app.route('/api/note-image/<image_hash>')
+def get_note_image(image_hash):
+    try:
+        # ファイル名を再構築
+        filename = f'note_image_{image_hash}.png'
+        filepath = os.path.join(NOTE_IMAGES_DIR, filename)
+        
+        # ファイルが存在するかチェック
+        if not os.path.exists(filepath):
+            return jsonify({'status': 'error', 'msg': 'Image not found'}), 404
+        
+        # ファイルを返す
+        return send_from_directory(NOTE_IMAGES_DIR, filename)
+    
+    except Exception as e:
+        print(f'[ERROR] Image fetch failed: {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -197,7 +262,11 @@ def webhook():
     try:
         data = request.json
         if not data:
-            return jsonify({'status': 'error', 'msg': 'No JSON'}), 400
+            error_msg = 'No JSON data received'
+            print(f'[WEBHOOK ERROR] {error_msg}')
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()} - {error_msg}\n')
+            return jsonify({'status': 'error', 'msg': error_msg}), 400
         
         # FX休場時は更新を無視（データ受信ベースなので常に保存）
         # 受信したら営業中と判定するため、チェックを削除
@@ -205,14 +274,23 @@ def webhook():
         # 受信タイムスタンプをログ（JST）
         jst = pytz.timezone('Asia/Tokyo')
         received_at = datetime.now(jst).isoformat()
-        print(f'[WEBHOOK RECEIVED] {received_at} - {data.get("symbol", "UNKNOWN")}/{data.get("tf", "5")}')
+        symbol_val = data.get("symbol", "UNKNOWN")
+        tf_val = data.get("tf", "5")
+        print(f'[WEBHOOK RECEIVED] {received_at} - {symbol_val}/{tf_val}')
         
         # ログをファイルに保存
         try:
+            log_entry = f'{received_at} - {symbol_val}/{tf_val} - {json.dumps(data, ensure_ascii=False)}\n'
             with open(os.path.join(BASE_DIR, 'webhook_log.txt'), 'a', encoding='utf-8') as f:
-                f.write(f'{received_at} - {data.get("symbol", "UNKNOWN")}/{data.get("tf", "5")} - {json.dumps(data, ensure_ascii=False)}\n')
+                f.write(log_entry)
+            # 同時にエラーログにも記録（トラッキング用）
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{received_at} - OK: {symbol_val}/{tf_val}\n')
         except Exception as e:
-            print(f'[LOG ERROR] {e}')
+            error_msg = f'[LOG ERROR] Failed to write logs: {str(e)}'
+            print(error_msg)
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
         
         # 設定から更新遅延時間を取得
         settings_path = os.path.join(BASE_DIR, 'settings.json')
@@ -236,7 +314,7 @@ def webhook():
                         swing_status, swing_bos, swing_time,
                         row_order, cloud_order, clouds_json, meta_json
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                    (data.get('symbol', 'UNKNOWN'), data.get('tf', '5'),
+                    (symbol_val, tf_val,
                      datetime.now(jst).isoformat(), float(data.get('price', 0)),
                      data.get('time', 0),
                      data.get('state', {}).get('flag', ''),
@@ -253,14 +331,17 @@ def webhook():
                      json.dumps(data.get('meta', {}), ensure_ascii=False)))
             conn.commit()
             conn.close()
-            symbol_val = data.get('symbol', 'UNKNOWN')
-            tf_val = data.get('tf', '5')
             saved_at = datetime.now(jst).isoformat()
             print(f'[OK] Saved immediately: {symbol_val}/{tf_val} at {saved_at}')
             
             # tf=5 の場合のみルール評価と発火を実行
             if tf_val == '5':
-                evaluate_and_fire_rules(data, symbol_val)
+                try:
+                    evaluate_and_fire_rules(data, symbol_val)
+                except Exception as e:
+                    print(f'[ERROR] Rule evaluation failed: {str(e)}')
+                    with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                        f.write(f'{saved_at} - RULE ERROR for {symbol_val}/{tf_val}: {str(e)}\n')
             
             # Socket.IOで即時更新通知（全クライアントに配信）
             socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
@@ -281,13 +362,58 @@ def webhook():
             except Exception as e:
                 print(f'[ERROR] Updating last receive time: {e}')
         except Exception as e:
-            print(f'[ERROR] Saving data immediately: {e}')
-            return jsonify({'status': 'error', 'msg': f'Database save failed: {str(e)}'}), 500
+            error_msg = f'Database save failed: {str(e)}'
+            print(f'[ERROR] {error_msg}')
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - SAVE ERROR for {symbol_val}/{tf_val}: {str(e)}\n')
+            return jsonify({'status': 'error', 'msg': error_msg}), 500
         
         return jsonify({'status': 'success'}), 200
     except Exception as e:
-        print(f'[ERROR] {e}')
-        return jsonify({'status': 'error', 'msg': str(e)}), 500
+        error_msg = f'Webhook handler exception: {str(e)}'
+        print(f'[ERROR] {error_msg}')
+        jst = pytz.timezone('Asia/Tokyo')
+        try:
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
+        except:
+            pass
+        return jsonify({'status': 'error', 'msg': error_msg}), 500
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """ヘルスチェックエンドポイント（サーバーが起動しているか確認）"""
+    try:
+        jst = pytz.timezone('Asia/Tokyo')
+        
+        # データベース接続テスト
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('SELECT COUNT(*) FROM states')
+            states_count = c.fetchone()[0]
+            conn.close()
+            db_ok = True
+        except Exception as e:
+            db_ok = False
+            states_count = None
+        
+        # webhook_log.txt 確認
+        webhook_log_exists = os.path.exists(os.path.join(BASE_DIR, 'webhook_log.txt'))
+        
+        return jsonify({
+            'status': 'healthy',
+            'server_time': datetime.now(jst).isoformat(),
+            'database_ok': db_ok,
+            'states_count': states_count,
+            'webhook_log_exists': webhook_log_exists,
+            'uptime_message': 'Server is running normally'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 @app.route('/current_states')
 def current_states():
@@ -1356,6 +1482,55 @@ def evaluate_and_fire_rules(data, symbol):
     - 統合データでルール評価を実行
     """
     try:
+        # === 時刻フィルター: 遅延アラートの処理 ===
+        # デプロイ後のPine script再計算による過去データ送信をフィルタリング
+        # ただし「状態が明らかに変化」している場合は発火対象とする
+        jst = pytz.timezone('Asia/Tokyo')
+        utc_now = datetime.now(pytz.UTC)
+        jst_now = datetime.now(jst)
+        
+        # JSONの time フィールド (Unix timestampがms単位) から受信時刻を取得
+        alert_time_ms = data.get('time')
+        is_stale_alert = False
+        time_diff_seconds = 0
+        
+        if alert_time_ms:
+            try:
+                # ミリ秒をUTCに変換
+                alert_time_utc = datetime.fromtimestamp(alert_time_ms / 1000.0, tz=pytz.UTC)
+                time_diff_seconds = abs((utc_now - alert_time_utc).total_seconds())
+                
+                # 300秒（5分）以上ズレたアラート = 古いアラート
+                is_stale_alert = time_diff_seconds > 300
+                
+                if is_stale_alert:
+                    print(f'[FILTER] Stale alert detected for {symbol}: {time_diff_seconds:.1f}s old, checking for state changes...')
+                    
+                    # 古いアラートでも「状態が明らかに変化」していれば発火対象にする
+                    # 前回の状態を取得してチェック
+                    conn_check = sqlite3.connect(DB_PATH)
+                    c_check = conn_check.cursor()
+                    c_check.execute('SELECT daytrade_status FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol, '5'))
+                    prev_row = c_check.fetchone()
+                    conn_check.close()
+                    
+                    prev_daytrade = prev_row[0] if prev_row else None
+                    curr_daytrade = data.get('daytrade', {}).get('status', '')
+                    
+                    # ダウ転のステータスが明らかに変化しているか確認
+                    state_changed = (prev_daytrade is not None and 
+                                   prev_daytrade != '' and 
+                                   prev_daytrade != curr_daytrade)
+                    
+                    if not state_changed:
+                        print(f'[FILTER] No state change detected (prev={prev_daytrade}, curr={curr_daytrade}), skipping stale alert')
+                        return
+                    
+                    print(f'[FILTER] State change detected (prev={prev_daytrade} -> curr={curr_daytrade}), processing stale alert')
+            except Exception as e:
+                print(f'[FILTER] Error checking stale alert: {e}')
+                # エラー時は処理継続
+        
         # tf=5 のデータを基本として取得（全雲情報を含む）
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -1402,7 +1577,11 @@ def evaluate_and_fire_rules(data, symbol):
 
 
 def _evaluate_rules_with_state(base_state):
-    """統合されたstateデータを使用してルール評価を実行"""
+    """統合されたstateデータを使用してルール評価を実行
+    
+    Note: この関数に到達するデータは evaluate_and_fire_rules() 内の時刻フィルターを
+    通過済みのため、遅延アラート（過去データ再計算）は既に除外されている
+    """
     try:
         currency_names = {
             'USDJPY': 'ドル円',
@@ -1794,8 +1973,119 @@ def _evaluate_rules_with_state(base_state):
     except Exception as e:
         print(f'[ERROR] evaluate_and_fire_rules: {e}')
 
+# トラブルシューティング用エンドポイント
+@app.route('/api/webhook-diagnostics', methods=['GET'])
+def webhook_diagnostics():
+    """Webhook受信と処理の状態を確認するエンドポイント"""
+    try:
+        jst = pytz.timezone('Asia/Tokyo')
+        diagnostics = {
+            'server_time': datetime.now(jst).isoformat(),
+            'webhook_log_exists': os.path.exists(os.path.join(BASE_DIR, 'webhook_log.txt')),
+            'webhook_error_log_exists': os.path.exists(os.path.join(BASE_DIR, 'webhook_error.log')),
+            'database_exists': os.path.exists(DB_PATH),
+        }
+        
+        # webhook_log.txt の最後の行を取得
+        webhook_log_path = os.path.join(BASE_DIR, 'webhook_log.txt')
+        if os.path.exists(webhook_log_path):
+            try:
+                with open(webhook_log_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    diagnostics['webhook_log_last_entries'] = lines[-10:] if lines else []
+                    diagnostics['webhook_log_total_lines'] = len(lines)
+            except:
+                pass
+        
+        # webhook_error.log の最後の行を取得
+        webhook_error_path = os.path.join(BASE_DIR, 'webhook_error.log')
+        if os.path.exists(webhook_error_path):
+            try:
+                with open(webhook_error_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    diagnostics['error_log_last_entries'] = lines[-20:] if lines else []
+                    diagnostics['error_log_total_lines'] = len(lines)
+            except:
+                pass
+        
+        # データベースの最後の記録
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("SELECT symbol, tf, time, timestamp FROM states WHERE symbol='USDJPY' AND tf='5' ORDER BY timestamp DESC LIMIT 1")
+            last_record = c.fetchone()
+            if last_record:
+                diagnostics['last_usdjpy5_record'] = {
+                    'symbol': last_record[0],
+                    'tf': last_record[1],
+                    'json_time': last_record[2],
+                    'db_timestamp': last_record[3]
+                }
+            
+            # fire_history の最後の記録
+            c.execute("SELECT rule_id, symbol, tf, fired_at FROM fire_history WHERE symbol='USDJPY' AND tf='5' ORDER BY fired_at DESC LIMIT 1")
+            last_fire = c.fetchone()
+            if last_fire:
+                diagnostics['last_rule_fire'] = {
+                    'rule_id': last_fire[0],
+                    'symbol': last_fire[1],
+                    'tf': last_fire[2],
+                    'fired_at': last_fire[3]
+                }
+            
+            conn.close()
+        except Exception as e:
+            diagnostics['database_error'] = str(e)
+        
+        return jsonify(diagnostics), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/webhook-log/<int:lines>', methods=['GET'])
+def get_webhook_log(lines=50):
+    """Webhook ログの最後の n 行を取得"""
+    try:
+        webhook_log_path = os.path.join(BASE_DIR, 'webhook_log.txt')
+        if not os.path.exists(webhook_log_path):
+            return jsonify({'status': 'error', 'msg': 'Webhook log not found'}), 404
+        
+        with open(webhook_log_path, 'r', encoding='utf-8') as f:
+            all_lines = f.readlines()
+            last_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        
+        return jsonify({
+            'total_lines': len(all_lines),
+            'returned_lines': len(last_lines),
+            'entries': [line.strip() for line in last_lines]
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 5000))
-    print(f'[START] Starting server on port {port}')
-    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+    
+    # ログファイルの初期化
+    jst = pytz.timezone('Asia/Tokyo')
+    startup_log = os.path.join(BASE_DIR, 'webhook_error.log')
+    try:
+        with open(startup_log, 'a', encoding='utf-8') as f:
+            f.write(f'\n{"="*80}\n')
+            f.write(f'{datetime.now(jst).isoformat()} - [STARTUP] Starting Flask server on port {port}\n')
+            f.write(f'{"="*80}\n')
+    except:
+        pass
+    
+    print(f'[START] Starting server on port {port} at {datetime.now(jst).isoformat()}')
+    
+    try:
+        socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+    except Exception as e:
+        error_msg = f'[CRITICAL ERROR] Server crashed: {str(e)}'
+        print(error_msg)
+        try:
+            with open(startup_log, 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
+        except:
+            pass
+        raise

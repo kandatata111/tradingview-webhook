@@ -76,7 +76,96 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
     color: inherit;
   }
 
-/* ライト／ダークモード（テーブル色は JS で変更しないように注意） */
+/* ノート項目スタイル */
+.note-section {
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: rgba(0,0,0,0.1);
+  transition: opacity 0.2s, border-top 0.2s;
+}
+
+.note-section[draggable="true"] {
+  cursor: grab;
+}
+
+.note-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  gap: 8px;
+}
+
+.note-section-title {
+  flex: 1;
+  min-width: 100px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  background: rgba(15,27,65,0.7);
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.note-section-content {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  background: rgba(15,27,65,0.7);
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+/* ノートモーダル用の特別なスタイル */
+#noteModal .modal {
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  position: relative;
+}
+
+.note-section-delete {
+  background: #dc3545;
+  color: #fff;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.note-section-delete:hover {
+  background: #c82333;
+}
+
+.add-note-section-btn {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border: 1px solid #667eea;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 8px;
+  transition: background 0.2s ease;
+}
+
+.add-note-section-btn:hover {
+  background: rgba(102, 126, 234, 0.4);
+}
 .light-mode { background: #f5f5f5 !important; color: #111 !important; }
 .light-mode .header-row { border-bottom: 1px solid rgba(0,0,0,0.5); }
 .light-mode h1 { color: #111 !important; }
@@ -209,6 +298,20 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .currency-fire-history button:hover {
   background: rgba(102, 126, 234, 0.4);
 }
+.currency-fire-history button:first-child {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border: 1px solid #667eea;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+.currency-fire-history button:first-child:hover {
+  background: rgba(102, 126, 234, 0.4);
+}
 .rule-count-btn {
   background: rgba(102, 126, 234, 0.2);
   color: #667eea;
@@ -292,6 +395,14 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .light-mode .currency-fire-history button:hover,
 .light-mode #test-fire-btn:hover,
 .light-mode #clear-fire-history-btn:hover {
+  background: rgba(0,0,0,0.08);
+}
+.light-mode .currency-fire-history button:first-child {
+  background: rgba(0,0,0,0.05);
+  color: #111;
+  border-color: rgba(0,0,0,0.6);
+}
+.light-mode .currency-fire-history button:first-child:hover {
   background: rgba(0,0,0,0.08);
 }
 .light-mode .rule-count-btn {
@@ -421,6 +532,14 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .dark-mode #clear-fire-history-btn:hover {
   background: rgba(255,255,255,0.06);
 }
+.dark-mode .currency-fire-history button:first-child {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.9);
+}
+.dark-mode .currency-fire-history button:first-child:hover {
+  background: rgba(255,255,255,0.06);
+}
 .dark-mode .rule-count-btn {
   background: transparent;
   color: #fff;
@@ -494,6 +613,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <span style="width:8px; height:8px; border-radius:50%; background:#90EE90; display:inline-block;" id="marketStatusLight"></span>
       <span id="marketStatusText">市場チェック中...</span>
     </div>
+    <button id="openNote" class="settings-button">Note</button>
     <button id="openSettings" class="settings-button">設定</button>
   </div>
 </div>
@@ -766,6 +886,51 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   </div>
 </div>
 
+<!-- ノートモーダル（初期は非表示） -->
+<div class="modal-overlay" id="noteModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="noteTitle" style="display:flex;flex-direction:column;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 id="noteTitle" style="margin:0">ノート</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="noteFontSizeSelect" style="padding:6px 12px;margin-top:0;border-radius:4px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.2);color:#ffffff;font-size:14px;width:60px;">
+          <option value="11">11px</option>
+          <option value="12">12px</option>
+          <option value="13">13px</option>
+          <option value="14">14px</option>
+          <option value="15" selected>15px</option>
+          <option value="16">16px</option>
+          <option value="17">17px</option>
+          <option value="18">18px</option>
+        </select>
+        <button id="addNoteSection" class="add-note-section-btn" style="padding:6px 12px;margin-top:0">項目追加</button>
+        <button id="saveNote" class="add-note-section-btn" style="background:rgba(102,126,234,0.2);color:#667eea;border:1px solid #667eea;padding:6px 12px;margin-top:0">保存</button>
+        <button id="exportNote" class="add-note-section-btn" style="background:rgba(34,197,94,0.2);color:#22c55e;border:1px solid #22c55e;padding:6px 12px;margin-top:0">出力</button>
+        <button id="importNote" class="add-note-section-btn" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7;padding:6px 12px;margin-top:0">読込</button>
+        <button id="closeNote" class="add-note-section-btn" style="background:rgba(102,126,234,0.2);color:#667eea;border:1px solid #667eea;padding:6px 12px;margin-top:0">閉じる</button>
+      </div>
+    </div>    <div id="noteSectionsContainer" style="margin-bottom:12px;flex:1;overflow-y:auto;min-height:200px;">
+      <!-- ノート項目はJavaScriptで動的に生成されます -->
+    </div>
+    
+    <!-- ページナビゲーション -->
+    <div id="notePageNavigation" style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-top:1px solid rgba(255,255,255,0.1);margin-top:8px">
+      <div style="display:flex;gap:4px;align-items:center">
+        <button id="prevPage" class="page-nav-btn" style="padding:4px 8px;background:rgba(102,126,234,0.2);color:#667eea;border:1px solid #667eea;border-radius:4px;cursor:pointer">◀</button>
+        <span id="pageIndicator" style="font-size:0.9em;color:rgba(255,255,255,0.8)">1/1</span>
+        <button id="nextPage" class="page-nav-btn" style="padding:4px 8px;background:rgba(102,126,234,0.2);color:#667eea;border:1px solid #667eea;border-radius:4px;cursor:pointer">▶</button>
+        <input type="text" id="pageTitleInput" style="font-size:14px;padding:6px 12px;border-radius:4px;border:1px solid #667eea;background:rgba(102,126,234,0.2);color:#667eea;width:auto;text-align:center;margin-left:8px" placeholder="ページタイトル">
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button id="addPage" class="page-nav-btn" style="padding:4px 8px;background:rgba(34,197,94,0.2);color:#22c55e;border:1px solid #22c55e;border-radius:4px;cursor:pointer;font-size:0.8em">+ページ</button>
+        <button id="deletePage" class="page-nav-btn" style="padding:4px 8px;background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid #ef4444;border-radius:4px;cursor:pointer;font-size:0.8em">削除</button>
+      </div>
+    </div>
+    
+    <!-- リサイズハンドル -->
+    <div id="noteResizeHandle" style="position:absolute;bottom:0;right:0;width:20px;height:20px;cursor:nwse-resize;background:linear-gradient(-45deg, transparent 0%, transparent 40%, rgba(255,255,255,0.3) 40%, rgba(255,255,255,0.3) 60%, transparent 60%, transparent 100%);z-index:1000;"></div>
+  </div>
+</div>
+
 <div class="main-content">
   <div id="dashboards-container">
     <!-- 通貨ごとの表と発火履歴が動的に生成されます -->
@@ -834,11 +999,104 @@ function setupAllEventListeners() {
   if (closeBtn) closeBtn.addEventListener('click', () => { if (overlay) overlay.style.display = 'none'; });
   if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
 
-  // モーダルのドラッグ機能
+// ノートモーダルの開閉
+const openNoteBtn = document.getElementById('openNote');
+const closeNoteBtn = document.getElementById('closeNote');
+const noteOverlay = document.getElementById('noteModal');
+const noteModal = noteOverlay ? noteOverlay.querySelector('.modal') : null;
+
+// リサイズ中のフラグ（オーバーレイクリックを防ぐため）
+let isResizingNote = false;
+let isDraggingNote = false;
+// ノートモーダルが開いているかどうか
+let isNoteModalOpen = false;
+
+// ノートページ管理
+let currentNotePage = 0;
+let notePages = [];
+
+if (openNoteBtn) openNoteBtn.addEventListener('click', () => { 
+  if (noteOverlay) {
+    noteOverlay.style.display = 'flex';
+    isNoteModalOpen = true;
+    // 保存されたノートページを読み込む
+    loadNotePages();
+    // ページナビゲーションのイベントハンドラーを設定
+    setupPageNavigationHandlers();
+    
+    // ノートフォントサイズを適用
+    const currentNoteFontSize = localStorage.getItem('tv_note_font_size') || '15';
+    applyNoteFontSize(currentNoteFontSize);
+    
+    // サイズ復元を遅らせることでdisplay:flex後のサイズ適用を確実にする
+    setTimeout(() => {
+      if (noteOverlay) {
+        const modal = noteOverlay.querySelector('.modal');
+        if (modal) {
+          const savedWidth = parseInt(localStorage.getItem('tv_note_modal_width')) || 500;
+          const savedHeight = parseInt(localStorage.getItem('tv_note_modal_height')) || 400;
+          const savedLeft = localStorage.getItem('tv_note_modal_left') || '50%';
+          const savedTop = localStorage.getItem('tv_note_modal_top') || '50%';
+          
+          console.log('[NOTE] Restoring size:', { savedWidth, savedHeight, savedLeft, savedTop });
+          
+          modal.style.width = savedWidth + 'px';
+          modal.style.height = savedHeight + 'px';
+          modal.style.left = savedLeft;
+          modal.style.top = savedTop;
+          modal.style.position = 'fixed';
+          modal.style.margin = '0';
+          modal.style.transform = (savedLeft === '50%' && savedTop === '50%') ? 'translate(-50%, -50%)' : 'none';
+        }
+      }
+    }, 50); // 遅延を50msに増やす
+  }
+});
+
+if (closeNoteBtn) closeNoteBtn.addEventListener('click', () => { 
+  if (noteOverlay) {
+    // クローズ前にサイズと位置を保存
+    const modal = noteOverlay.querySelector('.modal');
+    if (modal) {
+      const rect = modal.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      console.log('[NOTE] Saving on close:', { width, height, left: modal.style.left, top: modal.style.top });
+      localStorage.setItem('tv_note_modal_width', width.toString());
+      localStorage.setItem('tv_note_modal_height', height.toString());
+      localStorage.setItem('tv_note_modal_left', modal.style.left || '50%');
+      localStorage.setItem('tv_note_modal_top', modal.style.top || '50%');
+    }
+    noteOverlay.style.display = 'none';
+    isNoteModalOpen = false;
+  }
+});
+
+if (noteOverlay) noteOverlay.addEventListener('click', (e) => { 
+  // リサイズ中、ドラッグ中、またはリサイズハンドルのクリックは無視
+  if (e.target === noteOverlay && !isResizingNote && !isDraggingNote) {
+    // オーバーレイクリック時にもサイズと位置を保存
+    if (noteModal) {
+      const modal = noteOverlay.querySelector('.modal');
+      if (modal) {
+        const rect = modal.getBoundingClientRect();
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+        console.log('[NOTE] Saving on overlay click:', { width, height, left: modal.style.left, top: modal.style.top });
+        localStorage.setItem('tv_note_modal_width', width.toString());
+        localStorage.setItem('tv_note_modal_height', height.toString());
+        localStorage.setItem('tv_note_modal_left', modal.style.left || '50%');
+        localStorage.setItem('tv_note_modal_top', modal.style.top || '50%');
+      }
+    }
+    noteOverlay.style.display = 'none';
+    isNoteModalOpen = false;
+  }
+});  // モーダルのドラッグ機能
   let isDragging = false, offsetX = 0, offsetY = 0;
   if (modal) {
     modal.addEventListener('mousedown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
       isDragging = true;
       const rect = modal.getBoundingClientRect();
       offsetX = e.clientX - rect.left;
@@ -848,15 +1106,99 @@ function setupAllEventListeners() {
     });
   }
 
+  // ノートモーダルのドラッグ機能とリサイズ機能に必要な変数
+  let noteOffsetX = 0, noteOffsetY = 0;
+  let noteStartWidth = 0, noteStartHeight = 0, noteStartX = 0, noteStartY = 0;
+  const noteResizeHandle = document.getElementById('noteResizeHandle');
+  
+  if (noteOverlay) {
+    const noteModalContent = noteOverlay.querySelector('.modal');
+    if (noteModalContent) {
+      noteModalContent.addEventListener('mousedown', e => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
+        if (e.target === noteResizeHandle || noteResizeHandle.contains(e.target)) return; // リサイズハンドルは除外
+        isDraggingNote = true;
+        const rect = noteModalContent.getBoundingClientRect();
+        noteOffsetX = e.clientX - rect.left;
+        noteOffsetY = e.clientY - rect.top;
+        noteModalContent.style.position = 'fixed';
+        noteModalContent.style.margin = '0';
+        noteModalContent.style.transform = 'none'; // ドラッグ中にtransformを無効化
+        console.log('[NOTE] Drag started');
+      });
+    }
+  }
+  
+  // リサイズハンドルのイベント
+  if (noteResizeHandle && noteOverlay) {
+    noteResizeHandle.addEventListener('mousedown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      isResizingNote = true;
+      const modal = noteOverlay.querySelector('.modal');
+      if (modal) {
+        const rect = modal.getBoundingClientRect();
+        noteStartWidth = rect.width;
+        noteStartHeight = rect.height;
+        noteStartX = e.clientX;
+        noteStartY = e.clientY;
+        console.log('[NOTE] Resize started:', { width: noteStartWidth, height: noteStartHeight });
+      }
+    });
+  }
+
   document.addEventListener('mousemove', e => {
-    if (!isDragging || !modal) return;
-    e.preventDefault();
-    modal.style.left = (e.clientX - offsetX) + 'px';
-    modal.style.top = (e.clientY - offsetY) + 'px';
+    if (!isDragging && !isDraggingNote && !isResizingNote) return;
+    
+    if (isDragging && modal) {
+      modal.style.left = (e.clientX - offsetX) + 'px';
+      modal.style.top = (e.clientY - offsetY) + 'px';
+    }
+    
+    if (isDraggingNote && noteOverlay) {
+      const noteModalContent = noteOverlay.querySelector('.modal');
+      if (noteModalContent) {
+        noteModalContent.style.left = (e.clientX - noteOffsetX) + 'px';
+        noteModalContent.style.top = (e.clientY - noteOffsetY) + 'px';
+      }
+    }
+    
+    if (isResizingNote && noteOverlay) {
+      const modal = noteOverlay.querySelector('.modal');
+      if (modal) {
+        // ウィンドウサイズを取得
+        const maxWidth = window.innerWidth * 0.95; // 画面幅の95%まで
+        const maxHeight = window.innerHeight * 0.95; // 画面高さの95%まで
+        const minWidth = 300;
+        const minHeight = 200;
+        
+        const newWidth = Math.max(minWidth, Math.min(maxWidth, noteStartWidth + (e.clientX - noteStartX)));
+        const newHeight = Math.max(minHeight, Math.min(maxHeight, noteStartHeight + (e.clientY - noteStartY)));
+        
+        modal.style.width = newWidth + 'px';
+        modal.style.height = newHeight + 'px';
+      }
+    }
   });
 
   document.addEventListener('mouseup', () => {
+    if ((isDraggingNote || isResizingNote) && noteOverlay && isNoteModalOpen) {
+      // ドラッグまたはリサイズ終了時にサイズと位置を保存
+      const modal = noteOverlay.querySelector('.modal');
+      if (modal) {
+        const rect = modal.getBoundingClientRect();
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+        console.log('[NOTE] Saving on mouse up:', { width, height, left: modal.style.left, top: modal.style.top });
+        localStorage.setItem('tv_note_modal_width', width.toString());
+        localStorage.setItem('tv_note_modal_height', height.toString());
+        localStorage.setItem('tv_note_modal_left', modal.style.left || '50%');
+        localStorage.setItem('tv_note_modal_top', modal.style.top || '50%');
+      }
+    }
     isDragging = false;
+    isDraggingNote = false;
+    isResizingNote = false;
   });
 
   // ルール関連のイベントリスナー
@@ -1337,6 +1679,1178 @@ function setupAllEventListeners() {
     });
   });
 
+// ノート項目の作成関数
+function createNoteSection(title = '', content = '', images = []) {
+  const section = document.createElement('div');
+  section.className = 'note-section';
+  section.draggable = true;
+  
+  const header = document.createElement('div');
+  header.className = 'note-section-header';
+  
+  const dragHandle = document.createElement('span');
+  dragHandle.textContent = '≡';
+  dragHandle.style.cursor = 'grab';
+  dragHandle.style.marginRight = '8px';
+  dragHandle.style.color = 'rgba(255,255,255,0.6)';
+  dragHandle.style.fontSize = '18px';
+  dragHandle.style.lineHeight = '1';
+  
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.className = 'note-section-title';
+  titleInput.placeholder = '項目タイトル';
+  titleInput.value = title;
+  
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.display = 'flex';
+  buttonContainer.style.gap = '4px';
+  
+  const upBtn = document.createElement('button');
+  upBtn.textContent = '↑';
+  upBtn.style.padding = '4px 8px';
+  upBtn.style.background = 'rgba(102,126,234,0.2)';
+  upBtn.style.color = '#667eea';
+  upBtn.style.border = '1px solid #667eea';
+  upBtn.style.borderRadius = '4px';
+  upBtn.style.cursor = 'pointer';
+  upBtn.style.fontSize = '14px';
+  upBtn.addEventListener('click', () => {
+    const prev = section.previousElementSibling;
+    if (prev) {
+      section.parentNode.insertBefore(section, prev);
+      autoSaveNote();
+    }
+  });
+  
+  const downBtn = document.createElement('button');
+  downBtn.textContent = '↓';
+  downBtn.style.padding = '4px 8px';
+  downBtn.style.background = 'rgba(102,126,234,0.2)';
+  downBtn.style.color = '#667eea';
+  downBtn.style.border = '1px solid #667eea';
+  downBtn.style.borderRadius = '4px';
+  downBtn.style.cursor = 'pointer';
+  downBtn.style.fontSize = '14px';
+  downBtn.addEventListener('click', () => {
+    const next = section.nextElementSibling;
+    if (next) {
+      section.parentNode.insertBefore(next, section);
+      autoSaveNote();
+    }
+  });
+  
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'note-section-delete';
+  deleteBtn.textContent = '×';
+  deleteBtn.style.width = 'auto';
+  deleteBtn.style.padding = '4px 8px';
+  deleteBtn.addEventListener('click', () => {
+    if (confirm('この項目を削除しますか？')) {
+      section.remove();
+      autoSaveNote();
+    }
+  });
+  
+  header.appendChild(dragHandle);
+  header.appendChild(titleInput);
+  buttonContainer.appendChild(upBtn);
+  buttonContainer.appendChild(downBtn);
+  buttonContainer.appendChild(deleteBtn);
+  header.appendChild(buttonContainer);
+  
+  const contentTextarea = document.createElement('textarea');
+  contentTextarea.className = 'note-section-content';
+  contentTextarea.placeholder = '内容を入力してください...';
+  contentTextarea.value = content;
+  
+  // 画像表示エリア
+  const imageContainer = document.createElement('div');
+  imageContainer.className = 'note-section-images';
+  imageContainer.style.display = 'flex';
+  imageContainer.style.flexWrap = 'wrap';
+  imageContainer.style.gap = '8px';
+  imageContainer.style.marginTop = '8px';
+  imageContainer.style.padding = '8px';
+  imageContainer.style.borderTop = '1px solid rgba(255,255,255,0.1)';
+  
+  // ドラッグ&ドロップエリア
+  const dropZone = document.createElement('div');
+  dropZone.style.border = '2px dashed rgba(255,255,255,0.2)';
+  dropZone.style.borderRadius = '4px';
+  dropZone.style.padding = '16px';
+  dropZone.style.textAlign = 'center';
+  dropZone.style.color = 'rgba(255,255,255,0.6)';
+  dropZone.style.fontSize = '12px';
+  dropZone.style.cursor = 'pointer';
+  dropZone.style.transition = 'all 0.3s ease';
+  dropZone.textContent = '画像をドラッグ&ドロップ';
+  
+  // 既存画像を表示
+  images.forEach(imageData => {
+    const imgThumb = document.createElement('div');
+    imgThumb.className = 'note-image-thumb';
+    imgThumb.style.width = '60px';
+    imgThumb.style.height = '60px';
+    imgThumb.style.borderRadius = '4px';
+    imgThumb.style.overflow = 'hidden';
+    imgThumb.style.cursor = 'pointer';
+    imgThumb.style.border = '1px solid rgba(255,255,255,0.2)';
+    imgThumb.style.position = 'relative';
+    
+    const img = document.createElement('img');
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    
+    // 旧フォーマット（文字列）との互換性
+    let imageHash = null;
+    let base64Data = null;
+    
+    if (typeof imageData === 'string') {
+      // 旧フォーマット：Base64またはファイルパス
+      if (imageData.startsWith('data:')) {
+        base64Data = imageData;
+        img.src = base64Data;
+      } else {
+        // ファイルパスの場合は表示できないため、スキップ
+        return;
+      }
+    } else if (imageData.type === 'hash') {
+      // 新フォーマット：ハッシュ値
+      imageHash = imageData.value;
+      img.dataset.imagehash = imageHash;
+      img.src = `/api/note-image/${imageHash}`;
+    } else if (imageData.type === 'base64') {
+      // 新フォーマット：Base64
+      base64Data = imageData.value;
+      img.src = base64Data;
+    }
+    
+    const deleteImgBtn = document.createElement('button');
+    deleteImgBtn.textContent = '×';
+    deleteImgBtn.style.position = 'absolute';
+    deleteImgBtn.style.top = '0';
+    deleteImgBtn.style.right = '0';
+    deleteImgBtn.style.background = 'rgba(0,0,0,0.7)';
+    deleteImgBtn.style.color = '#fff';
+    deleteImgBtn.style.border = 'none';
+    deleteImgBtn.style.width = '20px';
+    deleteImgBtn.style.height = '20px';
+    deleteImgBtn.style.cursor = 'pointer';
+    deleteImgBtn.style.fontSize = '14px';
+    deleteImgBtn.style.display = 'none';
+    
+    imgThumb.addEventListener('mouseenter', () => deleteImgBtn.style.display = 'block');
+    imgThumb.addEventListener('mouseleave', () => deleteImgBtn.style.display = 'none');
+    
+    deleteImgBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      imgThumb.remove();
+      autoSaveNote();
+    });
+    
+    imgThumb.appendChild(img);
+    imgThumb.appendChild(deleteImgBtn);
+    
+    imgThumb.addEventListener('click', () => {
+      const modal = document.createElement('div');
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100%';
+      modal.style.height = '100%';
+      modal.style.background = 'rgba(0,0,0,0.8)';
+      modal.style.display = 'flex';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.zIndex = '10000';
+      
+      const largeImg = document.createElement('img');
+      largeImg.src = img.src;
+      largeImg.style.maxWidth = '90%';
+      largeImg.style.maxHeight = '90%';
+      
+      modal.appendChild(largeImg);
+      modal.addEventListener('click', () => modal.remove());
+      document.body.appendChild(modal);
+    });
+    
+    imageContainer.appendChild(imgThumb);
+  });
+  
+  imageContainer.appendChild(dropZone);
+  
+  // ドラッグ&ドロップイベント
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.background = 'rgba(102,126,234,0.2)';
+    dropZone.style.borderColor = '#667eea';
+  });
+  
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.style.background = 'transparent';
+    dropZone.style.borderColor = 'rgba(255,255,255,0.2)';
+  });
+  
+  dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropZone.style.background = 'transparent';
+    dropZone.style.borderColor = 'rgba(255,255,255,0.2)';
+    
+    const files = e.dataTransfer.files;
+    for (let file of files) {
+      if (file.type.startsWith('image/')) {
+        await uploadImage(file, imageContainer, dropZone);
+      }
+    }
+  });
+  
+  section.appendChild(header);
+  section.appendChild(contentTextarea);
+  section.appendChild(imageContainer);
+  
+  // 現在のノートフォントサイズを適用
+  const currentNoteFontSize = localStorage.getItem('tv_note_font_size') || '15';
+  titleInput.style.fontSize = currentNoteFontSize + 'px';
+  contentTextarea.style.fontSize = currentNoteFontSize + 'px';
+  
+  // 自動保存イベントリスナー
+  titleInput.addEventListener('input', () => autoSaveNote());
+  contentTextarea.addEventListener('input', () => autoSaveNote());
+  
+  // 項目間のドラッグ&ドロップ
+  section.addEventListener('dragstart', (e) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', section.innerHTML);
+    section.style.opacity = '0.5';
+  });
+  
+  section.addEventListener('dragend', () => {
+    section.style.opacity = '1';
+  });
+  
+  section.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    section.style.borderTop = '2px solid #667eea';
+  });
+  
+  section.addEventListener('dragleave', () => {
+    section.style.borderTop = '';
+  });
+  
+  section.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    section.style.borderTop = '';
+    // ドロップされた項目の前に挿入
+    const draggedSection = document.querySelector('[style*="opacity: 0.5"]');
+    if (draggedSection && draggedSection !== section) {
+      section.parentNode.insertBefore(draggedSection, section);
+      autoSaveNote();
+    }
+  });
+  
+  return section;
+}
+
+// 画像アップロード関数
+async function uploadImage(file, imageContainer, dropZone) {
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64Data = e.target.result;
+    
+    try {
+      const response = await fetch('/api/upload-note-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageData: base64Data })
+      });
+      
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        // 既存のサムネイルと同じファイルがないかチェック
+        const existingThumbs = imageContainer.querySelectorAll('.note-image-thumb');
+        let isDuplicate = false;
+        for (let thumb of existingThumbs) {
+          const img = thumb.querySelector('img');
+          if (img && img.dataset.imagehash === result.imageHash) {
+            isDuplicate = true;
+            break;
+          }
+        }
+        
+        if (isDuplicate) {
+          console.log('[NOTE] Image already added in this section');
+          return;
+        }
+        
+        // 画像サムネイルを追加
+        const imgThumb = document.createElement('div');
+        imgThumb.className = 'note-image-thumb';
+        imgThumb.style.width = '60px';
+        imgThumb.style.height = '60px';
+        imgThumb.style.borderRadius = '4px';
+        imgThumb.style.overflow = 'hidden';
+        imgThumb.style.cursor = 'pointer';
+        imgThumb.style.border = '1px solid rgba(255,255,255,0.2)';
+        imgThumb.style.position = 'relative';
+        
+        const img = document.createElement('img');
+        img.src = base64Data;
+        img.dataset.imagehash = result.imageHash;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        
+        const deleteImgBtn = document.createElement('button');
+        deleteImgBtn.textContent = '×';
+        deleteImgBtn.style.position = 'absolute';
+        deleteImgBtn.style.top = '0';
+        deleteImgBtn.style.right = '0';
+        deleteImgBtn.style.background = 'rgba(0,0,0,0.7)';
+        deleteImgBtn.style.color = '#fff';
+        deleteImgBtn.style.border = 'none';
+        deleteImgBtn.style.width = '20px';
+        deleteImgBtn.style.height = '20px';
+        deleteImgBtn.style.cursor = 'pointer';
+        deleteImgBtn.style.fontSize = '14px';
+        deleteImgBtn.style.display = 'none';
+        
+        imgThumb.addEventListener('mouseenter', () => deleteImgBtn.style.display = 'block');
+        imgThumb.addEventListener('mouseleave', () => deleteImgBtn.style.display = 'none');
+        
+        deleteImgBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          imgThumb.remove();
+          autoSaveNote();
+        });
+        
+        imgThumb.appendChild(img);
+        imgThumb.appendChild(deleteImgBtn);
+        
+        imgThumb.addEventListener('click', () => {
+          const modal = document.createElement('div');
+          modal.style.position = 'fixed';
+          modal.style.top = '0';
+          modal.style.left = '0';
+          modal.style.width = '100%';
+          modal.style.height = '100%';
+          modal.style.background = 'rgba(0,0,0,0.8)';
+          modal.style.display = 'flex';
+          modal.style.alignItems = 'center';
+          modal.style.justifyContent = 'center';
+          modal.style.zIndex = '10000';
+          
+          const largeImg = document.createElement('img');
+          largeImg.src = base64Data;
+          largeImg.style.maxWidth = '90%';
+          largeImg.style.maxHeight = '90%';
+          
+          modal.appendChild(largeImg);
+          modal.addEventListener('click', () => modal.remove());
+          document.body.appendChild(modal);
+        });
+        
+        imageContainer.insertBefore(imgThumb, dropZone);
+        autoSaveNote();
+        console.log('[NOTE] Image uploaded:', result.filename);
+      } else {
+        alert('画像アップロードエラー: ' + result.msg);
+      }
+    } catch (error) {
+      console.error('[ERROR] Image upload failed:', error);
+      alert('画像アップロードに失敗しました');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ノートページのデータを取得
+function getNotePageData(pageIndex) {
+  if (pageIndex < 0 || pageIndex >= notePages.length) return [];
+  
+  const sections = [];
+  const sectionElements = document.querySelectorAll('.note-section');
+  
+  sectionElements.forEach(section => {
+    const titleInput = section.querySelector('.note-section-title');
+    const contentTextarea = section.querySelector('.note-section-content');
+    const imageElements = section.querySelectorAll('.note-image-thumb img');
+    
+    if (titleInput && contentTextarea) {
+      const images = [];
+      imageElements.forEach(img => {
+        // 画像データを最適化：ファイルパスを優先
+        const imageHash = img.dataset.imagehash;
+        const imgSrc = img.src;
+        
+        if (imageHash) {
+          // サーバーに保存されている画像
+          images.push({ type: 'hash', value: imageHash });
+        } else if (imgSrc && imgSrc.startsWith('data:')) {
+          // Base64データ（古い形式）- ファイルパスに変換を試みる
+          images.push({ type: 'base64', value: imgSrc });
+        } else if (imgSrc && imgSrc.startsWith('file://')) {
+          // ローカルファイルパス
+          const filePath = decodeURIComponent(imgSrc.replace('file:///', ''));
+          images.push({ type: 'path', value: filePath });
+        } else {
+          // その他の場合
+          images.push({ type: 'path', value: imgSrc });
+        }
+      });
+      
+      sections.push({
+        title: titleInput.value.trim(),
+        content: contentTextarea.value.trim(),
+        images: images
+      });
+    }
+  });
+  
+  return sections;
+}
+
+// ノートページを保存
+function saveNotePages() {
+  if (isNoteModalOpen && notePages.length > 0) {
+    // 現在のページのデータを保存
+    notePages[currentNotePage].sections = getNotePageData(currentNotePage);
+    notePages[currentNotePage].lastModified = new Date().toISOString();
+    
+    // localStorageに保存
+    localStorage.setItem('tv_note_pages', JSON.stringify(notePages));
+    localStorage.setItem('tv_note_current_page', currentNotePage.toString());
+    console.log('[NOTE] Pages saved:', notePages.length, 'pages, current:', currentNotePage);
+  }
+}
+
+// ノートページを読み込み
+function loadNotePages() {
+  const savedPages = localStorage.getItem('tv_note_pages');
+  const savedCurrentPage = parseInt(localStorage.getItem('tv_note_current_page')) || 0;
+  
+  if (savedPages) {
+    try {
+      notePages = JSON.parse(savedPages);
+      currentNotePage = Math.min(savedCurrentPage, notePages.length - 1);
+      console.log('[NOTE] Loaded pages:', notePages.length, 'current:', currentNotePage);
+    } catch (e) {
+      console.log('[NOTE] Failed to parse saved pages, creating default');
+      createDefaultPages();
+    }
+  } else {
+    // 既存のtv_note_sectionsがある場合は移行
+    const savedSections = localStorage.getItem('tv_note_sections');
+    if (savedSections) {
+      try {
+        const sections = JSON.parse(savedSections);
+        notePages = [{
+          id: 1,
+          title: 'ノート',
+          sections: sections,
+          lastModified: new Date().toISOString()
+        }];
+        currentNotePage = 0;
+        console.log('[NOTE] Migrated old sections to pages');
+      } catch (e) {
+        console.log('[NOTE] Failed to migrate old sections');
+        createDefaultPages();
+      }
+    } else {
+      createDefaultPages();
+    }
+  }
+  
+  updatePageNavigation();
+  loadCurrentPage();
+}
+
+// デフォルトページを作成
+function createDefaultPages() {
+  notePages = [{
+    id: 1,
+    title: 'ノート',
+    sections: [],
+    lastModified: new Date().toISOString()
+  }];
+  currentNotePage = 0;
+}
+
+// 現在のページを読み込み
+function loadCurrentPage() {
+  if (notePages.length === 0) return;
+  
+  const page = notePages[currentNotePage];
+  loadNoteSections(page.sections);
+}
+
+// ノート項目を読み込み
+function loadNoteSections(sections) {
+  const container = document.getElementById('noteSectionsContainer');
+  container.innerHTML = ''; // 既存の項目をクリア
+  
+  if (!sections || sections.length === 0) {
+    // デフォルトの空項目を追加
+    container.appendChild(createNoteSection());
+    return;
+  }
+  
+  sections.forEach(sectionData => {
+    const section = createNoteSection(
+      sectionData.title || '',
+      sectionData.content || '',
+      sectionData.images || []
+    );
+    container.appendChild(section);
+  });
+}
+
+// ページナビゲーションを更新
+function updatePageNavigation() {
+  const pageIndicator = document.getElementById('pageIndicator');
+  const pageTitleInput = document.getElementById('pageTitleInput');
+  const prevBtn = document.getElementById('prevPage');
+  const nextBtn = document.getElementById('nextPage');
+  
+  if (pageIndicator) {
+    pageIndicator.textContent = `${currentNotePage + 1}/${notePages.length}`;
+  }
+  
+  if (pageTitleInput && notePages.length > 0) {
+    const currentPage = notePages[currentNotePage];
+    pageTitleInput.value = currentPage.title || `ページ ${currentNotePage + 1}`;
+    // ページ切り替え時にwidthを自動調整
+    pageTitleInput.style.width = 'auto';
+    pageTitleInput.style.width = pageTitleInput.scrollWidth + 'px';
+  }
+  
+  if (prevBtn) {
+    prevBtn.disabled = currentNotePage === 0;
+    prevBtn.style.opacity = currentNotePage === 0 ? '0.5' : '1';
+  }
+  
+  if (nextBtn) {
+    nextBtn.disabled = currentNotePage >= notePages.length - 1;
+    nextBtn.style.opacity = currentNotePage >= notePages.length - 1 ? '0.5' : '1';
+  }
+}
+
+// ページを切り替え
+function switchToPage(pageIndex) {
+  if (pageIndex < 0 || pageIndex >= notePages.length) return;
+  
+  // 現在のページを保存
+  saveNotePages();
+  
+  // ページを切り替え
+  currentNotePage = pageIndex;
+  
+  // UIを更新
+  updatePageNavigation();
+  loadCurrentPage();
+  
+  console.log('[NOTE] Switched to page:', currentNotePage + 1);
+}
+
+// ページナビゲーションイベントハンドラーを設定
+function setupPageNavigationHandlers() {
+  const prevBtn = document.getElementById('prevPage');
+  const nextBtn = document.getElementById('nextPage');
+  const addPageBtn = document.getElementById('addPage');
+  const deletePageBtn = document.getElementById('deletePage');
+  const pageTitleInput = document.getElementById('pageTitleInput');
+  
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => {
+      if (currentNotePage > 0) {
+        switchToPage(currentNotePage - 1);
+      }
+    });
+  }
+  
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      if (currentNotePage < notePages.length - 1) {
+        switchToPage(currentNotePage + 1);
+      }
+    });
+  }
+  
+  if (addPageBtn) {
+    addPageBtn.addEventListener('click', () => {
+      addNewPage();
+    });
+  }
+  
+  if (deletePageBtn) {
+    deletePageBtn.addEventListener('click', () => {
+      deleteCurrentPage();
+    });
+  }
+  
+  if (pageTitleInput) {
+    pageTitleInput.addEventListener('input', () => {
+      if (notePages.length > 0 && currentNotePage < notePages.length) {
+        notePages[currentNotePage].title = pageTitleInput.value.trim() || `ページ ${currentNotePage + 1}`;
+        notePages[currentNotePage].lastModified = new Date().toISOString();
+        saveNotePages();
+      }
+      // 文字数に応じてwidthを自動調整
+      pageTitleInput.style.width = 'auto';
+      pageTitleInput.style.width = pageTitleInput.scrollWidth + 'px';
+    });
+    
+    // Enterキーでフォーカスを外す
+    pageTitleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        pageTitleInput.blur();
+      }
+    });
+  }
+}
+
+// 新しいページを追加
+function addNewPage() {
+  const pageTitle = prompt('新しいページのタイトルを入力してください:', `ページ ${notePages.length + 1}`);
+  if (!pageTitle || pageTitle.trim() === '') return;
+  
+  // 現在のページを保存
+  saveNotePages();
+  
+  const newPage = {
+    id: Date.now(),
+    title: pageTitle.trim(),
+    sections: [],
+    lastModified: new Date().toISOString()
+  };
+  
+  notePages.push(newPage);
+  currentNotePage = notePages.length - 1;
+  
+  updatePageNavigation();
+  loadCurrentPage();
+  
+  // 新しいページのタイトル入力フィールドにフォーカスを当てる
+  setTimeout(() => {
+    const pageTitleInput = document.getElementById('pageTitleInput');
+    if (pageTitleInput) {
+      pageTitleInput.focus();
+      pageTitleInput.select();
+    }
+  }, 100);
+  
+  console.log('[NOTE] Added new page:', pageTitle);
+}
+
+// 現在のページを削除
+function deleteCurrentPage() {
+  if (notePages.length <= 1) {
+    alert('最後のページは削除できません。');
+    return;
+  }
+  
+  const pageTitle = notePages[currentNotePage].title;
+  if (!confirm(`ページ "${pageTitle}" を削除しますか？\nこの操作は取り消せません。`)) {
+    return;
+  }
+  
+  notePages.splice(currentNotePage, 1);
+  
+  if (currentNotePage >= notePages.length) {
+    currentNotePage = notePages.length - 1;
+  }
+  
+  updatePageNavigation();
+  loadCurrentPage();
+  
+  console.log('[NOTE] Deleted page:', pageTitle);
+}
+
+// ノートページを出力
+function exportNotePages() {
+  if (notePages.length === 0) {
+    alert('出力するデータがありません。');
+    return;
+  }
+  
+  // 現在のページを保存
+  saveNotePages();
+  
+  const exportData = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    pages: notePages
+  };
+  
+  const dataStr = JSON.stringify(exportData, null, 2);
+  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(dataBlob);
+  
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `note_pages_export_${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  
+  console.log('[NOTE] Exported pages:', notePages.length);
+}
+
+// ノートページを読込（オプション選択ダイアログ）
+function showImportOptionsDialog(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const importData = JSON.parse(e.target.result);
+      
+      if (!importData.pages || !Array.isArray(importData.pages)) {
+        throw new Error('無効なファイル形式です。');
+      }
+      
+      // 読込オプション選択ダイアログを作成
+      const dialog = document.createElement('div');
+      dialog.style.position = 'fixed';
+      dialog.style.top = '0';
+      dialog.style.left = '0';
+      dialog.style.width = '100%';
+      dialog.style.height = '100%';
+      dialog.style.background = 'rgba(0,0,0,0.5)';
+      dialog.style.display = 'flex';
+      dialog.style.alignItems = 'center';
+      dialog.style.justifyContent = 'center';
+      dialog.style.zIndex = '10000';
+      
+      const dialogContent = document.createElement('div');
+      dialogContent.style.background = 'rgba(0,0,0,0.9)';
+      dialogContent.style.border = '1px solid rgba(255,255,255,0.3)';
+      dialogContent.style.borderRadius = '8px';
+      dialogContent.style.padding = '20px';
+      dialogContent.style.maxWidth = '400px';
+      dialogContent.style.width = '90%';
+      
+      const title = document.createElement('h3');
+      title.textContent = '読込オプションを選択';
+      title.style.margin = '0 0 16px 0';
+      title.style.color = '#fff';
+      
+      const form = document.createElement('form');
+      
+      const options = [
+        { value: 'replace', label: '完全置き換え: 現在のデータを読込データで完全に上書きします' },
+        { value: 'merge', label: 'マージ追加: 読込データを新しいページとして追加します' },
+        { value: 'preview', label: 'プレビュー表示: 読込データを確認のみ表示します（現在のデータに影響なし）' }
+      ];
+      
+      options.forEach(option => {
+        const label = document.createElement('label');
+        label.style.display = 'block';
+        label.style.margin = '8px 0';
+        label.style.color = '#fff';
+        label.style.cursor = 'pointer';
+        
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'importOption';
+        radio.value = option.value;
+        radio.style.marginRight = '8px';
+        
+        label.appendChild(radio);
+        label.appendChild(document.createTextNode(option.label));
+        form.appendChild(label);
+      });
+      
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.display = 'flex';
+      buttonContainer.style.gap = '12px';
+      buttonContainer.style.marginTop = '20px';
+      buttonContainer.style.justifyContent = 'flex-end';
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.type = 'button';
+      cancelBtn.style.padding = '8px 16px';
+      cancelBtn.style.background = 'rgba(128,128,128,0.2)';
+      cancelBtn.style.color = '#fff';
+      cancelBtn.style.border = '1px solid #666';
+      cancelBtn.style.borderRadius = '4px';
+      cancelBtn.style.cursor = 'pointer';
+      cancelBtn.addEventListener('click', () => dialog.remove());
+      
+      const confirmBtn = document.createElement('button');
+      confirmBtn.textContent = '実行';
+      confirmBtn.type = 'submit';
+      confirmBtn.style.padding = '8px 16px';
+      confirmBtn.style.background = 'rgba(102,126,234,0.2)';
+      confirmBtn.style.color = '#667eea';
+      confirmBtn.style.border = '1px solid #667eea';
+      confirmBtn.style.borderRadius = '4px';
+      confirmBtn.style.cursor = 'pointer';
+      
+      buttonContainer.appendChild(cancelBtn);
+      buttonContainer.appendChild(confirmBtn);
+      
+      form.appendChild(buttonContainer);
+      
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const selectedOption = form.querySelector('input[name="importOption"]:checked');
+        if (!selectedOption) {
+          alert('オプションを選択してください。');
+          return;
+        }
+        
+        const option = selectedOption.value;
+        dialog.remove();
+        
+        if (option === 'replace') {
+          importNotePages(importData, 'replace');
+        } else if (option === 'merge') {
+          importNotePages(importData, 'merge');
+        } else if (option === 'preview') {
+          previewImportData(importData);
+        }
+      });
+      
+      dialogContent.appendChild(title);
+      dialogContent.appendChild(form);
+      dialog.appendChild(dialogContent);
+      document.body.appendChild(dialog);
+      
+    } catch (error) {
+      alert('ファイルの読み込みに失敗しました: ' + error.message);
+      console.error('[NOTE] Import dialog failed:', error);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ノートページを読込（モード指定）
+function importNotePages(importData, mode) {
+  try {
+    if (!importData.pages || !Array.isArray(importData.pages)) {
+      throw new Error('無効な読込データです。');
+    }
+    
+    // 現在のページを保存
+    saveNotePages();
+    
+    if (mode === 'replace') {
+      // 完全置き換え
+      notePages = importData.pages.map(page => ({
+        ...page,
+        id: page.id || Date.now() + Math.random(), // IDがなければ新規生成
+        lastModified: new Date().toISOString()
+      }));
+      currentNotePage = 0;
+      console.log('[NOTE] Replaced all pages with imported data:', notePages.length);
+      
+    } else if (mode === 'merge') {
+      // マージ追加（新しいページとして追加）
+      const newPages = importData.pages.map(page => ({
+        ...page,
+        id: Date.now() + Math.random(), // 新しいIDを生成
+        title: page.title + ' (読込)', // タイトルにマークを付ける
+        lastModified: new Date().toISOString()
+      }));
+      notePages = notePages.concat(newPages);
+      currentNotePage = notePages.length - newPages.length; // 最初の追加ページに移動
+      console.log('[NOTE] Merged imported pages:', newPages.length, 'total pages:', notePages.length);
+    }
+    
+    // UI更新
+    updatePageNavigation();
+    loadCurrentPage();
+    
+    // 保存
+    saveNotePages();
+    
+    alert(mode === 'replace' ? 'ノートを完全に置き換えました。' : 'ノートをマージ追加しました。');
+    
+  } catch (error) {
+    alert('インポートに失敗しました: ' + error.message);
+    console.error('[NOTE] Import failed:', error);
+  }
+}
+
+// 読込データをプレビュー表示
+function previewImportData(importData) {
+  try {
+    if (!importData.pages || !Array.isArray(importData.pages)) {
+      throw new Error('無効なインポートデータです。');
+    }
+    
+    // プレビューモーダルを作成
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.background = 'rgba(0,0,0,0.8)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '10001';
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.background = 'rgba(0,0,0,0.95)';
+    modalContent.style.border = '1px solid rgba(255,255,255,0.3)';
+    modalContent.style.borderRadius = '8px';
+    modalContent.style.padding = '20px';
+    modalContent.style.maxWidth = '800px';
+    modalContent.style.width = '90%';
+    modalContent.style.maxHeight = '80vh';
+    modalContent.style.overflowY = 'auto';
+    
+    const title = document.createElement('h3');
+    title.textContent = '読込データプレビュー';
+    title.style.margin = '0 0 16px 0';
+    title.style.color = '#fff';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '閉じる';
+    closeBtn.style.padding = '8px 16px';
+    closeBtn.style.background = 'rgba(128,128,128,0.2)';
+    closeBtn.style.color = '#fff';
+    closeBtn.style.border = '1px solid #666';
+    closeBtn.style.borderRadius = '4px';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.float = 'right';
+    closeBtn.addEventListener('click', () => modal.remove());
+    
+    title.appendChild(closeBtn);
+    
+    const content = document.createElement('div');
+    content.style.marginTop = '20px';
+    
+    // インポートデータの概要を表示
+    const summary = document.createElement('div');
+    summary.style.marginBottom = '20px';
+    summary.style.padding = '10px';
+    summary.style.background = 'rgba(255,255,255,0.1)';
+    summary.style.borderRadius = '4px';
+    summary.innerHTML = `
+      <strong>バージョン:</strong> ${importData.version || '不明'}<br>
+      <strong>出力日時:</strong> ${importData.exportedAt ? new Date(importData.exportedAt).toLocaleString('ja-JP') : '不明'}<br>
+      <strong>ページ数:</strong> ${importData.pages.length}
+    `;
+    content.appendChild(summary);
+    
+    // 各ページの情報を表示
+    importData.pages.forEach((page, index) => {
+      const pageDiv = document.createElement('div');
+      pageDiv.style.marginBottom = '20px';
+      pageDiv.style.padding = '15px';
+      pageDiv.style.border = '1px solid rgba(255,255,255,0.2)';
+      pageDiv.style.borderRadius = '6px';
+      
+      const pageTitle = document.createElement('h4');
+      pageTitle.textContent = `ページ ${index + 1}: ${page.title || '無題'}`;
+      pageTitle.style.margin = '0 0 10px 0';
+      pageTitle.style.color = '#fff';
+      pageTitle.style.fontWeight = 'bold';
+      
+      const pageInfo = document.createElement('div');
+      pageInfo.style.marginBottom = '15px';
+      pageInfo.style.fontSize = '0.9em';
+      pageInfo.style.color = 'rgba(255,255,255,0.8)';
+      pageInfo.innerHTML = `
+        <div style="margin-bottom: 5px;"><strong>項目数:</strong> ${page.sections ? page.sections.length : 0}</div>
+        <div><strong>最終更新:</strong> ${page.lastModified ? new Date(page.lastModified).toLocaleString('ja-JP') : '不明'}</div>
+      `;
+      
+      pageDiv.appendChild(pageTitle);
+      pageDiv.appendChild(pageInfo);
+      
+      // セクションの詳細表示
+      if (page.sections && page.sections.length > 0) {
+        const sectionsContainer = document.createElement('div');
+        sectionsContainer.style.marginTop = '10px';
+        
+        page.sections.forEach((section, secIndex) => {
+          const sectionDiv = document.createElement('div');
+          sectionDiv.style.marginBottom = '12px';
+          sectionDiv.style.padding = '10px';
+          sectionDiv.style.background = 'rgba(255,255,255,0.05)';
+          sectionDiv.style.borderRadius = '4px';
+          sectionDiv.style.border = '1px solid rgba(255,255,255,0.1)';
+          
+          const sectionTitle = document.createElement('div');
+          sectionTitle.textContent = `項目 ${secIndex + 1}: ${section.title || '無題'}`;
+          sectionTitle.style.fontWeight = 'bold';
+          sectionTitle.style.color = '#fff';
+          sectionTitle.style.marginBottom = '5px';
+          
+          const sectionContent = document.createElement('div');
+          sectionContent.style.fontSize = '0.85em';
+          sectionContent.style.color = 'rgba(255,255,255,0.7)';
+          sectionContent.style.lineHeight = '1.4';
+          sectionContent.textContent = section.content ? 
+            (section.content.length > 100 ? section.content.substring(0, 100) + '...' : section.content) : 
+            '内容なし';
+          
+          sectionDiv.appendChild(sectionTitle);
+          sectionDiv.appendChild(sectionContent);
+          sectionsContainer.appendChild(sectionDiv);
+        });
+        
+        pageDiv.appendChild(sectionsContainer);
+      } else {
+        const noSections = document.createElement('div');
+        noSections.textContent = '項目なし';
+        noSections.style.fontSize = '0.9em';
+        noSections.style.color = 'rgba(255,255,255,0.5)';
+        noSections.style.fontStyle = 'italic';
+        pageDiv.appendChild(noSections);
+      }
+      
+      content.appendChild(pageDiv);
+    });
+    
+    modalContent.appendChild(title);
+    modalContent.appendChild(content);
+    modal.appendChild(modalContent);
+    
+    // モーダルを閉じるためのクリックイベント
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+    
+    document.body.appendChild(modal);
+    
+    console.log('[NOTE] Preview modal opened for imported data');
+    
+  } catch (error) {
+    alert('プレビュー表示に失敗しました: ' + error.message);
+    console.error('[NOTE] Preview failed:', error);
+  }
+}
+
+// ノートモーダルの保存とクリア機能
+const saveNoteBtn = document.getElementById('saveNote');
+const exportNoteBtn = document.getElementById('exportNote');
+const importNoteBtn = document.getElementById('importNote');
+const addNoteSectionBtn = document.getElementById('addNoteSection');
+
+// 自動保存タイマー
+let autoSaveTimer = null;
+
+// ノート内容を自動保存する関数
+const autoSaveNote = () => {
+  if (isNoteModalOpen) {
+    saveNotePages();
+  }
+};
+
+// テキストエリアの入力イベントで自動保存をスケジュール
+document.addEventListener('input', (e) => {
+  if (e.target.closest('.note-section') && isNoteModalOpen) {
+    // 既存のタイマーをクリア
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+    }
+    // 3秒後に自動保存
+    autoSaveTimer = setTimeout(() => {
+      autoSaveNote();
+    }, 3000);
+  }
+});
+
+if (saveNoteBtn) {
+  saveNoteBtn.addEventListener('click', () => {
+    saveNotePages();
+    alert('ノートを保存しました');
+    // タイマーをクリア
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+    }
+  });
+}
+
+if (exportNoteBtn) {
+  exportNoteBtn.addEventListener('click', () => {
+    exportNotePages();
+  });
+}
+
+if (importNoteBtn) {
+  importNoteBtn.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        showImportOptionsDialog(file);
+      }
+    });
+    input.click();
+  });
+}
+
+
+
+if (addNoteSectionBtn) {
+  addNoteSectionBtn.addEventListener('click', () => {
+    const container = document.getElementById('noteSectionsContainer');
+    container.appendChild(createNoteSection());
+    // 新しいセクションをスクロールして表示
+    setTimeout(() => {
+      const newSection = container.lastElementChild;
+      if (newSection) {
+        newSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }, 100);
+  });
+}
+
+// ノートフォントサイズドロップダウンのイベントリスナー
+const noteFontSizeSelect = document.getElementById('noteFontSizeSelect');
+if (noteFontSizeSelect) {
+  noteFontSizeSelect.addEventListener('change', (e) => {
+    const selectedSize = e.target.value;
+    localStorage.setItem('tv_note_font_size', selectedSize);
+    applyNoteFontSize(selectedSize);
+  });
+}  // ノートモーダルを閉じるときにサイズと位置を保存
+  const saveNoteModalState = () => {
+    if (noteModal) {
+      const rect = noteModal.getBoundingClientRect();
+      localStorage.setItem('tv_note_modal_width', rect.width);
+      localStorage.setItem('tv_note_modal_height', rect.height);
+      localStorage.setItem('tv_note_modal_left', noteModal.style.left || '50%');
+      localStorage.setItem('tv_note_modal_top', noteModal.style.top || '50%');
+    }
+    // クローズ時にノート内容も自動保存
+    saveNotePages();
+  };
+
+  if (closeNoteBtn && noteModal) {
+    closeNoteBtn.addEventListener('click', () => {
+      saveNoteModalState();
+      noteOverlay.style.display = 'none';
+      isNoteModalOpen = false;
+    });
+  }
+
+  // オーバーレイクリックでもサイズと位置を保存
+  if (noteOverlay && noteModal) {
+    noteOverlay.addEventListener('click', (e) => {
+      if (e.target === noteOverlay && !isResizingNote && !isDraggingNote) {
+        saveNoteModalState();
+        noteOverlay.style.display = 'none';
+        isNoteModalOpen = false;
+      }
+    });
+  }
+
   console.log('[INIT] All event listeners setup complete');
 }
 
@@ -1381,6 +2895,38 @@ function applyMode(mode) {
     tables.forEach(table => {
       table.style.background = '#ffffff';
     });
+    
+    // ページナビゲーションのスタイル適用（ライトモード）
+    const pageIndicator = document.getElementById('pageIndicator');
+    if (pageIndicator) {
+      pageIndicator.style.color = '#000000'; // 黒文字
+    }
+    
+    // ノートモーダルのボタンスタイルをライトモードに統一
+    document.querySelectorAll('#addPage, #deletePage, #addNoteSection, #saveNote, #exportNote, #importNote, #closeNote').forEach(btn => {
+      btn.style.background = '#ffffff';
+      btn.style.color = '#000000';
+      btn.style.borderColor = '#000000';
+    });
+    
+    // ノートフォントサイズドロップダウンもライトモードに
+    const noteFontSizeSelect = document.getElementById('noteFontSizeSelect');
+    if (noteFontSizeSelect) {
+      noteFontSizeSelect.style.background = '#ffffff';
+      noteFontSizeSelect.style.color = '#000000';
+      noteFontSizeSelect.style.borderColor = '#000000';
+    }
+    
+    // ページタイトル入力ボックスもボタンと同じスタイルに
+    const pageTitleInput = document.getElementById('pageTitleInput');
+    if (pageTitleInput) {
+      pageTitleInput.style.background = '#ffffff';
+      pageTitleInput.style.color = '#000000';
+      pageTitleInput.style.borderColor = '#000000';
+      pageTitleInput.style.minWidth = '200px';
+      pageTitleInput.style.width = 'auto';
+      pageTitleInput.style.maxWidth = '500px';
+    }
   } else {
     document.body.classList.add('dark-mode');
     // テーブル背景をリセット
@@ -1388,6 +2934,38 @@ function applyMode(mode) {
     tables.forEach(table => {
       table.style.background = '';
     });
+    
+    // ページナビゲーションのスタイル適用（ダークモード）
+    const pageIndicator = document.getElementById('pageIndicator');
+    if (pageIndicator) {
+      pageIndicator.style.color = 'rgba(255,255,255,0.8)'; // 白文字
+    }
+    
+    // ノートモーダルのボタンスタイルをダークモードに統一
+    document.querySelectorAll('#addPage, #deletePage, #addNoteSection, #saveNote, #exportNote, #importNote, #closeNote').forEach(btn => {
+      btn.style.background = 'rgba(0,0,0,0.2)';
+      btn.style.color = '#ffffff';
+      btn.style.borderColor = '#ffffff';
+    });
+    
+    // ノートフォントサイズドロップダウンもダークモードに
+    const noteFontSizeSelect = document.getElementById('noteFontSizeSelect');
+    if (noteFontSizeSelect) {
+      noteFontSizeSelect.style.background = 'rgba(0,0,0,0.2)';
+      noteFontSizeSelect.style.color = '#ffffff';
+      noteFontSizeSelect.style.borderColor = '#ffffff';
+    }
+    
+    // ページタイトル入力ボックスもボタンと同じスタイルに
+    const pageTitleInput = document.getElementById('pageTitleInput');
+    if (pageTitleInput) {
+      pageTitleInput.style.background = 'rgba(0,0,0,0.2)';
+      pageTitleInput.style.color = '#ffffff';
+      pageTitleInput.style.borderColor = '#ffffff';
+      pageTitleInput.style.minWidth = '200px';
+      pageTitleInput.style.width = 'auto';
+      pageTitleInput.style.maxWidth = '500px';
+    }
   }
 }
 
@@ -1413,6 +2991,20 @@ function applyFontSize(px) {
   const fireHistories = document.querySelectorAll('.currency-fire-history');
   fireHistories.forEach(fh => {
     fh.style.minWidth = newWidth + 'px';
+  });
+}
+
+function applyNoteFontSize(px) {
+  // ノートセクションのタイトルとコンテンツにフォントサイズを適用
+  const noteTitles = document.querySelectorAll('.note-section-title');
+  const noteContents = document.querySelectorAll('.note-section-content');
+  
+  noteTitles.forEach(title => {
+    title.style.fontSize = px + 'px';
+  });
+  
+  noteContents.forEach(content => {
+    content.style.fontSize = px + 'px';
   });
 }
 
@@ -1554,6 +3146,14 @@ function loadSettings() {
   applyFontSize(savedSize);
   applyColumnVisibility();
   applyRowVisibility();
+  
+  // ノートフォントサイズの設定を読み込み
+  const savedNoteFontSize = localStorage.getItem('tv_note_font_size') || '15';
+  const noteFontSizeSelect = document.getElementById('noteFontSizeSelect');
+  if (noteFontSizeSelect) {
+    noteFontSizeSelect.value = savedNoteFontSize;
+  }
+  applyNoteFontSize(savedNoteFontSize);
 }
 
 function wireSettings() {
@@ -2334,10 +3934,12 @@ async function load() {
         buttonsDiv.style.display = 'flex';
         buttonsDiv.style.gap = '8px';
         
-        const testBtn = document.createElement('button');
-        testBtn.textContent = 'テスト';
-        testBtn.dataset.symbol = symbol;
-        testBtn.addEventListener('click', () => testFire(symbol));
+        // ソート切り替えボタン（降順/昇順）
+        const sortBtn = document.createElement('button');
+        sortBtn.textContent = '▼▲';
+        sortBtn.dataset.symbol = symbol;
+        sortBtn.title = '履歴の並べ替え（降順/昇順）';
+        sortBtn.addEventListener('click', () => toggleSortOrder(symbol));
         
         const clearBtn = document.createElement('button');
         clearBtn.textContent = 'クリア';
@@ -2352,7 +3954,7 @@ async function load() {
         ruleCountBtn.title = 'アクティブなルール数';
         ruleCountBtn.addEventListener('click', () => showRuleDropdown(ruleCountBtn, symbol));
         
-        buttonsDiv.appendChild(testBtn);
+        buttonsDiv.appendChild(sortBtn);
         buttonsDiv.appendChild(clearBtn);
         buttonsDiv.appendChild(ruleCountBtn);
         
@@ -3109,7 +4711,7 @@ function updateFireHistory(notifications) {
     notificationsBySymbol[symbol].push(notif);
   });
   
-  // 各通貨の発火履歴を更新
+    // 各通貨の発火履歴を更新
   document.querySelectorAll('.currency-fire-history-list').forEach(listEl => {
     const symbol = listEl.dataset.symbol;
     const symbolNotifications = notificationsBySymbol[symbol] || [];
@@ -3142,9 +4744,14 @@ function updateFireHistory(notifications) {
     });
     
     listEl.innerHTML = html;
-  });
-  
-  // Apply current font size to newly created elements
+    
+    // ソート状態を適用（降順がデフォルト）
+    const sortDesc = fireHistorySortStates[symbol] !== false;
+    if (!sortDesc) {
+      // 昇順の場合はソートを実行
+      toggleSortOrder(symbol);
+    }
+  });  // Apply current font size to newly created elements
   const savedSize = localStorage.getItem('tv_font_size') || '14';
   applyFontSize(savedSize);
   
@@ -3242,6 +4849,68 @@ async function clearFireHistory(symbol) {
     console.log('Clear error:', e);
     alert('クリアエラー: ' + e.message);
   }
+}
+
+// グローバル変数: 各通貨の発火履歴ソート状態（true: 降順, false: 昇順）
+let fireHistorySortStates = {};
+
+// 発火履歴のソート順を切り替える関数
+function toggleSortOrder(symbol) {
+  const listEl = document.querySelector(`.currency-fire-history-list[data-symbol="${symbol}"]`);
+  if (!listEl) return;
+  
+  // 現在のソート状態を取得（デフォルトは降順）
+  const currentSortDesc = fireHistorySortStates[symbol] !== false; // undefinedの場合はtrue（降順）
+  const newSortDesc = !currentSortDesc;
+  fireHistorySortStates[symbol] = newSortDesc;
+  
+  // 発火アイテムを取得
+  const items = Array.from(listEl.querySelectorAll('.fire-item'));
+  if (items.length === 0) return;
+  
+  // タイムスタンプでソート
+  items.sort((a, b) => {
+    const timeA = a.querySelector('.fire-time')?.textContent || '';
+    const timeB = b.querySelector('.fire-time')?.textContent || '';
+    
+    // 日付文字列をDateオブジェクトに変換して比較
+    const dateA = parseDateTimeString(timeA);
+    const dateB = parseDateTimeString(timeB);
+    
+    if (newSortDesc) {
+      return dateB - dateA; // 降順（新しいものが上）
+    } else {
+      return dateA - dateB; // 昇順（古いものが上）
+    }
+  });
+  
+  // ソートされたアイテムをリストに再配置
+  items.forEach(item => listEl.appendChild(item));
+  
+  // ボタンのテキストを更新
+  const sortBtn = document.querySelector(`button[title*="並べ替え"][data-symbol="${symbol}"]`);
+  if (sortBtn) {
+    sortBtn.textContent = newSortDesc ? '▼▲' : '▲▼';
+    sortBtn.title = `履歴の並べ替え（${newSortDesc ? '降順' : '昇順'}）`;
+  }
+  
+  console.log(`[SORT] ${symbol} fire history sorted: ${newSortDesc ? 'descending' : 'ascending'}`);
+}
+
+// 日付時刻文字列をDateオブジェクトに変換するヘルパー関数
+function parseDateTimeString(dateTimeStr) {
+  // 形式: YY/MM/DD HH:mm
+  const match = dateTimeStr.match(/^(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})$/);
+  if (!match) return new Date(0);
+  
+  const [, yy, mm, dd, hh, mi] = match;
+  const year = 2000 + parseInt(yy); // 2000年代として扱う
+  const month = parseInt(mm) - 1; // JavaScriptの月は0始まり
+  const day = parseInt(dd);
+  const hour = parseInt(hh);
+  const minute = parseInt(mi);
+  
+  return new Date(year, month, day, hour, minute);
 }
 
 // 音声再生キューシステム
