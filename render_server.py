@@ -77,11 +77,31 @@ def get_note_image(image_hash):
             return jsonify({'status': 'error', 'msg': 'Image not found'}), 404
         
         # ファイルを返す
-        return send_from_directory(NOTE_IMAGES_DIR, filename)
+        response = make_response(send_from_directory(NOTE_IMAGES_DIR, filename))
+        
+        # CORS ヘッダーを追加
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        
+        # キャッシング設定
+        response.headers['Cache-Control'] = 'public, max-age=31536000'  # 1年間キャッシュ
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        
+        return response
     
     except Exception as e:
         print(f'[ERROR] Image fetch failed: {e}')
         return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/note-image/<image_hash>', methods=['OPTIONS'])
+def note_image_options(image_hash):
+    # CORS プリフライト対応
+    response = make_response('', 204)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)

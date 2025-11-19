@@ -1883,14 +1883,40 @@ function createNoteSection(title = '', content = '', images = []) {
       modal.style.justifyContent = 'center';
       modal.style.zIndex = '10000';
       
+      // ローディング表示
+      const loader = document.createElement('div');
+      loader.textContent = '読み込み中...';
+      loader.style.color = 'white';
+      loader.style.fontSize = '18px';
+      modal.appendChild(loader);
+      document.body.appendChild(modal);
+      
       const largeImg = document.createElement('img');
-      largeImg.src = img.src;
       largeImg.style.maxWidth = '90%';
       largeImg.style.maxHeight = '90%';
       
-      modal.appendChild(largeImg);
-      modal.addEventListener('click', () => modal.remove());
-      document.body.appendChild(modal);
+      // 画像読み込み成功時
+      largeImg.onload = () => {
+        modal.innerHTML = '';
+        modal.appendChild(largeImg);
+      };
+      
+      // 画像読み込みエラー時
+      largeImg.onerror = () => {
+        loader.textContent = '画像の読み込みに失敗しました';
+        loader.style.color = '#ff6b6b';
+        console.error('[NOTE] Image load error for:', img.src);
+      };
+      
+      // 画像ソースを設定（ハッシュベースまたはBase64）
+      largeImg.src = img.src;
+      
+      // クリックでモーダルを閉じる（ただし画像上でのクリックは除く）
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal || e.target === loader) {
+          modal.remove();
+        }
+      });
     });
     
     imageContainer.appendChild(imgThumb);
@@ -2061,14 +2087,42 @@ async function uploadImage(file, imageContainer, dropZone) {
           modal.style.justifyContent = 'center';
           modal.style.zIndex = '10000';
           
+          // ローディング表示
+          const loader = document.createElement('div');
+          loader.textContent = '読み込み中...';
+          loader.style.color = 'white';
+          loader.style.fontSize = '18px';
+          modal.appendChild(loader);
+          document.body.appendChild(modal);
+          
           const largeImg = document.createElement('img');
-          largeImg.src = base64Data;
           largeImg.style.maxWidth = '90%';
           largeImg.style.maxHeight = '90%';
           
-          modal.appendChild(largeImg);
-          modal.addEventListener('click', () => modal.remove());
-          document.body.appendChild(modal);
+          // 画像読み込み成功時
+          largeImg.onload = () => {
+            modal.innerHTML = '';
+            modal.appendChild(largeImg);
+          };
+          
+          // 画像読み込みエラー時
+          largeImg.onerror = () => {
+            loader.textContent = '画像の読み込みに失敗しました';
+            loader.style.color = '#ff6b6b';
+            console.error('[NOTE] Image load error');
+          };
+          
+          // 画像ソースを設定（アップロード直後はBase64、再ロード後はハッシュベースURL）
+          largeImg.src = img.dataset.imagehash 
+            ? `/api/note-image/${img.dataset.imagehash}`
+            : base64Data;
+          
+          // クリックでモーダルを閉じる（ただし画像上でのクリックは除く）
+          modal.addEventListener('click', (e) => {
+            if (e.target === modal || e.target === loader) {
+              modal.remove();
+            }
+          });
         });
         
         imageContainer.insertBefore(imgThumb, dropZone);
