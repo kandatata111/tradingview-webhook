@@ -1837,11 +1837,32 @@ function createNoteSection(title = '', content = '', images = []) {
       // 新フォーマット：ハッシュ値
       imageHash = imageData.value;
       img.dataset.imagehash = imageHash;
-      img.src = `/api/note-image/${imageHash}`;
+      
+      // IndexedDB から画像を取得（非同期）
+      getImageFromIndexedDB(imageHash).then(base64 => {
+        if (base64) {
+          console.log('[NOTE] Using cached image from IndexedDB:', imageHash.substring(0, 16) + '...');
+          img.src = base64;
+        } else {
+          // IndexedDB にない場合はサーバーから取得
+          console.log('[NOTE] Image not in IndexedDB, using server API:', imageHash.substring(0, 16) + '...');
+          img.src = `/api/note-image/${imageHash}`;
+        }
+      }).catch(e => {
+        console.warn('[NOTE] Error loading from IndexedDB, using server API:', e);
+        img.src = `/api/note-image/${imageHash}`;
+      });
     } else if (imageData.type === 'base64') {
       // 新フォーマット：Base64
       base64Data = imageData.value;
       img.src = base64Data;
+      
+      // ハッシュを計算してIndexedDBに保存（オプション）
+      if (imageData.hash) {
+        saveImageToIndexedDB(imageData.hash, base64Data).catch(e => 
+          console.warn('[INDEXEDDB] Failed to cache image:', e)
+        );
+      }
     }
     
     const deleteImgBtn = document.createElement('button');
@@ -1863,6 +1884,12 @@ function createNoteSection(title = '', content = '', images = []) {
     
     deleteImgBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      // IndexedDB から削除
+      if (imageHash) {
+        deleteImageFromIndexedDB(imageHash).catch(e => 
+          console.warn('[INDEXEDDB] Failed to delete image:', e)
+        );
+      }
       imgThumb.remove();
       autoSaveNote();
     });
@@ -2034,6 +2061,11 @@ async function uploadImage(file, imageContainer, dropZone) {
           return;
         }
         
+        // IndexedDB に画像を保存（非同期）
+        saveImageToIndexedDB(result.imageHash, base64Data).catch(e => 
+          console.warn('[INDEXEDDB] Failed to cache image:', e)
+        );
+        
         // サーバーにファイルが保存されているか確認
         if (result.fileExists) {
           console.log('[NOTE] ✓ File confirmed on server:', result.filepath);
@@ -2201,21 +2233,160 @@ let db = null;
 
 // IndexedDB の初期化
 async function initIndexedDB() {
-  // IndexedDB は一時的に無効化
-  console.log('[INDEXEDDB] Skipped - using server + localStorage only');
-  db = null;
-  return false;
+  return new Promise((resolve) => {
+    try {
+      // IndexedDB が利用可能かチェック
+      if (!window.indexedDB) {
+        console.log('[INDEXEDDB] IndexedDB not available');
+        resolve(false);
+        return;
+      }
+      
+      const request = indexedDB.open('TradingViewNotes', 2);
+      
+      request.onerror = () => {
+        console.warn('[INDEXEDDB] Failed to open:', request.error);
+        resolve(false);
+      };
+      
+      request.onsuccess = (event) => {
+        db = event.target.result;
+        console.log('[INDEXEDDB] ✓ Database opened');
+        resolve(true);
+      };
+      
+      request.onupgradeneeded = (event) => {
+        try {
+          const database = event.target.result;
+          
+          // 画像ストア作成（ハッシュをキーとして使用）
+          if (!database.objectStoreNames.contains('noteImages')) {
+            database.createObjectStore('noteImages', { keyPath: 'hash' });
+            console.log('[INDEXEDDB] ✓ Created noteImages store');
+          }
+          
+          // ノートメタデータストア作成
+          if (!database.objectStoreNames.contains('noteMetadata')) {
+            database.createObjectStore('noteMetadata', { keyPath: 'id' });
+            console.log('[INDEXEDDB] ✓ Created noteMetadata store');
+          }
+        } catch (e) {
+          console.error('[INDEXEDDB] Error in onupgradeneeded:', e);
+        }
+      };
+    } catch (e) {
+      console.error('[INDEXEDDB] Error initializing:', e);
+      resolve(false);
+    }
+  });
 }
 
-// IndexedDB にノートデータをキャッシュ（一時的に無効）
+// IndexedDB に画像を保存（Base64形式）
+async function saveImageToIndexedDB(imageHash, base64Data) {
+  return new Promise((resolve) => {
+    if (!db) {
+      console.warn('[INDEXEDDB] DB not available for image save');
+      resolve(false);
+      return;
+    }
+    
+    try {
+      const transaction = db.transaction(['noteImages'], 'readwrite');
+      const store = transaction.objectStore('noteImages');
+      
+      const imageData = {
+        hash: imageHash,
+        data: base64Data,
+        savedAt: new Date().toISOString()
+      };
+      
+      const request = store.put(imageData);
+      
+      transaction.oncomplete = () => {
+        console.log('[INDEXEDDB] ✓ Image saved:', imageHash.substring(0, 16) + '...');
+        resolve(true);
+      };
+      
+      transaction.onerror = () => {
+        console.error('[INDEXEDDB] Error saving image:', transaction.error);
+        resolve(false);
+      };
+    } catch (e) {
+      console.error('[INDEXEDDB] Error:', e);
+      resolve(false);
+    }
+  });
+}
+
+// IndexedDB から画像を取得（Base64形式）
+async function getImageFromIndexedDB(imageHash) {
+  return new Promise((resolve) => {
+    if (!db) {
+      resolve(null);
+      return;
+    }
+    
+    try {
+      const transaction = db.transaction(['noteImages'], 'readonly');
+      const store = transaction.objectStore('noteImages');
+      const request = store.get(imageHash);
+      
+      request.onsuccess = () => {
+        if (request.result) {
+          console.log('[INDEXEDDB] ✓ Image loaded:', imageHash.substring(0, 16) + '...');
+          resolve(request.result.data);
+        } else {
+          resolve(null);
+        }
+      };
+      
+      request.onerror = () => {
+        console.error('[INDEXEDDB] Error loading image:', transaction.error);
+        resolve(null);
+      };
+    } catch (e) {
+      console.error('[INDEXEDDB] Error:', e);
+      resolve(null);
+    }
+  });
+}
+
+// IndexedDB から画像を削除
+async function deleteImageFromIndexedDB(imageHash) {
+  return new Promise((resolve) => {
+    if (!db) {
+      resolve(false);
+      return;
+    }
+    
+    try {
+      const transaction = db.transaction(['noteImages'], 'readwrite');
+      const store = transaction.objectStore('noteImages');
+      const request = store.delete(imageHash);
+      
+      transaction.oncomplete = () => {
+        console.log('[INDEXEDDB] ✓ Image deleted:', imageHash.substring(0, 16) + '...');
+        resolve(true);
+      };
+      
+      transaction.onerror = () => {
+        resolve(false);
+      };
+    } catch (e) {
+      console.error('[INDEXEDDB] Error:', e);
+      resolve(false);
+    }
+  });
+}
+
+// IndexedDB にノートデータをキャッシュ
 async function cacheNotePagesToIndexedDB(pages) {
-  return true;
+  return true; // ノートデータ自体はサーバーから取得するため、画像のみを管理
 }
 
 // IndexedDB からノートデータを読み込み
 async function loadNotePagesFromIndexedDB() {
-  // IndexedDB キャッシュは一時的に無効
-  return null;
+  return null; // ノートデータはサーバーから取得する
 }
 
 // ノートページを保存
