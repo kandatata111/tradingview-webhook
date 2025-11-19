@@ -2264,52 +2264,70 @@ function setupPageNavigationHandlers() {
   const deletePageBtn = document.getElementById('deletePage');
   const pageTitleInput = document.getElementById('pageTitleInput');
   
+  // イベントハンドラー関数を定義（removeEventListener用）
+  const handlePrevPage = () => {
+    if (currentNotePage > 0) {
+      switchToPage(currentNotePage - 1);
+    }
+  };
+  
+  const handleNextPage = () => {
+    if (currentNotePage < notePages.length - 1) {
+      switchToPage(currentNotePage + 1);
+    }
+  };
+  
+  const handleAddPage = () => {
+    addNewPage();
+  };
+  
+  const handleDeletePage = () => {
+    deleteCurrentPage();
+  };
+  
+  const handlePageTitleInput = () => {
+    if (notePages.length > 0 && currentNotePage < notePages.length) {
+      notePages[currentNotePage].title = pageTitleInput.value.trim() || `ページ ${currentNotePage + 1}`;
+      notePages[currentNotePage].lastModified = new Date().toISOString();
+      saveNotePages();
+    }
+    // 文字数に応じてwidthを自動調整
+    pageTitleInput.style.width = 'auto';
+    pageTitleInput.style.width = pageTitleInput.scrollWidth + 'px';
+  };
+  
+  const handlePageTitleKeydown = (e) => {
+    if (e.key === 'Enter') {
+      pageTitleInput.blur();
+    }
+  };
+  
   if (prevBtn) {
-    prevBtn.addEventListener('click', () => {
-      if (currentNotePage > 0) {
-        switchToPage(currentNotePage - 1);
-      }
-    });
+    prevBtn.removeEventListener('click', handlePrevPage);
+    prevBtn.addEventListener('click', handlePrevPage);
   }
   
   if (nextBtn) {
-    nextBtn.addEventListener('click', () => {
-      if (currentNotePage < notePages.length - 1) {
-        switchToPage(currentNotePage + 1);
-      }
-    });
+    nextBtn.removeEventListener('click', handleNextPage);
+    nextBtn.addEventListener('click', handleNextPage);
   }
   
   if (addPageBtn) {
-    addPageBtn.addEventListener('click', () => {
-      addNewPage();
-    });
+    addPageBtn.removeEventListener('click', handleAddPage);
+    addPageBtn.addEventListener('click', handleAddPage);
   }
   
   if (deletePageBtn) {
-    deletePageBtn.addEventListener('click', () => {
-      deleteCurrentPage();
-    });
+    deletePageBtn.removeEventListener('click', handleDeletePage);
+    deletePageBtn.addEventListener('click', handleDeletePage);
   }
   
   if (pageTitleInput) {
-    pageTitleInput.addEventListener('input', () => {
-      if (notePages.length > 0 && currentNotePage < notePages.length) {
-        notePages[currentNotePage].title = pageTitleInput.value.trim() || `ページ ${currentNotePage + 1}`;
-        notePages[currentNotePage].lastModified = new Date().toISOString();
-        saveNotePages();
-      }
-      // 文字数に応じてwidthを自動調整
-      pageTitleInput.style.width = 'auto';
-      pageTitleInput.style.width = pageTitleInput.scrollWidth + 'px';
-    });
+    pageTitleInput.removeEventListener('input', handlePageTitleInput);
+    pageTitleInput.addEventListener('input', handlePageTitleInput);
     
-    // Enterキーでフォーカスを外す
-    pageTitleInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        pageTitleInput.blur();
-      }
-    });
+    pageTitleInput.removeEventListener('keydown', handlePageTitleKeydown);
+    pageTitleInput.addEventListener('keydown', handlePageTitleKeydown);
   }
 }
 
