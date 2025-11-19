@@ -26,6 +26,7 @@ def upload_note_image():
         # ディレクトリが存在しなければ作成
         if not os.path.exists(NOTE_IMAGES_DIR):
             os.makedirs(NOTE_IMAGES_DIR, exist_ok=True)
+            print(f'[NOTE] Created directory: {NOTE_IMAGES_DIR}')
         
         # Base64エンコード済みの画像データを取得
         data = request.get_json()
@@ -45,23 +46,41 @@ def upload_note_image():
         filename = f'note_image_{image_hash}.png'
         filepath = os.path.join(NOTE_IMAGES_DIR, filename)
         
+        print(f'[NOTE] Upload attempt: {filename}')
+        print(f'[NOTE] Target path: {filepath}')
+        print(f'[NOTE] Directory exists: {os.path.exists(NOTE_IMAGES_DIR)}')
+        print(f'[NOTE] Directory writable: {os.access(NOTE_IMAGES_DIR, os.W_OK)}')
+        
         # ファイルが既に存在しない場合のみ保存
         if not os.path.exists(filepath):
             with open(filepath, 'wb') as f:
                 f.write(image_bytes)
-            print(f'[NOTE] Image saved: {filename}')
+            file_size = len(image_bytes)
+            print(f'[NOTE] ✓ Image saved: {filename} ({file_size} bytes)')
         else:
             print(f'[NOTE] Image already exists: {filename}')
+        
+        # 保存を確認
+        saved_correctly = os.path.exists(filepath)
+        print(f'[NOTE] Verification - File exists after save: {saved_correctly}')
+        
+        if saved_correctly:
+            actual_size = os.path.getsize(filepath)
+            print(f'[NOTE] Actual file size on disk: {actual_size} bytes')
         
         # ファイルパスをJSONで返す
         return jsonify({
             'status': 'success',
             'imageHash': image_hash,
-            'filename': filename
+            'filename': filename,
+            'filepath': filepath,
+            'fileExists': saved_correctly
         }), 200
     
     except Exception as e:
         print(f'[ERROR] Image upload failed: {e}')
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 # 画像取得エンドポイント

@@ -2004,6 +2004,8 @@ async function uploadImage(file, imageContainer, dropZone) {
   reader.onload = async (e) => {
     const base64Data = e.target.result;
     
+    console.log('[NOTE] Uploading image:', file.name, 'size:', file.size);
+    
     try {
       const response = await fetch('/api/upload-note-image', {
         method: 'POST',
@@ -2012,6 +2014,8 @@ async function uploadImage(file, imageContainer, dropZone) {
       });
       
       const result = await response.json();
+      
+      console.log('[NOTE] Upload response:', result);
       
       if (result.status === 'success') {
         // 既存のサムネイルと同じファイルがないかチェック
@@ -2028,6 +2032,13 @@ async function uploadImage(file, imageContainer, dropZone) {
         if (isDuplicate) {
           console.log('[NOTE] Image already added in this section');
           return;
+        }
+        
+        // サーバーにファイルが保存されているか確認
+        if (result.fileExists) {
+          console.log('[NOTE] ✓ File confirmed on server:', result.filepath);
+        } else {
+          console.warn('[NOTE] ✗ File NOT confirmed on server:', result.filepath);
         }
         
         // 画像サムネイルを追加
