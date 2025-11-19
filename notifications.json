@@ -1,1 +1,62 @@
-[]
+[
+  {
+    "rule_id": "1Hダウ転換",
+    "rule_name": "5分ダウ転換",
+    "symbol": "USDJPY",
+    "tf": "5",
+    "direction": "上昇",
+    "message": "5分でダウが転換しました。 上昇です。 ドル円",
+    "timestamp": "2025-11-19T14:29:43.653896+09:00",
+    "price": 154.834,
+    "voice_settings": {
+      "message": "5分でダウが転換しました。",
+      "message_up": "上昇です。",
+      "message_down": "下降です。",
+      "message_position": "suffix",
+      "voice_name": "Microsoft 圭太 Online (Natural) - Japanese (Japan)",
+      "chime_file": "警報が鳴る.mp3",
+      "insert_symbol": true,
+      "symbol_insert_position": "suffix"
+    }
+  },
+  {
+    "rule_id": "確認用",
+    "rule_name": "5分BOS確定",
+    "symbol": "USDJPY",
+    "tf": "5",
+    "direction": "上昇",
+    "message": "5分でBOSが確定しました。 上昇です。 ドル円",
+    "timestamp": "2025-11-19T14:30:05.861485+09:00",
+    "price": 154.834,
+    "voice_settings": {
+      "chime_file": "ラッパのファンファーレ.mp3",
+      "insert_symbol": true,
+      "message": "5分でBOSが確定しました。",
+      "message_down": "下降です。",
+      "message_position": "suffix",
+      "message_up": "上昇です。",
+      "symbol_insert_position": "suffix",
+      "voice_name": "Microsoft 碧衣 Online (Natural) - Japanese (Japan)"
+    }
+  },
+  {
+    "rule_id": "5ｍ雲交差",
+    "rule_name": "5分雲交差",
+    "symbol": "USDJPY",
+    "tf": "5",
+    "direction": "下降",
+    "message": "5分でMAが交差しました。 下降です。 ドル円",
+    "timestamp": "2025-11-19T14:30:18.396887+09:00",
+    "price": 154.834,
+    "voice_settings": {
+      "message": "5分でMAが交差しました。",
+      "message_up": "上昇です。",
+      "message_down": "下降です。",
+      "message_position": "suffix",
+      "voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
+      "chime_file": "開演ブザー.mp3",
+      "insert_symbol": true,
+      "symbol_insert_position": "suffix"
+    }
+  }
+]
