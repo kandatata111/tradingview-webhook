@@ -2237,45 +2237,76 @@ async function initIndexedDB() {
     try {
       // IndexedDB が利用可能かチェック
       if (!window.indexedDB) {
-        console.log('[INDEXEDDB] IndexedDB not available');
+        console.warn('[INDEXEDDB] IndexedDB not supported in this browser');
         resolve(false);
         return;
       }
-      
+
+      // すでに初期化済みかチェック
+      if (db) {
+        console.log('[INDEXEDDB] Already initialized');
+        resolve(true);
+        return;
+      }
+
       const request = indexedDB.open('TradingViewNotes', 2);
-      
-      request.onerror = () => {
-        console.warn('[INDEXEDDB] Failed to open:', request.error);
+
+      request.onerror = (event) => {
+        console.error('[INDEXEDDB] Failed to open database:', event.target.error);
+        db = null; // 明示的にnullに設定
         resolve(false);
       };
-      
+
       request.onsuccess = (event) => {
         db = event.target.result;
-        console.log('[INDEXEDDB] ✓ Database opened');
+        console.log('[INDEXEDDB] ✓ Database opened successfully');
+
+        // データベース接続が予期せず閉じられた場合の処理
+        db.onclose = () => {
+          console.warn('[INDEXEDDB] Database connection closed unexpectedly');
+          db = null;
+        };
+
+        db.onerror = (event) => {
+          console.error('[INDEXEDDB] Database error:', event.target.error);
+        };
+
         resolve(true);
       };
-      
+
       request.onupgradeneeded = (event) => {
         try {
           const database = event.target.result;
-          
+          console.log('[INDEXEDDB] Upgrading database to version', database.version);
+
           // 画像ストア作成（ハッシュをキーとして使用）
           if (!database.objectStoreNames.contains('noteImages')) {
-            database.createObjectStore('noteImages', { keyPath: 'hash' });
+            const imageStore = database.createObjectStore('noteImages', { keyPath: 'hash' });
             console.log('[INDEXEDDB] ✓ Created noteImages store');
           }
-          
+
           // ノートメタデータストア作成
           if (!database.objectStoreNames.contains('noteMetadata')) {
-            database.createObjectStore('noteMetadata', { keyPath: 'id' });
+            const metadataStore = database.createObjectStore('noteMetadata', { keyPath: 'id' });
             console.log('[INDEXEDDB] ✓ Created noteMetadata store');
           }
         } catch (e) {
           console.error('[INDEXEDDB] Error in onupgradeneeded:', e);
+          resolve(false);
         }
       };
+
+      // タイムアウト処理
+      setTimeout(() => {
+        if (!db) {
+          console.warn('[INDEXEDDB] Initialization timeout after 10 seconds');
+          resolve(false);
+        }
+      }, 10000);
+
     } catch (e) {
-      console.error('[INDEXEDDB] Error initializing:', e);
+      console.error('[INDEXEDDB] Unexpected error during initialization:', e);
+      db = null;
       resolve(false);
     }
   });
@@ -2377,6 +2408,38 @@ async function deleteImageFromIndexedDB(imageHash) {
       resolve(false);
     }
   });
+}
+
+// 画像データのハッシュを生成（簡易版）
+async function generateImageHash(base64Data) {
+  try {
+    // Base64データをArrayBufferに変換
+    const binaryString = atob(base64Data.split(',')[1] || base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // 簡易ハッシュ生成（SHA-256が利用可能なら使用）
+    if (crypto && crypto.subtle) {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } else {
+      // フォールバック：簡易ハッシュ
+      let hash = 0;
+      for (let i = 0; i < bytes.length; i++) {
+        const char = bytes[i];
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // 32bitに制限
+      }
+      return Math.abs(hash).toString(16);
+    }
+  } catch (e) {
+    console.error('[HASH] Error generating hash:', e);
+    // フォールバック：タイムスタンプベース
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
 }
 
 // IndexedDB にノートデータをキャッシュ
@@ -2804,34 +2867,98 @@ function deleteCurrentPage() {
 }
 
 // ノートページを出力
-function exportNotePages() {
+async function exportNotePages() {
   if (notePages.length === 0) {
     alert('出力するデータがありません。');
     return;
   }
-  
+
+  // IndexedDBの状態を再確認
+  if (!db) {
+    console.log('[EXPORT] DB not available, attempting to initialize...');
+    const initialized = await initIndexedDB();
+    if (!initialized) {
+      const proceed = confirm('IndexedDBが利用できません。画像データを含めずにエクスポートしますか？\n\nはい: 画像なしでエクスポート\nいいえ: キャンセル');
+      if (!proceed) {
+        return;
+      }
+      includeImages = false;
+    }
+  }
+
   // 現在のページを保存
   saveNotePages();
-  
-  const exportData = {
-    version: '1.0',
-    exportedAt: new Date().toISOString(),
-    pages: notePages
-  };
-  
-  const dataStr = JSON.stringify(exportData, null, 2);
-  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(dataBlob);
-  
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `note_pages_export_${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  
-  console.log('[NOTE] Exported pages:', notePages.length);
+
+  let includeImages = true;
+  if (!db) {
+    includeImages = false;
+  }
+
+  try {
+    let pagesToExport = notePages;
+
+    if (includeImages) {
+      // 画像データを収集して埋め込む
+      pagesToExport = await Promise.all(notePages.map(async (page) => {
+        const sectionsWithImages = await Promise.all(page.sections.map(async (section) => {
+          const imagesWithData = await Promise.all((section.images || []).map(async (image) => {
+            if (image.type === 'hash' && image.value) {
+              // IndexedDBから画像データを取得
+              const base64Data = await getImageFromIndexedDB(image.value);
+              if (base64Data) {
+                return {
+                  type: 'base64',
+                  value: base64Data,
+                  hash: image.value // ハッシュも保持
+                };
+              } else {
+                console.warn('[EXPORT] Image not found in IndexedDB:', image.value);
+                return image; // ハッシュのまま返す
+              }
+            }
+            // ハッシュがない場合や取得失敗時はそのまま返す
+            return image;
+          }));
+
+          return {
+            ...section,
+            images: imagesWithData
+          };
+        }));
+
+        return {
+          ...page,
+          sections: sectionsWithImages
+        };
+      }));
+    }
+
+    const exportData = {
+      version: includeImages ? '1.1' : '1.0', // 画像データを含む場合は1.1
+      exportedAt: new Date().toISOString(),
+      includeImages: includeImages,
+      pages: pagesToExport
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `note_pages_export_${new Date().toISOString().split('T')[0]}${includeImages ? '_with_images' : '_no_images'}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    console.log('[NOTE] Exported pages:', notePages.length, 'with images:', includeImages);
+    alert(includeImages ? 'ノートページを画像データ付きでエクスポートしました。' : 'ノートページを画像データなしでエクスポートしました。');
+
+  } catch (error) {
+    console.error('[NOTE] Export error:', error);
+    alert('エクスポート中にエラーが発生しました: ' + error.message);
+  }
 }
 
 // ノートページを読込（オプション選択ダイアログ）
@@ -2963,7 +3090,7 @@ function showImportOptionsDialog(file) {
 }
 
 // ノートページを読込（モード指定）
-function importNotePages(importData, mode) {
+async function importNotePages(importData, mode) {
   try {
     if (!importData.pages || !Array.isArray(importData.pages)) {
       throw new Error('無効な読込データです。');
@@ -2974,25 +3101,68 @@ function importNotePages(importData, mode) {
     
     if (mode === 'replace') {
       // 完全置き換え
-      notePages = importData.pages.map(page => ({
-        ...page,
-        id: page.id || Date.now() + Math.random(), // IDがなければ新規生成
-        lastModified: new Date().toISOString()
+      const processedPages = await Promise.all(importData.pages.map(async (page) => {
+        const processedSections = await Promise.all(page.sections.map(async (section) => {
+          const processedImages = await Promise.all((section.images || []).map(async (image) => {
+            if (image.type === 'base64' && image.value) {
+              // Base64データをIndexedDBに保存
+              const hash = image.hash || await generateImageHash(image.value);
+              await saveImageToIndexedDB(hash, image.value);
+              return { type: 'hash', value: hash };
+            }
+            return image;
+          }));
+          
+          return {
+            ...section,
+            images: processedImages
+          };
+        }));
+        
+        return {
+          ...page,
+          id: page.id || Date.now() + Math.random(), // IDがなければ新規生成
+          lastModified: new Date().toISOString(),
+          sections: processedSections
+        };
       }));
+      
+      notePages = processedPages;
       currentNotePage = 0;
-      console.log('[NOTE] Replaced all pages with imported data:', notePages.length);
+      console.log('[NOTE] Replaced all pages with imported data (with images):', notePages.length);
       
     } else if (mode === 'merge') {
       // マージ追加（新しいページとして追加）
-      const newPages = importData.pages.map(page => ({
-        ...page,
-        id: Date.now() + Math.random(), // 新しいIDを生成
-        title: page.title + ' (読込)', // タイトルにマークを付ける
-        lastModified: new Date().toISOString()
+      const processedPages = await Promise.all(importData.pages.map(async (page) => {
+        const processedSections = await Promise.all(page.sections.map(async (section) => {
+          const processedImages = await Promise.all((section.images || []).map(async (image) => {
+            if (image.type === 'base64' && image.value) {
+              // Base64データをIndexedDBに保存
+              const hash = image.hash || await generateImageHash(image.value);
+              await saveImageToIndexedDB(hash, image.value);
+              return { type: 'hash', value: hash };
+            }
+            return image;
+          }));
+          
+          return {
+            ...section,
+            images: processedImages
+          };
+        }));
+        
+        return {
+          ...page,
+          id: Date.now() + Math.random(), // 新しいIDを生成
+          title: page.title + ' (読込)', // タイトルにマークを付ける
+          lastModified: new Date().toISOString(),
+          sections: processedSections
+        };
       }));
-      notePages = notePages.concat(newPages);
-      currentNotePage = notePages.length - newPages.length; // 最初の追加ページに移動
-      console.log('[NOTE] Merged imported pages:', newPages.length, 'total pages:', notePages.length);
+      
+      notePages = notePages.concat(processedPages);
+      currentNotePage = notePages.length - processedPages.length; // 最初の追加ページに移動
+      console.log('[NOTE] Merged imported pages (with images):', processedPages.length, 'total pages:', notePages.length);
     }
     
     // UI更新
@@ -3070,7 +3240,8 @@ function previewImportData(importData) {
     summary.innerHTML = `
       <strong>バージョン:</strong> ${importData.version || '不明'}<br>
       <strong>出力日時:</strong> ${importData.exportedAt ? new Date(importData.exportedAt).toLocaleString('ja-JP') : '不明'}<br>
-      <strong>ページ数:</strong> ${importData.pages.length}
+      <strong>ページ数:</strong> ${importData.pages.length}<br>
+      <strong>画像データ:</strong> ${importData.version === '1.1' ? '含む' : 'なし'}
     `;
     content.appendChild(summary);
     
@@ -3092,8 +3263,12 @@ function previewImportData(importData) {
       pageInfo.style.marginBottom = '15px';
       pageInfo.style.fontSize = '0.9em';
       pageInfo.style.color = 'rgba(255,255,255,0.8)';
+      const imageCount = page.sections ? page.sections.reduce((total, section) => {
+        return total + (section.images ? section.images.length : 0);
+      }, 0) : 0;
       pageInfo.innerHTML = `
         <div style="margin-bottom: 5px;"><strong>項目数:</strong> ${page.sections ? page.sections.length : 0}</div>
+        <div style="margin-bottom: 5px;"><strong>画像数:</strong> ${imageCount}</div>
         <div><strong>最終更新:</strong> ${page.lastModified ? new Date(page.lastModified).toLocaleString('ja-JP') : '不明'}</div>
       `;
       
@@ -3871,8 +4046,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     // IndexedDB を初期化（失敗しても続行）
     try {
-      console.log('[INDEXEDDB] Skipping initialization for debugging');
-      db = null;  // 一時的に無効化
+      await initIndexedDB();
     } catch (e) {
       console.warn('[INDEXEDDB] Initialization failed, continuing without IndexedDB:', e);
       db = null;
@@ -5061,17 +5235,20 @@ function addConditionRow() {
 let lastNotificationTimestamp = null;
 let notificationCheckInterval = null;
 let notificationPollingStarted = false; // Global flag to prevent multiple instances
+let isInitialLoad = true; // ページ初回ロード時は通知を再生しない
 
 // 通知を再生する関数(Socket.IOとポーリングの両方で使用)
 async function playNotification(notification) {
   if (!notification) return;
   
-  console.log('[PLAY_NOTIFICATION]', notification);
+  console.log('[PLAY_NOTIFICATION] Called with notification:', notification);
   
   // 音声設定を抽出
   const voiceSettings = notification.voice_settings || null;
   const message = notification.message || '';
   const symbol = notification.symbol || '';
+  
+  console.log('[PLAY_NOTIFICATION] Extracted - message:', message, 'voiceSettings:', voiceSettings, 'symbol:', symbol);
   
   // チャイム音と音声を再生
   playVoiceAlert(message, voiceSettings, symbol);
@@ -5152,6 +5329,14 @@ async function checkNotifications() {
     // Get the latest notification
     const latest = notifications[0];
     const latestTimestamp = latest.timestamp;
+    
+    // 初回ロード時は音声を再生しない
+    if (isInitialLoad) {
+      console.log('[NOTIFICATIONS] Initial load - setting timestamp without playing sound');
+      lastNotificationTimestamp = latestTimestamp;
+      isInitialLoad = false;
+      return;
+    }
     
     // If this is a new notification (different timestamp)
     if (lastNotificationTimestamp !== latestTimestamp) {
@@ -5391,11 +5576,25 @@ function parseDateTimeString(dateTimeStr) {
 // 音声再生キューシステム
 let voiceQueue = [];
 let isPlayingVoice = false;
+let lastChimeFile = null;  // 最後に再生した警報ファイル
+let chimeReplayTimeout = null;  // 警報リプレイ防止タイマー
+let speechCallCounter = 0;  // speechSynthesis.speak()呼び出しカウンター（デバッグ用）
 
 function playVoiceAlert(message, voiceSettings = null, symbol = null) {
+  console.log('[VOICE_ALERT] Called with message:', message, 'chime:', voiceSettings?.chime_file);
+  
+  // 同じ警報ファイルの重複再生を防ぐ
+  const chimeFile = voiceSettings?.chime_file;
+  
+  // 同じ警報が100ms以内に連続して再生されようとしている場合はスキップ
+  if (chimeFile && chimeFile === lastChimeFile && chimeReplayTimeout) {
+    console.log('[VOICE_QUEUE] Skipping duplicate chime:', chimeFile);
+    return;
+  }
+  
   // キューに追加
   voiceQueue.push({ message, voiceSettings, symbol });
-  console.log('[VOICE_QUEUE] Added to queue. Queue length:', voiceQueue.length);
+  console.log('[VOICE_QUEUE] Added to queue. Queue length:', voiceQueue.length, 'Chime:', chimeFile);
   
   // 再生中でなければ次を再生
   if (!isPlayingVoice) {
@@ -5424,20 +5623,37 @@ function playNextInQueue() {
     
     // Play chime first if specified
     if (item.voiceSettings && item.voiceSettings.chime_file) {
-      const chimeAudio = new Audio('/Alarm/' + item.voiceSettings.chime_file);
+      const chimeFile = item.voiceSettings.chime_file;
+      const chimeAudio = new Audio('/Alarm/' + chimeFile);
       chimeAudio.volume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
+      
+      // タイムアウトクリア
+      if (chimeReplayTimeout) clearTimeout(chimeReplayTimeout);
+      
+      // 警報ファイルを記録
+      lastChimeFile = chimeFile;
+      console.log('[VOICE_QUEUE] Playing chime:', chimeFile);
+      
       chimeAudio.addEventListener('ended', () => {
+        console.log('[VOICE_QUEUE] Chime ended:', chimeFile);
         playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
           // 音声再生完了後、次を再生
           playNextInQueue();
         });
       });
+      
       chimeAudio.play().catch(e => {
         console.log('Chime play error', e);
         playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
           playNextInQueue();
         });
       });
+      
+      // 警報再生後、100msのリプレイ防止タイマーをセット
+      chimeReplayTimeout = setTimeout(() => {
+        lastChimeFile = null;
+        chimeReplayTimeout = null;
+      }, 100);
     } else {
       playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
         playNextInQueue();
@@ -5450,6 +5666,8 @@ function playNextInQueue() {
 }
 
 function playVoiceMessage(message, voiceSettings = null, symbol = null, onComplete = null) {
+  console.log('[VOICE_MESSAGE] Called with message:', message, 'voiceSettings:', voiceSettings);
+  
   // Create utterance
   const utterance = new SpeechSynthesisUtterance(message);
   
@@ -5462,19 +5680,84 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
   utterance.volume = globalVolume;
   utterance.rate = globalRate;
   
+  // 許可された音声リスト
+  const allowedVoiceNames = [
+    'Microsoft 七海 Online (Natural) - Japanese (Japan)',
+    'Microsoft 圭太 Online (Natural) - Japanese (Japan)',
+    'Microsoft 碧衣 Online (Natural) - Japanese (Japan)',
+    'Microsoft 大智 Online (Natural) - Japanese (Japan)',
+    'Microsoft 真夕 Online (Natural) - Japanese (Japan)',
+    'Microsoft 直紀 Online (Natural) - Japanese (Japan)',
+    'Microsoft 志織 Online (Natural) - Japanese (Japan)'
+  ];
+  
+  // ブロックする音声リスト（オフライン音声など）
+  const blockedVoiceNames = [
+    'Microsoft Ayumi - Japanese (Japan)',
+    'Microsoft Haruka - Japanese (Japan)',
+    'Microsoft Ichiro - Japanese (Japan)',
+    'Microsoft Sayaka - Japanese (Japan)',
+    'Microsoft Ayumi Desktop - Japanese (Japan)',
+    'Microsoft Haruka Desktop - Japanese (Japan)',
+    'Microsoft Ichiro Desktop - Japanese (Japan)',
+    'Microsoft Sayaka Desktop - Japanese (Japan)',
+    'Microsoft Ayumi (Japanese)',
+    'Microsoft Haruka (Japanese)',
+    'Microsoft Ichiro (Japanese)',
+    'Microsoft Sayaka (Japanese)'
+  ];
+  
+  // 音声リストを取得し、ブロックリストをフィルタ
+  const voices = speechSynthesis.getVoices();
+  const availableVoices = voices.filter(v => !blockedVoiceNames.includes(v.name));
+  
+  console.log('[VOICE_MESSAGE] Total voices:', voices.length, 'After blocking:', availableVoices.length);
+  
   // Set voice if specified
   if (voiceSettings && voiceSettings.voice_name) {
-    const voices = speechSynthesis.getVoices();
-    const selectedVoice = voices.find(v => v.name === voiceSettings.voice_name);
+    const selectedVoice = availableVoices.find(v => v.name === voiceSettings.voice_name);
     if (selectedVoice) {
       utterance.voice = selectedVoice;
+      console.log('[VOICE_MESSAGE] ✓ Using custom voice:', selectedVoice.name);
+    } else {
+      console.warn('[VOICE_MESSAGE] ⚠️ Custom voice not found:', voiceSettings.voice_name);
+      // 許可された音声リストから最初の利用可能な音声を選択
+      const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
+      if (fallbackVoice) {
+        utterance.voice = fallbackVoice;
+        console.warn('[VOICE_MESSAGE] ⚠️ Using fallback voice:', fallbackVoice.name);
+      } else {
+        console.error('[VOICE_MESSAGE] ❌ No allowed voices available! Canceling speech.');
+        if (onComplete) onComplete();
+        return; // 音声再生をキャンセル
+      }
     }
   } else {
-    // Use default Japanese voice
-    const voices = speechSynthesis.getVoices();
-    const japaneseVoice = voices.find(voice => voice.lang.startsWith('ja'));
-    if (japaneseVoice) {
-      utterance.voice = japaneseVoice;
+    console.warn('[VOICE_MESSAGE] ⚠️ No voice settings provided');
+    // 許可された音声リストから最初の利用可能な音声を選択
+    const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
+    if (fallbackVoice) {
+      utterance.voice = fallbackVoice;
+      console.log('[VOICE_MESSAGE] Using fallback voice:', fallbackVoice.name);
+    } else {
+      console.error('[VOICE_MESSAGE] ❌ No allowed voices available! Canceling speech.');
+      if (onComplete) onComplete();
+      return; // 音声再生をキャンセル
+    }
+  }
+  
+  // 音声が正しく設定されているか最終チェック
+  if (utterance.voice && blockedVoiceNames.includes(utterance.voice.name)) {
+    console.error('[VOICE_MESSAGE] ❌ BLOCKED VOICE DETECTED:', utterance.voice.name);
+    console.error('[VOICE_MESSAGE] ❌ Forcing voice to first allowed voice...');
+    const forcedVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
+    if (forcedVoice) {
+      utterance.voice = forcedVoice;
+      console.log('[VOICE_MESSAGE] ✓ Forced to:', forcedVoice.name);
+    } else {
+      console.error('[VOICE_MESSAGE] ❌ Cannot find allowed voice. Canceling speech.');
+      if (onComplete) onComplete();
+      return;
     }
   }
   
@@ -5494,6 +5777,7 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
     }
     
     if (parts.length > 1) {
+      console.log('[VOICE_MESSAGE] Split speaking with', parts.length, 'parts');
       // 分割発声
       let currentIndex = 0;
       
@@ -5505,10 +5789,39 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
           partUtterance.rate = utterance.rate;
           partUtterance.voice = utterance.voice;
           
+          // 音声がブロックリストに含まれていないか確認
+          if (partUtterance.voice) {
+            const blockedNames = [
+              'Microsoft Ayumi - Japanese (Japan)',
+              'Microsoft Haruka - Japanese (Japan)',
+              'Microsoft Ichiro - Japanese (Japan)',
+              'Microsoft Sayaka - Japanese (Japan)',
+              'Microsoft Ayumi Desktop - Japanese (Japan)',
+              'Microsoft Haruka Desktop - Japanese (Japan)',
+              'Microsoft Ichiro Desktop - Japanese (Japan)',
+              'Microsoft Sayaka Desktop - Japanese (Japan)',
+              'Microsoft Ayumi (Japanese)',
+              'Microsoft Haruka (Japanese)',
+              'Microsoft Ichiro (Japanese)',
+              'Microsoft Sayaka (Japanese)'
+            ];
+            if (blockedNames.includes(partUtterance.voice.name)) {
+              console.error('[VOICE_MESSAGE] ❌ BLOCKED VOICE IN PART:', partUtterance.voice.name);
+              if (onComplete) onComplete();
+              return;
+            }
+          }
+          
+          speechCallCounter++;
+          const partCallId = speechCallCounter;
+          console.log('[VOICE_MESSAGE] 🔊 Part', currentIndex + 1, '/', parts.length, 'speak() call #' + partCallId, ':', parts[currentIndex]);
+          console.log('[VOICE_MESSAGE] Part voice:', partUtterance.voice ? partUtterance.voice.name : 'DEFAULT');
+          
           partUtterance.onend = () => {
             currentIndex++;
             if (currentIndex >= parts.length) {
               // 全パート完了
+              console.log('[VOICE_MESSAGE] All parts completed');
               if (onComplete) onComplete();
             } else {
               // 一拍の間を入れるために少し遅延
@@ -5534,19 +5847,33 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
   
   // 完了イベントハンドラーを設定
   utterance.onend = () => {
-    console.log('Voice message completed');
+    console.log('[VOICE_MESSAGE] Voice message completed');
     if (onComplete) onComplete();
   };
   
   utterance.onerror = (e) => {
-    console.log('Voice message error:', e);
+    console.log('[VOICE_MESSAGE] Voice message error:', e);
     if (onComplete) onComplete();
   };
   
   // Speak
+  speechCallCounter++;
+  const currentCallId = speechCallCounter;
+  console.log('[VOICE_MESSAGE] 🔊 speechSynthesis.speak() call #' + currentCallId);
+  console.log('[VOICE_MESSAGE] Final voice check - Selected:', utterance.voice ? utterance.voice.name : 'DEFAULT (System)');
+  console.log('[VOICE_MESSAGE] Final voice check - Lang:', utterance.lang);
+  
+  // 音声が明示的に設定されているか確認
+  if (!utterance.voice) {
+    console.error('[VOICE_MESSAGE] ❌ ERROR: No voice set! This should never happen!');
+    console.error('[VOICE_MESSAGE] ❌ Available voices:', speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja')).map(v => v.name));
+    if (onComplete) onComplete();
+    return;
+  }
+  
   speechSynthesis.speak(utterance);
   
-  console.log('Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
+  console.log('[VOICE_MESSAGE] Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
 }
 </script>
 </body>

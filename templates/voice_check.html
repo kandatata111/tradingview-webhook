@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>日本語音声確認</title>
+</head>
+<body>
+    <h1>利用可能な日本語音声一覧</h1>
+    <button onclick="checkVoices()">音声を確認</button>
+    <div id="result"></div>
+
+    <script>
+        function checkVoices() {
+            const resultDiv = document.getElementById('result');
+            const voices = speechSynthesis.getVoices();
+
+            let html = '<h2>利用可能な音声:</h2><ul>';
+            voices.forEach(voice => {
+                if (voice.lang.startsWith('ja')) {
+                    html += '<li>' + voice.name + ' (lang: ' + voice.lang + ')</li>';
+                }
+            });
+            html += '</ul>';
+
+            // 許可された音声のみ表示
+            const allowedVoices = {
+                'Microsoft 七海 Online (Natural) - Japanese (Japan)': '七海［女性］',
+                'Microsoft 圭太 Online (Natural) - Japanese (Japan)': '圭太［男性］',
+                'Microsoft 碧衣 Online (Natural) - Japanese (Japan)': '碧衣［女性］',
+                'Microsoft 大智 Online (Natural) - Japanese (Japan)': '大智［男性］',
+                'Microsoft 真夕 Online (Natural) - Japanese (Japan)': '真夕［女性］',
+                'Microsoft 直紀 Online (Natural) - Japanese (Japan)': '直紀［男性］',
+                'Microsoft 志織 Online (Natural) - Japanese (Japan)': '志織［女性］'
+            };
+
+            html += '<h2>ダッシュボードで利用可能な音声:</h2><ul>';
+            voices.forEach(voice => {
+                if (voice.lang.startsWith('ja') && allowedVoices[voice.name]) {
+                    html += '<li>' + voice.name + ' → ' + allowedVoices[voice.name] + '</li>';
+                }
+            });
+            html += '</ul>';
+
+            resultDiv.innerHTML = html;
+        }
+
+        // 音声リストが非同期で読み込まれる場合があるので、少し待ってから自動実行
+        setTimeout(checkVoices, 100);
+        speechSynthesis.onvoiceschanged = checkVoices;
+    </script>
+</body>
+</html>
