@@ -307,10 +307,23 @@ def test():
 
 @app.route('/json_test_panel')
 def json_test_panel():
-    return render_template('json_test_panel.html')
+    response = make_response(render_template('json_test_panel.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
-@app.route('/webhook', methods=['POST'])
+@app.route('/webhook', methods=['POST', 'OPTIONS'])
 def webhook():
+    # OPTIONSリクエストに対応（CORS プリフライト）
+    if request.method == 'OPTIONS':
+        response = make_response('', 204)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        return response
+    
     try:
         data = request.json
         if not data:
@@ -318,7 +331,9 @@ def webhook():
             print(f'[WEBHOOK ERROR] {error_msg}')
             with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
                 f.write(f'{datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()} - {error_msg}\n')
-            return jsonify({'status': 'error', 'msg': error_msg}), 400
+            response = jsonify({'status': 'error', 'msg': error_msg})
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 400
         
         # FX休場時は更新を無視（データ受信ベースなので常に保存）
         # 受信したら営業中と判定するため、チェックを削除
@@ -418,9 +433,13 @@ def webhook():
             print(f'[ERROR] {error_msg}')
             with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
                 f.write(f'{datetime.now(jst).isoformat()} - SAVE ERROR for {symbol_val}/{tf_val}: {str(e)}\n')
-            return jsonify({'status': 'error', 'msg': error_msg}), 500
+            response = jsonify({'status': 'error', 'msg': error_msg})
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 500
         
-        return jsonify({'status': 'success'}), 200
+        response = jsonify({'status': 'success'})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 200
     except Exception as e:
         error_msg = f'Webhook handler exception: {str(e)}'
         print(f'[ERROR] {error_msg}')
@@ -430,7 +449,9 @@ def webhook():
                 f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
         except:
             pass
-        return jsonify({'status': 'error', 'msg': error_msg}), 500
+        response = jsonify({'status': 'error', 'msg': error_msg})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 500
 
 @app.route('/health', methods=['GET'])
 def health_check():

@@ -381,7 +381,9 @@
         });
 
         function saveData() {
+            console.log('saveData() called');
             const saveName = document.getElementById('saveName').value.trim();
+            console.log('saveName:', saveName);
             if (!saveName) {
                 alert('保存名称を入力してください');
                 return;
@@ -397,30 +399,76 @@
                 tableData: {}
             };
 
+            console.log('data before table collection:', data);
+
             // 表のデータを収集
-            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+            const rows = document.querySelectorAll('#dataTable tbody tr');
+            console.log('total rows found:', rows.length);
+            
+            rows.forEach((row, index) => {
                 const tf = row.getAttribute('data-tf');
-                data.tableData[tf] = {
-                    dauten: row.querySelector('td[data-value]').getAttribute('data-value'),
-                    bos: row.querySelector('td[onclick*="cycleBos"]').getAttribute('data-value'),
-                    gc: row.querySelector('td[onclick*="toggleGc"]').getAttribute('data-value'),
-                    distance_from_prev: row.querySelector('input[data-field="distance_from_prev"]').value,
-                    distance_from_price: row.querySelector('input[data-field="distance_from_price"]').value,
-                    angle: row.querySelector('input[data-field="angle"]').value,
-                    thickness: row.querySelector('input[data-field="thickness"]').value,
-                    dauten_start_time_str: row.querySelector('input[data-field="dauten_start_time_str"]').value,
-                    elapsed_str: row.querySelector('input[data-field="elapsed_str"]').value
-                };
+                console.log(`row ${index}: tf=${tf}`);
+                
+                // 価格行はスキップ
+                if (tf === 'price') {
+                    console.log(`skipping price row at index ${index}`);
+                    return;
+                }
+                
+                try {
+                    // インデックスベースでセルを取得（より確実）
+                    const cells = row.querySelectorAll('td');
+                    console.log(`row ${index} (${tf}) has ${cells.length} cells`);
+                    
+                    // セルのインデックス: 0=TF, 1=ダウ転, 2=突破数, 3=雲交差, 4-10=数値, 11=時間差
+                    const dautenCell = cells[1];  // ダウ転
+                    const bosCell = cells[2];     // 突破数
+                    const gcCell = cells[3];      // 雲交差
+                    
+                    const inputs = row.querySelectorAll('input');
+                    
+                    data.tableData[tf] = {
+                        dauten: dautenCell?.getAttribute('data-value') || 'up',
+                        bos: bosCell?.getAttribute('data-value') || '-',
+                        gc: gcCell?.getAttribute('data-value') || 'true',
+                        distance_from_prev: inputs[0]?.value || '',
+                        distance_from_price: inputs[1]?.value || '',
+                        angle: inputs[2]?.value || '',
+                        thickness: inputs[3]?.value || '',
+                        dauten_start_time_str: inputs[4]?.value || '',
+                        elapsed_str: inputs[5]?.value || ''
+                    };
+                    console.log(`tableData for ${tf}:`, data.tableData[tf]);
+                } catch (e) {
+                    console.error(`Error processing row ${index} (${tf}):`, e);
+                }
             });
 
-            // localStorageに保存
-            const savedData = JSON.parse(localStorage.getItem('jsonTestPanelSaves') || '{}');
-            savedData[saveName] = data;
-            localStorage.setItem('jsonTestPanelSaves', JSON.stringify(savedData));
+            console.log('data after table collection:', data);
 
-            // プルダウンを更新
-            updateLoadSelect();
-            alert('保存しました: ' + saveName);
+            try {
+                // localStorageに保存
+                const savedData = JSON.parse(localStorage.getItem('jsonTestPanelSaves') || '{}');
+                console.log('existing savedData:', savedData);
+                savedData[saveName] = data;
+                localStorage.setItem('jsonTestPanelSaves', JSON.stringify(savedData));
+                console.log('saved to localStorage:', saveName);
+                console.log('localStorage contents:', localStorage.getItem('jsonTestPanelSaves'));
+
+                // プルダウンを更新
+                updateLoadSelect();
+                
+                // 保存した名称をプルダウンで選択
+                document.getElementById('loadSelect').value = saveName;
+                
+                // 保存名称フィールドをクリア
+                document.getElementById('saveName').value = '';
+                
+                alert('保存しました: ' + saveName);
+            } catch (error) {
+                console.error('Save error:', error);
+                alert('保存エラー: ' + error.message);
+            }
         }
 
         function loadData() {
@@ -957,6 +1005,11 @@
             const elapsedTimeInput = row.querySelector('input[data-field="elapsed_str"]');
             const diffCell = row.querySelector('.time-diff');
             
+            // nullチェック
+            if (!dautenTimeInput || !elapsedTimeInput || !diffCell) {
+                return;
+            }
+            
             if (timeFormat === 'original') {
                 diffCell.textContent = '-';
                 return;
@@ -972,8 +1025,8 @@
                 const elapsedTime = parseTime(elapsedTimeInput.value);
                 
                 if (dautenTime && elapsedTime) {
-                    const dautenCell = row.querySelector('td[data-value]');
-                    const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+                    const dautenCell = row.querySelector('td.editable[onclick*="toggleDauten"]');
+                    const gcCell = row.querySelector('td.editable[onclick*="toggleGc"]');
                     const dautenDirection = dautenCell ? dautenCell.getAttribute('data-value') : null;
                     const gcDirection = gcCell ? (gcCell.getAttribute('data-value') === 'true' ? 'up' : 'down') : null;
                     
@@ -1225,13 +1278,18 @@
         }
         
         async function sendJson() {
+            console.log('sendJson() called');
+            
             // JSONが生成されているかチェック
             if (!window.jsonData_5m || !window.jsonData_15m || !window.jsonData_1h || !window.jsonData_4h) {
+                console.warn('JSON data not found');
                 alert('まずJSONを生成してください');
                 return;
             }
             
             const target = document.querySelector('input[name="target"]:checked').value;
+            console.log('target:', target);
+            
             let url;
             if (target === 'test') {
                 url = 'http://localhost:5000/webhook';
@@ -1239,8 +1297,12 @@
                 url = 'https://tradingview-webhook-s5x1.onrender.com/webhook';
             }
             
+            console.log('sending to URL:', url);
+            
             const statusDiv = document.getElementById('status');
-            statusDiv.style.display = 'none';
+            statusDiv.textContent = '送信中...';
+            statusDiv.className = 'status';
+            statusDiv.style.display = 'block';
             
             // 4つのJSONコードを順番に送信
             const jsonArray = [
@@ -1254,6 +1316,7 @@
             
             for (const json of jsonArray) {
                 try {
+                    console.log(`sending ${json.name}...`);
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
@@ -1262,14 +1325,25 @@
                         body: JSON.stringify(json.data)
                     });
                     
-                    const result = await response.json();
+                    console.log(`${json.name} response status:`, response.status);
+                    
+                    let result;
+                    try {
+                        result = await response.json();
+                    } catch (e) {
+                        result = { error: 'Could not parse response', status: response.status };
+                    }
+                    
                     results.push({
                         tf: json.name,
                         success: response.ok,
                         message: response.ok ? '成功' : '失敗',
                         details: result
                     });
+                    
+                    console.log(`${json.name} result:`, results[results.length - 1]);
                 } catch (error) {
+                    console.error(`Error sending ${json.name}:`, error);
                     results.push({
                         tf: json.name,
                         success: false,
@@ -1277,19 +1351,28 @@
                         details: error.message
                     });
                 }
+                
+                // リクエスト間に500ms の遅延を入れる（サーバー負荷軽減）
+                if (jsonArray.indexOf(json) < jsonArray.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
             }
             
             // 結果を表示
-            let resultText = '送信結果:\n';
+            let resultText = '送信結果:\n\n';
             let allSuccess = true;
             results.forEach(r => {
-                resultText += `${r.tf}: ${r.message} (${JSON.stringify(r.details)})\n`;
+                resultText += `【${r.tf}】\n`;
+                resultText += `  状態: ${r.message}\n`;
+                resultText += `  詳細: ${JSON.stringify(r.details)}\n\n`;
                 if (!r.success) allSuccess = false;
             });
             
             statusDiv.className = 'status ' + (allSuccess ? 'success' : 'error');
             statusDiv.textContent = resultText;
             statusDiv.style.display = 'block';
+            
+            console.log('send complete. all success:', allSuccess);
         }
         
         // Initialize
