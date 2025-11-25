@@ -1799,7 +1799,57 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
                     else:
                         wlog(f'[RULE] No direction info available')
                 
+                # ===== Alignment チェック =====
+                # ルールに alignment 設定がある場合、複数タイムフレームの方向が揃っているかチェック
+                alignment_config = rule.get('alignment')
+                if alignment_config and all_matched:
+                    wlog(f'[RULE] Checking alignment: {alignment_config}')
+                    
+                    tfs = alignment_config.get('tfs', [])  # ['5m', '15m', '1H', '4H']
+                    n = alignment_config.get('n', len(tfs))  # 必要な揃い数
+                    missing_mode = alignment_config.get('missing', 'ignore')  # 'ignore' or 'fail'
+                    
+                    # 各タイムフレームの gc フィールドから方向を取得
+                    tf_directions = []
+                    for tf_label in tfs:
+                        cloud_data = tf_cloud_data.get(tf_label, {})
+                        gc_value = cloud_data.get('gc')
+                        
+                        if gc_value is None:
+                            if missing_mode == 'fail':
+                                all_matched = False
+                                wlog(f'[RULE] Alignment failed: {tf_label} gc is missing (missing_mode=fail)')
+                                break
+                            # missing_mode == 'ignore' の場合はスキップ
+                            continue
+                        
+                        # gc から方向を判定
+                        direction = 'up' if gc_value is True else 'down'
+                        tf_directions.append((tf_label, direction))
+                    
+                    if all_matched and len(tf_directions) >= n:
+                        # 方向が揃っているかチェック
+                        directions_only = [d for _, d in tf_directions]
+                        unique_directions = set(directions_only)
+                        
+                        if len(unique_directions) == 1:
+                            # 全て同じ方向
+                            aligned_count = len(tf_directions)
+                            if aligned_count >= n:
+                                wlog(f'[RULE] Alignment OK: {aligned_count}/{n} TFs aligned in "{directions_only[0]}" direction')
+                            else:
+                                all_matched = False
+                                wlog(f'[RULE] Alignment failed: only {aligned_count}/{n} TFs available')
+                        else:
+                            # 方向がバラバラ
+                            all_matched = False
+                            wlog(f'[RULE] Alignment failed: directions not aligned {tf_directions}')
+                    elif all_matched:
+                        all_matched = False
+                        wlog(f'[RULE] Alignment failed: only {len(tf_directions)}/{n} TFs available')
+                
                 wlog(f'[RULE] Rule "{rule_name}" result: all_matched={all_matched}')
+
                 
                 # ===== 発火判定ロジック（条件揃い状態に関わらず実行）=====
                 num_conditions = len(conditions)
@@ -1828,22 +1878,42 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
                 # ===== 今回の条件揃い状態 =====
                 current_conditions_matched = all_matched
                 
-                # ===== 発火判定ロジック分岐 =====
-                if num_conditions == 1:
-                    # 単一条件：条件が満たされていれば発火（状態変化済みなので）
-                    should_fire = all_matched
-                    wlog(f'[RULE] Single condition: should_fire={should_fire}')
-                else:
-                    # 複数条件：「前回False → 今回True」のときだけ発火
-                    if last_conditions_matched == False and current_conditions_matched == True:
-                        should_fire = True
-                        wlog(f'[RULE] Multi-condition: False→True, should_fire=True')
+                # ===== 発火判定ロジック =====
+                # 「DBの状態が変化して、その結果ルール条件を満たした」場合に発火
+                # 1. 条件を満たしている (all_matched=True)
+                # 2. かつ、前回の記録と比較して少なくとも1つのフィールド値が変化している
+                
+                should_fire = False
+                
+                if all_matched:
+                    # 条件を満たしている場合、フィールド値の変化をチェック
+                    has_field_change = False
+                    
+                    if last_state is None:
+                        # 初回評価の場合は発火
+                        has_field_change = True
+                        wlog(f'[RULE] First evaluation with matched conditions, should_fire=True')
                     else:
-                        should_fire = False
-                        if last_conditions_matched is None:
-                            wlog(f'[RULE] Multi-condition: No previous state, should_fire=False')
-                        else:
-                            wlog(f'[RULE] Multi-condition: {last_conditions_matched}→{current_conditions_matched}, should_fire=False')
+                        # 各条件のフィールド値が変化したかチェック
+                        for cond in conditions:
+                            tf_label = cond.get('label')
+                            field = cond.get('field')
+                            field_key = f'{tf_label}.{field}'
+                            
+                            current_value = tf_cloud_data.get(tf_label, {}).get(field)
+                            last_value = last_state.get(field_key)
+                            
+                            if current_value != last_value:
+                                has_field_change = True
+                                wlog(f'[RULE] Field change detected: {field_key} = {last_value} → {current_value}')
+                                break
+                        
+                        if not has_field_change:
+                            wlog(f'[RULE] Conditions matched but no field change, should_fire=False')
+                    
+                    should_fire = has_field_change
+                else:
+                    wlog(f'[RULE] Conditions not matched, should_fire=False')
                 
                 # ===== 発火処理 =====
                 if should_fire:
@@ -1953,6 +2023,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
                         'voice_settings': voice_settings
                     })
                     wlog(f'[FIRE] ✓ Notification fired for rule "{rule_name}" direction={direction}')
+                    wlog(f'[FIRE] ✓ Added to fired_notifications list (count={len(fired_notifications)})')
                 else:
                     # 発火しない場合もログ出力
                     wlog(f'[RULE] Rule "{rule_name}" not firing')
@@ -2002,6 +2073,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
                 wlog(tb_str)
         
         # 発火した通知をSocket.IOで配信
+        wlog(f'[FIRE] Checking fired_notifications: count={len(fired_notifications)}')
         if fired_notifications:
             # 各通知を個別に送信
             for notification in fired_notifications:
