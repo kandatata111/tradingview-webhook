@@ -288,20 +288,39 @@
             </label>
         </div>
         
+        <div class="radio-group">
+            <label style="font-weight: bold;">タイムフレーム選択:</label><br>
+            <label>
+                <input type="radio" name="selected_tf" value="5m" checked> 5m
+            </label>
+            <label>
+                <input type="radio" name="selected_tf" value="15m"> 15m
+            </label>
+            <label>
+                <input type="radio" name="selected_tf" value="1H"> 1H
+            </label>
+            <label>
+                <input type="radio" name="selected_tf" value="4H"> 4H
+            </label>
+        </div>
+        
         <button onclick="generateJson()">JSON生成</button>
         <button onclick="sendJson()">送信</button>
         
         <div style="margin-top: 20px; margin-bottom: 10px;">
-            <button onclick="switchJsonView('5m')" style="padding: 8px 16px; margin-right: 5px; background-color: #a9e88c; color: #000;">5m</button>
-            <button onclick="switchJsonView('15m')" style="padding: 8px 16px; margin-right: 5px; background-color: #fbd0b2; color: #000;">15m</button>
-            <button onclick="switchJsonView('1h')" style="padding: 8px 16px; margin-right: 5px; background-color: #8dc7fc; color: #000;">1H</button>
-            <button onclick="switchJsonView('4h')" style="padding: 8px 16px; background-color: #fa8dfe; color: #000;">4H</button>
+            <div style="margin-bottom: 10px;">
+                <label style="font-weight: bold;">JSON表示:</label>
+                <button onclick="switchJsonView('5m')" style="padding: 8px 16px; margin-right: 5px; background-color: #a9e88c; color: #000;">5m</button>
+                <button onclick="switchJsonView('15m')" style="padding: 8px 16px; margin-right: 5px; background-color: #fbd0b2; color: #000;">15m</button>
+                <button onclick="switchJsonView('1H')" style="padding: 8px 16px; margin-right: 5px; background-color: #8dc7fc; color: #000;">1H</button>
+                <button onclick="switchJsonView('4H')" style="padding: 8px 16px; background-color: #fa8dfe; color: #000;">4H</button>
+            </div>
         </div>
         
         <div class="json-output" id="jsonOutput5m" style="display: none;"></div>
         <div class="json-output" id="jsonOutput15m" style="display: none;"></div>
-        <div class="json-output" id="jsonOutput1h" style="display: none;"></div>
-        <div class="json-output" id="jsonOutput4h" style="display: none;"></div>
+        <div class="json-output" id="jsonOutput1H" style="display: none;"></div>
+        <div class="json-output" id="jsonOutput4H" style="display: none;"></div>
         
         <div class="status" id="status"></div>
     </div>
@@ -1085,29 +1104,33 @@
                 const tf = row.getAttribute('data-tf');
                 if (tf === 'price') return; // 価格の行はスキップ
                 
-                const dauten = row.querySelector('td[data-value]').getAttribute('data-value');
-                const bosCount = row.querySelector('td[onclick*="cycleBos"]').getAttribute('data-value');
-                const gc = row.querySelector('td[onclick*="toggleGc"]').getAttribute('data-value') === 'true';
-                
-                const distanceFromPrev = parseFloat(row.querySelector('input[data-field="distance_from_prev"]').value) || 0;
-                const distanceFromPrice = parseFloat(row.querySelector('input[data-field="distance_from_price"]').value) || 0;
-                const angle = parseFloat(row.querySelector('input[data-field="angle"]').value) || 0;
-                const thickness = parseFloat(row.querySelector('input[data-field="thickness"]').value) || 0;
-                
-                const dautenStartTimeStr = row.querySelector('input[data-field="dauten_start_time_str"]').value || '';
-                const elapsedStr = row.querySelector('input[data-field="elapsed_str"]').value || '';
-                
-                rowDataMap[tf] = {
-                    dauten: dauten,
-                    bos_count: bosCount === '-' ? null : parseInt(bosCount.replace('BOS-', '')),
-                    gc: gc,
-                    distance_from_prev: distanceFromPrev,
-                    distance_from_price: distanceFromPrice,
-                    angle: angle,
-                    thickness: thickness,
-                    dauten_start_time_str: dautenStartTimeStr,
-                    elapsed_str: elapsedStr
-                };
+                try {
+                    const dauten = row.querySelector('td[data-value]').getAttribute('data-value');
+                    const bosCount = row.querySelector('td[onclick*="cycleBos"]').getAttribute('data-value');
+                    const gc = row.querySelector('td[onclick*="toggleGc"]').getAttribute('data-value') === 'true';
+                    
+                    const distanceFromPrev = parseFloat(row.querySelector('input[data-field="distance_from_prev"]').value) || 0;
+                    const distanceFromPrice = parseFloat(row.querySelector('input[data-field="distance_from_price"]').value) || 0;
+                    const angle = parseFloat(row.querySelector('input[data-field="angle"]').value) || 0;
+                    const thickness = parseFloat(row.querySelector('input[data-field="thickness"]').value) || 0;
+                    
+                    const dautenStartTimeStr = row.querySelector('input[data-field="dauten_start_time_str"]').value || '';
+                    const elapsedStr = row.querySelector('input[data-field="elapsed_str"]').value || '';
+                    
+                    rowDataMap[tf] = {
+                        dauten: dauten,
+                        bos_count: bosCount === '-' ? null : parseInt(bosCount.replace('BOS-', '')),
+                        gc: gc,
+                        distance_from_prev: distanceFromPrev,
+                        distance_from_price: distanceFromPrice,
+                        angle: angle,
+                        thickness: thickness,
+                        dauten_start_time_str: dautenStartTimeStr,
+                        elapsed_str: elapsedStr
+                    };
+                } catch (e) {
+                    console.error(`Error processing row for ${tf}:`, e);
+                }
             });
             
             // 現在の表の順序に基づいてcloud_orderを生成
@@ -1124,25 +1147,25 @@
                 '5m': {
                     label: '5m',
                     tf: '5',
-                    bos: rowDataMap['5m'].bos_count,
+                    bos: rowDataMap['5m'] ? rowDataMap['5m'].bos_count : null,
                     rowOrder: rowOrderFull
                 },
                 '15m': {
                     label: '15m',
                     tf: '15',
-                    bos: rowDataMap['15m'].bos_count,
+                    bos: rowDataMap['15m'] ? rowDataMap['15m'].bos_count : null,
                     rowOrder: rowOrder15m
                 },
-                '1h': {
+                '1H': {
                     label: '1H',
                     tf: '60',
-                    bos: rowDataMap['1H'].bos_count,
+                    bos: rowDataMap['1H'] ? rowDataMap['1H'].bos_count : null,
                     rowOrder: rowOrder1H
                 },
-                '4h': {
+                '4H': {
                     label: '4H',
                     tf: '240',
-                    bos: rowDataMap['4H'].bos_count,
+                    bos: rowDataMap['4H'] ? rowDataMap['4H'].bos_count : null,
                     rowOrder: rowOrder4H
                 }
             };
@@ -1152,6 +1175,11 @@
                 const clouds = [];
                 const tfLabel = config.label;
                 const tfData = rowDataMap[tfLabel];
+                
+                if (!tfData) {
+                    console.error(`No data found for ${tfLabel}, skipping...`);
+                    continue;
+                }
                 
                 // daytrade.bosの値を設定（bos_countに基づいて）
                 let daytradeBos = "-";
@@ -1184,6 +1212,11 @@
                     // 5m用：すべてのタイムフレームを含める
                     ['5m', '15m', '1H', '4H'].forEach(tf => {
                         const data = rowDataMap[tf];
+                        
+                        if (!data) {
+                            console.error(`No data for ${tf} in 5m generation, skipping...`);
+                            return;
+                        }
                         
                         // Parse dauten_start_time_str
                         let dautenMs = time;
@@ -1259,7 +1292,8 @@
                 window[`jsonData_${key}`] = jsonData;
                 
                 // JSONOutput欄に表示
-                document.getElementById(`jsonOutput${key === '1h' ? '1h' : (key === '4h' ? '4h' : key)}`).textContent = JSON.stringify(jsonData, null, 2);
+                const outputId = `jsonOutput${key}`;
+                document.getElementById(outputId).textContent = JSON.stringify(jsonData, null, 2);
             }
             
             // 最初のタブ（5m）を表示
@@ -1267,23 +1301,27 @@
         }
         
         function switchJsonView(tf) {
+            console.log('switchJsonView called with:', tf);
             // すべてのJSON出力欄を非表示
             document.getElementById('jsonOutput5m').style.display = 'none';
             document.getElementById('jsonOutput15m').style.display = 'none';
-            document.getElementById('jsonOutput1h').style.display = 'none';
-            document.getElementById('jsonOutput4h').style.display = 'none';
+            document.getElementById('jsonOutput1H').style.display = 'none';
+            document.getElementById('jsonOutput4H').style.display = 'none';
             
             // 選択されたタブを表示
-            document.getElementById(`jsonOutput${tf}`).style.display = 'block';
+            const outputId = `jsonOutput${tf}`;
+            console.log('showing output:', outputId);
+            document.getElementById(outputId).style.display = 'block';
         }
         
-        async function sendJson() {
-            console.log('sendJson() called');
+        async function sendSingleJson(tf) {
+            console.log('sendSingleJson called with:', tf);
             
             // JSONが生成されているかチェック
-            if (!window.jsonData_5m || !window.jsonData_15m || !window.jsonData_1h || !window.jsonData_4h) {
-                console.warn('JSON data not found');
-                alert('まずJSONを生成してください');
+            const jsonDataKey = `jsonData_${tf}`;
+            if (!window[jsonDataKey]) {
+                console.warn(`${tf} JSON data not found`);
+                alert(`${tf}のJSONが生成されていません。まずJSON生成ボタンを押してください。`);
                 return;
             }
             
@@ -1300,32 +1338,98 @@
             console.log('sending to URL:', url);
             
             const statusDiv = document.getElementById('status');
-            statusDiv.textContent = '送信中...';
+            statusDiv.textContent = `${tf}送信中...`;
             statusDiv.className = 'status';
             statusDiv.style.display = 'block';
             
-            // 4つのJSONコードを順番に送信
-            const jsonArray = [
-                { name: '5m', data: window.jsonData_5m },
-                { name: '15m', data: window.jsonData_15m },
-                { name: '1H', data: window.jsonData_1h },
-                { name: '4H', data: window.jsonData_4h }
-            ];
+            try {
+                console.log(`sending ${tf}...`);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(window[jsonDataKey])
+                });
+                
+                console.log(`${tf} response status:`, response.status);
+                
+                let result;
+                try {
+                    result = await response.json();
+                } catch (e) {
+                    result = { error: 'Could not parse response', status: response.status };
+                }
+                
+                const success = response.ok;
+                const message = success ? '成功' : '失敗';
+                
+                statusDiv.className = 'status ' + (success ? 'success' : 'error');
+                statusDiv.textContent = `${tf}送信結果: ${message}\n詳細: ${JSON.stringify(result)}`;
+                statusDiv.style.display = 'block';
+                
+                console.log(`${tf} send complete. success:`, success);
+            } catch (error) {
+                console.error(`Error sending ${tf}:`, error);
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `${tf}送信エラー: ${error.message}`;
+                statusDiv.style.display = 'block';
+            }
+        }
+        
+        async function sendJson() {
+            console.log('sendJson() called');
+            
+            // JSONが生成されているかチェック
+            if (!window.jsonData_5m || !window.jsonData_15m || !window.jsonData_1H || !window.jsonData_4H) {
+                console.warn('JSON data not found');
+                alert('まずJSONを生成してください');
+                return;
+            }
+            
+            const selectedTf = document.querySelector('input[name="selected_tf"]:checked').value;
+            const target = document.querySelector('input[name="target"]:checked').value;
+            console.log('selected tf:', selectedTf, 'target:', target);
+            
+            // 選択されたタイムフレームまでのJSONを送信
+            const tfHierarchy = {
+                '5m': ['5m'],
+                '15m': ['5m', '15m'],
+                '1H': ['5m', '15m', '1H'],
+                '4H': ['5m', '15m', '1H', '4H']
+            };
+            
+            const tfsToSend = tfHierarchy[selectedTf];
+            console.log('tfs to send:', tfsToSend);
+            
+            let url;
+            if (target === 'test') {
+                url = 'http://localhost:5000/webhook';
+            } else {
+                url = 'https://tradingview-webhook-s5x1.onrender.com/webhook';
+            }
+            
+            console.log('sending to URL:', url);
+            
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = `${selectedTf}送信中...`;
+            statusDiv.className = 'status';
+            statusDiv.style.display = 'block';
             
             const results = [];
             
-            for (const json of jsonArray) {
+            for (const tf of tfsToSend) {
                 try {
-                    console.log(`sending ${json.name}...`);
+                    console.log(`sending ${tf}...`);
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify(json.data)
+                        body: JSON.stringify(window[`jsonData_${tf}`])
                     });
                     
-                    console.log(`${json.name} response status:`, response.status);
+                    console.log(`${tf} response status:`, response.status);
                     
                     let result;
                     try {
@@ -1335,17 +1439,17 @@
                     }
                     
                     results.push({
-                        tf: json.name,
+                        tf: tf,
                         success: response.ok,
                         message: response.ok ? '成功' : '失敗',
                         details: result
                     });
                     
-                    console.log(`${json.name} result:`, results[results.length - 1]);
+                    console.log(`${tf} result:`, results[results.length - 1]);
                 } catch (error) {
-                    console.error(`Error sending ${json.name}:`, error);
+                    console.error(`Error sending ${tf}:`, error);
                     results.push({
-                        tf: json.name,
+                        tf: tf,
                         success: false,
                         message: 'エラー',
                         details: error.message
@@ -1353,13 +1457,13 @@
                 }
                 
                 // リクエスト間に500ms の遅延を入れる（サーバー負荷軽減）
-                if (jsonArray.indexOf(json) < jsonArray.length - 1) {
+                if (tfsToSend.indexOf(tf) < tfsToSend.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
             
             // 結果を表示
-            let resultText = '送信結果:\n\n';
+            let resultText = `${selectedTf}送信結果:\n\n`;
             let allSuccess = true;
             results.forEach(r => {
                 resultText += `【${r.tf}】\n`;

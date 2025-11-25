@@ -6,6 +6,12 @@ import pytz
 from flask_socketio import SocketIO, emit
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# IMMEDIATELY log the file path to confirm which render_server.py is running
+with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as _f:
+    _f.write(f'\n====== LOADING render_server.py FROM: {__file__} ======\n')
+    _f.write(f'====== BASE_DIR: {BASE_DIR} ======\n\n')
+
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 socketio = SocketIO(app, cors_allowed_origins="*")
 DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
@@ -401,14 +407,22 @@ def webhook():
             saved_at = datetime.now(jst).isoformat()
             print(f'[OK] Saved immediately: {symbol_val}/{tf_val} at {saved_at}')
             
-            # tf=5 の場合のみルール評価と発火を実行
-            if tf_val == '5':
-                try:
-                    evaluate_and_fire_rules(data, symbol_val)
-                except Exception as e:
-                    print(f'[ERROR] Rule evaluation failed: {str(e)}')
-                    with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                        f.write(f'{saved_at} - RULE ERROR for {symbol_val}/{tf_val}: {str(e)}\n')
+            # 全てのタイムフレーム（5, 15, 60, 240）でルール評価と発火を実行
+            try:
+                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                    f.write(f'{saved_at} - RULE_EVAL_START for {symbol_val}/{tf_val}\n')
+                    f.flush()
+                evaluate_and_fire_rules(data, symbol_val, tf_val)
+                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                    f.write(f'{saved_at} - RULE_EVAL_END for {symbol_val}/{tf_val}\n')
+                    f.flush()
+            except Exception as e:
+                print(f'[ERROR] Rule evaluation failed: {str(e)}')
+                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                    f.write(f'{saved_at} - RULE ERROR for {symbol_val}/{tf_val}: {str(e)}\n')
+                    import traceback
+                    f.write(traceback.format_exc())
+                    f.flush()
             
             # Socket.IOで即時更新通知（全クライアントに配信）
             socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
@@ -1546,107 +1560,645 @@ def api_webhook_logs():
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
-def evaluate_and_fire_rules(data, symbol):
+def evaluate_and_fire_rules(data, symbol, tf_val):
     """Evaluate all enabled rules against the incoming data and fire notifications if matched.
     
-    統合テーブルデータを構築:
-    - tf=5 から雲情報（5m、15m、1H、4H）を取得
-    - tf=15,60,240 から各時間足のダウ転・突破数・時間を統合
-    - 統合データでルール評価を実行
+    各タイムフレーム（5, 15, 60, 240）のJSONについて、独立してルール評価を実行。
+    - tf=5 の場合：全雲情報を含むため、通常のルール評価
+    - tf=15,60,240 の場合：当該時間足のダウ転・突破数・時間情報でルール評価
     """
+    def wlog(msg):
+        """Debug message to both console and file"""
+        print(msg)
+        try:
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{msg}\n')
+        except:
+            pass
+    
     try:
-        # === 時刻フィルター: 遅延アラートの処理 ===
-        # デプロイ後のPine script再計算による過去データ送信をフィルタリング
-        # ただし「状態が明らかに変化」している場合は発火対象とする
         jst = pytz.timezone('Asia/Tokyo')
-        utc_now = datetime.now(pytz.UTC)
-        jst_now = datetime.now(jst)
+        wlog(f'[EVALUATE] Starting rule evaluation for {symbol}/{tf_val}')
         
-        # JSONの time フィールド (Unix timestampがms単位) から受信時刻を取得
-        alert_time_ms = data.get('time')
-        is_stale_alert = False
-        time_diff_seconds = 0
-        
-        if alert_time_ms:
-            try:
-                # ミリ秒をUTCに変換
-                alert_time_utc = datetime.fromtimestamp(alert_time_ms / 1000.0, tz=pytz.UTC)
-                time_diff_seconds = abs((utc_now - alert_time_utc).total_seconds())
-                
-                # 300秒（5分）以上ズレたアラート = 古いアラート
-                is_stale_alert = time_diff_seconds > 300
-                
-                if is_stale_alert:
-                    print(f'[FILTER] Stale alert detected for {symbol}: {time_diff_seconds:.1f}s old, checking for state changes...')
-                    
-                    # 古いアラートでも「状態が明らかに変化」していれば発火対象にする
-                    # 前回の状態を取得してチェック
-                    conn_check = sqlite3.connect(DB_PATH)
-                    c_check = conn_check.cursor()
-                    c_check.execute('SELECT daytrade_status FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol, '5'))
-                    prev_row = c_check.fetchone()
-                    conn_check.close()
-                    
-                    prev_daytrade = prev_row[0] if prev_row else None
-                    curr_daytrade = data.get('daytrade', {}).get('status', '')
-                    
-                    # ダウ転のステータスが明らかに変化しているか確認
-                    state_changed = (prev_daytrade is not None and 
-                                   prev_daytrade != '' and 
-                                   prev_daytrade != curr_daytrade)
-                    
-                    if not state_changed:
-                        print(f'[FILTER] No state change detected (prev={prev_daytrade}, curr={curr_daytrade}), skipping stale alert')
-                        return
-                    
-                    print(f'[FILTER] State change detected (prev={prev_daytrade} -> curr={curr_daytrade}), processing stale alert')
-            except Exception as e:
-                print(f'[FILTER] Error checking stale alert: {e}')
-                # エラー時は処理継続
-        
-        # tf=5 のデータを基本として取得（全雲情報を含む）
+        # 全タイムフレームの最新データをDBから取得
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT * FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol, '5'))
-        base_row = c.fetchone()
-        base_cols = [d[0] for d in c.description] if c.description else []
         
-        if not base_row:
-            conn.close()
-            print(f'[FIRE] No base state (tf=5) for {symbol}')
-            return
-        
-        # tf=5 のデータを辞書に変換
-        base_state = dict(zip(base_cols, base_row))
-        try:
-            base_state['clouds'] = json.loads(base_state.get('clouds_json', '[]'))
-        except:
-            base_state['clouds'] = []
-        
-        # tf=15,60,240 から各時間足のダウ転情報を取得
-        tf_daytrade_map = {
-            '15': ('15m', 'mid_'),
-            '60': ('1H', 'long_'),
-            '240': ('4H', 'ultra_')
-        }
-        
-        for tf_key, (cloud_label, prefix) in tf_daytrade_map.items():
+        # 5m, 15m, 1H, 4H の全データを取得
+        tf_states = {}
+        base_cols = None
+        for tf_key, tf_label in [('5', '5m'), ('15', '15m'), ('60', '1H'), ('240', '4H')]:
             c.execute('SELECT * FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol, tf_key))
             tf_row = c.fetchone()
             if tf_row:
+                if base_cols is None:
+                    base_cols = [d[0] for d in c.description] if c.description else []
                 tf_state = dict(zip(base_cols, tf_row))
-                # 各時間足のダウ転情報をbase_stateに統合
-                base_state[f'{prefix}daytrade_status'] = tf_state.get('daytrade_status', '')
-                base_state[f'{prefix}daytrade_bos'] = tf_state.get('daytrade_bos', '')
-                base_state[f'{prefix}daytrade_time'] = tf_state.get('daytrade_time', '')
+                tf_states[tf_label] = tf_state
         
         conn.close()
         
+        if not tf_states:
+            wlog(f'[FIRE] No state data found for {symbol} in database')
+            return
+        
+        wlog(f'[FIRE] Retrieved states from DB for {symbol}: {list(tf_states.keys())}')
+        wlog(f'[DEBUG] Calling _evaluate_rules_with_db_state for {symbol}')
+        
+        # webhook JSON の clouds 配列から受信したタイムフレームのデータを抽出
+        current_cloud = None
+        clouds = data.get('clouds', [])
+        if clouds:
+            # tf_val に対応する tf_label を作成
+            tf_label = {'5': '5m', '15': '15m', '60': '1H', '240': '4H'}.get(tf_val, tf_val)
+            # clouds 配列から該当するタイムフレームを検索
+            for cloud in clouds:
+                if cloud.get('label') == tf_label or cloud.get('tf') == tf_label:
+                    current_cloud = cloud
+                    wlog(f'[DEBUG] Found current cloud for {tf_label}: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+                    break
+        
+        if not current_cloud:
+            wlog(f'[WARNING] No cloud data found in webhook for tf={tf_val}')
+        
         # 統合データを使用してルール評価
-        _evaluate_rules_with_state(base_state)
+        _evaluate_rules_with_db_state(tf_states, symbol, current_cloud, tf_val)
+        wlog(f'[DEBUG] _evaluate_rules_with_db_state completed for {symbol}')
         
     except Exception as e:
-        print(f'[ERROR] evaluate_and_fire_rules: {e}')
+        wlog(f'[ERROR] evaluate_and_fire_rules: {e}')
+        import traceback
+        traceback.print_exc()
+
+
+def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current_tf=None):
+    """DBから取得した全タイムフレームのデータを使用してルール評価
+    
+    表に表示されている現在値を基にルール判定（clouds_jsonから正しくデータを抽出）
+    current_cloud: webhook から受け取った current_cloud データ
+    """
+    # Simple inline logging function - writes directly to file
+    def wlog(msg):
+        """Write log directly to file"""
+        try:
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'[RULE_V3] {msg}\n')
+                f.flush()
+        except:
+            pass
+    
+    wlog('===== FUNCTION ENTRY =====')
+    
+    try:
+        # clouds_jsonからクラウド情報を抽出してフィールドを展開
+        # tf_label -> {field: value, ...} のマッピングを作成
+        tf_cloud_data = {}
+        
+        wlog(f'[DEBUG] current_cloud={current_cloud}, current_tf={current_tf}')
+        
+        # 現在の webhook で受け取った tf（5m、15m、1H、4H）のクラウドデータを追加
+        if current_cloud and current_tf:
+            # webhook の tf を tf_label に変換
+            tf_label = {'5': '5m', '15': '15m', '60': '1H', '240': '4H'}.get(current_tf, current_tf)
+            tf_cloud_data[tf_label] = current_cloud
+            wlog(f'Added current cloud data for {tf_label}')
+        
+        for tf_label, tf_state in tf_states.items():
+            # 既に webhook で受け取った現在の tf_label はスキップ
+            if tf_label in tf_cloud_data:
+                continue
+            
+            clouds_json_str = tf_state.get('clouds_json', '[]')
+            try:
+                clouds = json.loads(clouds_json_str)
+                # 該当するタイムフレームのクラウドデータを取得
+                for cloud in clouds:
+                    if cloud.get('label') == tf_label or cloud.get('tf') == tf_label or cloud.get('label') == tf_label.replace('m', '').replace('H', ''):
+                        tf_cloud_data[tf_label] = cloud
+                        break
+            except Exception as e:
+                pass
+        
+        wlog(f'[DEBUG] tf_cloud_data keys after construction: {list(tf_cloud_data.keys())} for webhook tf={current_tf}')
+        
+        # ルールを取得
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, name, enabled, scope_json, rule_json FROM rules WHERE enabled = 1')
+        rows = c.fetchall()
+        conn.close()
+        
+        if not rows:
+            print('[FIRE] No enabled rules')
+            return
+        
+        print(f'[FIRE] Evaluating {len(rows)} enabled rules for {symbol} using DB state')
+        
+        jst = pytz.timezone('Asia/Tokyo')
+        fired_notifications = []
+        for row in rows:
+            rule_id, rule_name, enabled, scope_json, rule_json = row
+            try:
+                scope = json.loads(scope_json) if scope_json else {}
+                rule = json.loads(rule_json) if rule_json else {}
+                
+                # ルールの音声設定を取得
+                voice_settings = rule.get('voice', {})
+                
+                wlog(f'[RULE] Processing rule "{rule_name}" scope={scope}')
+                
+                # Check scope: if scope has symbol, must match
+                if scope.get('symbol') and scope['symbol'] != symbol:
+                    wlog(f'[RULE] Rule "{rule_name}" skipped: scope symbol mismatch ({scope.get("symbol")} != {symbol})')
+                    continue
+                
+                wlog(f'[RULE] Testing rule "{rule_name}" for {symbol}')
+                
+                # ルール条件を評価（AND条件：すべての条件が満たされる必要がある）
+                conditions = rule.get('conditions', [])
+                all_matched = True
+                matched_conditions = []
+                
+                # 複数条件の場合、各条件から方向を収集
+                condition_directions = []
+                
+                for cond in conditions:
+                    tf_label = cond.get('label')  # '5m', '15m', '1H', '4H'
+                    field = cond.get('field')      # 'dauten', 'bos_count', 'gc' など
+                    value = cond.get('value')      # 期待値
+                    
+                    # クラウドデータから値を取得
+                    cloud_data = tf_cloud_data.get(tf_label)
+                    if cloud_data is None:
+                        wlog(f'[RULE] Cloud data not available for {tf_label}')
+                        all_matched = False
+                        break
+                    
+                    found_value = cloud_data.get(field)
+                    
+                    # 条件をチェック
+                    condition_met = False
+                    if value is None:
+                        # Presence check: フィールドが存在し、None でないかチェック
+                        condition_met = found_value is not None
+                    else:
+                        # Value check: 値が一致するかチェック
+                        condition_met = found_value == value
+                    
+                    if condition_met:
+                        matched_conditions.append(cond)
+                        wlog(f'[RULE] Condition met: {tf_label}.{field} = {found_value}')
+                        
+                        # 各フィールドから方向を判定
+                        direction = None
+                        if field == 'dauten':
+                            if found_value == 'up':
+                                direction = 'up'
+                            elif found_value == 'down':
+                                direction = 'down'
+                        elif field == 'gc':
+                            if found_value is True:
+                                direction = 'up'
+                            elif found_value is False:
+                                direction = 'down'
+                        elif field == 'bos_count':
+                            if found_value is not None:
+                                try:
+                                    bos_num = float(found_value) if found_value != '' else 0
+                                    if bos_num > 0:
+                                        direction = 'up'
+                                    elif bos_num < 0:
+                                        direction = 'down'
+                                except:
+                                    pass
+                        
+                        condition_directions.append(direction)
+                        wlog(f'[RULE] Added direction: {direction}')
+                    else:
+                        all_matched = False
+                        wlog(f'[RULE] Condition not met: {tf_label}.{field} (found={found_value}, expected={value})')
+                        break
+                
+                # 複数条件の場合、方向の整合性をチェック
+                wlog(f'[RULE] === Direction check START === all_matched={all_matched}, num_conditions={len(conditions)}, directions={condition_directions}')
+                if all_matched and len(conditions) > 1:
+                    # None以外の方向を収集
+                    valid_directions = [d for d in condition_directions if d is not None]
+                    wlog(f'[RULE] Valid directions: {valid_directions}')
+                    
+                    if len(valid_directions) > 1:
+                        # 方向が複数ある場合、すべて同じ方向かチェック
+                        if len(set(valid_directions)) > 1:
+                            # 方向が一致していない
+                            all_matched = False
+                            wlog(f'[RULE] Direction mismatch: {valid_directions} - not firing')
+                        else:
+                            wlog(f'[RULE] Direction aligned: {valid_directions[0]}')
+                    elif len(valid_directions) == 1:
+                        wlog(f'[RULE] Single direction: {valid_directions[0]}')
+                    else:
+                        wlog(f'[RULE] No direction info available')
+                
+                wlog(f'[RULE] Rule "{rule_name}" result: all_matched={all_matched}')
+                
+                # ===== 発火判定ロジック（条件揃い状態に関わらず実行）=====
+                num_conditions = len(conditions)
+                should_fire = False
+                
+                # ===== 前回の状態を取得 =====
+                conn_check = sqlite3.connect(DB_PATH)
+                c_check = conn_check.cursor()
+                c_check.execute('''SELECT last_state_snapshot FROM fire_history 
+                                   WHERE rule_id = ? AND symbol = ? AND tf = ?
+                                   ORDER BY fired_at DESC LIMIT 1''', 
+                               (rule_id, symbol, ''))
+                last_fire = c_check.fetchone()
+                conn_check.close()
+                
+                last_state = None
+                last_conditions_matched = None
+                
+                if last_fire and last_fire[0]:
+                    try:
+                        last_state = json.loads(last_fire[0])
+                        last_conditions_matched = last_state.get('__conditions_matched__', None)
+                    except:
+                        last_state = None
+                
+                # ===== 今回の条件揃い状態 =====
+                current_conditions_matched = all_matched
+                
+                # ===== 発火判定ロジック分岐 =====
+                if num_conditions == 1:
+                    # 単一条件：条件が満たされていれば発火（状態変化済みなので）
+                    should_fire = all_matched
+                    wlog(f'[RULE] Single condition: should_fire={should_fire}')
+                else:
+                    # 複数条件：「前回False → 今回True」のときだけ発火
+                    if last_conditions_matched == False and current_conditions_matched == True:
+                        should_fire = True
+                        wlog(f'[RULE] Multi-condition: False→True, should_fire=True')
+                    else:
+                        should_fire = False
+                        if last_conditions_matched is None:
+                            wlog(f'[RULE] Multi-condition: No previous state, should_fire=False')
+                        else:
+                            wlog(f'[RULE] Multi-condition: {last_conditions_matched}→{current_conditions_matched}, should_fire=False')
+                
+                # ===== 発火処理 =====
+                if should_fire:
+                    wlog(f'[RULE] ✓ FIRING Rule: {rule_name}')
+                    
+                    # 状態スナップショットに__conditions_matched__フラグを追加
+                    state_snapshot = {
+                        'symbol': symbol,
+                        'conditions': str(conditions),
+                        '__conditions_matched__': current_conditions_matched
+                    }
+                    
+                    # 各条件のタイムフレームごとにcloud_dataを追加
+                    for cond in conditions:
+                        tf_label = cond.get('label')
+                        cond_cloud_data = tf_cloud_data.get(tf_label, {})
+                        for k, v in cond_cloud_data.items():
+                            state_snapshot[f'{tf_label}.{k}'] = v
+                    
+                    # 発火履歴を保存
+                    fired_at = datetime.now(jst).isoformat()
+                    try:
+                        conn_fire = sqlite3.connect(DB_PATH)
+                        c_fire = conn_fire.cursor()
+                        
+                        c_fire.execute('''INSERT INTO fire_history 
+                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                         VALUES (?, ?, ?, ?, ?, ?)''',
+                                      (rule_id, symbol, '', fired_at, 
+                                       json.dumps(conditions, ensure_ascii=False), 
+                                       json.dumps(state_snapshot, ensure_ascii=False)))
+                        
+                        conn_fire.commit()
+                        conn_fire.close()
+                    except Exception as e:
+                        wlog(f'[RULE] Error saving fire history: {e}')
+                    
+                    # 方向を判定
+                    direction = None
+                    if conditions:
+                        primary_field = conditions[0].get('field')
+                        primary_tf_label = conditions[0].get('label')
+                        cloud_data = tf_cloud_data.get(primary_tf_label, {})
+                        
+                        if primary_field == 'dauten':
+                            dauten_value = cloud_data.get('dauten')
+                            if dauten_value == 'up':
+                                direction = '上昇'
+                            elif dauten_value == 'down':
+                                direction = '下降'
+                        
+                        elif primary_field == 'gc':
+                            gc_value = cloud_data.get('gc')
+                            if gc_value is True:
+                                direction = '上昇'
+                            elif gc_value is False:
+                                direction = '下降'
+                        
+                        elif primary_field == 'bos_count':
+                            bos_value = cloud_data.get('bos_count')
+                            if bos_value is not None:
+                                try:
+                                    bos_num = float(bos_value) if bos_value != '' else 0
+                                    if bos_num > 0:
+                                        direction = '上昇'
+                                    elif bos_num < 0:
+                                        direction = '下降'
+                                except:
+                                    pass
+                    
+                    # メッセージを構築（方向別メッセージを含む）
+                    common_message = voice_settings.get('message', '')
+                    message_up = voice_settings.get('message_up', '')
+                    message_down = voice_settings.get('message_down', '')
+                    message_position = voice_settings.get('message_position', 'suffix')
+                    
+                    # 方向別メッセージを選択
+                    if direction == '上昇' and message_up:
+                        direction_message = message_up
+                    elif direction == '下降' and message_down:
+                        direction_message = message_down
+                    else:
+                        direction_message = ''
+                    
+                    # メッセージ結合
+                    if message_position == 'prefix':
+                        final_message = (direction_message + ' ' + common_message).strip() if direction_message else common_message
+                    elif message_position == 'suffix':
+                        final_message = (common_message + ' ' + direction_message).strip() if direction_message else common_message
+                    elif message_position == 'both':
+                        final_message = (direction_message + ' ' + common_message + ' ' + direction_message).strip() if direction_message else common_message
+                    else:
+                        final_message = common_message
+                    
+                    # メッセージが空の場合はルール名を使用
+                    if not final_message:
+                        final_message = rule_name
+                    
+                    fired_notifications.append({
+                        'rule_id': rule_id,
+                        'rule_name': rule_name,
+                        'symbol': symbol,
+                        'tf': 'multi',
+                        'timestamp': fired_at,
+                        'message': final_message,
+                        'direction': direction,
+                        'voice_settings': voice_settings
+                    })
+                    wlog(f'[FIRE] ✓ Notification fired for rule "{rule_name}" direction={direction}')
+                else:
+                    # 発火しない場合もログ出力
+                    wlog(f'[RULE] Rule "{rule_name}" not firing')
+                
+                # ===== 状態記録（発火有無に関わらず）=====
+                # 複数条件ルールの場合、条件揃い状態を常に記録してループ動作を可能にする
+                if num_conditions > 1 and not should_fire:
+                    try:
+                        conn_fire = sqlite3.connect(DB_PATH)
+                        c_fire = conn_fire.cursor()
+                        
+                        # 状態スナップショットに__conditions_matched__を記録
+                        state_snapshot = {
+                            'symbol': symbol,
+                            'conditions': str(conditions),
+                            '__conditions_matched__': current_conditions_matched
+                        }
+                        
+                        # 各条件のタイムフレームごとにcloud_dataを追加
+                        for cond in conditions:
+                            tf_label = cond.get('label')
+                            cond_cloud_data = tf_cloud_data.get(tf_label, {})
+                            for k, v in cond_cloud_data.items():
+                                state_snapshot[f'{tf_label}.{k}'] = v
+                        
+                        fired_at = datetime.now(jst).isoformat()
+                        c_fire.execute('''INSERT INTO fire_history 
+                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                         VALUES (?, ?, ?, ?, ?, ?)''',
+                                      (rule_id, symbol, '', fired_at, 
+                                       json.dumps(conditions, ensure_ascii=False), 
+                                       json.dumps(state_snapshot, ensure_ascii=False)))
+                        
+                        conn_fire.commit()
+                        conn_fire.close()
+                        wlog(f'[RULE] State recorded (not firing): __conditions_matched__={current_conditions_matched}')
+                    except Exception as e:
+                        wlog(f'[RULE] Error recording state: {e}')
+                
+            except Exception as e:
+                error_msg = f'[FIRE] Error evaluating rule "{rule_name}": {e}'
+                print(error_msg)
+                wlog(error_msg)
+                import traceback
+                tb_str = traceback.format_exc()
+                print(tb_str)
+                wlog(tb_str)
+        
+        # 発火した通知をSocket.IOで配信
+        if fired_notifications:
+            # 各通知を個別に送信
+            for notification in fired_notifications:
+                socketio.emit('new_notification', notification)
+                print(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}"')
+            print(f'[FIRE] Total {len(fired_notifications)} notifications sent')
+        
+    except Exception as e:
+        print(f'[ERROR] _evaluate_rules_with_db_state: {e}')
+        import traceback
+        traceback.print_exc()
+
+
+def _evaluate_rules_with_timeframe_data(data, symbol, tf_val):
+    """tf=15, 60, 240 用のルール評価
+    
+    当該タイムフレームのダウ転・突破数でルール評価を実行
+    """
+    try:
+        # tf値を時間足ラベルにマッピング
+        tf_map = {
+            '15': '15m',
+            '60': '1H',
+            '240': '4H'
+        }
+        tf_label = tf_map.get(tf_val, f'tf{tf_val}')
+        
+        # JSONから当該タイムフレームのデータを抽出
+        clouds = data.get('clouds', [])
+        tf_cloud = None
+        
+        for cloud in clouds:
+            if cloud.get('label') == tf_label or cloud.get('tf') == tf_label:
+                tf_cloud = cloud
+                break
+        
+        if not tf_cloud:
+            print(f'[FIRE] No cloud data found for {tf_label} in received JSON')
+            return
+        
+        print(f'[FIRE] Evaluating rules for {symbol}/{tf_val} ({tf_label}) with cloud data: dauten={tf_cloud.get("dauten")}, bos={tf_cloud.get("bos_count")}')
+        
+        # ルールを取得して評価
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, name, enabled, scope_json, rule_json FROM rules WHERE enabled = 1')
+        rows = c.fetchall()
+        conn.close()
+        
+        if not rows:
+            print('[FIRE] No enabled rules')
+            return
+        
+        print(f'[FIRE] Evaluating {len(rows)} enabled rules for {symbol}/{tf_val}')
+        
+        jst = pytz.timezone('Asia/Tokyo')
+        fired_notifications = []
+        
+        for row in rows:
+            rule_id, rule_name, enabled, scope_json, rule_json = row
+            try:
+                scope = json.loads(scope_json) if scope_json else {}
+                rule = json.loads(rule_json) if rule_json else {}
+                
+                # Check scope: if scope has symbol, must match
+                if scope.get('symbol') and scope['symbol'] != symbol:
+                    print(f'[FIRE] Rule "{rule_name}" scope mismatch: {scope.get("symbol")} != {symbol}')
+                    continue
+                
+                # Check scope: if scope has tf, must match
+                if scope.get('tf') and scope['tf'] != tf_val:
+                    print(f'[FIRE] Rule "{rule_name}" tf mismatch: {scope.get("tf")} != {tf_val}')
+                    continue
+                
+                print(f'[FIRE] Testing rule "{rule_name}" for {symbol}/{tf_val}')
+                
+                # ルール条件を評価
+                conditions = rule.get('conditions', [])
+                all_matched = True
+                
+                for cond in conditions:
+                    label = cond.get('label')
+                    field = cond.get('field')
+                    value = cond.get('value')
+                    
+                    # 条件のラベルが当該タイムフレームと一致するかチェック
+                    if label != tf_label:
+                        print(f'[FIRE] Condition label mismatch: {label} != {tf_label}, skipping condition')
+                        all_matched = False
+                        break
+                    
+                    # tf_cloudからフィールド値を取得
+                    found_value = tf_cloud.get(field)
+                    
+                    # 条件をチェック
+                    condition_met = False
+                    if value is None:
+                        # Presence check
+                        condition_met = found_value is not None
+                    else:
+                        # Value check
+                        condition_met = found_value == value
+                    
+                    if not condition_met:
+                        all_matched = False
+                        print(f'[FIRE] Condition not met: {label}.{field} (found={found_value}, expected={value})')
+                        break
+                
+                print(f'[FIRE] Rule "{rule_name}" result: matched={all_matched}')
+                
+                # ルールが一致した場合は通知を発火
+                if all_matched:
+                    print(f'[FIRE] ✓ Rule MATCHED: {rule_name}')
+                    
+                    # Get last fired state for this rule/tf
+                    conn_check = sqlite3.connect(DB_PATH)
+                    c_check = conn_check.cursor()
+                    c_check.execute('''SELECT last_state_snapshot FROM fire_history 
+                                       WHERE rule_id = ? AND symbol = ? AND tf = ? 
+                                       ORDER BY fired_at DESC LIMIT 1''', (rule_id, symbol, tf_val))
+                    last_fire = c_check.fetchone()
+                    conn_check.close()
+                    
+                    last_state = None
+                    if last_fire and last_fire[0]:
+                        try:
+                            last_state = json.loads(last_fire[0])
+                        except:
+                            last_state = None
+                    
+                    # 状態変化をチェック（dauten, bos_countの変化を検出）
+                    should_fire = False
+                    
+                    if last_state is None:
+                        # 初回発火
+                        should_fire = True
+                        print(f'[FIRE] First time firing for this rule/symbol/tf')
+                    else:
+                        # 前回の状態と比較
+                        prev_dauten = last_state.get('dauten')
+                        prev_bos = last_state.get('bos_count')
+                        curr_dauten = tf_cloud.get('dauten')
+                        curr_bos = tf_cloud.get('bos_count')
+                        
+                        if prev_dauten != curr_dauten or prev_bos != curr_bos:
+                            should_fire = True
+                            print(f'[FIRE] State change detected: dauten {prev_dauten}->{curr_dauten}, bos {prev_bos}->{curr_bos}')
+                        else:
+                            print(f'[FIRE] No state change, skipping fire')
+                    
+                    if should_fire:
+                        # 通知を記録してメッセージをキューに追加
+                        try:
+                            conn_fire = sqlite3.connect(DB_PATH)
+                            c_fire = conn_fire.cursor()
+                            
+                            # 現在の状態をスナップショットとして保存
+                            current_state_snapshot = json.dumps({
+                                'dauten': tf_cloud.get('dauten'),
+                                'bos_count': tf_cloud.get('bos_count'),
+                                'gc': tf_cloud.get('gc')
+                            }, ensure_ascii=False)
+                            
+                            c_fire.execute('''INSERT INTO fire_history 
+                                             (rule_id, symbol, tf, fired_at, last_state_snapshot)
+                                             VALUES (?, ?, ?, ?, ?)''',
+                                          (rule_id, symbol, tf_val, datetime.now(jst).isoformat(), current_state_snapshot))
+                            conn_fire.commit()
+                            conn_fire.close()
+                            
+                            fired_notifications.append({
+                                'rule_id': rule_id,
+                                'rule_name': rule_name,
+                                'symbol': symbol,
+                                'tf': tf_val
+                            })
+                            print(f'[FIRE] ✓ Notification fired for rule "{rule_name}"')
+                        except Exception as e:
+                            print(f'[FIRE] Error recording fire history: {e}')
+                    
+            except Exception as e:
+                print(f'[FIRE] Error evaluating rule "{rule_name}": {e}')
+                import traceback
+                traceback.print_exc()
+        
+        # 発火した通知をSocket.IOで配信
+        if fired_notifications:
+            socketio.emit('rule_fired', {
+                'notifications': fired_notifications,
+                'timestamp': datetime.now(jst).isoformat()
+            })
+            print(f'[FIRE] Emitted {len(fired_notifications)} rule_fired events')
+        
+    except Exception as e:
+        print(f'[ERROR] _evaluate_rules_with_timeframe_data: {e}')
+        import traceback
+        traceback.print_exc()
 
 
 def _evaluate_rules_with_state(base_state):
@@ -2161,7 +2713,9 @@ def load_notes():
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 if __name__ == '__main__':
+    print('[DEBUG] Starting init_db...')
     init_db()
+    print('[DEBUG] init_db completed')
     port = int(os.environ.get('PORT', 5000))
     
     # ログファイルの初期化
@@ -2176,15 +2730,23 @@ if __name__ == '__main__':
         pass
     
     print(f'[START] Starting server on port {port} at {datetime.now(jst).isoformat()}')
+    print('[DEBUG] About to call socketio.run...')
     
     try:
-        socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+        print('[DEBUG] Calling socketio.run...')
+        socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True, use_reloader=False)
+        print('[DEBUG] socketio.run completed')
     except Exception as e:
         error_msg = f'[CRITICAL ERROR] Server crashed: {str(e)}'
         print(error_msg)
+        import traceback
+        print('[DEBUG] Full traceback:')
+        traceback.print_exc()
         try:
             with open(startup_log, 'a', encoding='utf-8') as f:
                 f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
+                f.write(f'Full traceback:\n{traceback.format_exc()}\n')
         except:
             pass
         raise
+
