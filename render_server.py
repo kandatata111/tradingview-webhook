@@ -1621,8 +1621,17 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
         if not current_cloud:
             wlog(f'[WARNING] No cloud data found in webhook for tf={tf_val}')
         
+        # 5mのJSONには全TFのデータが含まれているので、全て抽出
+        all_clouds = {}
+        if clouds:
+            for cloud in clouds:
+                label = cloud.get('label')
+                if label in ['5m', '15m', '1H', '4H']:
+                    all_clouds[label] = cloud
+                    wlog(f'[DEBUG] Extracted cloud from webhook: {label} - dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+        
         # 統合データを使用してルール評価
-        _evaluate_rules_with_db_state(tf_states, symbol, current_cloud, tf_val)
+        _evaluate_rules_with_db_state(tf_states, symbol, all_clouds, tf_val)
         wlog(f'[DEBUG] _evaluate_rules_with_db_state completed for {symbol}')
         
     except Exception as e:
@@ -1631,11 +1640,13 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
         traceback.print_exc()
 
 
-def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current_tf=None):
+def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf=None):
     """DBから取得した全タイムフレームのデータを使用してルール評価
     
-    表に表示されている現在値を基にルール判定（clouds_jsonから正しくデータを抽出）
-    current_cloud: webhook から受け取った current_cloud データ
+    表に表示されている現在値を基にルール判定
+    - 5mのDBレコードには雲情報（gc, thickness等）
+    - 各TF（15m, 1H, 4H）のDBレコードにはそのTFのダウ転換情報
+    all_clouds: webhook から受け取った全TFのクラウドデータ {tf_label: cloud_data, ...}
     """
     # Simple inline logging function - writes directly to file
     def wlog(msg):
@@ -1650,36 +1661,62 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
     wlog('===== FUNCTION ENTRY =====')
     
     try:
-        # clouds_jsonからクラウド情報を抽出してフィールドを展開
         # tf_label -> {field: value, ...} のマッピングを作成
+        # 表の視覚的内容を正確に反映するため、各TFのDBレコードから取得
         tf_cloud_data = {}
         
-        wlog(f'[DEBUG] current_cloud={current_cloud}, current_tf={current_tf}')
+        wlog(f'[DEBUG] all_clouds={list(all_clouds.keys()) if all_clouds else None}, current_tf={current_tf}')
         
-        # 現在の webhook で受け取った tf（5m、15m、1H、4H）のクラウドデータを追加
-        if current_cloud and current_tf:
-            # webhook の tf を tf_label に変換
-            tf_label = {'5': '5m', '15': '15m', '60': '1H', '240': '4H'}.get(current_tf, current_tf)
-            tf_cloud_data[tf_label] = current_cloud
-            wlog(f'Added current cloud data for {tf_label}')
-        
-        for tf_label, tf_state in tf_states.items():
-            # 既に webhook で受け取った現在の tf_label はスキップ
-            if tf_label in tf_cloud_data:
-                continue
-            
-            clouds_json_str = tf_state.get('clouds_json', '[]')
+        # 1. まず5mのDBレコードから全TFの雲情報（gc, thickness等）を取得
+        tf_state_5m = tf_states.get('5m')
+        if tf_state_5m:
+            clouds_json_str = tf_state_5m.get('clouds_json', '[]')
             try:
                 clouds = json.loads(clouds_json_str)
-                # 該当するタイムフレームのクラウドデータを取得
                 for cloud in clouds:
-                    if cloud.get('label') == tf_label or cloud.get('tf') == tf_label or cloud.get('label') == tf_label.replace('m', '').replace('H', ''):
-                        tf_cloud_data[tf_label] = cloud
-                        break
+                    label = cloud.get('label')
+                    if label in ['5m', '15m', '1H', '4H']:
+                        tf_cloud_data[label] = cloud.copy()
+                        wlog(f'[DB] Loaded cloud data for {label} from 5m DB: gc={cloud.get("gc")}, dauten={cloud.get("dauten")}')
             except Exception as e:
-                pass
+                wlog(f'[ERROR] Failed to parse 5m clouds_json: {e}')
         
-        wlog(f'[DEBUG] tf_cloud_data keys after construction: {list(tf_cloud_data.keys())} for webhook tf={current_tf}')
+        # 2. 各TF（15m, 1H, 4H）のDBレコードからダウ転換情報を上書き（これが表の視覚的内容）
+        for tf_key, tf_label in [('15', '15m'), ('60', '1H'), ('240', '4H')]:
+            tf_state = tf_states.get(tf_label)
+            if tf_state:
+                clouds_json_str = tf_state.get('clouds_json', '[]')
+                try:
+                    clouds = json.loads(clouds_json_str)
+                    if clouds:
+                        tf_cloud = clouds[0]  # 各TFのレコードには1つのクラウドのみ
+                        if tf_label in tf_cloud_data:
+                            # ダウ転換情報を上書き
+                            tf_cloud_data[tf_label]['dauten'] = tf_cloud.get('dauten')
+                            tf_cloud_data[tf_label]['bos_count'] = tf_cloud.get('bos_count')
+                            tf_cloud_data[tf_label]['dauten_start_time'] = tf_cloud.get('dauten_start_time')
+                            wlog(f'[DB] Overwrote dauten for {tf_label} from {tf_label} DB: dauten={tf_cloud.get("dauten")}, bos={tf_cloud.get("bos_count")}')
+                        else:
+                            tf_cloud_data[tf_label] = tf_cloud.copy()
+                            wlog(f'[DB] Loaded {tf_label} data from {tf_label} DB: dauten={tf_cloud.get("dauten")}')
+                except Exception as e:
+                    wlog(f'[ERROR] Failed to parse {tf_label} clouds_json: {e}')
+        
+        # 3. webhook から受け取ったデータで上書き（最新データ優先）
+        if all_clouds:
+            for tf_label, cloud in all_clouds.items():
+                if tf_label in tf_cloud_data:
+                    # 最新のwebhookデータで上書き
+                    for key, value in cloud.items():
+                        tf_cloud_data[tf_label][key] = value
+                    wlog(f'[WEBHOOK] Updated {tf_label} with webhook data: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+                else:
+                    tf_cloud_data[tf_label] = cloud.copy()
+                    wlog(f'[WEBHOOK] Added {tf_label} from webhook: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+        
+        wlog(f'[DEBUG] tf_cloud_data final keys: {list(tf_cloud_data.keys())}')
+        for tf_label, data in tf_cloud_data.items():
+            wlog(f'[DEBUG] {tf_label}: dauten={data.get("dauten")}, gc={data.get("gc")}')
         
         # ルールを取得
         conn = sqlite3.connect(DB_PATH)
