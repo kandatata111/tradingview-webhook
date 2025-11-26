@@ -1800,53 +1800,52 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
                         wlog(f'[RULE] No direction info available')
                 
                 # ===== Alignment チェック =====
-                # ルールに alignment 設定がある場合、複数タイムフレームの方向が揃っているかチェック
+                # ルールに alignment 設定がある場合、cloud_order の並び順をチェック
                 alignment_config = rule.get('alignment')
+                alignment_direction = None  # 整列の方向（'上昇' or '下降'）
+                
                 if alignment_config and all_matched:
                     wlog(f'[RULE] Checking alignment: {alignment_config}')
                     
                     tfs = alignment_config.get('tfs', [])  # ['5m', '15m', '1H', '4H']
-                    n = alignment_config.get('n', len(tfs))  # 必要な揃い数
-                    missing_mode = alignment_config.get('missing', 'ignore')  # 'ignore' or 'fail'
                     
-                    # 各タイムフレームの gc フィールドから方向を取得
-                    tf_directions = []
-                    for tf_label in tfs:
-                        cloud_data = tf_cloud_data.get(tf_label, {})
-                        gc_value = cloud_data.get('gc')
-                        
-                        if gc_value is None:
-                            if missing_mode == 'fail':
-                                all_matched = False
-                                wlog(f'[RULE] Alignment failed: {tf_label} gc is missing (missing_mode=fail)')
-                                break
-                            # missing_mode == 'ignore' の場合はスキップ
-                            continue
-                        
-                        # gc から方向を判定
-                        direction = 'up' if gc_value is True else 'down'
-                        tf_directions.append((tf_label, direction))
+                    # DBから現在の cloud_order を取得
+                    conn_order = sqlite3.connect(DB_PATH)
+                    c_order = conn_order.cursor()
+                    c_order.execute('SELECT cloud_order FROM states WHERE symbol = ? AND tf = ? LIMIT 1', (symbol, '5'))
+                    row_order = c_order.fetchone()
+                    conn_order.close()
                     
-                    if all_matched and len(tf_directions) >= n:
-                        # 方向が揃っているかチェック
-                        directions_only = [d for _, d in tf_directions]
-                        unique_directions = set(directions_only)
+                    if row_order and row_order[0]:
+                        cloud_order_str = row_order[0]  # '5m,15m,1H,4H,価格' のような文字列
+                        cloud_order = [x.strip() for x in cloud_order_str.split(',')]
                         
-                        if len(unique_directions) == 1:
-                            # 全て同じ方向
-                            aligned_count = len(tf_directions)
-                            if aligned_count >= n:
-                                wlog(f'[RULE] Alignment OK: {aligned_count}/{n} TFs aligned in "{directions_only[0]}" direction')
+                        # 「価格」を除外してTFのみ抽出
+                        cloud_order_tfs = [x for x in cloud_order if x in ['5m', '15m', '1H', '4H']]
+                        
+                        # 選択されたTFのみを抽出（順序を保持）
+                        selected_order = [x for x in cloud_order_tfs if x in tfs]
+                        
+                        # 期待する昇順と降順
+                        expected_asc = tfs  # ['5m', '15m', '1H', '4H']
+                        expected_desc = list(reversed(tfs))  # ['4H', '1H', '15m', '5m']
+                        
+                        # 整列判定
+                        is_aligned = (selected_order == expected_asc or selected_order == expected_desc)
+                        
+                        if is_aligned:
+                            # 整列方向を判定
+                            if selected_order == expected_asc:
+                                alignment_direction = '上昇'
                             else:
-                                all_matched = False
-                                wlog(f'[RULE] Alignment failed: only {aligned_count}/{n} TFs available')
+                                alignment_direction = '下降'
+                            wlog(f'[RULE] Alignment OK: {selected_order} matches expected order (direction={alignment_direction})')
                         else:
-                            # 方向がバラバラ
                             all_matched = False
-                            wlog(f'[RULE] Alignment failed: directions not aligned {tf_directions}')
-                    elif all_matched:
+                            wlog(f'[RULE] Alignment failed: {selected_order} does not match expected order (asc={expected_asc}, desc={expected_desc})')
+                    else:
                         all_matched = False
-                        wlog(f'[RULE] Alignment failed: only {len(tf_directions)}/{n} TFs available')
+                        wlog(f'[RULE] Alignment failed: cloud_order not found in DB')
                 
                 wlog(f'[RULE] Rule "{rule_name}" result: all_matched={all_matched}')
 
@@ -1894,19 +1893,34 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
                         has_field_change = True
                         wlog(f'[RULE] First evaluation with matched conditions, should_fire=True')
                     else:
-                        # 各条件のフィールド値が変化したかチェック
-                        for cond in conditions:
-                            tf_label = cond.get('label')
-                            field = cond.get('field')
-                            field_key = f'{tf_label}.{field}'
+                        # Alignment ルールの場合は cloud_order の変化をチェック
+                        if alignment_config:
+                            conn_order_check = sqlite3.connect(DB_PATH)
+                            c_order_check = conn_order_check.cursor()
+                            c_order_check.execute('SELECT cloud_order FROM states WHERE symbol = ? AND tf = ? LIMIT 1', (symbol, '5'))
+                            row_order_check = c_order_check.fetchone()
+                            conn_order_check.close()
                             
-                            current_value = tf_cloud_data.get(tf_label, {}).get(field)
-                            last_value = last_state.get(field_key)
+                            current_cloud_order = row_order_check[0] if row_order_check else ''
+                            last_cloud_order = last_state.get('cloud_order', '')
                             
-                            if current_value != last_value:
+                            if current_cloud_order != last_cloud_order:
                                 has_field_change = True
-                                wlog(f'[RULE] Field change detected: {field_key} = {last_value} → {current_value}')
-                                break
+                                wlog(f'[RULE] Cloud order change detected: {last_cloud_order} → {current_cloud_order}')
+                        else:
+                            # 通常のルール: 各条件のフィールド値が変化したかチェック
+                            for cond in conditions:
+                                tf_label = cond.get('label')
+                                field = cond.get('field')
+                                field_key = f'{tf_label}.{field}'
+                                
+                                current_value = tf_cloud_data.get(tf_label, {}).get(field)
+                                last_value = last_state.get(field_key)
+                                
+                                if current_value != last_value:
+                                    has_field_change = True
+                                    wlog(f'[RULE] Field change detected: {field_key} = {last_value} → {current_value}')
+                                    break
                         
                         if not has_field_change:
                             wlog(f'[RULE] Conditions matched but no field change, should_fire=False')
@@ -1925,6 +1939,17 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
                         'conditions': str(conditions),
                         '__conditions_matched__': current_conditions_matched
                     }
+                    
+                    # Alignment ルールの場合は cloud_order を保存
+                    if alignment_config:
+                        conn_order_snap = sqlite3.connect(DB_PATH)
+                        c_order_snap = conn_order_snap.cursor()
+                        c_order_snap.execute('SELECT cloud_order FROM states WHERE symbol = ? AND tf = ? LIMIT 1', (symbol, '5'))
+                        row_order_snap = c_order_snap.fetchone()
+                        conn_order_snap.close()
+                        
+                        if row_order_snap:
+                            state_snapshot['cloud_order'] = row_order_snap[0]
                     
                     # 各条件のタイムフレームごとにcloud_dataを追加
                     for cond in conditions:
@@ -1953,7 +1978,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, current_cloud=None, current
                     
                     # 方向を判定
                     direction = None
-                    if conditions:
+                    
+                    # Alignment ルールの場合は alignment_direction を優先
+                    if alignment_direction:
+                        direction = alignment_direction
+                        wlog(f'[RULE] Direction from alignment: {direction}')
+                    elif conditions:
                         primary_field = conditions[0].get('field')
                         primary_tf_label = conditions[0].get('label')
                         cloud_data = tf_cloud_data.get(primary_tf_label, {})
