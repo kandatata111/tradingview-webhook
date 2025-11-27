@@ -5579,6 +5579,127 @@ let isPlayingVoice = false;
 let lastChimeFile = null;  // 最後に再生した警報ファイル
 let chimeReplayTimeout = null;  // 警報リプレイ防止タイマー
 let speechCallCounter = 0;  // speechSynthesis.speak()呼び出しカウンター（デバッグ用）
+let cachedVoices = [];  // 音声リストキャッシュ
+let voicesLoaded = false;  // 音声リスト読み込み完了フラグ
+let audioContext = null;  // AudioContext for unlocking audio
+let audioUnlocked = false;  // オーディオがアンロックされたかどうか
+let preloadedChimes = {};  // プリロードされたチャイム音
+
+// オーディオをアンロックする関数（ユーザーインタラクション時に呼び出す）
+function unlockAudio() {
+  if (audioUnlocked) return;
+  
+  console.log('[AUDIO_UNLOCK] Attempting to unlock audio...');
+  
+  // AudioContext を作成してアンロック
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  
+  if (audioContext.state === 'suspended') {
+    audioContext.resume().then(() => {
+      console.log('[AUDIO_UNLOCK] AudioContext resumed');
+    });
+  }
+  
+  // 無音を再生してオーディオをアンロック
+  const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+  silentAudio.volume = 0.001;
+  silentAudio.play().then(() => {
+    audioUnlocked = true;
+    console.log('[AUDIO_UNLOCK] ✓ Audio unlocked successfully');
+  }).catch(e => {
+    console.log('[AUDIO_UNLOCK] Silent audio play failed:', e.message);
+  });
+  
+  // speechSynthesis もアンロック
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance('');
+    utterance.volume = 0;
+    speechSynthesis.speak(utterance);
+    console.log('[AUDIO_UNLOCK] speechSynthesis unlocked');
+  }
+}
+
+// ユーザーインタラクションイベントでオーディオをアンロック
+['click', 'touchstart', 'keydown'].forEach(eventType => {
+  document.addEventListener(eventType, unlockAudio, { once: true });
+});
+
+// チャイム音を事前にロードする関数
+async function preloadChimeFiles() {
+  try {
+    const res = await fetch('/api/chime_files');
+    if (res.ok) {
+      const data = await res.json();
+      const files = data.files || [];
+      console.log('[CHIME_PRELOAD] Loading', files.length, 'chime files...');
+      
+      for (const file of files) {
+        const audio = new Audio('/Alarm/' + file);
+        audio.preload = 'auto';
+        audio.load();
+        preloadedChimes[file] = audio;
+      }
+      console.log('[CHIME_PRELOAD] ✓ Preloaded chimes:', Object.keys(preloadedChimes).length);
+    }
+  } catch (e) {
+    console.log('[CHIME_PRELOAD] Error:', e);
+  }
+}
+
+// ページ読み込み時にチャイムを事前ロード
+preloadChimeFiles();
+
+// 音声リストを事前にロードする関数
+function preloadVoices() {
+  return new Promise((resolve) => {
+    if ('speechSynthesis' in window) {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        cachedVoices = voices;
+        voicesLoaded = true;
+        console.log('[VOICE_PRELOAD] Voices loaded immediately:', voices.length);
+        resolve(voices);
+        return;
+      }
+      
+      // 音声リストがまだロードされていない場合はイベントを待つ
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        const handler = () => {
+          cachedVoices = speechSynthesis.getVoices();
+          voicesLoaded = true;
+          console.log('[VOICE_PRELOAD] Voices loaded via event:', cachedVoices.length);
+          resolve(cachedVoices);
+        };
+        speechSynthesis.addEventListener('voiceschanged', handler, { once: true });
+        
+        // タイムアウト後も解決（フォールバック）
+        setTimeout(() => {
+          if (!voicesLoaded) {
+            cachedVoices = speechSynthesis.getVoices();
+            voicesLoaded = cachedVoices.length > 0;
+            console.log('[VOICE_PRELOAD] Timeout fallback, voices:', cachedVoices.length);
+            resolve(cachedVoices);
+          }
+        }, 1000);
+      } else {
+        // onvoiceschanged がサポートされていない場合
+        setTimeout(() => {
+          cachedVoices = speechSynthesis.getVoices();
+          voicesLoaded = cachedVoices.length > 0;
+          console.log('[VOICE_PRELOAD] Delayed load, voices:', cachedVoices.length);
+          resolve(cachedVoices);
+        }, 100);
+      }
+    } else {
+      resolve([]);
+    }
+  });
+}
+
+// ページ読み込み時に音声を事前ロード
+preloadVoices();
 
 function playVoiceAlert(message, voiceSettings = null, symbol = null) {
   console.log('[VOICE_ALERT] Called with message:', message, 'chime:', voiceSettings?.chime_file);
@@ -5624,7 +5745,17 @@ function playNextInQueue() {
     // Play chime first if specified
     if (item.voiceSettings && item.voiceSettings.chime_file) {
       const chimeFile = item.voiceSettings.chime_file;
-      const chimeAudio = new Audio('/Alarm/' + chimeFile);
+      
+      // プリロードされたチャイムを使用、なければ新規作成
+      let chimeAudio;
+      if (preloadedChimes[chimeFile]) {
+        chimeAudio = preloadedChimes[chimeFile].cloneNode();  // クローンして同時再生可能に
+        console.log('[VOICE_QUEUE] Using preloaded chime:', chimeFile);
+      } else {
+        chimeAudio = new Audio('/Alarm/' + chimeFile);
+        console.log('[VOICE_QUEUE] Creating new Audio for chime:', chimeFile);
+      }
+      
       chimeAudio.volume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
       
       // タイムアウトクリア
@@ -5632,22 +5763,38 @@ function playNextInQueue() {
       
       // 警報ファイルを記録
       lastChimeFile = chimeFile;
-      console.log('[VOICE_QUEUE] Playing chime:', chimeFile);
+      console.log('[VOICE_QUEUE] Playing chime:', chimeFile, 'audioUnlocked:', audioUnlocked);
       
-      chimeAudio.addEventListener('ended', () => {
+      // 再生完了時のハンドラ
+      const onChimeEnd = () => {
         console.log('[VOICE_QUEUE] Chime ended:', chimeFile);
         playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
           // 音声再生完了後、次を再生
           playNextInQueue();
         });
-      });
+      };
       
-      chimeAudio.play().catch(e => {
-        console.log('Chime play error', e);
-        playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
-          playNextInQueue();
+      chimeAudio.addEventListener('ended', onChimeEnd, { once: true });
+      
+      // エラー時のフォールバック
+      chimeAudio.addEventListener('error', (e) => {
+        console.log('[VOICE_QUEUE] Chime error:', e);
+        onChimeEnd();
+      }, { once: true });
+      
+      // 再生試行
+      const playPromise = chimeAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log('[VOICE_QUEUE] ✓ Chime playing:', chimeFile);
+        }).catch(e => {
+          console.log('[VOICE_QUEUE] Chime play blocked:', e.message);
+          // オーディオがブロックされた場合、音声メッセージのみ再生
+          playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
+            playNextInQueue();
+          });
         });
-      });
+      }
       
       // 警報再生後、100msのリプレイ防止タイマーをセット
       chimeReplayTimeout = setTimeout(() => {
@@ -5665,8 +5812,22 @@ function playNextInQueue() {
   }
 }
 
-function playVoiceMessage(message, voiceSettings = null, symbol = null, onComplete = null) {
-  console.log('[VOICE_MESSAGE] Called with message:', message, 'voiceSettings:', voiceSettings);
+function playVoiceMessage(message, voiceSettings = null, symbol = null, onComplete = null, retryCount = 0) {
+  console.log('[VOICE_MESSAGE] Called with message:', message, 'voiceSettings:', voiceSettings, 'retryCount:', retryCount);
+  
+  // 音声リストを取得（キャッシュ優先）
+  let voices = cachedVoices.length > 0 ? cachedVoices : speechSynthesis.getVoices();
+  
+  // 音声リストが空の場合は再試行
+  if (voices.length === 0 && retryCount < 3) {
+    console.log('[VOICE_MESSAGE] No voices available, retrying in 200ms... (attempt', retryCount + 1, ')');
+    setTimeout(() => {
+      // 再度音声リストを取得
+      cachedVoices = speechSynthesis.getVoices();
+      playVoiceMessage(message, voiceSettings, symbol, onComplete, retryCount + 1);
+    }, 200);
+    return;
+  }
   
   // Create utterance
   const utterance = new SpeechSynthesisUtterance(message);
@@ -5707,8 +5868,13 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
     'Microsoft Sayaka (Japanese)'
   ];
   
-  // 音声リストを取得し、ブロックリストをフィルタ
-  const voices = speechSynthesis.getVoices();
+  // キャッシュを更新
+  if (voices.length > 0) {
+    cachedVoices = voices;
+    voicesLoaded = true;
+  }
+  
+  // 音声リストをフィルタ
   const availableVoices = voices.filter(v => !blockedVoiceNames.includes(v.name));
   
   console.log('[VOICE_MESSAGE] Total voices:', voices.length, 'After blocking:', availableVoices.length);
@@ -5875,6 +6041,83 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
   
   console.log('[VOICE_MESSAGE] Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
 }
+
+// 音声有効化オーバーレイの表示
+function showAudioEnableOverlay() {
+  // 既にアンロックされていれば表示しない
+  if (audioUnlocked) return;
+  
+  // localStorage で非表示設定を確認
+  if (localStorage.getItem('tv_audio_overlay_dismissed') === 'true') {
+    // 30分以内に閉じた場合は表示しない
+    const dismissedAt = parseInt(localStorage.getItem('tv_audio_overlay_dismissed_at') || '0');
+    if (Date.now() - dismissedAt < 30 * 60 * 1000) {
+      return;
+    }
+  }
+  
+  const overlay = document.createElement('div');
+  overlay.id = 'audioEnableOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    cursor: pointer;
+  `;
+  
+  overlay.innerHTML = `
+    <div style="
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 2px solid #4a90d9;
+      border-radius: 16px;
+      padding: 40px 60px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(74, 144, 217, 0.3);
+    ">
+      <div style="font-size: 48px; margin-bottom: 20px;">🔊</div>
+      <div style="color: #fff; font-size: 20px; font-weight: bold; margin-bottom: 12px;">
+        音声通知を有効化
+      </div>
+      <div style="color: #aaa; font-size: 14px; margin-bottom: 20px;">
+        クリックして音声アラートを有効にしてください
+      </div>
+      <button style="
+        background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+        color: white;
+        border: none;
+        padding: 12px 36px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+      " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 16px rgba(74,144,217,0.5)';"
+         onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';">
+        有効化
+      </button>
+    </div>
+  `;
+  
+  overlay.addEventListener('click', () => {
+    unlockAudio();
+    overlay.remove();
+    localStorage.setItem('tv_audio_overlay_dismissed', 'true');
+    localStorage.setItem('tv_audio_overlay_dismissed_at', Date.now().toString());
+    console.log('[AUDIO_OVERLAY] Dismissed and audio unlocked');
+  });
+  
+  document.body.appendChild(overlay);
+}
+
+// ページ読み込み後にオーバーレイを表示
+setTimeout(showAudioEnableOverlay, 500);
 </script>
 </body>
 </html>
