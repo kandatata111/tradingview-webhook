@@ -1703,13 +1703,18 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     wlog(f'[ERROR] Failed to parse {tf_label} clouds_json: {e}')
         
         # 3. webhook から受け取ったデータで上書き（最新データ優先）
+        # ただし、dauten と bos_count は各TFのDBレコードから取得した値を維持
+        # （表の視覚的内容と一致させるため）
         if all_clouds:
             for tf_label, cloud in all_clouds.items():
                 if tf_label in tf_cloud_data:
-                    # 最新のwebhookデータで上書き
+                    # 最新のwebhookデータで上書き（dauten, bos_count は除く）
                     for key, value in cloud.items():
+                        # dauten と bos_count は DB の値を維持（表の視覚的内容）
+                        if key in ['dauten', 'bos_count', 'dauten_start_time', 'dauten_start_time_str']:
+                            continue
                         tf_cloud_data[tf_label][key] = value
-                    wlog(f'[WEBHOOK] Updated {tf_label} with webhook data: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+                    wlog(f'[WEBHOOK] Updated {tf_label} with webhook data (dauten/bos excluded): gc={cloud.get("gc")}')
                 else:
                     tf_cloud_data[tf_label] = cloud.copy()
                     wlog(f'[WEBHOOK] Added {tf_label} from webhook: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
@@ -1794,6 +1799,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             elif found_value == 'down':
                                 direction = 'down'
                         elif field == 'gc':
+                            # gc=True は上昇（青）、gc=False は下降（赤）
                             if found_value is True:
                                 direction = 'up'
                             elif found_value is False:
@@ -2059,6 +2065,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 direction = '下降'
                         
                         elif primary_field == 'gc':
+                            # gc=True は上昇（青）、gc=False は下降（赤）
                             gc_value = cloud_data.get('gc')
                             if gc_value is True:
                                 direction = '上昇'
@@ -2122,9 +2129,9 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     wlog(f'[RULE] Rule "{rule_name}" not firing')
                 
                 # ===== 状態記録（発火有無に関わらず）=====
-                # Alignmentルールは常にTF順序を記録（整列が崩れた時も記録）
-                # 複数条件ルールの場合、条件揃い状態を常に記録してループ動作を可能にする
-                if (alignment_config or num_conditions > 1) and not should_fire:
+                # すべてのルールで状態を記録（発火していない場合）
+                # これにより、次回評価時に正確な比較ができる
+                if not should_fire:
                     try:
                         conn_fire = sqlite3.connect(DB_PATH)
                         c_fire = conn_fire.cursor()
@@ -2640,6 +2647,9 @@ def _evaluate_rules_with_state(base_state):
                         for cloud in base_state.get('clouds', []):
                             if cloud.get('label') == label:
                                 actual = cloud.get(field)
+                                # gc の場合は dauten から方向を取得
+                                dauten_value = cloud.get('dauten')
+                                
                                 if actual is not None:
                                     if field == 'dauten':
                                         if '上昇' in str(actual) or 'up' in str(actual).lower():
@@ -2647,6 +2657,7 @@ def _evaluate_rules_with_state(base_state):
                                         elif '下降' in str(actual) or 'down' in str(actual).lower():
                                             directions_found.append('下降')
                                     elif field == 'gc':
+                                        # gc=True は上昇（青）、gc=False は下降（赤）
                                         if actual is True or str(actual).upper() == 'TRUE':
                                             directions_found.append('上昇')
                                         elif actual is False or str(actual).upper() == 'FALSE':

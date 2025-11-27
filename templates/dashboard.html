@@ -27,7 +27,9 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .settings-button::before { content:'\2699'; font-size:1.05em; }
 .settings-button:hover { background:rgba(255,255,255,0.15); color:#ffffff; }
 .modal-overlay { position:fixed; left:0;top:0;right:0;bottom:0; background: rgba(0,0,0,0.4); display:none; align-items:center; justify-content:center; z-index:9999 }
-  .modal { background:rgba(255,255,255,0.18); color:#f5f7ff; padding:20px 22px; border-radius:14px; min-width:280px; position:relative; cursor:move; user-select:none; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,0.35); box-shadow:0 18px 40px rgba(0,0,0,0.35); max-height:80vh; overflow:auto; }
+  .modal { background:rgba(255,255,255,0.18); color:#f5f7ff; padding:20px 22px; border-radius:14px; min-width:280px; position:relative; cursor:move; user-select:none; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,0.35); box-shadow:0 18px 40px rgba(0,0,0,0.35); max-height:90vh; overflow:auto; resize:both; min-height:200px; }
+  .modal .resize-handle { position:absolute; right:0; bottom:0; width:20px; height:20px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%); border-radius:0 0 14px 0; }
+  .modal .resize-handle:hover { background:linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.5) 50%); }
 .modal h3 { margin-top:0; cursor:move; font-weight:600; letter-spacing:0.5px; }
 .modal .row { margin-bottom:12px }
 .modal label { color:#f5f7ff; }
@@ -597,6 +599,37 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   flex-direction: column;
   min-height: 0;
 }
+
+/* ルール編集セクションの左右パネル */
+.rules-side-panel {
+  overflow-y: auto;
+  padding-right: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.rules-side-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.rules-side-panel::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+  border-radius: 3px;
+}
+.rules-side-panel::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 3px;
+}
+.rules-side-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.5);
+}
+.light-mode .rules-side-panel::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.05);
+}
+.light-mode .rules-side-panel::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.2);
+}
+.light-mode .rules-side-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.4);
+}
 </style>
 </head>
 <body>
@@ -620,7 +653,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 
 <!-- 設定モーダル（初期は非表示） -->
 <div class="modal-overlay" id="settingsModal">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" style="display:flex;flex-direction:column;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <h3 id="settingsTitle" style="margin:0">各項目設定</h3>
     <button id="closeSettings" style="background:#333;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer">閉じる</button>
@@ -724,23 +757,25 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 
     <!-- 発火条件セクション -->
     <div class="section-header" data-section="rules">発火条件（ルール）</div>
-    <div class="section-body" data-section-body="rules">
-    <div class="row" style="display:flex;flex-direction:column;gap:10px">
+    <div class="section-body" data-section-body="rules" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+    <div class="row" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;">
       <button id="newRuleBtn" class="rule-btn" style="align-self:flex-start;padding:6px 12px">新規ルール作成</button>
-      <div style="width:100%; max-height:220px; overflow:auto; border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:8px; background:rgba(0,0,0,0.12); position:relative;">
-        <div class="subsection-header" data-subsection="savedRules">
-          <strong>保存済みルール</strong>
-        </div>
-        <div class="subsection-body" data-subsection-body="savedRules">
+      
+      <!-- 左右並びコンテナ -->
+      <div style="display:flex;gap:12px;width:100%;flex:1;min-height:0;">
+        <!-- 左側: 保存済みルール -->
+        <div class="rules-side-panel" style="flex:0 0 auto;border:1px solid rgba(255,255,255,0.08);padding:8px;border-radius:8px;background:rgba(0,0,0,0.12);">
+          <div style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);">
+            <strong>保存済みルール</strong>
+          </div>
           <ul id="rulesList" style="list-style:none;padding:0;margin:0;display:block"></ul>
         </div>
-      </div>
 
-      <div style="width:100%; max-height:360px; overflow:auto; border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:8px; background:rgba(0,0,0,0.06); position:relative;">
-        <div class="subsection-header" data-subsection="ruleEditor">
-          <strong>ルール編集</strong>
-        </div>
-        <div class="subsection-body" data-subsection-body="ruleEditor">
+        <!-- 右側: ルール編集 -->
+        <div class="rules-side-panel" style="flex:1;border:1px solid rgba(255,255,255,0.08);padding:8px;border-radius:8px;background:rgba(0,0,0,0.06);">
+          <div style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);">
+            <strong>ルール編集</strong>
+          </div>
           <div style="display:flex;flex-direction:column;gap:8px;width:100%">
             <div style="display:flex;align-items:center;gap:8px">
               <label style="font-size:0.9em;min-width:72px">ルール名：</label>
@@ -879,11 +914,15 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
             </div>
           </div>
         </div>
+        <!-- ルール編集ここまで -->
         </div>
+        <!-- 左右コンテナここまで -->
       </div>
+      <!-- 発火条件セクションここまで -->
     </div>
-    </div>
+    <!-- モーダル本体ここまで -->
   </div>
+  <!-- settingsModalここまで -->
 </div>
 
 <!-- ノートモーダル（初期は非表示） -->
@@ -986,6 +1025,8 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 })();
 
 // すべてのイベントリスナーを設定する関数
+let isResizingSettings = false;  // 設定モーダルリサイズ中フラグ（グローバル）
+
 async function setupAllEventListeners() {
   console.log('[INIT] Setting up all event listeners');
 
@@ -995,9 +1036,33 @@ async function setupAllEventListeners() {
   const overlay = document.getElementById('settingsModal');
   const modal = document.querySelector('.modal');
 
-  if (openBtn) openBtn.addEventListener('click', () => { if (overlay) overlay.style.display = 'flex'; });
+  if (openBtn) openBtn.addEventListener('click', () => { 
+    if (overlay) {
+      overlay.style.display = 'flex';
+      // 保存されたサイズと位置を復元
+      if (modal) {
+        const savedWidth = localStorage.getItem('tv_settings_modal_width');
+        const savedHeight = localStorage.getItem('tv_settings_modal_height');
+        const savedLeft = localStorage.getItem('tv_settings_modal_left');
+        const savedTop = localStorage.getItem('tv_settings_modal_top');
+        
+        if (savedWidth) modal.style.width = savedWidth + 'px';
+        if (savedHeight) modal.style.height = savedHeight + 'px';
+        if (savedLeft && savedTop) {
+          modal.style.position = 'fixed';
+          modal.style.left = savedLeft;
+          modal.style.top = savedTop;
+          modal.style.margin = '0';
+        }
+      }
+    }
+  });
   if (closeBtn) closeBtn.addEventListener('click', () => { if (overlay) overlay.style.display = 'none'; });
-  if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
+  if (overlay) overlay.addEventListener('click', (e) => { 
+    // リサイズ中はオーバーレイクリックを無視
+    if (isResizingSettings) return;
+    if (e.target === overlay) overlay.style.display = 'none'; 
+  });
 
 // ノートモーダルの開閉
 const openNoteBtn = document.getElementById('openNote');
@@ -1111,11 +1176,20 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
   }
 });  // モーダルのドラッグ機能
   let isDragging = false, offsetX = 0, offsetY = 0;
+  
   if (modal) {
     modal.addEventListener('mousedown', e => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
-      isDragging = true;
+      
+      // リサイズ領域（右下20px）をクリックした場合はドラッグしない
       const rect = modal.getBoundingClientRect();
+      const isInResizeArea = (e.clientX > rect.right - 20) && (e.clientY > rect.bottom - 20);
+      if (isInResizeArea) {
+        isResizingSettings = true;
+        return;
+      }
+      
+      isDragging = true;
       offsetX = e.clientX - rect.left;
       offsetY = e.clientY - rect.top;
       modal.style.position = 'fixed';
@@ -1213,9 +1287,21 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         localStorage.setItem('tv_note_modal_top', modal.style.top || '50%');
       }
     }
+    
+    // 設定モーダルのサイズと位置を保存
+    if ((isDragging || isResizingSettings) && modal) {
+      const rect = modal.getBoundingClientRect();
+      localStorage.setItem('tv_settings_modal_width', Math.round(rect.width).toString());
+      localStorage.setItem('tv_settings_modal_height', Math.round(rect.height).toString());
+      localStorage.setItem('tv_settings_modal_left', modal.style.left || '');
+      localStorage.setItem('tv_settings_modal_top', modal.style.top || '');
+      console.log('[SETTINGS] Saved modal size/position:', { width: rect.width, height: rect.height });
+    }
+    
     isDragging = false;
     isDraggingNote = false;
     isResizingNote = false;
+    isResizingSettings = false;
   });
 
   // ルール関連のイベントリスナー
