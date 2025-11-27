@@ -1901,7 +1901,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 num_conditions = len(conditions)
                 should_fire = False
                 
-                # ===== 前回の状態を取得 =====
+                # ===== 前回の発火状態を取得 =====
+                # 発火した記録のみがfire_historyに保存されているため、最新の発火時の状態と比較
                 conn_check = sqlite3.connect(DB_PATH)
                 c_check = conn_check.cursor()
                 c_check.execute('''SELECT last_state_snapshot FROM fire_history 
@@ -1912,12 +1913,10 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 conn_check.close()
                 
                 last_state = None
-                last_conditions_matched = None
                 
                 if last_fire and last_fire[0]:
                     try:
                         last_state = json.loads(last_fire[0])
-                        last_conditions_matched = last_state.get('__conditions_matched__', None)
                     except:
                         last_state = None
                 
@@ -1927,7 +1926,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 # ===== 発火判定ロジック =====
                 # 「DBの状態が変化して、その結果ルール条件を満たした」場合に発火
                 # 1. 条件を満たしている (all_matched=True)
-                # 2. かつ、前回の記録と比較して少なくとも1つのフィールド値が変化している
+                # 2. かつ、前回の発火時と比較して少なくとも1つのフィールド値が変化している
                 
                 should_fire = False
                 
@@ -2057,8 +2056,11 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         primary_tf_label = conditions[0].get('label')
                         cloud_data = tf_cloud_data.get(primary_tf_label, {})
                         
+                        wlog(f'[RULE] Direction check: primary_field={primary_field}, tf={primary_tf_label}, cloud_data keys={list(cloud_data.keys()) if cloud_data else None}')
+                        
                         if primary_field == 'dauten':
                             dauten_value = cloud_data.get('dauten')
+                            wlog(f'[RULE] Direction from dauten: {dauten_value}')
                             if dauten_value == 'up':
                                 direction = '上昇'
                             elif dauten_value == 'down':
@@ -2067,6 +2069,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         elif primary_field == 'gc':
                             # gc=True は上昇（青）、gc=False は下降（赤）
                             gc_value = cloud_data.get('gc')
+                            wlog(f'[RULE] Direction from gc: {gc_value}')
                             if gc_value is True:
                                 direction = '上昇'
                             elif gc_value is False:
@@ -2074,6 +2077,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         
                         elif primary_field == 'bos_count':
                             bos_value = cloud_data.get('bos_count')
+                            wlog(f'[RULE] Direction from bos_count: {bos_value}')
                             if bos_value is not None:
                                 try:
                                     bos_num = float(bos_value) if bos_value != '' else 0
@@ -2083,6 +2087,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                         direction = '下降'
                                 except:
                                     pass
+                    
+                    wlog(f'[RULE] Final direction for "{rule_name}": {direction}')
                     
                     # メッセージを構築（方向別メッセージを含む）
                     common_message = voice_settings.get('message', '')
@@ -2127,62 +2133,6 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 else:
                     # 発火しない場合もログ出力
                     wlog(f'[RULE] Rule "{rule_name}" not firing')
-                
-                # ===== 状態記録（発火有無に関わらず）=====
-                # すべてのルールで状態を記録（発火していない場合）
-                # これにより、次回評価時に正確な比較ができる
-                if not should_fire:
-                    try:
-                        conn_fire = sqlite3.connect(DB_PATH)
-                        c_fire = conn_fire.cursor()
-                        
-                        # 状態スナップショットに__conditions_matched__を記録
-                        state_snapshot = {
-                            'symbol': symbol,
-                            'conditions': str(conditions),
-                            '__conditions_matched__': current_conditions_matched
-                        }
-                        
-                        # Alignment ルールの場合は tf_order（価格除外のTF順序）を保存
-                        if alignment_config:
-                            conn_order_snap = sqlite3.connect(DB_PATH)
-                            c_order_snap = conn_order_snap.cursor()
-                            c_order_snap.execute('SELECT cloud_order FROM states WHERE symbol = ? AND tf = ? LIMIT 1', (symbol, '5'))
-                            row_order_snap = c_order_snap.fetchone()
-                            conn_order_snap.close()
-                            
-                            if row_order_snap and row_order_snap[0]:
-                                cloud_order_str = row_order_snap[0]
-                                cloud_order = [x.strip() for x in cloud_order_str.split(',')]
-                                # 価格を除外してTFのみ抽出
-                                cloud_order_tfs = [x for x in cloud_order if x in ['5m', '15m', '1H', '4H']]
-                                tfs = alignment_config.get('tfs', [])
-                                selected_order = [x for x in cloud_order_tfs if x in tfs]
-                                state_snapshot['tf_order'] = ','.join(selected_order)
-                                # cloud_order も参考として保存（ログ用）
-                                state_snapshot['cloud_order'] = row_order_snap[0]
-                                wlog(f'[RULE] Recording tf_order for alignment rule: {state_snapshot["tf_order"]}')
-                        
-                        # 各条件のタイムフレームごとにcloud_dataを追加
-                        for cond in conditions:
-                            tf_label = cond.get('label')
-                            cond_cloud_data = tf_cloud_data.get(tf_label, {})
-                            for k, v in cond_cloud_data.items():
-                                state_snapshot[f'{tf_label}.{k}'] = v
-                        
-                        fired_at = datetime.now(jst).isoformat()
-                        c_fire.execute('''INSERT INTO fire_history 
-                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
-                                         VALUES (?, ?, ?, ?, ?, ?)''',
-                                      (rule_id, symbol, '', fired_at, 
-                                       json.dumps(conditions, ensure_ascii=False), 
-                                       json.dumps(state_snapshot, ensure_ascii=False)))
-                        
-                        conn_fire.commit()
-                        conn_fire.close()
-                        wlog(f'[RULE] State recorded (not firing): __conditions_matched__={current_conditions_matched}')
-                    except Exception as e:
-                        wlog(f'[RULE] Error recording state: {e}')
                 
             except Exception as e:
                 error_msg = f'[FIRE] Error evaluating rule "{rule_name}": {e}'
