@@ -135,7 +135,7 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
   flex-direction: column !important;
   max-height: none !important;
   overflow: hidden !important;
-  position: relative;
+  resize: none !important;
 }
 
 .note-section-delete {
@@ -572,6 +572,14 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 #economic-calendar-section.hidden .section-body {
   display: none !important;
 }
+#external-site-window.hidden {
+  min-height: auto !important;
+  height: auto !important;
+  resize: none !important;
+}
+#external-site-window.hidden .window-body {
+  display: none !important;
+}
 #economic-calendar-section .section-header {
   background:#000; color:#fff; padding:6px 10px; margin: 0 0 0 0; border-radius:6px; font-weight:600; font-size:0.95em; letter-spacing:0.3px; display:flex; justify-content:space-between; align-items:center; flex-shrink: 0;
 }
@@ -650,6 +658,75 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 .light-mode #rulesList li.dragging {
   background: rgba(100,149,237,0.2);
+}
+
+/* 外部サイト表示ウィンドウ */
+#external-site-window {
+  margin-top: 15px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  padding: 0;
+  background: rgba(255,255,255,0.1);
+  resize: both;
+  overflow: hidden;
+  min-width: 300px;
+  min-height: 200px;
+  width: 600px;
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+#external-site-window .window-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #000;
+  color: #fff;
+  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 0.95em;
+  cursor: move;
+  user-select: none;
+}
+#external-site-window .window-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+  color: #f5f7ff;
+}
+#external-site-window .window-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+#external-site-window .window-controls select,
+#external-site-window .window-controls input {
+  background: rgba(128,128,128,0.5);
+  color: #f5f7ff;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+#external-site-window .window-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+#external-site-window iframe {
+  border: 0;
+  width: 100%;
+  height: 100%;
+}
+.light-mode #external-site-window {
+  background: rgba(0,0,0,0.05);
+  border-color: rgba(0,0,0,0.2);
+}
+.light-mode #external-site-window .window-header {
+  background: #e8e8e8;
+  color: #111;
+}
+.light-mode #external-site-window .window-header h3 {
+  color: #111;
 }
 </style>
 </head>
@@ -1027,6 +1104,26 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <!-- myfxbook.com Economic Calendar Widget - End -->
     </div>
   </div>
+  
+  <!-- 外部サイト表示ウィンドウ -->
+  <div id="external-site-window">
+    <div class="window-header">
+      <h3>羊飼いコラム</h3>
+      <div class="window-controls">
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; margin: 0;">
+          <input type="radio" name="external-site-visibility" value="show" checked>
+          表示
+        </label>
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; margin: 0;">
+          <input type="radio" name="external-site-visibility" value="hide">
+          非表示
+        </label>
+      </div>
+    </div>
+    <div class="window-body">
+      <iframe id="external-site-iframe" src="/api/proxy?url=https://zai.diamond.jp/list/fxcolumn/hitsuji" loading="lazy"></iframe>
+    </div>
+  </div>
 </div>
 
 </div>
@@ -1138,18 +1235,30 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
         if (modal) {
           const savedWidth = parseInt(localStorage.getItem('tv_note_modal_width')) || 500;
           const savedHeight = parseInt(localStorage.getItem('tv_note_modal_height')) || 400;
-          const savedLeft = localStorage.getItem('tv_note_modal_left') || '50%';
-          const savedTop = localStorage.getItem('tv_note_modal_top') || '50%';
+          const savedLeft = localStorage.getItem('tv_note_modal_left');
+          const savedTop = localStorage.getItem('tv_note_modal_top');
           
-          console.log('[NOTE] Restoring size:', { savedWidth, savedHeight, savedLeft, savedTop });
+          // ピクセル値で保存されているかどうかを確認
+          const hasPixelPosition = savedLeft && savedLeft.endsWith('px') && savedTop && savedTop.endsWith('px');
+          
+          console.log('[NOTE] Restoring size:', { savedWidth, savedHeight, savedLeft, savedTop, hasPixelPosition });
           
           modal.style.width = savedWidth + 'px';
           modal.style.height = savedHeight + 'px';
-          modal.style.left = savedLeft;
-          modal.style.top = savedTop;
           modal.style.position = 'fixed';
           modal.style.margin = '0';
-          modal.style.transform = (savedLeft === '50%' && savedTop === '50%') ? 'translate(-50%, -50%)' : 'none';
+          
+          if (hasPixelPosition) {
+            // ピクセル値で保存されている場合はそのまま適用
+            modal.style.left = savedLeft;
+            modal.style.top = savedTop;
+            modal.style.transform = 'none';
+          } else {
+            // デフォルトは中央配置
+            modal.style.left = '50%';
+            modal.style.top = '50%';
+            modal.style.transform = 'translate(-50%, -50%)';
+          }
         }
       }
     }, 50); // 遅延を50msに増やす
@@ -1164,11 +1273,13 @@ if (closeNoteBtn) closeNoteBtn.addEventListener('click', () => {
       const rect = modal.getBoundingClientRect();
       const width = Math.round(rect.width);
       const height = Math.round(rect.height);
-      console.log('[NOTE] Saving on close:', { width, height, left: modal.style.left, top: modal.style.top });
+      const left = Math.round(rect.left);
+      const top = Math.round(rect.top);
+      console.log('[NOTE] Saving on close:', { width, height, left, top });
       localStorage.setItem('tv_note_modal_width', width.toString());
       localStorage.setItem('tv_note_modal_height', height.toString());
-      localStorage.setItem('tv_note_modal_left', modal.style.left || '50%');
-      localStorage.setItem('tv_note_modal_top', modal.style.top || '50%');
+      localStorage.setItem('tv_note_modal_left', left + 'px');
+      localStorage.setItem('tv_note_modal_top', top + 'px');
     }
     noteOverlay.style.display = 'none';
     isNoteModalOpen = false;
@@ -1185,11 +1296,13 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         const rect = modal.getBoundingClientRect();
         const width = Math.round(rect.width);
         const height = Math.round(rect.height);
-        console.log('[NOTE] Saving on overlay click:', { width, height, left: modal.style.left, top: modal.style.top });
+        const left = Math.round(rect.left);
+        const top = Math.round(rect.top);
+        console.log('[NOTE] Saving on overlay click:', { width, height, left, top });
         localStorage.setItem('tv_note_modal_width', width.toString());
         localStorage.setItem('tv_note_modal_height', height.toString());
-        localStorage.setItem('tv_note_modal_left', modal.style.left || '50%');
-        localStorage.setItem('tv_note_modal_top', modal.style.top || '50%');
+        localStorage.setItem('tv_note_modal_left', left + 'px');
+        localStorage.setItem('tv_note_modal_top', top + 'px');
       }
     }
     noteOverlay.style.display = 'none';
@@ -1221,6 +1334,7 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
   // ノートモーダルのドラッグ機能とリサイズ機能に必要な変数
   let noteOffsetX = 0, noteOffsetY = 0;
   let noteStartWidth = 0, noteStartHeight = 0, noteStartX = 0, noteStartY = 0;
+  let noteStartLeft = 0, noteStartTop = 0;  // リサイズ中の位置固定用
   const noteResizeHandle = document.getElementById('noteResizeHandle');
   
   if (noteOverlay) {
@@ -1234,6 +1348,8 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         noteOffsetX = e.clientX - rect.left;
         noteOffsetY = e.clientY - rect.top;
         noteModalContent.style.position = 'fixed';
+        noteModalContent.style.left = rect.left + 'px';
+        noteModalContent.style.top = rect.top + 'px';
         noteModalContent.style.margin = '0';
         noteModalContent.style.transform = 'none'; // ドラッグ中にtransformを無効化
         console.log('[NOTE] Drag started');
@@ -1254,7 +1370,17 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         noteStartHeight = rect.height;
         noteStartX = e.clientX;
         noteStartY = e.clientY;
-        console.log('[NOTE] Resize started:', { width: noteStartWidth, height: noteStartHeight });
+        noteStartLeft = rect.left;  // 位置を保存
+        noteStartTop = rect.top;    // 位置を保存
+        
+        // リサイズ開始時に位置を固定（transformを無効化してleft/topで位置を設定）
+        modal.style.position = 'fixed';
+        modal.style.left = rect.left + 'px';
+        modal.style.top = rect.top + 'px';
+        modal.style.margin = '0';
+        modal.style.transform = 'none';
+        
+        console.log('[NOTE] Resize started:', { width: noteStartWidth, height: noteStartHeight, left: rect.left, top: rect.top });
       }
     });
   }
@@ -1287,6 +1413,9 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         const newWidth = Math.max(minWidth, Math.min(maxWidth, noteStartWidth + (e.clientX - noteStartX)));
         const newHeight = Math.max(minHeight, Math.min(maxHeight, noteStartHeight + (e.clientY - noteStartY)));
         
+        // 位置を固定したままサイズのみ変更
+        modal.style.left = noteStartLeft + 'px';
+        modal.style.top = noteStartTop + 'px';
         modal.style.width = newWidth + 'px';
         modal.style.height = newHeight + 'px';
       }
@@ -1301,11 +1430,13 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         const rect = modal.getBoundingClientRect();
         const width = Math.round(rect.width);
         const height = Math.round(rect.height);
-        console.log('[NOTE] Saving on mouse up:', { width, height, left: modal.style.left, top: modal.style.top });
+        const left = Math.round(rect.left);
+        const top = Math.round(rect.top);
+        console.log('[NOTE] Saving on mouse up:', { width, height, left, top });
         localStorage.setItem('tv_note_modal_width', width.toString());
         localStorage.setItem('tv_note_modal_height', height.toString());
-        localStorage.setItem('tv_note_modal_left', modal.style.left || '50%');
-        localStorage.setItem('tv_note_modal_top', modal.style.top || '50%');
+        localStorage.setItem('tv_note_modal_left', left + 'px');
+        localStorage.setItem('tv_note_modal_top', top + 'px');
       }
     }
     
@@ -1802,6 +1933,52 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
       }
     });
   });
+
+  // 外部サイトウィンドウの表示/非表示ラジオボタンイベント
+  const externalSiteVisibilityRadios = document.querySelectorAll('input[name="external-site-visibility"]');
+  console.log('[EXTERNAL-SITE] Found ' + externalSiteVisibilityRadios.length + ' visibility radios');
+  externalSiteVisibilityRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      console.log('[EXTERNAL-SITE] Visibility changed to:', e.target.value);
+      const externalSiteWindow = document.getElementById('external-site-window');
+      if (e.target.value === 'hide') {
+        externalSiteWindow.classList.add('hidden');
+        localStorage.setItem('tv_external_site_visible', 'false');
+        console.log('[EXTERNAL-SITE] Hidden class added');
+      } else {
+        externalSiteWindow.classList.remove('hidden');
+        localStorage.setItem('tv_external_site_visible', 'true');
+        console.log('[EXTERNAL-SITE] Hidden class removed');
+      }
+    });
+  });
+
+  // 外部サイトウィンドウのサイズ保存
+  const externalSiteWindow = document.getElementById('external-site-window');
+  if (externalSiteWindow) {
+    // 保存されたサイズを復元
+    const savedWidth = localStorage.getItem('tv_external_site_width');
+    const savedHeight = localStorage.getItem('tv_external_site_height');
+    if (savedWidth) externalSiteWindow.style.width = savedWidth + 'px';
+    if (savedHeight) externalSiteWindow.style.height = savedHeight + 'px';
+    
+    // 保存された表示状態を復元
+    const savedVisible = localStorage.getItem('tv_external_site_visible');
+    if (savedVisible === 'false') {
+      externalSiteWindow.classList.add('hidden');
+      const hideRadio = document.querySelector('input[name="external-site-visibility"][value="hide"]');
+      if (hideRadio) hideRadio.checked = true;
+    }
+
+    // リサイズ時にサイズを保存
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        localStorage.setItem('tv_external_site_width', entry.contentRect.width);
+        localStorage.setItem('tv_external_site_height', entry.contentRect.height);
+      }
+    });
+    resizeObserver.observe(externalSiteWindow);
+  }
 
 // ノート項目の作成関数
 function createNoteSection(title = '', content = '', images = []) {
@@ -4306,6 +4483,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
     
+    // Initialize external site window visibility
+    const savedExternalSiteVisible = localStorage.getItem('tv_external_site_visible') !== 'false';
+    const externalSiteWindow = document.getElementById('external-site-window');
+    const externalSiteVisibilityRadios = document.querySelectorAll('input[name="external-site-visibility"]');
+    if (savedExternalSiteVisible) {
+      externalSiteWindow.classList.remove('hidden');
+      externalSiteVisibilityRadios.forEach(radio => {
+        if (radio.value === 'show') radio.checked = true;
+      });
+    } else {
+      externalSiteWindow.classList.add('hidden');
+      externalSiteVisibilityRadios.forEach(radio => {
+        if (radio.value === 'hide') radio.checked = true;
+      });
+    }
+    
     // Populate chime select
     await populateChimeSelect();
     
@@ -5266,7 +5459,11 @@ function openRuleEditor(rule) {
   // clear conditions
   const condCont = document.getElementById('conditionsContainer'); condCont.innerHTML = '';
   const conds = (rule.rule && rule.rule.conditions) || [];
-  if (conds.length === 0) addConditionRow();
+  const align = rule.rule && rule.rule.alignment;
+  const hasAlignment = align && align.tfs && align.tfs.length >= 2;
+  
+  // 雲整列条件が2つ以上ある場合は、条件行を自動追加しない
+  if (conds.length === 0 && !hasAlignment) addConditionRow();
   conds.forEach(c => {
     const row = createConditionRow(c);
     condCont.appendChild(row);

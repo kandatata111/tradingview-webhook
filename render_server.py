@@ -1,8 +1,9 @@
-﻿from flask import Flask, request, jsonify, render_template, send_from_directory, make_response
+﻿from flask import Flask, request, jsonify, render_template, send_from_directory, make_response, Response
 import os, sqlite3, json, base64, hashlib
 from datetime import datetime
 import threading
 import pytz
+import requests
 from flask_socketio import SocketIO, emit
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -127,6 +128,64 @@ def note_image_options(image_hash):
     response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return response
+
+# 外部サイトプロキシエンドポイント
+@app.route('/api/proxy')
+def proxy_external_site():
+    """外部サイトをプロキシ経由で取得"""
+    try:
+        url = request.args.get('url', 'https://zai.diamond.jp/list/fxcolumn/hitsuji')
+        
+        # 許可するドメインをホワイトリスト化（セキュリティのため）
+        allowed_domains = ['zai.diamond.jp']
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.netloc not in allowed_domains:
+            return jsonify({'status': 'error', 'msg': 'Domain not allowed'}), 403
+        
+        # 外部サイトからコンテンツを取得
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+        }
+        
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        
+        # HTMLコンテンツを取得
+        content = resp.text
+        
+        # ベースURLを追加してリソースが正しく読み込まれるようにする
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        
+        # <head>タグの直後に<base>タグを挿入
+        if '<head>' in content:
+            content = content.replace('<head>', f'<head><base href="{base_url}/">', 1)
+        elif '<HEAD>' in content:
+            content = content.replace('<HEAD>', f'<HEAD><base href="{base_url}/">', 1)
+        
+        # 相対URLを絶対URLに変換（一部）
+        content = content.replace('href="/', f'href="{base_url}/')
+        content = content.replace("href='/", f"href='{base_url}/")
+        content = content.replace('src="/', f'src="{base_url}/')
+        content = content.replace("src='/", f"src='{base_url}/")
+        
+        # レスポンスを返す
+        response = Response(content, mimetype='text/html')
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Cache-Control'] = 'no-cache'
+        
+        return response
+        
+    except requests.exceptions.Timeout:
+        return jsonify({'status': 'error', 'msg': 'Request timeout'}), 504
+    except requests.exceptions.RequestException as e:
+        print(f'[PROXY] Error fetching URL: {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 502
+    except Exception as e:
+        print(f'[PROXY] Unexpected error: {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
