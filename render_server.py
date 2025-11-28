@@ -173,6 +173,12 @@ def init_db():
         conn.commit()
     except Exception:
         pass  # Column already exists
+    # Add sort_order column if it doesn't exist
+    try:
+        c.execute('ALTER TABLE rules ADD COLUMN sort_order INTEGER DEFAULT 0')
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
     conn.commit()
     conn.close()
     print('[OK] Rules table ensured')
@@ -540,7 +546,8 @@ def rules():
         if request.method == 'GET':
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
-            c.execute('SELECT id, name, enabled, scope_json, rule_json, created_at, updated_at FROM rules')
+            # sort_orderでソート（小さい順）
+            c.execute('SELECT id, name, enabled, scope_json, rule_json, created_at, updated_at, sort_order FROM rules ORDER BY sort_order ASC, created_at ASC')
             rows = c.fetchall()
             conn.close()
             res = []
@@ -550,7 +557,8 @@ def rules():
                     'scope': json.loads(r[3]) if r[3] else None,
                     'rule': json.loads(r[4]) if r[4] else None,
                     'created_at': r[5],
-                    'updated_at': r[6] if len(r) > 6 else r[5]
+                    'updated_at': r[6] if len(r) > 6 else r[5],
+                    'sort_order': r[7] if len(r) > 7 else 0
                 })
             return jsonify({'status': 'success', 'rules': res}), 200
 
@@ -606,18 +614,44 @@ def rules():
 
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        # Check if rule exists to preserve created_at
-        c.execute('SELECT created_at FROM rules WHERE id = ?', (rid,))
+        # Check if rule exists to preserve created_at and sort_order
+        c.execute('SELECT created_at, sort_order FROM rules WHERE id = ?', (rid,))
         existing = c.fetchone()
         created_at = existing[0] if existing else updated_at
+        sort_order = existing[1] if existing else 9999  # 新規ルールは最後に追加
         
-        c.execute('INSERT OR REPLACE INTO rules (id, name, enabled, scope_json, rule_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                  (rid, name, enabled, scope_json, rule_json, created_at, updated_at))
+        c.execute('INSERT OR REPLACE INTO rules (id, name, enabled, scope_json, rule_json, created_at, updated_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                  (rid, name, enabled, scope_json, rule_json, created_at, updated_at, sort_order))
         conn.commit()
         conn.close()
         return jsonify({'status': 'success', 'id': rid}), 200
     except Exception as e:
         print(f'[ERROR][rules] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/rules/reorder', methods=['POST'])
+def reorder_rules():
+    """ルールの並び順を更新"""
+    try:
+        payload = request.json
+        if not payload or 'order' not in payload:
+            return jsonify({'status': 'error', 'msg': 'order array required'}), 400
+        
+        order = payload['order']  # [rule_id1, rule_id2, ...] の配列
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        for idx, rule_id in enumerate(order):
+            c.execute('UPDATE rules SET sort_order = ? WHERE id = ?', (idx, rule_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        print(f'[ERROR][reorder_rules] {e}')
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 

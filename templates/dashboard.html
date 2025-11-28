@@ -630,6 +630,27 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .light-mode .rules-side-panel::-webkit-scrollbar-thumb:hover {
   background: rgba(0,0,0,0.4);
 }
+
+/* ルールリストのドラッグ&ドロップスタイル */
+#rulesList li {
+  transition: background-color 0.2s, transform 0.1s;
+}
+#rulesList li:hover {
+  background: rgba(255,255,255,0.05);
+}
+#rulesList li.dragging {
+  opacity: 0.5;
+  background: rgba(100,149,237,0.3);
+}
+#rulesList li.drag-over {
+  border-top: 2px solid #4ade80;
+}
+.light-mode #rulesList li:hover {
+  background: rgba(0,0,0,0.05);
+}
+.light-mode #rulesList li.dragging {
+  background: rgba(100,149,237,0.2);
+}
 </style>
 </head>
 <body>
@@ -4986,6 +5007,28 @@ function scheduleNextUpdate() {
 // loadRules()と他の初期化は最初のDOMContentLoadedリスナーで実行される
 
 // --- Rules UI / API ---
+
+// ルールの並び順をサーバーに保存
+async function saveRulesOrder() {
+  try {
+    const ul = document.getElementById('rulesList');
+    const items = ul.querySelectorAll('li[data-rule-id]');
+    const order = Array.from(items).map(li => li.dataset.ruleId);
+    
+    const res = await fetch('/rules/reorder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ order: order })
+    });
+    const j = await res.json();
+    if (j.status !== 'success') {
+      console.error('Failed to save rules order:', j.msg);
+    }
+  } catch (e) {
+    console.error('saveRulesOrder error:', e);
+  }
+}
+
 async function loadRules() {
   try {
     const r = await fetch('/rules');
@@ -5100,23 +5143,57 @@ function showRuleDropdown(button, symbol) {
 }
 
 function renderRulesList(rules) {
-  // Sort rules: enabled first (by updated_at desc), then disabled (by updated_at desc)
-  const sortedRules = rules.sort((a, b) => {
-    const aEnabled = a.enabled !== false;
-    const bEnabled = b.enabled !== false;
-    if (aEnabled !== bEnabled) {
-      return bEnabled - aEnabled; // enabled (true=1) comes before disabled (false=0)
-    }
-    // Same enabled status: sort by updated_at descending (most recent first)
-    const aTime = a.updated_at || a.created_at || '';
-    const bTime = b.updated_at || b.created_at || '';
-    return bTime.localeCompare(aTime);
-  });
+  // ソートはサーバー側で行うため、ここでは順序を変更しない
+  // sort_orderの順に表示（サーバーからの順序をそのまま使用）
   
   const ul = document.getElementById('rulesList'); ul.innerHTML = '';
-  sortedRules.forEach(rule => {
-    const li = document.createElement('li'); li.style.padding = '6px 4px'; li.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
-    li.style.display = 'flex'; li.style.alignItems = 'center'; li.style.justifyContent = 'space-between';
+  
+  // ドラッグ中フラグ（実際に移動が行われたかを追跡）
+  let dragMoved = false;
+  
+  rules.forEach((rule, index) => {
+    const li = document.createElement('li'); 
+    li.style.padding = '6px 4px'; 
+    li.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+    li.style.display = 'flex'; 
+    li.style.alignItems = 'center'; 
+    li.style.justifyContent = 'space-between';
+    li.dataset.ruleId = rule.id; // ドラッグ用にIDを保存
+    li.draggable = true; // ドラッグ可能にする
+    li.style.cursor = 'grab';
+    
+    // ドラッグ&ドロップイベント
+    li.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', rule.id);
+      li.style.opacity = '0.5';
+      li.classList.add('dragging');
+      dragMoved = false; // ドラッグ開始時にリセット
+    });
+    
+    li.addEventListener('dragend', async () => {
+      li.style.opacity = '1';
+      li.classList.remove('dragging');
+      // 実際に移動が行われた場合のみ順序を保存
+      if (dragMoved) {
+        await saveRulesOrder();
+        dragMoved = false;
+      }
+    });
+    
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const draggingItem = document.querySelector('.dragging');
+      if (draggingItem && draggingItem !== li) {
+        dragMoved = true; // 実際に移動が行われた
+        const rect = li.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (e.clientY < midY) {
+          li.parentNode.insertBefore(draggingItem, li);
+        } else {
+          li.parentNode.insertBefore(draggingItem, li.nextSibling);
+        }
+      }
+    });
     
     const left = document.createElement('div'); left.style.display = 'flex'; left.style.alignItems = 'center'; left.style.gap = '8px';
     const btns = document.createElement('div'); btns.style.display = 'flex'; btns.style.gap = '6px';
