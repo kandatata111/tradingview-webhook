@@ -1092,9 +1092,9 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         </div>
       </div>
     </div>
-    <div class="section-body" data-section-body="economic-calendar" style="display: flex; flex-direction: column; flex: 1;">
+    <div class="section-body" data-section-body="economic-calendar" style="display: flex; flex-direction: column; flex: 1; min-height: 300px;">
       <!-- myfxbook.com Economic Calendar Widget - Start -->
-      <iframe src="https://widget.myfxbook.com/widget/calendar.html?lang=ja&symbols=USD,JPY" style="border: 0; width:100%; flex: 1; min-height: 0;"></iframe>
+      <iframe src="https://widget.myfxbook.com/widget/calendar.html?lang=ja&symbols=USD,JPY" style="border: 0; width:100%; height: 100%; min-height: 280px;"></iframe>
       <div style="margin-top: 0; flex-shrink: 0;">
         <div style="width: fit-content; margin: auto;font-family: roboto,sans-serif!important; font-size: 13px; color: #666666;">
          <a href="https://www.myfxbook.com/forex-economic-calendar?utm_source=widget13&utm_medium=link&utm_campaign=copyright" title="Economic Calendar" class="myfxbookLink" target="_blank" rel="noopener"><b style="color:#666666">Economic Calendar</b></a>
@@ -1120,8 +1120,8 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         </label>
       </div>
     </div>
-    <div class="window-body">
-      <iframe id="external-site-iframe" src="/api/proxy?url=https://zai.diamond.jp/list/fxcolumn/hitsuji" loading="lazy"></iframe>
+    <div class="window-body" style="min-height: 350px;">
+      <iframe id="external-site-iframe" src="/api/proxy?url=https://zai.diamond.jp/list/fxcolumn/hitsuji" loading="lazy" style="width:100%; height:100%; min-height:350px;"></iframe>
     </div>
   </div>
 </div>
@@ -4621,25 +4621,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Start polling when page is visible
       startNotificationPolling();
       
-      // Stop/resume polling when page visibility changes
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page hidden, stopping');
-          stopNotificationPolling();
-          // Also clear update timer when page is hidden
-          if (updateTimer) {
-            console.log('[TIMER] Page hidden, clearing timer');
-            clearTimeout(updateTimer);
-            updateTimer = null;
-          }
-        } else {
-          console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Page visible, resuming');
-          startNotificationPolling();
-          // Reschedule update timer when page becomes visible
-          console.log('[TIMER] Page visible, rescheduling update');
-          scheduleNextUpdate();
-        }
-      });
+      // バックグラウンドでも動作を継続（visibilitychange制御を削除）
+      // ポーリングと更新は常に動作し続ける
+      console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Background mode enabled, polling will continue regardless of visibility');
       
       // Cleanup on page unload
       window.addEventListener('beforeunload', () => {
