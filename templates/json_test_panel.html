@@ -75,6 +75,7 @@
             padding: 10px;
             border-radius: 4px;
             display: none;
+            font-size: var(--font-size, 14px);
         }
         .status.success {
             background-color: #d4edda;
@@ -87,7 +88,7 @@
             border: 1px solid #f5c6cb;
         }
         table {
-            width: 100%;
+            width: auto;
             border-collapse: collapse;
             margin-bottom: 20px;
             font-size: var(--font-size, 14px);
@@ -97,22 +98,49 @@
             padding: var(--padding-vertical, 4px) var(--padding-horizontal, 6px);
             text-align: center;
             font-size: inherit;
+            white-space: nowrap;
         }
         th {
             background-color: #f2f2f2;
             font-weight: bold;
         }
+        /* 整列雲・時間差: 横に並べる */
         .tf-label {
             font-weight: bold;
             cursor: grab;
+            padding: 2px 4px;
         }
         .tf-label:active {
             cursor: grabbing;
         }
+        .time-diff {
+            padding: 2px 4px;
+            white-space: nowrap;
+        }
+        /* ダウ転・突破数・雲交差: 最小限の幅 */
         .editable {
             cursor: pointer;
-            min-width: 60px;
+            min-width: unset;
+            padding: 2px 5px;
+            white-space: nowrap;
         }
+        /* 各雲間・価格間・雲角度・雲厚み: 最小限の幅 */
+        td input[type="number"] {
+            width: 50px;
+            padding: 2px;
+            text-align: center;
+        }
+        /* ダウ時間・交差時間: 時間入力用 */
+        td input[type="text"] {
+            width: 100px;
+            padding: 2px;
+            text-align: center;
+        }
+        /* ヘッダーの幅を内容に合わせる */
+        th:nth-child(1) { padding: 2px 4px; } /* 整列雲 */
+        th:nth-child(2), th:nth-child(3), th:nth-child(4) { padding: 2px 5px; } /* ダウ転・突破数・雲交差 */
+        th:nth-child(5), th:nth-child(6), th:nth-child(7), th:nth-child(8) { padding: 2px 5px; } /* 各雲間・価格間・雲角度・雲厚み */
+        th:nth-child(11) { padding: 2px 4px; } /* 時間差 */
         .blue-bg {
             background-color: #2962ff;
             color: white;
@@ -126,6 +154,67 @@
         }
         .time-display-toggle button {
             margin-right: 5px;
+        }
+        /* インジケーターJSONペースト領域 */
+        .json-paste-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 2px dashed #4CAF50;
+            border-radius: 8px;
+            background-color: #f9fff9;
+        }
+        .json-paste-section label {
+            color: #2e7d32;
+            font-size: 16px;
+        }
+        .json-paste-section textarea.paste-textarea {
+            width: 100%;
+            height: 120px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+            margin-top: 10px;
+        }
+        .json-paste-section .btn-group {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .json-paste-section button.apply-btn {
+            background-color: #4CAF50;
+        }
+        .json-paste-section button.apply-btn:hover {
+            background-color: #45a049;
+        }
+        .json-paste-section button.direct-send-btn {
+            background-color: #4CAF50;
+        }
+        .json-paste-section button.direct-send-btn:hover {
+            background-color: #45a049;
+        }
+        .json-paste-section button.clear-btn {
+            background-color: #4CAF50;
+        }
+        .json-paste-section button.clear-btn:hover {
+            background-color: #45a049;
+        }
+        .json-paste-status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            display: none;
+            font-size: var(--font-size, 14px);
+        }
+        .json-paste-status.success {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .json-paste-status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
         }
     </style>
 </head>
@@ -192,6 +281,31 @@
             <button onclick="setTimeFormat('hm')">時/分 (HH:mm)</button>
             <button onclick="setTimeFormat('m')">分のみ (mm)</button>
             <button onclick="setTimeFormat('original')">測定開始日時</button>
+        </div>
+        
+        <!-- インジケーターJSONペースト領域（新規追加） -->
+        <div class="json-paste-section">
+            <div style="margin-bottom: 10px;">
+                <label>📥 インジケーターJSONペースト:</label>
+                <button onclick="switchPasteJsonView('5m')" style="padding: 8px 16px; margin-left: 10px; background-color: #a9e88c; color: #000;">5m</button>
+                <button onclick="switchPasteJsonView('15m')" style="padding: 8px 16px; margin-left: 5px; background-color: #fbd0b2; color: #000;">15m</button>
+                <button onclick="switchPasteJsonView('1H')" style="padding: 8px 16px; margin-left: 5px; background-color: #8dc7fc; color: #000;">1H</button>
+                <button onclick="switchPasteJsonView('4H')" style="padding: 8px 16px; margin-left: 5px; background-color: #fa8dfe; color: #000;">4H</button>
+            </div>
+            <textarea id="indicatorJsonPaste5m" class="paste-textarea" placeholder="5m用JSONをここにペースト..."></textarea>
+            <textarea id="indicatorJsonPaste15m" class="paste-textarea" style="display: none;" placeholder="15m用JSONをここにペースト..."></textarea>
+            <textarea id="indicatorJsonPaste1H" class="paste-textarea" style="display: none;" placeholder="1H用JSONをここにペースト..."></textarea>
+            <textarea id="indicatorJsonPaste4H" class="paste-textarea" style="display: none;" placeholder="4H用JSONをここにペースト..."></textarea>
+            <div class="btn-group" style="align-items: center;">
+                <button class="apply-btn" onclick="applyPastedJsonToTable()">表に反映</button>
+                <button class="direct-send-btn" onclick="directSendPastedJson()">直接送信</button>
+                <button class="clear-btn" onclick="clearPastedJson()">クリア</button>
+                <label style="margin-left: 20px; font-weight: normal; display: inline-flex; align-items: center;"><input type="radio" name="paste_tf" value="5m" checked style="margin-right: 2px;"><span style="font-size: var(--font-size, 14px);">5m</span></label>
+                <label style="margin-left: 10px; font-weight: normal; display: inline-flex; align-items: center;"><input type="radio" name="paste_tf" value="15m" style="margin-right: 2px;"><span style="font-size: var(--font-size, 14px);">15m</span></label>
+                <label style="margin-left: 10px; font-weight: normal; display: inline-flex; align-items: center;"><input type="radio" name="paste_tf" value="1H" style="margin-right: 2px;"><span style="font-size: var(--font-size, 14px);">1H</span></label>
+                <label style="margin-left: 10px; font-weight: normal; display: inline-flex; align-items: center;"><input type="radio" name="paste_tf" value="4H" style="margin-right: 2px;"><span style="font-size: var(--font-size, 14px);">4H</span></label>
+            </div>
+            <div id="jsonPasteStatus" class="json-paste-status"></div>
         </div>
         
         <table id="dataTable">
@@ -415,7 +529,14 @@
                 timeFormat: timeFormat,
                 originalTimeData: originalTimeData,
                 rowOrder: Array.from(document.querySelectorAll('#dataTable tbody tr')).map(row => row.getAttribute('data-tf')),
-                tableData: {}
+                tableData: {},
+                // インジケーターJSONペーストデータを保存
+                pastedJson: {
+                    '5m': document.getElementById('indicatorJsonPaste5m').value,
+                    '15m': document.getElementById('indicatorJsonPaste15m').value,
+                    '1H': document.getElementById('indicatorJsonPaste1H').value,
+                    '4H': document.getElementById('indicatorJsonPaste4H').value
+                }
             };
 
             console.log('data before table collection:', data);
@@ -519,6 +640,14 @@
             changeFontSize(data.fontSize || '14');
             timeFormat = data.timeFormat || 'original';
             originalTimeData = data.originalTimeData || {};
+            
+            // インジケーターJSONペーストデータを復元
+            if (data.pastedJson) {
+                document.getElementById('indicatorJsonPaste5m').value = data.pastedJson['5m'] || '';
+                document.getElementById('indicatorJsonPaste15m').value = data.pastedJson['15m'] || '';
+                document.getElementById('indicatorJsonPaste1H').value = data.pastedJson['1H'] || '';
+                document.getElementById('indicatorJsonPaste4H').value = data.pastedJson['4H'] || '';
+            }
 
             // 表の順序を復元
             if (data.rowOrder) {
@@ -972,16 +1101,38 @@
                 cell.classList.add('blue-bg');
             }
             updateTimeBg(cell.closest('tr').querySelector('input[data-field="elapsed_str"]'));
+            // 雲厚みの背景色も更新
+            const thicknessInput = cell.closest('tr').querySelector('input[data-field="thickness"]');
+            if (thicknessInput) {
+                updateNumericBg(thicknessInput);
+            }
             calculateTimeDiff(cell.closest('tr'));
         }
 
         function updateNumericBg(input) {
             const value = parseFloat(input.value);
+            const field = input.getAttribute('data-field');
             input.classList.remove('blue-bg', 'red-bg');
-            if (value > 0) {
-                input.classList.add('blue-bg');
-            } else if (value < 0) {
-                input.classList.add('red-bg');
+            
+            // 雲厚み(thickness)の場合は雲交差(gc)の背景色と同じにする
+            if (field === 'thickness') {
+                const row = input.closest('tr');
+                const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+                if (gcCell) {
+                    const gcValue = gcCell.getAttribute('data-value');
+                    if (gcValue === 'true') {
+                        input.classList.add('blue-bg');
+                    } else if (gcValue === 'false') {
+                        input.classList.add('red-bg');
+                    }
+                }
+            } else {
+                // その他の数値フィールドは従来通り
+                if (value > 0) {
+                    input.classList.add('blue-bg');
+                } else if (value < 0) {
+                    input.classList.add('red-bg');
+                }
             }
         }
 
@@ -1119,7 +1270,7 @@
                     
                     rowDataMap[tf] = {
                         dauten: dauten,
-                        bos_count: bosCount === '-' ? null : parseInt(bosCount.replace('BOS-', '')),
+                        bos_count: bosCount === '-' ? 0 : parseInt(bosCount.replace('BOS-', '')),
                         gc: gc,
                         distance_from_prev: distanceFromPrev,
                         distance_from_price: distanceFromPrice,
@@ -1478,6 +1629,375 @@
             
             console.log('send complete. all success:', allSuccess);
         }
+        
+        // ===== インジケーターJSONペースト機能（新規追加） =====
+        
+        let currentPasteTab = '5m'; // 現在選択中のペーストタブ
+        
+        // ペースト用タブ切り替え
+        function switchPasteJsonView(tf) {
+            // すべてのテキストエリアを非表示
+            document.getElementById('indicatorJsonPaste5m').style.display = 'none';
+            document.getElementById('indicatorJsonPaste15m').style.display = 'none';
+            document.getElementById('indicatorJsonPaste1H').style.display = 'none';
+            document.getElementById('indicatorJsonPaste4H').style.display = 'none';
+            
+            // 選択されたタブを表示
+            document.getElementById(`indicatorJsonPaste${tf}`).style.display = 'block';
+            currentPasteTab = tf;
+        }
+        
+        // 単一JSONを表に反映する内部関数
+        // targetTf: 指定されたTFのcloudのみを処理する（nullの場合は全てのcloudを処理）
+        function applySingleJsonToTable(jsonText, applyOrder = false, targetTf = null) {
+            const data = JSON.parse(jsonText);
+            
+            // Symbol と Price を設定
+            if (data.symbol) {
+                document.getElementById('symbol').value = data.symbol;
+            }
+            if (data.price) {
+                document.getElementById('price').value = data.price;
+            }
+            
+            // cloud_order または row_order から雲整列の順序を反映（applyOrder=trueの場合のみ）
+            if (applyOrder) {
+                // row_order を優先（実際の表示順序）、なければ cloud_order を使用
+                let orderSource = null;
+                if (data.row_order && data.row_order.length > 0) {
+                    orderSource = data.row_order;
+                    console.log('[ORDER] Using row_order:', orderSource);
+                } else if (data.cloud_order && data.cloud_order.length > 0) {
+                    orderSource = data.cloud_order;
+                    console.log('[ORDER] Using cloud_order:', orderSource);
+                }
+                
+                if (orderSource && orderSource.length > 0) {
+                    const tbody = document.querySelector('#dataTable tbody');
+                    
+                    // 全TFのリスト
+                    const allTfs = ['5m', '15m', '1H', '4H', 'price'];
+                    const orderedTfs = [];
+                    
+                    // orderSource の順序で追加
+                    orderSource.forEach(tf => {
+                        if (allTfs.includes(tf) && !orderedTfs.includes(tf)) {
+                            orderedTfs.push(tf);
+                        }
+                    });
+                    
+                    // orderSourceに含まれていないTFを追加
+                    allTfs.forEach(tf => {
+                        if (!orderedTfs.includes(tf)) {
+                            // price は最後に追加
+                            if (tf === 'price') {
+                                orderedTfs.push(tf);
+                            } else {
+                                // 他のTFはpriceの前に追加
+                                const priceIndex = orderedTfs.indexOf('price');
+                                if (priceIndex >= 0) {
+                                    orderedTfs.splice(priceIndex, 0, tf);
+                                } else {
+                                    orderedTfs.push(tf);
+                                }
+                            }
+                        }
+                    });
+                    
+                    console.log('[ORDER] Final order:', orderedTfs);
+                    
+                    // 行を並べ替え
+                    orderedTfs.forEach(tf => {
+                        const row = tbody.querySelector(`tr[data-tf="${tf}"]`);
+                        if (row) {
+                            tbody.appendChild(row);
+                        }
+                    });
+                }
+            }
+            
+            // daytrade から突破数(bos)とタイムフレームを取得
+            let daytradeBos = null;
+            let daytradeTf = null;
+            if (data.daytrade && data.daytrade.bos) {
+                daytradeBos = data.daytrade.bos;
+                // daytrade.tf があればそのTFにのみ適用、なければclouds[0]のTFを使用
+                if (data.daytrade.tf) {
+                    daytradeTf = data.daytrade.tf;
+                } else if (data.clouds && data.clouds.length > 0) {
+                    daytradeTf = data.clouds[0].label || data.clouds[0].tf;
+                }
+            }
+            
+            // clouds 配列から表に反映
+            let clouds = data.clouds || [];
+            
+            // targetTfが指定されている場合、そのTFのcloudのみを処理
+            if (targetTf) {
+                clouds = clouds.filter(cloud => {
+                    const tfLabel = cloud.label || cloud.tf;
+                    return tfLabel === targetTf;
+                });
+            }
+            
+            clouds.forEach(cloud => {
+                const tfLabel = cloud.label || cloud.tf;
+                const row = document.querySelector(`#dataTable tbody tr[data-tf="${tfLabel}"]`);
+                if (!row) return;
+                
+                // ダウ転
+                const dautenCell = row.querySelector('td[onclick*="toggleDauten"]');
+                if (dautenCell && cloud.dauten !== undefined) {
+                    const isUp = cloud.dauten === 'up';
+                    dautenCell.setAttribute('data-value', isUp ? 'up' : 'down');
+                    dautenCell.textContent = isUp ? '▲Dow' : '▼Dow';
+                    dautenCell.classList.remove('blue-bg', 'red-bg');
+                    dautenCell.classList.add(isUp ? 'blue-bg' : 'red-bg');
+                }
+                
+                // 突破数 - daytrade.bos は該当TFにのみ適用、それ以外は cloud.bos_count を使用
+                const bosCell = row.querySelector('td[onclick*="cycleBos"]');
+                if (bosCell) {
+                    let bosValue = '-';
+                    // daytrade.bos は daytradeTf と一致するTFにのみ適用
+                    if (daytradeBos && daytradeBos !== '-' && tfLabel === daytradeTf) {
+                        // daytrade.bos を使用（例: "BOS-1" → そのまま使用）
+                        bosValue = daytradeBos;
+                    } else if (cloud.bos_count !== undefined && cloud.bos_count !== null && cloud.bos_count !== 0) {
+                        bosValue = `BOS-${cloud.bos_count}`;
+                    }
+                    bosCell.setAttribute('data-value', bosValue);
+                    bosCell.textContent = bosValue;
+                    updateBosBg(bosCell);
+                }
+                
+                // 雲交差 (gc)
+                const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+                if (gcCell && cloud.gc !== undefined) {
+                    const isGc = cloud.gc === true;
+                    gcCell.setAttribute('data-value', isGc ? 'true' : 'false');
+                    gcCell.textContent = isGc ? '▲GC' : '▼DC';
+                    gcCell.classList.remove('blue-bg', 'red-bg');
+                    gcCell.classList.add(isGc ? 'blue-bg' : 'red-bg');
+                }
+                
+                // 各雲間 (distance_from_prev) - 小数点1桁に四捨五入
+                const distPrevInput = row.querySelector('input[data-field="distance_from_prev"]');
+                if (distPrevInput && cloud.distance_from_prev !== undefined) {
+                    distPrevInput.value = Math.round(cloud.distance_from_prev * 10) / 10;
+                    updateNumericBg(distPrevInput);
+                }
+                
+                // 価格間 (distance_from_price) - 小数点1桁に四捨五入
+                const distPriceInput = row.querySelector('input[data-field="distance_from_price"]');
+                if (distPriceInput && cloud.distance_from_price !== undefined) {
+                    distPriceInput.value = Math.round(cloud.distance_from_price * 10) / 10;
+                    updateNumericBg(distPriceInput);
+                }
+                
+                // 雲角度 (angle) - 小数点1桁に四捨五入
+                const angleInput = row.querySelector('input[data-field="angle"]');
+                if (angleInput && cloud.angle !== undefined) {
+                    angleInput.value = Math.round(cloud.angle * 10) / 10;
+                    updateNumericBg(angleInput);
+                }
+                
+                // 雲厚み (thickness) - 小数点1桁に四捨五入
+                const thicknessInput = row.querySelector('input[data-field="thickness"]');
+                if (thicknessInput && cloud.thickness !== undefined) {
+                    thicknessInput.value = Math.round(cloud.thickness * 10) / 10;
+                    updateNumericBg(thicknessInput);
+                }
+                
+                // ダウ時間 (dauten_start_time_str)
+                const dautenTimeInput = row.querySelector('input[data-field="dauten_start_time_str"]');
+                if (dautenTimeInput && cloud.dauten_start_time_str) {
+                    dautenTimeInput.value = cloud.dauten_start_time_str;
+                    if (!originalTimeData[tfLabel]) {
+                        originalTimeData[tfLabel] = {};
+                    }
+                    originalTimeData[tfLabel].dauten = cloud.dauten_start_time_str;
+                    updateTimeBg(dautenTimeInput);
+                }
+                
+                // 交差時間 (elapsed_str)
+                const elapsedInput = row.querySelector('input[data-field="elapsed_str"]');
+                if (elapsedInput && cloud.elapsed_str) {
+                    elapsedInput.value = cloud.elapsed_str;
+                    if (!originalTimeData[tfLabel]) {
+                        originalTimeData[tfLabel] = {};
+                    }
+                    originalTimeData[tfLabel].elapsed = cloud.elapsed_str;
+                    updateTimeBg(elapsedInput);
+                }
+                
+                // 時間差を再計算
+                calculateTimeDiff(row);
+            });
+            
+            return clouds.length;
+        }
+        
+        // ペーストしたJSONを表に反映（複数タイムフレーム対応）
+        function applyPastedJsonToTable() {
+            const statusDiv = document.getElementById('jsonPasteStatus');
+            const selectedTf = document.querySelector('input[name="paste_tf"]:checked').value;
+            
+            // 選択されたタイムフレームまでのJSONを反映
+            const tfHierarchy = {
+                '5m': ['5m'],
+                '15m': ['5m', '15m'],
+                '1H': ['5m', '15m', '1H'],
+                '4H': ['5m', '15m', '1H', '4H']
+            };
+            
+            const tfsToApply = tfHierarchy[selectedTf];
+            let totalClouds = 0;
+            let errors = [];
+            
+            for (const tf of tfsToApply) {
+                const textarea = document.getElementById(`indicatorJsonPaste${tf}`);
+                const jsonText = textarea.value.trim();
+                
+                if (!jsonText) {
+                    continue; // 空の場合はスキップ
+                }
+                
+                try {
+                    // 5m JSONのみ雲整列順序を適用（全TFのcloud_orderを含むため）
+                    const applyOrder = (tf === '5m');
+                    // 各TFのJSONはそのTFのcloudのみを処理する
+                    const count = applySingleJsonToTable(jsonText, applyOrder, tf);
+                    totalClouds += count;
+                } catch (e) {
+                    errors.push(`${tf}: ${e.message}`);
+                }
+            }
+            
+            if (errors.length > 0) {
+                statusDiv.textContent = `✗ エラー: ${errors.join(', ')}`;
+                statusDiv.className = 'json-paste-status error';
+            } else if (totalClouds === 0) {
+                statusDiv.textContent = 'JSONを入力してください';
+                statusDiv.className = 'json-paste-status error';
+            } else {
+                statusDiv.textContent = `✓ 表に反映しました（${selectedTf}まで、${totalClouds}件のクラウドデータ）`;
+                statusDiv.className = 'json-paste-status success';
+            }
+            statusDiv.style.display = 'block';
+        }
+        
+        // ペーストしたJSONを直接送信（複数タイムフレーム対応）
+        async function directSendPastedJson() {
+            const statusDiv = document.getElementById('jsonPasteStatus');
+            const selectedTf = document.querySelector('input[name="paste_tf"]:checked').value;
+            
+            // 選択されたタイムフレームまでのJSONを送信
+            const tfHierarchy = {
+                '5m': ['5m'],
+                '15m': ['5m', '15m'],
+                '1H': ['5m', '15m', '1H'],
+                '4H': ['5m', '15m', '1H', '4H']
+            };
+            
+            const tfsToSend = tfHierarchy[selectedTf];
+            
+            const target = document.querySelector('input[name="target"]:checked').value;
+            let url;
+            if (target === 'test') {
+                url = 'http://localhost:5000/webhook';
+            } else {
+                url = 'https://tradingview-webhook-s5x1.onrender.com/webhook';
+            }
+            
+            statusDiv.textContent = `${selectedTf}送信中...`;
+            statusDiv.className = 'json-paste-status';
+            statusDiv.style.display = 'block';
+            
+            const results = [];
+            let hasData = false;
+            
+            for (const tf of tfsToSend) {
+                const textarea = document.getElementById(`indicatorJsonPaste${tf}`);
+                const jsonText = textarea.value.trim();
+                
+                if (!jsonText) {
+                    continue; // 空の場合はスキップ
+                }
+                
+                hasData = true;
+                
+                try {
+                    const data = JSON.parse(jsonText);
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    let result;
+                    try {
+                        result = await response.json();
+                    } catch (e) {
+                        result = { status: response.status };
+                    }
+                    
+                    results.push({
+                        tf: tf,
+                        success: response.ok,
+                        message: response.ok ? '成功' : '失敗',
+                        details: result
+                    });
+                    
+                } catch (e) {
+                    results.push({
+                        tf: tf,
+                        success: false,
+                        message: '失敗',
+                        details: e.message
+                    });
+                }
+                
+                // リクエスト間に500ms の遅延を入れる
+                if (tfsToSend.indexOf(tf) < tfsToSend.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+            
+            if (!hasData) {
+                statusDiv.textContent = 'JSONを入力してください';
+                statusDiv.className = 'json-paste-status error';
+                return;
+            }
+            
+            // 結果を表示
+            let allSuccess = results.every(r => r.success);
+            let resultText = results.map(r => `${r.tf}: ${r.message}`).join(', ');
+            
+            if (allSuccess) {
+                statusDiv.textContent = `✓ 直接送信成功（${selectedTf}まで）: ${resultText}`;
+                statusDiv.className = 'json-paste-status success';
+            } else {
+                statusDiv.textContent = `✗ 一部失敗: ${resultText}`;
+                statusDiv.className = 'json-paste-status error';
+            }
+        }
+        
+        // ペースト領域をクリア
+        function clearPastedJson() {
+            document.getElementById('indicatorJsonPaste5m').value = '';
+            document.getElementById('indicatorJsonPaste15m').value = '';
+            document.getElementById('indicatorJsonPaste1H').value = '';
+            document.getElementById('indicatorJsonPaste4H').value = '';
+            const statusDiv = document.getElementById('jsonPasteStatus');
+            statusDiv.textContent = '';
+            statusDiv.className = 'json-paste-status';
+            statusDiv.style.display = 'none';
+        }
+        
+        // ===== インジケーターJSONペースト機能ここまで =====
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {

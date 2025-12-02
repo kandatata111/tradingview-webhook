@@ -1990,6 +1990,54 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 wlog(f'[RULE] Rule "{rule_name}" result: all_matched={all_matched}')
 
                 
+                # ===== 値を正規化する関数（比較と保存で共通使用）=====
+                def normalize_value_for_comparison(val, field_name):
+                    """値を比較用に正規化する"""
+                    if val is None:
+                        return None
+                    
+                    # bos_count の場合: 数値に統一
+                    # インジケーター形式: 0, 1, 2, 3 など（数値）
+                    # 表示形式: "-", "BOS-1", "BOS-2" など
+                    if field_name == 'bos_count':
+                        if isinstance(val, (int, float)):
+                            return int(val)  # 0も含めて数値として保持
+                        if isinstance(val, str):
+                            val_str = str(val).strip()
+                            if val_str == '-' or val_str == '' or val_str.lower() == 'none':
+                                return 0  # "-" は 0 として扱う
+                            # "BOS-1" → 1, "BOS-2" → 2
+                            if 'BOS-' in val_str.upper():
+                                try:
+                                    return int(val_str.upper().replace('BOS-', ''))
+                                except:
+                                    return 0
+                            try:
+                                return int(float(val_str))
+                            except:
+                                return 0
+                        return 0
+                    
+                    # gc の場合: boolean に統一
+                    if field_name == 'gc':
+                        if isinstance(val, bool):
+                            return val
+                        if isinstance(val, str):
+                            return val.lower() in ('true', '1', 'yes', 'gc')
+                        return bool(val)
+                    
+                    # dauten の場合: 'up'/'down' に統一
+                    if field_name == 'dauten':
+                        if isinstance(val, str):
+                            val_lower = val.lower()
+                            if 'up' in val_lower or '上' in val_lower:
+                                return 'up'
+                            if 'down' in val_lower or '下' in val_lower:
+                                return 'down'
+                        return val
+                    
+                    return val
+
                 # ===== 発火判定ロジック（条件揃い状態に関わらず実行）=====
                 num_conditions = len(conditions)
                 should_fire = False
@@ -2017,20 +2065,24 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 current_conditions_matched = all_matched
                 
                 # ===== 発火判定ロジック =====
-                # 「DBの状態が変化して、その結果ルール条件を満たした」場合に発火
+                # 「条件が崩れてから再度揃った」場合に発火
                 # 1. 条件を満たしている (all_matched=True)
-                # 2. かつ、前回の発火時と比較して少なくとも1つのフィールド値が変化している
+                # 2. かつ、前回発火時に条件が揃っていなかった、または初回評価
                 
                 should_fire = False
                 
                 if all_matched:
-                    # 条件を満たしている場合、フィールド値の変化をチェック
+                    # 条件を満たしている場合、前回の状態をチェック
                     has_field_change = False
                     
                     if last_state is None:
                         # 初回評価の場合は発火
                         has_field_change = True
                         wlog(f'[RULE] First evaluation with matched conditions, should_fire=True')
+                    elif last_state.get('__conditions_matched__') == False:
+                        # 前回発火時は条件が崩れていた → 今回揃ったので発火
+                        has_field_change = True
+                        wlog(f'[RULE] Conditions were not matched last time, now matched, should_fire=True')
                     else:
                         # Alignment ルールの場合は TF順序（価格除外）の変化をチェック
                         if alignment_config:
@@ -2070,10 +2122,16 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 current_value = tf_cloud_data.get(tf_label, {}).get(field)
                                 last_value = last_state.get(field_key)
                                 
-                                if current_value != last_value:
+                                # 値を正規化して比較（外側で定義したnormalize_value_for_comparisonを使用）
+                                normalized_current = normalize_value_for_comparison(current_value, field)
+                                normalized_last = normalize_value_for_comparison(last_value, field)
+                                
+                                if normalized_current != normalized_last:
                                     has_field_change = True
-                                    wlog(f'[RULE] Field change detected: {field_key} = {last_value} → {current_value}')
+                                    wlog(f'[RULE] Field change detected: {field_key} = {last_value}({normalized_last}) → {current_value}({normalized_current})')
                                     break
+                                else:
+                                    wlog(f'[RULE] Field unchanged: {field_key} = {normalized_current}')
                         
                         if not has_field_change:
                             wlog(f'[RULE] Conditions matched but no field change, should_fire=False')
@@ -2081,6 +2139,32 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     should_fire = has_field_change
                 else:
                     wlog(f'[RULE] Conditions not matched, should_fire=False')
+                    
+                    # ===== 条件が崩れた時の処理 =====
+                    # 前回発火時に条件が揃っていた場合、「崩れた」ことを記録
+                    # これにより、次回揃った時に再発火できる
+                    if last_state and last_state.get('__conditions_matched__') == True:
+                        wlog(f'[RULE] Conditions were matched last time, now not matched, recording state reset')
+                        try:
+                            conn_reset = sqlite3.connect(DB_PATH)
+                            c_reset = conn_reset.cursor()
+                            jst = pytz.timezone('Asia/Tokyo')
+                            reset_snapshot = {
+                                'symbol': symbol,
+                                '__conditions_matched__': False,
+                                '__reset_reason__': 'conditions_no_longer_matched'
+                            }
+                            c_reset.execute('''INSERT INTO fire_history 
+                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                             VALUES (?, ?, ?, ?, ?, ?)''',
+                                          (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                           json.dumps({'reset': True}, ensure_ascii=False),
+                                           json.dumps(reset_snapshot, ensure_ascii=False)))
+                            conn_reset.commit()
+                            conn_reset.close()
+                            wlog(f'[RULE] State reset recorded for rule {rule_name}')
+                        except Exception as e:
+                            wlog(f'[RULE] Error recording state reset: {e}')
                 
                 # ===== 発火処理 =====
                 if should_fire:
@@ -2112,12 +2196,16 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             # cloud_order も参考として保存（ログ用）
                             state_snapshot['cloud_order'] = row_order_snap[0]
                     
-                    # 各条件のタイムフレームごとにcloud_dataを追加
+                    # 各条件のタイムフレームごとにcloud_dataを追加（正規化した値を保存）
                     for cond in conditions:
                         tf_label = cond.get('label')
+                        field = cond.get('field')
                         cond_cloud_data = tf_cloud_data.get(tf_label, {})
-                        for k, v in cond_cloud_data.items():
-                            state_snapshot[f'{tf_label}.{k}'] = v
+                        raw_value = cond_cloud_data.get(field)
+                        # 正規化した値を保存（比較時と同じ形式）
+                        normalized_value = normalize_value_for_comparison(raw_value, field)
+                        state_snapshot[f'{tf_label}.{field}'] = normalized_value
+                        wlog(f'[RULE] Saving to snapshot: {tf_label}.{field} = {raw_value} → {normalized_value}')
                     
                     # 発火履歴を保存
                     fired_at = datetime.now(jst).isoformat()
@@ -2169,17 +2257,15 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 direction = '下降'
                         
                         elif primary_field == 'bos_count':
+                            # BOSの方向は同じTFのdautenから判定
+                            # bos_count自体は常に正の数なので、dautenを参照
+                            dauten_value = cloud_data.get('dauten')
                             bos_value = cloud_data.get('bos_count')
-                            wlog(f'[RULE] Direction from bos_count: {bos_value}')
-                            if bos_value is not None:
-                                try:
-                                    bos_num = float(bos_value) if bos_value != '' else 0
-                                    if bos_num > 0:
-                                        direction = '上昇'
-                                    elif bos_num < 0:
-                                        direction = '下降'
-                                except:
-                                    pass
+                            wlog(f'[RULE] Direction from bos_count: bos={bos_value}, dauten={dauten_value}')
+                            if dauten_value == 'up':
+                                direction = '上昇'
+                            elif dauten_value == 'down':
+                                direction = '下降'
                     
                     wlog(f'[RULE] Final direction for "{rule_name}": {direction}')
                     
