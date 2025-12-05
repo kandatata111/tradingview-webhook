@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>羊飼い - TradingView Webhook</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background: #f5f7fa;
+      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background: #fff;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    .header h2 {
+      margin: 0;
+      font-size: 1.2em;
+      color: #333;
+    }
+    
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .content iframe {
+      border: 0;
+      width: 100%;
+      flex: 1;
+      min-height: 500px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>羊飼い</h2>
+  </div>
+  
+  <div class="content">
+    <iframe id="shepherd-iframe" src="/api/proxy?url=https://zai.diamond.jp/list/fxcolumn/hitsuji" loading="lazy"></iframe>
+  </div>
+</body>
+</html>

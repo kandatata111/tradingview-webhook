@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>経済指標 - TradingView Webhook</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background: #1e3c72;
+      color: #f5f7ff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background: #000;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .header h2 {
+      margin: 0;
+      font-size: 1.2em;
+      color: #f5f7ff;
+    }
+    
+    .header-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    .lang-select {
+      background: rgba(128,128,128,0.5);
+      color: #f5f7ff;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .content iframe {
+      border: 0;
+      width: 100%;
+      flex: 1;
+      min-height: 400px;
+    }
+    
+    .footer {
+      padding: 8px;
+      text-align: center;
+      background: rgba(0,0,0,0.2);
+    }
+    
+    .footer a {
+      color: #666666;
+      text-decoration: none;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>経済指標</h2>
+    <div class="header-controls">
+      <select id="calendar-lang-select" class="lang-select">
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="content">
+    <iframe id="calendar-iframe" src="https://widget.myfxbook.com/widget/calendar.html?lang=ja&symbols=USD,JPY"></iframe>
+  </div>
+  
+  <div class="footer">
+    <a href="https://www.myfxbook.com/forex-economic-calendar?utm_source=widget13&utm_medium=link&utm_campaign=copyright" title="Economic Calendar" target="_blank" rel="noopener">
+      <b>Economic Calendar</b> by Myfxbook.com
+    </a>
+  </div>
+  
+  <script>
+    // 言語選択の変更イベント
+    const langSelect = document.getElementById('calendar-lang-select');
+    const calendarIframe = document.getElementById('calendar-iframe');
+    
+    // localStorageから言語設定を復元
+    const savedLang = localStorage.getItem('economic_calendar_lang') || 'ja';
+    langSelect.value = savedLang;
+    updateCalendarLang(savedLang);
+    
+    langSelect.addEventListener('change', function() {
+      const lang = this.value;
+      localStorage.setItem('economic_calendar_lang', lang);
+      updateCalendarLang(lang);
+    });
+    
+    function updateCalendarLang(lang) {
+      calendarIframe.src = `https://widget.myfxbook.com/widget/calendar.html?lang=${lang}&symbols=USD,JPY`;
+    }
+  </script>
+</body>
+</html>

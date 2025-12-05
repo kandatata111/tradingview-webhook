@@ -1111,65 +1111,19 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   <div id="dashboards-container">
     <!-- 通貨ごとの表と発火履歴が動的に生成されます -->
   </div>
-  <div id="economic-calendar-section" style="margin-top: 15px; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; padding: 0; background: rgba(255,255,255,0.1); resize: both; overflow: hidden; min-width: 400px; min-height: 300px;">
-    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin: 0; background:#000; color:#fff; padding:6px 10px; border-radius:0; font-weight:600; font-size:0.95em; letter-spacing:0.3px;">
-      <h3 style="margin: 0; font-size: 1.2em; color: #f5f7ff;">経済指標カレンダー</h3>
-      <div style="display: flex; gap: 12px; align-items: center;">
-        <select id="calendar-lang-select" style="background: rgba(128,128,128,0.5); color: #f5f7ff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 4px 8px; font-size: 11px;">
-          <option value="ja">日本語</option>
-          <option value="en">English</option>
-        </select>
-        <div id="economic-calendar-visibility" style="display: flex; gap: 8px; align-items: center;">
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; margin: 0;">
-            <input type="radio" name="calendar-visibility" value="show" checked>
-            表示
-          </label>
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; margin: 0;">
-            <input type="radio" name="calendar-visibility" value="hide">
-            非表示
-          </label>
-        </div>
-      </div>
-    </div>
-    <div class="section-body" data-section-body="economic-calendar" style="display: flex; flex-direction: column; flex: 1; min-height: 300px;">
-      <!-- myfxbook.com Economic Calendar Widget - Start -->
-      <iframe src="https://widget.myfxbook.com/widget/calendar.html?lang=ja&symbols=USD,JPY" style="border: 0; width:100%; height: 100%; min-height: 280px;"></iframe>
-      <div style="margin-top: 0; flex-shrink: 0;">
-        <div style="width: fit-content; margin: auto;font-family: roboto,sans-serif!important; font-size: 13px; color: #666666;">
-         <a href="https://www.myfxbook.com/forex-economic-calendar?utm_source=widget13&utm_medium=link&utm_campaign=copyright" title="Economic Calendar" class="myfxbookLink" target="_blank" rel="noopener"><b style="color:#666666">Economic Calendar</b></a>
-         by Myfxbook.com
-        </div>
-      </div>
-      <!-- myfxbook.com Economic Calendar Widget - End -->
-    </div>
-  </div>
   
-  <!-- 外部サイト表示ウィンドウ -->
-  <div id="external-site-window">
-    <div class="window-header">
-      <h3>羊飼いコラム</h3>
-      <div class="window-controls">
-        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; margin: 0;">
-          <input type="radio" name="external-site-visibility" value="show" checked>
-          表示
-        </label>
-        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; margin: 0;">
-          <input type="radio" name="external-site-visibility" value="hide">
-          非表示
-        </label>
-      </div>
-    </div>
-    <div class="window-body" style="min-height: 350px;">
-      <iframe id="external-site-iframe" src="/api/proxy?url=https://zai.diamond.jp/list/fxcolumn/hitsuji" loading="lazy" style="width:100%; height:100%; min-height:350px;"></iframe>
-    </div>
+  <!-- 外部コンテンツボタンセクション -->
+  <div id="external-buttons-section" style="margin-top: 15px; display: flex; gap: 12px; padding: 0 6px;">
+    <button id="openEconomicCalendar" class="settings-button">経済指標</button>
+    <button id="openShepherdColumn" class="settings-button">羊飼い</button>
   </div>
 </div>
 
 </div>
 <script>
-// Version check and cache buster - 2025-11-11-v1
+// Version check and cache buster - 2025-12-05-v3
 (function() {
-  const REQUIRED_VERSION = '2025-11-11-v1';
+  const REQUIRED_VERSION = '2025-12-05-v3';
   const currentVersion = localStorage.getItem('app_version');
   if (currentVersion !== REQUIRED_VERSION) {
     console.log('[VERSION] Updating from', currentVersion, 'to', REQUIRED_VERSION);
@@ -1187,6 +1141,8 @@ let isResizingSettings = false;  // 設定モーダルリサイズ中フラグ�
 // 子ウィンドウの参照を管理（グローバル）
 let noteWindowRef = null;
 let settingsWindowRef = null;
+let economicCalendarWindowRef = null;
+let shepherdColumnWindowRef = null;
 
 // 利用可能な通貨リスト（子ウィンドウと共有用）
 let availableCurrenciesGlobal = [];
@@ -1244,6 +1200,26 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
     noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
   }
 });
+
+  // 経済指標ボタン: 子ウィンドウを開く/復帰させる
+  const openEconomicCalendarBtn = document.getElementById('openEconomicCalendar');
+  if (openEconomicCalendarBtn) openEconomicCalendarBtn.addEventListener('click', () => {
+    if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
+      economicCalendarWindowRef.focus();
+    } else {
+      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
+    }
+  });
+
+  // 羊飼いボタン: 子ウィンドウを開く/復帰させる
+  const openShepherdColumnBtn = document.getElementById('openShepherdColumn');
+  if (openShepherdColumnBtn) openShepherdColumnBtn.addEventListener('click', () => {
+    if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
+      shepherdColumnWindowRef.focus();
+    } else {
+      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
+    }
+  });
 
 if (closeNoteBtn) closeNoteBtn.addEventListener('click', () => { 
   if (noteOverlay) {
@@ -1875,90 +1851,7 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
     });
   }
 
-  // 言語選択イベントリスナー
-  const calendarLangSelect = document.getElementById('calendar-lang-select');
-  if (calendarLangSelect) {
-    calendarLangSelect.addEventListener('change', (e) => {
-      const selectedLang = e.target.value;
-      if (confirm('言語を変更すると、経済指標カレンダーの現在の設定（フィルターなど）がリセットされます。よろしいですか？')) {
-        localStorage.setItem('tv_calendar_lang', selectedLang);
-        const iframe = document.querySelector('#economic-calendar-section iframe');
-        if (iframe) {
-          const currentSrc = iframe.src;
-          const newSrc = currentSrc.replace(/lang=[^&]*/, 'lang=' + selectedLang);
-          iframe.src = newSrc;
-        }
-      } else {
-        // キャンセルされたら元の値に戻す
-        e.target.value = localStorage.getItem('tv_calendar_lang') || 'ja';
-      }
-    });
-  }
-
-  // 経済指標カレンダーの表示/非表示ラジオボタンイベント
-  const calendarVisibilityRadios = document.querySelectorAll('input[name="calendar-visibility"]');
-  console.log('[CALENDAR] Found ' + calendarVisibilityRadios.length + ' visibility radios');
-  calendarVisibilityRadios.forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      console.log('[CALENDAR] Visibility changed to:', e.target.value);
-      const calendarSection = document.getElementById('economic-calendar-section');
-      if (e.target.value === 'hide') {
-        calendarSection.classList.add('hidden');
-        localStorage.setItem('tv_calendar_visible', 'false');
-        console.log('[CALENDAR] Hidden class added');
-      } else {
-        calendarSection.classList.remove('hidden');
-        localStorage.setItem('tv_calendar_visible', 'true');
-        console.log('[CALENDAR] Hidden class removed');
-      }
-    });
-  });
-
-  // 外部サイトウィンドウの表示/非表示ラジオボタンイベント
-  const externalSiteVisibilityRadios = document.querySelectorAll('input[name="external-site-visibility"]');
-  console.log('[EXTERNAL-SITE] Found ' + externalSiteVisibilityRadios.length + ' visibility radios');
-  externalSiteVisibilityRadios.forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      console.log('[EXTERNAL-SITE] Visibility changed to:', e.target.value);
-      const externalSiteWindow = document.getElementById('external-site-window');
-      if (e.target.value === 'hide') {
-        externalSiteWindow.classList.add('hidden');
-        localStorage.setItem('tv_external_site_visible', 'false');
-        console.log('[EXTERNAL-SITE] Hidden class added');
-      } else {
-        externalSiteWindow.classList.remove('hidden');
-        localStorage.setItem('tv_external_site_visible', 'true');
-        console.log('[EXTERNAL-SITE] Hidden class removed');
-      }
-    });
-  });
-
-  // 外部サイトウィンドウのサイズ保存
-  const externalSiteWindow = document.getElementById('external-site-window');
-  if (externalSiteWindow) {
-    // 保存されたサイズを復元
-    const savedWidth = localStorage.getItem('tv_external_site_width');
-    const savedHeight = localStorage.getItem('tv_external_site_height');
-    if (savedWidth) externalSiteWindow.style.width = savedWidth + 'px';
-    if (savedHeight) externalSiteWindow.style.height = savedHeight + 'px';
-    
-    // 保存された表示状態を復元
-    const savedVisible = localStorage.getItem('tv_external_site_visible');
-    if (savedVisible === 'false') {
-      externalSiteWindow.classList.add('hidden');
-      const hideRadio = document.querySelector('input[name="external-site-visibility"][value="hide"]');
-      if (hideRadio) hideRadio.checked = true;
-    }
-
-    // リサイズ時にサイズを保存
-    const resizeObserver = new ResizeObserver(entries => {
-      for (let entry of entries) {
-        localStorage.setItem('tv_external_site_width', entry.contentRect.width);
-        localStorage.setItem('tv_external_site_height', entry.contentRect.height);
-      }
-    });
-    resizeObserver.observe(externalSiteWindow);
-  }
+  // 経済指標カレンダーと外部サイトウィンドウは別ウィンドウに移動したため、言語選択イベントリスナーは不要
 
 // ノート項目の作成関数
 function createNoteSection(title = '', content = '', images = []) {
@@ -4331,7 +4224,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     // IndexedDB を初期化（失敗しても続行）
     try {
-      await initIndexedDB();
+      if (typeof initIndexedDB === 'function') {
+        await initIndexedDB();
+      } else {
+        console.warn('[INDEXEDDB] initIndexedDB function not available');
+      }
     } catch (e) {
       console.warn('[INDEXEDDB] Initialization failed, continuing without IndexedDB:', e);
       db = null;
@@ -4510,51 +4407,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
     
-    // Initialize calendar language selector
-    const savedCalendarLang = localStorage.getItem('tv_calendar_lang') || 'ja';
-    const calendarLangSelect = document.getElementById('calendar-lang-select');
-    if (calendarLangSelect) {
-      calendarLangSelect.value = savedCalendarLang;
-      // Update iframe src on initialization
-      const iframe = document.querySelector('#economic-calendar-section iframe');
-      if (iframe) {
-        const currentSrc = iframe.src;
-        const newSrc = currentSrc.replace(/lang=[^&]*/, 'lang=' + savedCalendarLang);
-        iframe.src = newSrc;
-      }
-    }
-    
-    // Initialize calendar visibility
-    const savedCalendarVisible = localStorage.getItem('tv_calendar_visible') !== 'false';
-    const calendarSection = document.getElementById('economic-calendar-section');
-    const calendarVisibilityRadios = document.querySelectorAll('input[name="calendar-visibility"]');
-    if (savedCalendarVisible) {
-      calendarSection.classList.remove('hidden');
-      calendarVisibilityRadios.forEach(radio => {
-        if (radio.value === 'show') radio.checked = true;
-      });
-    } else {
-      calendarSection.classList.add('hidden');
-      calendarVisibilityRadios.forEach(radio => {
-        if (radio.value === 'hide') radio.checked = true;
-      });
-    }
-    
-    // Initialize external site window visibility
-    const savedExternalSiteVisible = localStorage.getItem('tv_external_site_visible') !== 'false';
-    const externalSiteWindow = document.getElementById('external-site-window');
-    const externalSiteVisibilityRadios = document.querySelectorAll('input[name="external-site-visibility"]');
-    if (savedExternalSiteVisible) {
-      externalSiteWindow.classList.remove('hidden');
-      externalSiteVisibilityRadios.forEach(radio => {
-        if (radio.value === 'show') radio.checked = true;
-      });
-    } else {
-      externalSiteWindow.classList.add('hidden');
-      externalSiteVisibilityRadios.forEach(radio => {
-        if (radio.value === 'hide') radio.checked = true;
-      });
-    }
+    // Calendar language selector and visibility - moved to separate window
     
     // Populate chime select
     await populateChimeSelect();
@@ -4624,7 +4477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Notification polling initialization (moved from separate DOMContentLoaded listener)
-    const REQUIRED_VERSION = '2025-11-11-v1';
+    const REQUIRED_VERSION = '2025-12-05-v3';
     const currentVersion = localStorage.getItem('app_version');
     if (currentVersion === REQUIRED_VERSION && !notificationPollingStarted) {
       notificationPollingStarted = true;
@@ -4692,26 +4545,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('[NOTIFICATIONS] Version mismatch, skipping notification polling');
     }
 
-    // Setup calendar visibility toggle
-    setTimeout(() => {
-      const calendarVisibilityRadios = document.querySelectorAll('input[name="calendar-visibility"]');
-      console.log('[CALENDAR] Setting up visibility toggle, found radios:', calendarVisibilityRadios.length);
-      calendarVisibilityRadios.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-          console.log('[CALENDAR] Visibility changed to:', e.target.value);
-          const calendarSection = document.getElementById('economic-calendar-section');
-          if (e.target.value === 'hide') {
-            calendarSection.classList.add('hidden');
-            localStorage.setItem('tv_calendar_visible', 'false');
-            console.log('[CALENDAR] Hidden class added');
-          } else {
-            calendarSection.classList.remove('hidden');
-            localStorage.setItem('tv_calendar_visible', 'true');
-            console.log('[CALENDAR] Hidden class removed');
-          }
-        });
-      });
-    }, 100);
+    // Calendar visibility toggle - moved to separate window
 
   } catch (err) { console.log('settings init error', err); }
 });

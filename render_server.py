@@ -402,6 +402,24 @@ def settings_window():
     response.headers['Expires'] = '0'
     return response
 
+@app.route('/economic_calendar_window')
+def economic_calendar_window():
+    """経済指標専用ウィンドウ"""
+    response = make_response(render_template('economic_calendar_window.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/shepherd_column_window')
+def shepherd_column_window():
+    """羊飼い専用ウィンドウ"""
+    response = make_response(render_template('shepherd_column_window.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 @app.route('/webhook', methods=['POST', 'OPTIONS'])
 def webhook():
     # OPTIONSリクエストに対応（CORS プリフライト）
