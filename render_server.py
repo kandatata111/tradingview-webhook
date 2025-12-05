@@ -384,6 +384,24 @@ def json_test_panel():
     response.headers['Expires'] = '0'
     return response
 
+@app.route('/notes_window')
+def notes_window():
+    """ノート専用ウィンドウ"""
+    response = make_response(render_template('notes_window.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/settings_window')
+def settings_window():
+    """設定専用ウィンドウ"""
+    response = make_response(render_template('settings_window.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 @app.route('/webhook', methods=['POST', 'OPTIONS'])
 def webhook():
     # OPTIONSリクエストに対応（CORS プリフライト）
@@ -611,14 +629,18 @@ def rules():
             conn.close()
             res = []
             for r in rows:
-                res.append({
+                # rule_jsonの中身をフラットに展開
+                rule_data = json.loads(r[4]) if r[4] else {}
+                rule_obj = {
                     'id': r[0], 'name': r[1], 'enabled': bool(r[2]),
                     'scope': json.loads(r[3]) if r[3] else None,
-                    'rule': json.loads(r[4]) if r[4] else None,
                     'created_at': r[5],
                     'updated_at': r[6] if len(r) > 6 else r[5],
                     'sort_order': r[7] if len(r) > 7 else 0
-                })
+                }
+                # rule_dataの中身をマージ（voice, cloudAlign, conditions等）
+                rule_obj.update(rule_data)
+                res.append(rule_obj)
             return jsonify({'status': 'success', 'rules': res}), 200
 
         # POST: 保存（新規/更新）
@@ -629,8 +651,15 @@ def rules():
         # Debug: log the incoming payload for voice settings
         print(f'[DEBUG] Received payload: {json.dumps(payload, ensure_ascii=False, indent=2)}')
         
+        # voice, cloudAlign, conditions等をrule_jsonにまとめる
+        rule_data = {
+            'voice': payload.get('voice', {}),
+            'cloudAlign': payload.get('cloudAlign', {}),
+            'conditions': payload.get('conditions', [])
+        }
+        
         # server-side validation: ensure alignment settings (if present) are sane
-        rule_obj = payload.get('rule') or {}
+        rule_obj = payload.get('rule') or rule_data
         align = rule_obj.get('alignment')
         if align:
             try:
@@ -668,7 +697,8 @@ def rules():
         name = payload.get('name', 'unnamed')
         enabled = 1 if payload.get('enabled', True) else 0
         scope_json = json.dumps(payload.get('scope', {}), ensure_ascii=False)
-        rule_json = json.dumps(payload.get('rule', {}), ensure_ascii=False)
+        # rule_dataを使用してvoice, cloudAlign, conditionsを保存
+        rule_json = json.dumps(rule_data, ensure_ascii=False)
         updated_at = datetime.now().isoformat()
 
         conn = sqlite3.connect(DB_PATH)
@@ -726,6 +756,249 @@ def delete_rule(rule_id):
     except Exception as e:
         print(f'[ERROR][delete_rule] {e}')
         return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/rules/<rule_id>/toggle', methods=['POST'])
+def toggle_rule(rule_id):
+    """ルールの有効/無効を切り替え"""
+    try:
+        data = request.get_json() or {}
+        enabled = data.get('enabled', True)
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 現在のルールを取得
+        c.execute('SELECT rule_json FROM rules WHERE id = ?', (rule_id,))
+        row = c.fetchone()
+        
+        if not row:
+            conn.close()
+            return jsonify({'status': 'error', 'msg': 'Rule not found'}), 404
+        
+        # ルールを更新
+        rule = json.loads(row[0])
+        rule['enabled'] = enabled
+        
+        c.execute('UPDATE rules SET rule_json = ? WHERE id = ?', (json.dumps(rule, ensure_ascii=False), rule_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'status': 'success', 'enabled': enabled}), 200
+    except Exception as e:
+        print(f'[ERROR][toggle_rule] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/rules/<rule_id>/test', methods=['POST'])
+def test_single_rule(rule_id):
+    """単一ルールをテスト"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # ルールを取得
+        c.execute('SELECT rule_json FROM rules WHERE id = ?', (rule_id,))
+        row = c.fetchone()
+        
+        if not row:
+            conn.close()
+            return jsonify({'status': 'error', 'msg': 'Rule not found'}), 404
+        
+        rule = json.loads(row[0])
+        
+        # 現在の状態を取得（cloud_dataではなくclouds_jsonを使用）
+        # tf='5'のレコードには全TFの雲データが含まれている
+        c.execute('SELECT DISTINCT symbol FROM states')
+        symbols = [r[0] for r in c.fetchall()]
+        
+        matches = []
+        for sym in symbols:
+            try:
+                # 5mのレコードから全TFの雲データとcloud_orderを取得
+                c.execute('SELECT clouds_json, cloud_order FROM states WHERE symbol = ? AND tf = ?', (sym, '5'))
+                row_5m = c.fetchone()
+                
+                if not row_5m or not row_5m[0]:
+                    continue
+                
+                clouds = json.loads(row_5m[0])
+                cloud_order = row_5m[1] if len(row_5m) > 1 else None
+                
+                # clouds配列を {tf_label: cloud_data} の辞書に変換
+                cloud_data = {}
+                for cloud in clouds:
+                    label = cloud.get('label')
+                    if label:
+                        cloud_data[label] = cloud
+                
+                # cloud_orderを特別なキーで追加（雲整列判定用）
+                if cloud_order:
+                    cloud_data['__cloud_order__'] = cloud_order
+                
+                # ルールがこの通貨に適用されるか
+                scope_symbol = rule.get('scope', {}).get('symbol', '')
+                if scope_symbol and scope_symbol != sym:
+                    continue
+                
+                # 簡易マッチング（実際の評価ロジックを呼び出す）
+                direction = _evaluate_rule_match(rule, cloud_data)
+                if direction:
+                    matches.append({'symbol': sym, 'direction': direction})
+            except Exception as inner_e:
+                print(f'[TEST RULE] Error evaluating {sym}: {inner_e}')
+                import traceback
+                traceback.print_exc()
+        
+        conn.close()
+        return jsonify({'status': 'success', 'matches': matches}), 200
+    except Exception as e:
+        print(f'[ERROR][test_single_rule] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+def _evaluate_rule_match(rule, cloud_data):
+    """ルールが現在のデータにマッチするか評価（簡易版）
+    
+    本番の _evaluate_rules_with_db_state と同じロジックを使用
+    """
+    try:
+        direction = None
+        all_matched = True
+        condition_directions = []
+        
+        # 条件をチェック
+        conditions = rule.get('conditions', [])
+        if conditions:
+            for cond in conditions:
+                tf_label = cond.get('timeframe') or cond.get('label')
+                field = cond.get('field')
+                value = cond.get('value')
+                
+                tf_data = cloud_data.get(tf_label, {})
+                found_value = tf_data.get(field)
+                
+                condition_met = False
+                
+                # 存在チェック（valueが空の場合）
+                if value is None or value == '':
+                    if field == 'gc':
+                        condition_met = found_value is not None
+                    elif field == 'dauten':
+                        condition_met = found_value in ['up', 'down']
+                    elif field == 'bos_count':
+                        try:
+                            bos_num = int(found_value) if found_value else 0
+                            condition_met = bos_num > 0
+                        except:
+                            condition_met = False
+                    else:
+                        condition_met = found_value is not None and found_value != ''
+                else:
+                    condition_met = found_value == value
+                
+                if not condition_met:
+                    all_matched = False
+                    break
+                
+                # 各フィールドから方向を判定
+                cond_direction = None
+                if field == 'dauten':
+                    if found_value == 'up':
+                        cond_direction = 'up'
+                    elif found_value == 'down':
+                        cond_direction = 'down'
+                elif field == 'gc':
+                    if found_value is True:
+                        cond_direction = 'up'
+                    elif found_value is False:
+                        cond_direction = 'down'
+                elif field == 'bos_count':
+                    # bos_countの方向はdautenから取得
+                    dauten_for_bos = tf_data.get('dauten')
+                    if dauten_for_bos == 'up':
+                        cond_direction = 'up'
+                    elif dauten_for_bos == 'down':
+                        cond_direction = 'down'
+                
+                condition_directions.append(cond_direction)
+        
+        if not all_matched:
+            return None
+        
+        # 複数条件の場合、方向の整合性をチェック
+        if len(condition_directions) > 1:
+            valid_directions = [d for d in condition_directions if d is not None]
+            if len(valid_directions) > 1 and len(set(valid_directions)) > 1:
+                # 方向が一致しない
+                return None
+        
+        # 雲整列条件をチェック（cloud_orderを使用）
+        cloud_align = rule.get('cloudAlign', {})
+        
+        # alignment_is_active の判定（本番側と同じロジック）
+        alignment_is_active = False
+        tfs_check = cloud_align.get('timeframes') or cloud_align.get('tfs', [])
+        if cloud_align.get('allTimeframes') or (tfs_check and len(tfs_check) > 0):
+            alignment_is_active = True
+        
+        alignment_direction = None
+        
+        if alignment_is_active and all_matched:
+            timeframes = tfs_check if tfs_check else ['5m', '15m', '1H', '4H']
+            if cloud_align.get('allTimeframes') and not tfs_check:
+                timeframes = ['5m', '15m', '1H', '4H']
+            
+            # cloud_dataから cloud_order を取得（5mのデータに含まれている場合がある）
+            # または別途DBから取得する必要がある
+            # ここではcloud_dataに含まれない場合があるので、引数で受け取った情報を使う
+            # cloud_dataは各TFのデータを含む辞書なので、別途cloud_orderが必要
+            
+            # cloud_orderは呼び出し元で渡される必要があるが、
+            # 現在の実装では渡されていないので、Noneの場合は不一致とする
+            cloud_order = cloud_data.get('__cloud_order__')
+            
+            if cloud_order:
+                # cloud_order は '5m,15m,1H,4H,価格' のような文字列
+                cloud_order_list = [x.strip() for x in cloud_order.split(',')]
+                
+                # 「価格」を除外してTFのみ抽出
+                cloud_order_tfs = [x for x in cloud_order_list if x in ['5m', '15m', '1H', '4H']]
+                
+                # 選択されたTFのみを抽出（順序を保持）
+                selected_order = [x for x in cloud_order_tfs if x in timeframes]
+                
+                # 期待する昇順と降順
+                expected_asc = timeframes  # ['5m', '15m', '1H', '4H']
+                expected_desc = list(reversed(timeframes))  # ['4H', '1H', '15m', '5m']
+                
+                # 整列判定
+                is_aligned = (selected_order == expected_asc or selected_order == expected_desc)
+                
+                if is_aligned:
+                    # 整列方向を判定
+                    if selected_order == expected_asc:
+                        alignment_direction = 'up'
+                    else:
+                        alignment_direction = 'down'
+                    direction = alignment_direction
+                else:
+                    return None
+            else:
+                # cloud_orderがない場合は不一致
+                return None
+        else:
+            # 雲整列条件がない場合、条件から方向を判定
+            valid_directions = [d for d in condition_directions if d is not None]
+            if valid_directions:
+                direction = valid_directions[0]
+        
+        return direction
+    except Exception as e:
+        print(f'[_evaluate_rule_match] Error: {e}')
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 def _find_cloud_field(state, label, field):
@@ -1145,11 +1418,16 @@ def rules_test():
         results = []
 
         # --- evaluate alignment if present ---
-        align = rule.get('alignment') or rule.get('rule',{}).get('alignment')
-        if align and align.get('tfs'):
+        align = rule.get('cloudAlign') or rule.get('alignment') or rule.get('rule',{}).get('alignment')
+        # timeframes (new) または tfs (old) をサポート
+        align_tfs = align.get('timeframes') or align.get('tfs', []) if align else []
+        # allTimeframesがTrueの場合、全タイムフレームを使用
+        if align and align.get('allTimeframes') and not align_tfs:
+            align_tfs = ['5m', '15m', '1H', '4H']
+        if align and align_tfs:
             try:
-                tfs = align.get('tfs', [])
-                missing_mode = align.get('missing', 'fail')
+                tfs = align_tfs
+                missing_mode = align.get('missingBehavior') or align.get('missing', 'fail')
                 
                 # Get row_order from used_state
                 row_order = used_state.get('row_order', []) if used_state else []
@@ -1195,7 +1473,7 @@ def rules_test():
         for cond in conditions:
             # support simple field conds: {label, field, op, value}
             if cond.get('field'):
-                label = cond.get('label')
+                label = cond.get('timeframe') or cond.get('label')
                 field = cond.get('field')
                 op = cond.get('op', '==')
                 val = cond.get('value')
@@ -1429,7 +1707,7 @@ def rules_test():
             field = cond.get('field')
             if field in ('dauten', 'gc'):
                 # Get actual value from details
-                detail = next((d for d in details if d.get('cond') == f"{cond.get('label')}.{field}"), None)
+                detail = next((d for d in details if d.get('cond') == f"{cond.get('timeframe') or cond.get('label')}.{field}"), None)
                 if detail:
                     actual = detail.get('actual')
                     if actual:
@@ -1840,7 +2118,37 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 # ルールの音声設定を取得
                 voice_settings = rule.get('voice', {})
                 
+                # フロントエンド互換のためキー名を統一（camelCase -> snake_case）
+                # chime -> chime_file
+                if voice_settings.get('chime') and not voice_settings.get('chime_file'):
+                    voice_settings['chime_file'] = voice_settings['chime']
+                # voiceFile -> voice_file
+                if voice_settings.get('voiceFile') and not voice_settings.get('voice_file'):
+                    voice_settings['voice_file'] = voice_settings['voiceFile']
+                # insertSymbol -> insert_symbol
+                if voice_settings.get('insertSymbol') and not voice_settings.get('insert_symbol'):
+                    voice_settings['insert_symbol'] = voice_settings['insertSymbol']
+                # symbolInsertPosition -> symbol_insert_position
+                if voice_settings.get('symbolInsertPosition') and not voice_settings.get('symbol_insert_position'):
+                    voice_settings['symbol_insert_position'] = voice_settings['symbolInsertPosition']
+                # directionBased -> direction_based
+                if voice_settings.get('directionBased') and not voice_settings.get('direction_based'):
+                    voice_settings['direction_based'] = voice_settings['directionBased']
+                # messagePosition -> message_position
+                if voice_settings.get('messagePosition') and not voice_settings.get('message_position'):
+                    voice_settings['message_position'] = voice_settings['messagePosition']
+                # messageUp -> message_up
+                if voice_settings.get('messageUp') and not voice_settings.get('message_up'):
+                    voice_settings['message_up'] = voice_settings['messageUp']
+                # messageDown -> message_down
+                if voice_settings.get('messageDown') and not voice_settings.get('message_down'):
+                    voice_settings['message_down'] = voice_settings['messageDown']
+                # playChimeFirst -> play_chime_first
+                if voice_settings.get('playChimeFirst') and not voice_settings.get('play_chime_first'):
+                    voice_settings['play_chime_first'] = voice_settings['playChimeFirst']
+                
                 wlog(f'[RULE] Processing rule "{rule_name}" scope={scope}')
+                wlog(f'[RULE] Voice settings: {voice_settings}')
                 
                 # Check scope: if scope has symbol, must match
                 if scope.get('symbol') and scope['symbol'] != symbol:
@@ -1857,8 +2165,10 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 # 複数条件の場合、各条件から方向を収集
                 condition_directions = []
                 
+                wlog(f'[RULE][V4_FIXED] Evaluating {len(conditions)} conditions')
+                
                 for cond in conditions:
-                    tf_label = cond.get('label')  # '5m', '15m', '1H', '4H'
+                    tf_label = cond.get('timeframe') or cond.get('label')  # '5m', '15m', '1H', '4H'
                     field = cond.get('field')      # 'dauten', 'bos_count', 'gc' など
                     value = cond.get('value')      # 期待値
                     
@@ -1873,9 +2183,21 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     
                     # 条件をチェック
                     condition_met = False
-                    if value is None:
-                        # Presence check: フィールドが存在し、None でないかチェック
-                        condition_met = found_value is not None
+                    # 空文字列('')も「存在チェック」として扱う
+                    is_presence_check = (value is None) or (value == '') or (str(value).strip() == '')
+                    if is_presence_check:
+                        # Presence check: フィールドが存在し、有効な値を持つかチェック
+                        if field == 'gc':
+                            # gcはTrue/Falseが有効値
+                            condition_met = found_value is not None
+                        elif field == 'dauten':
+                            # dautenは'up'または'down'が有効値
+                            condition_met = found_value in ['up', 'down']
+                        elif field == 'bos_count':
+                            # bos_countは0以外の値が有効
+                            condition_met = found_value is not None and found_value != 0 and found_value != '0'
+                        else:
+                            condition_met = found_value is not None and found_value != ''
                     else:
                         # Value check: 値が一致するかチェック
                         condition_met = found_value == value
@@ -1898,15 +2220,15 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             elif found_value is False:
                                 direction = 'down'
                         elif field == 'bos_count':
-                            if found_value is not None:
-                                try:
-                                    bos_num = float(found_value) if found_value != '' else 0
-                                    if bos_num > 0:
-                                        direction = 'up'
-                                    elif bos_num < 0:
-                                        direction = 'down'
-                                except:
-                                    pass
+                            # bos_count自体には方向情報がないので、同じTFのdautenから方向を取得
+                            # bos_countは常に0以上の整数なので、方向はdautenに依存
+                            cloud_for_bos = tf_cloud_data.get(tf_label, {})
+                            dauten_for_bos = cloud_for_bos.get('dauten')
+                            if dauten_for_bos == 'up':
+                                direction = 'up'
+                            elif dauten_for_bos == 'down':
+                                direction = 'down'
+                            wlog(f'[RULE] bos_count direction from dauten: {dauten_for_bos} -> {direction}')
                         
                         condition_directions.append(direction)
                         wlog(f'[RULE] Added direction: {direction}')
@@ -1937,14 +2259,27 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 # ===== Alignment チェック =====
                 # ルールに alignment 設定がある場合、cloud_order の並び順をチェック
-                alignment_config = rule.get('alignment')
+                # cloudAlign (新形式) または alignment (旧形式) をサポート
+                alignment_config = rule.get('cloudAlign') or rule.get('alignment')
                 alignment_direction = None  # 整列の方向（'上昇' or '下降'）
                 current_tf_order = None  # 現在のTF順序（価格を除外）
                 
-                if alignment_config and all_matched:
+                # alignment_configが有効かどうかを判定（allTimeframes=True または timeframes/tfsが指定されている場合）
+                alignment_is_active = False
+                if alignment_config:
+                    tfs_check = alignment_config.get('timeframes') or alignment_config.get('tfs', [])
+                    if alignment_config.get('allTimeframes') or (tfs_check and len(tfs_check) > 0):
+                        alignment_is_active = True
+                
+                if alignment_is_active and all_matched:
                     wlog(f'[RULE] Checking alignment: {alignment_config}')
                     
-                    tfs = alignment_config.get('tfs', [])  # ['5m', '15m', '1H', '4H']
+                    # timeframes (new) または tfs (old) をサポート
+                    tfs = alignment_config.get('timeframes') or alignment_config.get('tfs', [])  # ['5m', '15m', '1H', '4H']
+                    
+                    # allTimeframesがTrueの場合、全タイムフレームを使用
+                    if alignment_config.get('allTimeframes') and not tfs:
+                        tfs = ['5m', '15m', '1H', '4H']
                     
                     # DBから現在の cloud_order を取得
                     conn_order = sqlite3.connect(DB_PATH)
@@ -2085,7 +2420,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         wlog(f'[RULE] Conditions were not matched last time, now matched, should_fire=True')
                     else:
                         # Alignment ルールの場合は TF順序（価格除外）の変化をチェック
-                        if alignment_config:
+                        if alignment_is_active:
                             # 現在のTF順序を取得（価格除外）
                             conn_order_check = sqlite3.connect(DB_PATH)
                             c_order_check = conn_order_check.cursor()
@@ -2098,7 +2433,9 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 cloud_order = [x.strip() for x in cloud_order_str.split(',')]
                                 # 価格を除外してTFのみ抽出
                                 cloud_order_tfs = [x for x in cloud_order if x in ['5m', '15m', '1H', '4H']]
-                                tfs = alignment_config.get('tfs', [])
+                                tfs = alignment_config.get('timeframes') or alignment_config.get('tfs', [])
+                                if alignment_config.get('allTimeframes') and not tfs:
+                                    tfs = ['5m', '15m', '1H', '4H']
                                 selected_order = [x for x in cloud_order_tfs if x in tfs]
                                 current_tf_order = ','.join(selected_order)
                             else:
@@ -2115,7 +2452,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         else:
                             # 通常のルール: 各条件のフィールド値が変化したかチェック
                             for cond in conditions:
-                                tf_label = cond.get('label')
+                                tf_label = cond.get('timeframe') or cond.get('label')
                                 field = cond.get('field')
                                 field_key = f'{tf_label}.{field}'
                                 
@@ -2178,7 +2515,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     }
                     
                     # Alignment ルールの場合は tf_order（価格除外のTF順序）を保存
-                    if alignment_config:
+                    if alignment_is_active:
                         conn_order_snap = sqlite3.connect(DB_PATH)
                         c_order_snap = conn_order_snap.cursor()
                         c_order_snap.execute('SELECT cloud_order FROM states WHERE symbol = ? AND tf = ? LIMIT 1', (symbol, '5'))
@@ -2190,7 +2527,9 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             cloud_order = [x.strip() for x in cloud_order_str.split(',')]
                             # 価格を除外してTFのみ抽出
                             cloud_order_tfs = [x for x in cloud_order if x in ['5m', '15m', '1H', '4H']]
-                            tfs = alignment_config.get('tfs', [])
+                            tfs = alignment_config.get('timeframes') or alignment_config.get('tfs', [])
+                            if alignment_config.get('allTimeframes') and not tfs:
+                                tfs = ['5m', '15m', '1H', '4H']
                             selected_order = [x for x in cloud_order_tfs if x in tfs]
                             state_snapshot['tf_order'] = ','.join(selected_order)
                             # cloud_order も参考として保存（ログ用）
@@ -2198,7 +2537,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     
                     # 各条件のタイムフレームごとにcloud_dataを追加（正規化した値を保存）
                     for cond in conditions:
-                        tf_label = cond.get('label')
+                        tf_label = cond.get('timeframe') or cond.get('label')
                         field = cond.get('field')
                         cond_cloud_data = tf_cloud_data.get(tf_label, {})
                         raw_value = cond_cloud_data.get(field)
@@ -2234,7 +2573,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         wlog(f'[RULE] Direction from alignment: {direction}')
                     elif conditions:
                         primary_field = conditions[0].get('field')
-                        primary_tf_label = conditions[0].get('label')
+                        primary_tf_label = conditions[0].get('timeframe') or conditions[0].get('label')
                         cloud_data = tf_cloud_data.get(primary_tf_label, {})
                         
                         wlog(f'[RULE] Direction check: primary_field={primary_field}, tf={primary_tf_label}, cloud_data keys={list(cloud_data.keys()) if cloud_data else None}')
@@ -2327,8 +2666,14 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
         if fired_notifications:
             # 各通知を個別に送信
             for notification in fired_notifications:
-                socketio.emit('new_notification', notification)
-                print(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}"')
+                try:
+                    socketio.emit('new_notification', notification)
+                    wlog(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}"')
+                    print(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}"')
+                except Exception as emit_error:
+                    wlog(f'[FIRE] ERROR emitting notification: {emit_error}')
+                    print(f'[FIRE] ERROR emitting notification: {emit_error}')
+            wlog(f'[FIRE] Total {len(fired_notifications)} notifications sent')
             print(f'[FIRE] Total {len(fired_notifications)} notifications sent')
         
     except Exception as e:
@@ -2405,7 +2750,7 @@ def _evaluate_rules_with_timeframe_data(data, symbol, tf_val):
                 all_matched = True
                 
                 for cond in conditions:
-                    label = cond.get('label')
+                    label = cond.get('timeframe') or cond.get('label')
                     field = cond.get('field')
                     value = cond.get('value')
                     
@@ -2634,7 +2979,7 @@ def _evaluate_rules_with_state(base_state):
                     should_fire = False
                     changed_fields = []
                     rule_conditions = rule.get('conditions', [])
-                    has_alignment = rule.get('alignment') is not None
+                    has_alignment = rule.get('cloudAlign') is not None or rule.get('alignment') is not None
                     
                     # Get last fired state for this rule
                     conn_check = sqlite3.connect(DB_PATH)
@@ -2659,7 +3004,7 @@ def _evaluate_rules_with_state(base_state):
                     # Check state change fields (gc, dauten, bos_count)
                     for cond in rule_conditions:
                         field = cond.get('field')
-                        label = cond.get('label')
+                        label = cond.get('timeframe') or cond.get('label')
                         
                         if field in state_change_fields:
                             # Find current value
@@ -2682,7 +3027,7 @@ def _evaluate_rules_with_state(base_state):
                     # Check threshold fields (angle, thickness, distance_*, transfer_time_diff)
                     for cond in rule_conditions:
                         field = cond.get('field')
-                        label = cond.get('label')
+                        label = cond.get('timeframe') or cond.get('label')
                         threshold_value = cond.get('value')
                         
                         if field in threshold_fields:
@@ -2733,7 +3078,7 @@ def _evaluate_rules_with_state(base_state):
                     
                     # Check alignment condition
                     if has_alignment:
-                        alignment = rule.get('alignment')
+                        alignment = rule.get('cloudAlign') or rule.get('alignment')
                         
                         # Determine if alignment is met from details
                         alignment_met = False
@@ -2769,7 +3114,7 @@ def _evaluate_rules_with_state(base_state):
                     # Extract direction from cloud conditions
                     rule_conditions = rule.get('conditions', [])
                     for cond in rule_conditions:
-                        label = cond.get('label')
+                        label = cond.get('timeframe') or cond.get('label')
                         field = cond.get('field')
                         
                         # Find cloud value

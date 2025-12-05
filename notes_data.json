@@ -1,18 +1,8 @@
 [
   {
     "id": 1,
-    "lastModified": "2025-12-02T14:43:09.796Z",
+    "lastModified": "2025-12-05T03:46:05.739Z",
     "sections": [
-      {
-        "title": "",
-        "content": "",
-        "images": [
-          {
-            "type": "hash",
-            "value": "2063682169bfefe89126f1d6c616b9ee55b6852739677ddaf5bcfaa4a659a92b"
-          }
-        ]
-      },
       {
         "title": "気付き01",
         "content": "4Hの雲と1Hの雲が重なってどちらかの雲が細いとき（画像01：5m）より4Hの雲と1Hの雲が明確に離れてどちらの雲も太いとき（画像02：5m）の方が大きく伸びる。\n（画像03：15m全体像）",
@@ -23,11 +13,11 @@
           },
           {
             "type": "hash",
-            "value": "e9d8f5a90f1fad83cc3118c4d5ef9f2323d1b540f577d63fc990fc36e4d9221a"
+            "value": "c7813a6a3e3ed1baf8da9cf1e8223b9011f58ecd8e459e93aa3d18a9c9180293"
           },
           {
             "type": "hash",
-            "value": "c7813a6a3e3ed1baf8da9cf1e8223b9011f58ecd8e459e93aa3d18a9c9180293"
+            "value": "e9d8f5a90f1fad83cc3118c4d5ef9f2323d1b540f577d63fc990fc36e4d9221a"
           }
         ]
       },
@@ -37,6 +27,6 @@
         "images": []
       }
     ],
-    "title": "ノート"
+    "title": "気付き"
   }
 ]

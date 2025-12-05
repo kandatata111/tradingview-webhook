@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>設定 - TradingView Webhook</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+      background: #3a3a4a;
+      min-height: 100vh;
+      color: #f5f7ff;
+      padding: 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .header h2 {
+      margin: 0;
+      font-size: 1.4em;
+    }
+    
+    .section {
+      background: rgba(255,255,255,0.20);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    
+    .section-header {
+      background: rgba(0,0,0,0.3);
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .section-header:hover {
+      background: rgba(0,0,0,0.4);
+    }
+    .section-header::after {
+      content: '▼';
+      font-size: 10px;
+      opacity: 0.6;
+      transition: transform 0.2s;
+    }
+    .section-header.collapsed::after {
+      transform: rotate(-90deg);
+    }
+    
+    .section-body {
+      padding: 14px;
+      background: rgba(255,255,255,0.03);
+    }
+    .section-body.collapsed {
+      display: none !important;
+    }
+    
+    .section.collapsed-section {
+      flex: 0 0 auto !important;
+    }
+    
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .row:last-child {
+      margin-bottom: 0;
+    }
+    
+    label {
+      font-size: 13px;
+      min-width: 100px;
+    }
+    
+    select, input[type="text"], input[type="number"] {
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(50,50,70,0.8);
+      color: #f5f7ff;
+      font-size: 13px;
+    }
+    select:focus, input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    input[type="range"] {
+      min-width: 120px;
+    }
+    
+    input[type="checkbox"], input[type="radio"] {
+      cursor: pointer;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .checkbox-group label {
+      min-width: auto;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    
+    .btn {
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-primary, .btn-success, .btn-warning {
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+    }
+    .btn-primary:hover, .btn-success:hover, .btn-warning:hover { background: rgba(0, 0, 0, 0.8); }
+    
+    .btn-danger {
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+    }
+    .btn-danger:hover { background: rgba(0, 0, 0, 0.8); }
+    
+    /* ルール関連 */
+    .rules-container {
+      display: flex;
+      gap: 12px;
+      flex: 1;
+      min-height: 0;
+    }
+    
+    .rules-list-panel {
+      flex: 0 0 auto;
+      min-width: 200px;
+      max-width: 400px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .rules-edit-panel {
+      flex: 1;
+      background: rgba(0,0,0,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      padding: 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    #rulesList li .rule-name {
+      white-space: nowrap;
+    }
+    
+    #rulesList {
+      list-style: none;
+    }
+    
+    #rulesList li {
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      font-size: 12px;
+      gap: 8px;
+    }
+    #rulesList li:hover {
+      background: rgba(255,255,255,0.12);
+    }
+    #rulesList li.active {
+      background: rgba(102, 126, 234, 0.4);
+      border: 1px solid #667eea;
+    }
+    #rulesList li.dragging {
+      opacity: 0.5;
+    }
+    
+    .rule-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .rule-toggle {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 36px;
+      height: 20px;
+      border: none;
+      border-radius: 10px;
+      background: #555;
+      cursor: pointer;
+      transition: all 0.3s;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .rule-toggle:checked {
+      background: #4a90d9;
+    }
+    .rule-toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: left 0.3s;
+    }
+    .rule-toggle:checked::after {
+      left: 18px;
+    }
+    .rule-toggle:hover {
+      box-shadow: 0 0 8px rgba(74, 144, 217, 0.5);
+    }
+    
+    .rule-actions {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .rule-action-btn {
+      padding: 2px 6px;
+      font-size: 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+    }
+    .rule-action-btn:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    
+    .conditions-container {
+      margin-top: 10px;
+    }
+    
+    .cond-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 6px;
+      padding: 8px;
+      background: rgba(0,0,0,0.15);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+    
+    .cond-row select, .cond-row input {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    
+    .cond-row .cond-value {
+      width: 60px;
+    }
+    
+    .test-result {
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(0,0,0,0.15);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    
+    .test-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .test-badge.success { background: #22c55e; color: #fff; }
+    .test-badge.fail { background: #ef4444; color: #fff; }
+    .test-badge.pending { background: #555; color: #fff; }
+    
+    /* アラインメント条件 */
+    .align-section {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(0,0,0,0.1);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+    }
+    
+    .align-checkboxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    
+    /* 音声設定 */
+    .voice-section {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(0,0,0,0.1);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+    }
+    
+    .voice-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    
+    /* ステータスバー */
+    .status-bar {
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      text-align: right;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      margin-top: 12px;
+    }
+    
+    /* スクロールバー */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+    
+    .drag-handle {
+      cursor: grab;
+      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+    }
+    .drag-handle:hover {
+      color: rgba(255,255,255,0.8);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>各項目設定</h2>
+    <span id="connectionStatus" style="font-size:12px;color:#22c55e;">●接続中</span>
+  </div>
+  
+  <!-- 表示調整セクション -->
+  <div class="section">
+    <div class="section-header" data-section="displayAdjust">表示調整</div>
+    <div class="section-body" data-section-body="displayAdjust">
+      <div class="row">
+        <label>モード</label>
+        <label style="min-width:auto"><input type="radio" name="mode" value="dark" id="modeDark" checked> ダーク</label>
+        <label style="min-width:auto"><input type="radio" name="mode" value="light" id="modeLight"> ライト</label>
+      </div>
+      <div class="row">
+        <label for="fontSizeSelect">文字サイズ</label>
+        <select id="fontSizeSelect">
+          <option value="10">10px</option>
+          <option value="11">11px</option>
+          <option value="12">12px</option>
+          <option value="13">13px</option>
+          <option value="14" selected>14px</option>
+          <option value="15">15px</option>
+          <option value="16">16px</option>
+          <option value="17">17px</option>
+          <option value="18">18px</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="timeFormatSelect">経過時間の表示</label>
+        <select id="timeFormatSelect">
+          <option value="datetime">測定開始日時</option>
+          <option value="dhm">日/時/分</option>
+          <option value="hm">時/分</option>
+          <option value="m">分のみ</option>
+        </select>
+      </div>
+      <div class="row">
+        <label style="min-width:auto;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="enable5mUpdateToggle" checked> 
+          5分毎更新有効
+        </label>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 列の表示セクション -->
+  <div class="section">
+    <div class="section-header" data-section="columns">列の表示</div>
+    <div class="section-body" data-section-body="columns">
+      <div class="checkbox-group">
+        <label><input type="checkbox" class="col-toggle" data-col="1" checked> ダウ転</label>
+        <label><input type="checkbox" class="col-toggle" data-col="2" checked> 突破数</label>
+        <label><input type="checkbox" class="col-toggle" data-col="3" checked> 雲交差</label>
+        <label><input type="checkbox" class="col-toggle" data-col="4" checked> 各雲間</label>
+        <label><input type="checkbox" class="col-toggle" data-col="5" checked> 価格間</label>
+        <label><input type="checkbox" class="col-toggle" data-col="6" checked> 雲角度</label>
+        <label><input type="checkbox" class="col-toggle" data-col="7" checked> 雲厚み</label>
+        <label><input type="checkbox" class="col-toggle" data-col="8" checked> ダウ時間</label>
+        <label><input type="checkbox" class="col-toggle" data-col="9" checked> 交差時間</label>
+        <label><input type="checkbox" class="col-toggle" data-col="10" checked> 時間差</label>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 行の表示セクション -->
+  <div class="section">
+    <div class="section-header" data-section="rows">行の表示</div>
+    <div class="section-body" data-section-body="rows">
+      <div class="checkbox-group">
+        <label><input type="checkbox" class="row-toggle" data-row="5m" checked> 5m</label>
+        <label><input type="checkbox" class="row-toggle" data-row="15m" checked> 15m</label>
+        <label><input type="checkbox" class="row-toggle" data-row="1H" checked> 1H</label>
+        <label><input type="checkbox" class="row-toggle" data-row="4H" checked> 4H</label>
+        <label><input type="checkbox" class="row-toggle" data-row="price" checked> 価格</label>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 通貨フィルターセクション -->
+  <div class="section">
+    <div class="section-header" data-section="currencies">通貨フィルター</div>
+    <div class="section-body" data-section-body="currencies">
+      <div id="currencyFilterContainer" class="checkbox-group">
+        <span style="color:rgba(255,255,255,0.5);font-size:12px;">読み込み中...</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 音声設定セクション -->
+  <div class="section">
+    <div class="section-header" data-section="voice">音声設定</div>
+    <div class="section-body" data-section-body="voice">
+      <div class="row">
+        <label for="voiceVolume">音量</label>
+        <input type="range" id="voiceVolume" min="0" max="1" step="0.01" value="0.8">
+        <span id="voiceVolumeValue">80%</span>
+      </div>
+      <div class="row">
+        <label for="voiceRate">音速</label>
+        <input type="range" id="voiceRate" min="0.5" max="2.0" step="0.1" value="1.0">
+        <span id="voiceRateValue">1.0x</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 発火条件セクション -->
+  <div class="section" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+    <div class="section-header" data-section="rules">発火ルール</div>
+    <div class="section-body" data-section-body="rules" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+      <button id="newRuleBtn" class="btn btn-primary" style="margin-bottom:10px">新規ルール作成</button>
+      
+      <div class="rules-container">
+        <!-- 左側: 保存済みルール -->
+        <div class="rules-list-panel">
+          <div style="font-weight:600;margin-bottom:8px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <span>保存済みルール</span>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:normal;cursor:pointer;">
+              <input type="checkbox" id="showEnabledOnly" class="rule-toggle" style="width:32px;height:18px;">
+              <span>有効のみ</span>
+            </label>
+          </div>
+          <ul id="rulesList"></ul>
+        </div>
+        
+        <!-- 右側: ルール編集 -->
+        <div class="rules-edit-panel">
+          <div style="font-weight:600;margin-bottom:8px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;">ルール編集</div>
+          
+          <div class="row">
+            <label>ルール名</label>
+            <input type="text" id="ruleName" placeholder="ルール名" style="flex:1;">
+          </div>
+          
+          <div class="row">
+            <label>通貨選択</label>
+            <select id="ruleScope" style="min-width:140px;">
+              <option value="">全選択</option>
+            </select>
+          </div>
+          
+          <!-- 音声設定（ルール個別） -->
+          <div class="voice-section">
+            <div style="font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+              <span>音声設定</span>
+              <button id="testVoiceBtn" class="btn btn-primary" style="padding:4px 10px;font-size:11px;">音声テスト</button>
+            </div>
+            <div class="voice-row">
+              <label style="min-width:80px;">メッセージ</label>
+              <input type="text" id="voiceMessage" placeholder="例: ルールが発火しました" style="flex:1;">
+            </div>
+            <div class="voice-row">
+              <label style="min-width:auto;display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" id="insertSymbol"> 通貨名挿入
+              </label>
+              <select id="symbolInsertPosition">
+                <option value="prefix">先頭</option>
+                <option value="suffix">最後</option>
+                <option value="both">先頭と最後</option>
+              </select>
+            </div>
+            <div class="voice-row">
+              <label style="min-width:auto;display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" id="voiceDirectionBased"> 方向別挿入
+              </label>
+              <select id="voiceMessagePosition">
+                <option value="prefix">先頭</option>
+                <option value="suffix">最後</option>
+              </select>
+            </div>
+            <div id="directionMessages" style="display:none;margin-top:8px;">
+              <div class="voice-row">
+                <label style="min-width:50px;">上昇</label>
+                <input type="text" id="voiceMessageUp" placeholder="上昇メッセージ" style="flex:1;">
+              </div>
+              <div class="voice-row">
+                <label style="min-width:50px;">下降</label>
+                <input type="text" id="voiceMessageDown" placeholder="下降メッセージ" style="flex:1;">
+              </div>
+            </div>
+            <div class="voice-row">
+              <label style="min-width:auto;display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" id="playChimeFirst"> 電子音挿入
+              </label>
+              <select id="chimeSelect">
+                <option value="">なし</option>
+              </select>
+            </div>
+            <div class="voice-row">
+              <label style="min-width:80px;">声優選択</label>
+              <select id="voiceSelect" style="flex:1;">
+                <option value="">グローバル設定を使用</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- 雲整列条件 -->
+          <div class="align-section">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <span style="font-weight:600;font-size:13px;">雲整列条件</span>
+              <label style="margin:0;"><input type="checkbox" id="alignAllTf"> 全時間</label>
+            </div>
+            <div class="align-checkboxes" style="gap:6px;">
+              <label><input type="checkbox" class="align-tf" data-tf="5m"> 5m</label>
+              <label><input type="checkbox" class="align-tf" data-tf="15m"> 15m</label>
+              <label><input type="checkbox" class="align-tf" data-tf="1H"> 1H</label>
+              <label><input type="checkbox" class="align-tf" data-tf="4H"> 4H</label>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <label>欠損時</label>
+              <select id="alignMissing">
+                <option value="ignore">無視</option>
+                <option value="fail">不一致</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- 追加条件 -->
+          <div class="conditions-container" id="conditionsContainer">
+            <div style="font-weight:600;margin-bottom:8px;font-size:13px;">追加条件</div>
+            <!-- 条件行は動的に追加 -->
+          </div>
+          
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+            <button id="addCondBtn" class="btn btn-primary" style="font-size:12px;">条件追加</button>
+            <button id="testRuleBtn" class="btn btn-warning" style="font-size:12px;">ルールテスト</button>
+            <button id="saveRuleBtn" class="btn btn-success" style="margin-left:auto;font-size:12px;">ルール保存</button>
+          </div>
+          
+          <!-- テスト結果 -->
+          <div class="test-result">
+            <div>
+              <span id="testBadge" class="test-badge pending">未実行</span>
+              <span id="testShort">ルールを実行して結果を確認してください</span>
+            </div>
+            <div id="testDetails" style="margin-top:8px;opacity:0.8;max-height:100px;overflow-y:auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="status-bar">
+    <span id="statusText">読み込み中...</span>
+  </div>
+  
+  <script>
+// ===== グローバル変数 =====
+let allRules = [];
+let currentRuleId = null;
+let availableSymbols = [];
+let parentWindow = window.opener;
+let draggedItem = null;
+
+// ===== 初期化 =====
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('[SETTINGS WINDOW] Initializing...');
+  
+  // 親ウィンドウからの通信設定
+  setupParentCommunication();
+  
+  // セクション開閉
+  setupSectionToggles();
+  
+  // 設定を読み込み
+  loadSettingsFromLocalStorage();
+  
+  // ルールを読み込み
+  await loadRules();
+  
+  // 通貨リストをサーバーから取得
+  await loadCurrencies();
+  
+  // 電子音ファイルを読み込み
+  await loadChimeFiles();
+  
+  // 声優オプションを設定
+  setupVoiceOptions();
+  
+  // イベントハンドラー設定
+  setupEventHandlers();
+  
+  updateStatus('読み込み完了');
+  console.log('[SETTINGS WINDOW] Initialization complete');
+});
+
+// ===== 親ウィンドウとの通信 =====
+function setupParentCommunication() {
+  // 親ウィンドウからのメッセージ受信
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'currencies_update') {
+      availableSymbols = event.data.currencies || [];
+      updateCurrencyFilter();
+      updateRuleScopeOptions();
+    }
+  });
+  
+  // 接続確認
+  if (parentWindow && !parentWindow.closed) {
+    document.getElementById('connectionStatus').textContent = '●親ウィンドウ接続中';
+    document.getElementById('connectionStatus').style.color = '#22c55e';
+    
+    // 親ウィンドウに通貨リストを要求
+    parentWindow.postMessage({ type: 'request_currencies' }, '*');
+  } else {
+    document.getElementById('connectionStatus').textContent = '●独立モード';
+    document.getElementById('connectionStatus').style.color = '#f59e0b';
+  }
+}
+
+// 親ウィンドウに設定変更を通知
+function notifyParent(action, data) {
+  if (parentWindow && !parentWindow.closed) {
+    parentWindow.postMessage({ type: 'settings_action', action, data }, '*');
+  }
+}
+
+// ===== セクション開閉 =====
+function setupSectionToggles() {
+  document.querySelectorAll('.section-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const sectionName = header.dataset.section;
+      const body = document.querySelector(`[data-section-body="${sectionName}"]`);
+      const section = header.closest('.section');
+      
+      header.classList.toggle('collapsed');
+      body.classList.toggle('collapsed');
+      if (section) section.classList.toggle('collapsed-section');
+      
+      localStorage.setItem(`settings_section_${sectionName}`, header.classList.contains('collapsed') ? 'collapsed' : 'expanded');
+    });
+    
+    // 保存された状態を復元
+    const sectionName = header.dataset.section;
+    const saved = localStorage.getItem(`settings_section_${sectionName}`);
+    if (saved === 'collapsed') {
+      const body = document.querySelector(`[data-section-body="${sectionName}"]`);
+      const section = header.closest('.section');
+      header.classList.add('collapsed');
+      body.classList.add('collapsed');
+      if (section) section.classList.add('collapsed-section');
+    }
+  });
+}
+
+// ===== 設定読み込み =====
+function loadSettingsFromLocalStorage() {
+  // モード
+  const mode = localStorage.getItem('tv_mode') || 'dark';
+  document.getElementById(mode === 'light' ? 'modeLight' : 'modeDark').checked = true;
+  
+  // フォントサイズ
+  const fontSize = localStorage.getItem('tv_font_size') || '14';
+  document.getElementById('fontSizeSelect').value = fontSize;
+  
+  // 時間形式
+  const timeFormat = localStorage.getItem('tv_time_format') || 'datetime';
+  document.getElementById('timeFormatSelect').value = timeFormat;
+  
+  // 5分更新
+  const enable5m = localStorage.getItem('tv_enable_5m_update') !== 'false';
+  document.getElementById('enable5mUpdateToggle').checked = enable5m;
+  
+  // 列の表示
+  const cols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
+  document.querySelectorAll('.col-toggle').forEach(cb => {
+    const col = cb.dataset.col;
+    cb.checked = cols[col] !== false;
+  });
+  
+  // 行の表示
+  const rows = JSON.parse(localStorage.getItem('tv_rows') || '{}');
+  document.querySelectorAll('.row-toggle').forEach(cb => {
+    const row = cb.dataset.row;
+    cb.checked = rows[row] !== false;
+  });
+  
+  // 音量
+  const volume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
+  document.getElementById('voiceVolume').value = volume;
+  document.getElementById('voiceVolumeValue').textContent = Math.round(volume * 100) + '%';
+  
+  // 音速
+  const rate = parseFloat(localStorage.getItem('tv_voice_rate') || '1.0');
+  document.getElementById('voiceRate').value = rate;
+  document.getElementById('voiceRateValue').textContent = rate.toFixed(1) + 'x';
+}
+
+// ===== 電子音ファイル取得 =====
+async function loadChimeFiles() {
+  try {
+    const response = await fetch('/api/chime_files');
+    if (!response.ok) throw new Error('Failed to load chime files');
+    
+    const files = await response.json();
+    const select = document.getElementById('chimeSelect');
+    
+    // 既存のオプションをクリア（なしは残す）
+    while (select.options.length > 1) {
+      select.remove(1);
+    }
+    
+    // ファイルを追加
+    files.forEach(file => {
+      const opt = document.createElement('option');
+      opt.value = file;
+      opt.textContent = file.replace(/\.(mp3|wav|ogg)$/i, '');
+      select.appendChild(opt);
+    });
+  } catch (error) {
+    console.error('[SETTINGS] Load chime files error:', error);
+  }
+}
+
+// ===== 声優オプション設定 =====
+function setupVoiceOptions() {
+  const select = document.getElementById('voiceSelect');
+  
+  // 既存のオプションをクリア
+  select.innerHTML = '';
+  
+  // 声優オプションを追加（speechSynthesis.getVoices()のインデックス）
+  const voices = [
+    { value: '368', label: '七海 [女性]' },
+    { value: '369', label: '圭太 [男性]' },
+    { value: '370', label: '碧衣 [女性]' },
+    { value: '371', label: '大智 [男性]' },
+    { value: '372', label: '真夕 [女性]' },
+    { value: '373', label: '直紀 [男性]' },
+    { value: '374', label: '志織 [女性]' }
+  ];
+  
+  voices.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.value;
+    opt.textContent = v.label;
+    select.appendChild(opt);
+  });
+}
+
+// ===== 通貨リスト取得 =====
+async function loadCurrencies() {
+  try {
+    // サーバーから現在のデータを取得して通貨を抽出
+    const response = await fetch('/data');
+    if (!response.ok) throw new Error('Failed to load data');
+    
+    const data = await response.json();
+    if (data.status === 'success' && data.data) {
+      availableSymbols = Object.keys(data.data);
+      updateCurrencyFilter();
+      updateRuleScopeOptions();
+    }
+  } catch (error) {
+    console.error('[SETTINGS] Load currencies error:', error);
+  }
+}
+
+// ===== 通貨フィルター =====
+function updateCurrencyFilter() {
+  const container = document.getElementById('currencyFilterContainer');
+  const savedFilter = JSON.parse(localStorage.getItem('tv_currencies') || '{}');
+  
+  container.innerHTML = '';
+  
+  if (availableSymbols.length === 0) {
+    container.innerHTML = '<span style="color:rgba(255,255,255,0.5);font-size:12px;">通貨データがありません</span>';
+    return;
+  }
+  
+  availableSymbols.filter(symbol => symbol !== 'TESTER').forEach(symbol => {
+    const label = document.createElement('label');
+    const checked = savedFilter[symbol] !== false;
+    label.innerHTML = `<input type="checkbox" class="currency-toggle" data-symbol="${symbol}" ${checked ? 'checked' : ''}> ${symbol}`;
+    label.querySelector('input').addEventListener('change', () => {
+      saveCurrencyFilter();
+      notifyParent('currency_filter_changed', { symbol, checked: label.querySelector('input').checked });
+    });
+    container.appendChild(label);
+  });
+}
+
+function saveCurrencyFilter() {
+  const filter = {};
+  document.querySelectorAll('.currency-toggle').forEach(cb => {
+    filter[cb.dataset.symbol] = cb.checked;
+  });
+  localStorage.setItem('tv_currencies', JSON.stringify(filter));
+}
+
+function updateRuleScopeOptions() {
+  const select = document.getElementById('ruleScope');
+  // 既存オプション以外を追加（TESTERを除外）
+  availableSymbols.filter(symbol => symbol !== 'TESTER').forEach(symbol => {
+    if (![...select.options].some(o => o.value === symbol)) {
+      const opt = document.createElement('option');
+      opt.value = symbol;
+      opt.textContent = symbol;
+      select.appendChild(opt);
+    }
+  });
+}
+
+// ===== ルール管理 =====
+async function loadRules() {
+  try {
+    const response = await fetch('/rules');
+    if (!response.ok) throw new Error('Failed to load rules');
+    
+    const data = await response.json();
+    if (data.status === 'success') {
+      allRules = data.rules || [];
+      renderRulesList();
+      
+      // 「有効のみ」トグルのイベントを設定（初回のみ）
+      const showEnabledOnlyToggle = document.getElementById('showEnabledOnly');
+      if (showEnabledOnlyToggle && !showEnabledOnlyToggle.dataset.listenerAdded) {
+        showEnabledOnlyToggle.dataset.listenerAdded = 'true';
+        showEnabledOnlyToggle.addEventListener('change', () => {
+          renderRulesList();
+        });
+      }
+    }
+  } catch (error) {
+    console.error('[SETTINGS] Load rules error:', error);
+  }
+}
+
+function renderRulesList() {
+  const ul = document.getElementById('rulesList');
+  ul.innerHTML = '';
+  
+  const showEnabledOnly = document.getElementById('showEnabledOnly')?.checked || false;
+  const filteredRules = showEnabledOnly ? allRules.filter(r => r.enabled !== false) : allRules;
+  
+  filteredRules.forEach((rule, index) => {
+    const li = document.createElement('li');
+    li.dataset.ruleId = rule.id;
+    li.dataset.index = index;
+    li.draggable = true;
+    if (rule.id === currentRuleId) li.classList.add('active');
+    
+    const isEnabled = rule.enabled !== false;
+    
+    // ドラッグハンドル
+    const dragHandle = document.createElement('span');
+    dragHandle.className = 'drag-handle';
+    dragHandle.textContent = '≡';
+    
+    // ルール名（クリックで編集）
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'rule-name';
+    nameSpan.textContent = rule.name || rule.id;
+    nameSpan.style.cursor = 'pointer';
+    nameSpan.style.opacity = isEnabled ? '1' : '0.5';
+    nameSpan.title = 'クリックして編集';
+    nameSpan.addEventListener('click', () => selectRule(rule.id));
+    nameSpan.addEventListener('mouseenter', () => { nameSpan.style.textDecoration = 'underline'; });
+    nameSpan.addEventListener('mouseleave', () => { nameSpan.style.textDecoration = 'none'; });
+    
+    // 有効/無効スライドトグル
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.className = 'rule-toggle';
+    toggle.checked = isEnabled;
+    toggle.title = '有効/無効切替';
+    toggle.addEventListener('change', (e) => {
+      e.stopPropagation();
+      toggleRuleEnabled(rule.id, toggle.checked);
+    });
+    
+    // 削除ボタンと複製ボタン
+    const actions = document.createElement('div');
+    actions.className = 'rule-actions';
+    actions.style.opacity = isEnabled ? '1' : '0.7';
+    
+    const duplicateBtn = document.createElement('button');
+    duplicateBtn.className = 'rule-action-btn btn-primary';
+    duplicateBtn.textContent = '複製';
+    duplicateBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      duplicateRule(rule.id);
+    });
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'rule-action-btn btn-danger';
+    deleteBtn.textContent = '削除';
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteRule(rule.id);
+    });
+    
+    actions.appendChild(duplicateBtn);
+    actions.appendChild(deleteBtn);
+    
+    li.appendChild(dragHandle);
+    li.appendChild(nameSpan);
+    li.appendChild(toggle);
+    li.appendChild(actions);
+    
+    // ドラッグ&ドロップイベント
+    li.addEventListener('dragstart', (e) => {
+      draggedItem = li;
+      li.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    
+    li.addEventListener('dragend', async () => {
+      li.classList.remove('dragging');
+      if (draggedItem) {
+        await saveRulesOrder();
+        draggedItem = null;
+      }
+    });
+    
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (draggedItem && draggedItem !== li) {
+        const rect = li.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (e.clientY < midY) {
+          ul.insertBefore(draggedItem, li);
+        } else {
+          ul.insertBefore(draggedItem, li.nextSibling);
+        }
+      }
+    });
+    
+    ul.appendChild(li);
+  });
+  
+  // パネル幅を自動調整
+  adjustRulesListPanelWidth();
+}
+
+// ルールリストパネルの幅をルール名に合わせて自動調整
+function adjustRulesListPanelWidth() {
+  const panel = document.querySelector('.rules-list-panel');
+  const ul = document.getElementById('rulesList');
+  if (!panel || !ul) return;
+  
+  // 一時的に幅制限を解除して必要な幅を計算
+  panel.style.width = 'auto';
+  panel.style.minWidth = '200px';
+  panel.style.maxWidth = '400px';
+  
+  // リスト項目の最大幅を取得
+  let maxWidth = 200;
+  ul.querySelectorAll('li').forEach(li => {
+    const liWidth = li.scrollWidth + 24; // パディング分
+    if (liWidth > maxWidth) maxWidth = liWidth;
+  });
+  
+  // 最大幅を適用（制限内で）
+  maxWidth = Math.min(Math.max(maxWidth, 200), 400);
+  panel.style.width = maxWidth + 'px';
+  panel.style.flex = '0 0 ' + maxWidth + 'px';
+}
+
+async function saveRulesOrder() {
+  const ul = document.getElementById('rulesList');
+  const newOrder = Array.from(ul.children).map((li, idx) => ({
+    id: li.dataset.ruleId,
+    sort_order: idx
+  }));
+  
+  try {
+    const response = await fetch('/rules/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: newOrder })
+    });
+    
+    if (response.ok) {
+      // ローカルのallRulesも並べ替え
+      const orderMap = {};
+      newOrder.forEach(item => orderMap[item.id] = item.sort_order);
+      allRules.sort((a, b) => (orderMap[a.id] || 0) - (orderMap[b.id] || 0));
+      
+      updateStatus('順序を保存しました');
+      notifyParent('rules_reordered', {});
+    }
+  } catch (error) {
+    console.error('[SETTINGS] Reorder error:', error);
+    updateStatus('順序保存エラー');
+  }
+}
+
+function selectRule(ruleId) {
+  currentRuleId = ruleId;
+  
+  // アクティブ表示更新
+  document.querySelectorAll('#rulesList li').forEach(li => {
+    li.classList.toggle('active', li.dataset.ruleId === ruleId);
+  });
+  
+  // ルールデータを取得
+  const rule = allRules.find(r => r.id === ruleId);
+  if (!rule) return;
+  
+  // フォームに反映
+  document.getElementById('ruleName').value = rule.name || '';
+  document.getElementById('ruleScope').value = rule.scope?.symbol || '';
+  
+  // 音声設定
+  const voice = rule.voice || {};
+  document.getElementById('voiceMessage').value = voice.message || '';
+  document.getElementById('insertSymbol').checked = voice.insertSymbol || false;
+  document.getElementById('symbolInsertPosition').value = voice.symbolInsertPosition || 'prefix';
+  document.getElementById('voiceDirectionBased').checked = voice.directionBased || false;
+  document.getElementById('voiceMessagePosition').value = voice.messagePosition || 'prefix';
+  document.getElementById('voiceMessageUp').value = voice.messageUp || '';
+  document.getElementById('voiceMessageDown').value = voice.messageDown || '';
+  document.getElementById('playChimeFirst').checked = voice.playChimeFirst || false;
+  document.getElementById('chimeSelect').value = voice.chime || '';
+  document.getElementById('voiceSelect').value = voice.voiceFile || '368'; // デフォルト: 七海
+  
+  // 方向別メッセージ表示
+  document.getElementById('directionMessages').style.display = voice.directionBased ? 'block' : 'none';
+  
+  // 雲整列条件
+  const align = rule.cloudAlign || {};
+  document.getElementById('alignAllTf').checked = align.allTimeframes || false;
+  document.querySelectorAll('.align-tf').forEach(cb => {
+    const tf = cb.dataset.tf;
+    cb.checked = (align.timeframes || []).includes(tf);
+  });
+  document.getElementById('alignMissing').value = align.missingBehavior || 'ignore';
+  
+  // 追加条件
+  const container = document.getElementById('conditionsContainer');
+  const title = container.querySelector('div');
+  container.innerHTML = '';
+  container.appendChild(title);
+  
+  (rule.conditions || []).forEach(cond => {
+    addConditionRow(cond);
+  });
+}
+
+function addConditionRow(cond = {}) {
+  const row = document.createElement('div');
+  row.className = 'cond-row';
+  
+  row.innerHTML = `
+    <select class="cond-tf">
+      <option value="5m" ${cond.timeframe === '5m' ? 'selected' : ''}>5m</option>
+      <option value="15m" ${cond.timeframe === '15m' ? 'selected' : ''}>15m</option>
+      <option value="1H" ${cond.timeframe === '1H' ? 'selected' : ''}>1H</option>
+      <option value="4H" ${cond.timeframe === '4H' ? 'selected' : ''}>4H</option>
+    </select>
+    <select class="cond-field">
+      <option value="dauten" ${cond.field === 'dauten' ? 'selected' : ''}>ダウ転</option>
+      <option value="bos_count" ${cond.field === 'bos_count' ? 'selected' : ''}>突破数</option>
+      <option value="gc" ${cond.field === 'gc' ? 'selected' : ''}>雲交差</option>
+      <option value="distance_from_prev" ${cond.field === 'distance_from_prev' ? 'selected' : ''}>各雲間</option>
+      <option value="distance_from_price" ${cond.field === 'distance_from_price' ? 'selected' : ''}>価格間</option>
+      <option value="angle" ${cond.field === 'angle' ? 'selected' : ''}>雲角度</option>
+      <option value="thickness" ${cond.field === 'thickness' ? 'selected' : ''}>雲厚み</option>
+      <option value="transfer_time_diff" ${cond.field === 'transfer_time_diff' ? 'selected' : ''}>転換時間差</option>
+    </select>
+    <input class="cond-value" type="text" placeholder="値" value="${cond.value || ''}">
+    <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;">削除</button>
+  `;
+  
+  row.querySelector('.btn-danger').addEventListener('click', () => row.remove());
+  
+  document.getElementById('conditionsContainer').appendChild(row);
+}
+
+async function saveRule() {
+  const rule = {
+    id: currentRuleId || 'rule_' + Date.now(),
+    name: document.getElementById('ruleName').value,
+    scope: {
+      symbol: document.getElementById('ruleScope').value
+    },
+    voice: {
+      message: document.getElementById('voiceMessage').value,
+      insertSymbol: document.getElementById('insertSymbol').checked,
+      symbolInsertPosition: document.getElementById('symbolInsertPosition').value,
+      directionBased: document.getElementById('voiceDirectionBased').checked,
+      messagePosition: document.getElementById('voiceMessagePosition').value,
+      messageUp: document.getElementById('voiceMessageUp').value,
+      messageDown: document.getElementById('voiceMessageDown').value,
+      playChimeFirst: document.getElementById('playChimeFirst').checked,
+      chime: document.getElementById('chimeSelect').value,
+      voiceFile: document.getElementById('voiceSelect').value
+    },
+    cloudAlign: {
+      allTimeframes: document.getElementById('alignAllTf').checked,
+      timeframes: Array.from(document.querySelectorAll('.align-tf:checked')).map(cb => cb.dataset.tf),
+      missingBehavior: document.getElementById('alignMissing').value
+    },
+    conditions: Array.from(document.querySelectorAll('.cond-row')).map(row => ({
+      timeframe: row.querySelector('.cond-tf')?.value,
+      field: row.querySelector('.cond-field')?.value,
+      value: row.querySelector('.cond-value')?.value
+    })).filter(c => c.timeframe && c.field),
+    enabled: currentRuleId ? (allRules.find(r => r.id === currentRuleId)?.enabled !== false) : true
+  };
+  
+  try {
+    updateStatus('ルール保存中...');
+    
+    const response = await fetch('/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rule)
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      currentRuleId = rule.id;
+      await loadRules();
+      updateStatus('ルール保存完了');
+      notifyParent('rule_saved', { ruleId: rule.id });
+    } else {
+      updateStatus('ルール保存エラー: ' + (result.msg || ''));
+    }
+  } catch (error) {
+    console.error('[SETTINGS] Save rule error:', error);
+    updateStatus('ルール保存エラー');
+  }
+}
+
+async function deleteRule(ruleId) {
+  if (!confirm('このルールを削除しますか？')) return;
+  
+  try {
+    updateStatus('ルール削除中...');
+    
+    const response = await fetch('/rules/' + ruleId, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      if (currentRuleId === ruleId) {
+        currentRuleId = null;
+        clearRuleForm();
+      }
+      await loadRules();
+      updateStatus('ルール削除完了');
+      notifyParent('rule_deleted', { ruleId });
+    } else {
+      updateStatus('ルール削除エラー');
+    }
+  } catch (error) {
+    console.error('[SETTINGS] Delete rule error:', error);
+    updateStatus('ルール削除エラー');
+  }
+}
+
+// ルール複製機能
+function generateUniqueName(originalName) {
+  let counter = 1;
+  let newName = originalName + '_' + counter;
+  while (allRules.some(r => r.name === newName)) {
+    counter++;
+    newName = originalName + '_' + counter;
+  }
+  return newName;
+}
+
+async function duplicateRule(ruleId) {
+  const originalRule = allRules.find(r => r.id === ruleId);
+  if (!originalRule) {
+    alert('複製元のルールが見つかりません');
+    return;
+  }
+  
+  try {
+    updateStatus('ルール複製中...');
+    
+    // 新しいルールを作成（ディープコピー）
+    const newRule = JSON.parse(JSON.stringify(originalRule));
+    
+    // 新しいID生成
+    newRule.id = 'rule_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // 新しい名前生成（_1, _2...）
+    newRule.name = generateUniqueName(originalRule.name || originalRule.id);
+    
+    // 有効状態を維持
+    newRule.enabled = true;
+    
+    // サーバーに保存
+    const response = await fetch('/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newRule)
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      await loadRules();
+      updateStatus('ルール複製完了: ' + newRule.name);
+      notifyParent('rule_saved', { ruleId: newRule.id });
+    } else {
+      alert('複製に失敗しました: ' + (result.msg || JSON.stringify(result)));
+      updateStatus('ルール複製エラー');
+    }
+  } catch (error) {
+    console.error('[SETTINGS] Duplicate rule error:', error);
+    alert('複製エラー: ' + error.message);
+    updateStatus('ルール複製エラー');
+  }
+}
+
+async function toggleRuleEnabled(ruleId, enabled) {
+  try {
+    const response = await fetch('/rules/' + ruleId + '/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
+    
+    if (response.ok) {
+      const rule = allRules.find(r => r.id === ruleId);
+      if (rule) rule.enabled = enabled;
+      updateStatus(enabled ? 'ルール有効化' : 'ルール無効化');
+      notifyParent('rule_toggled', { ruleId, enabled });
+    }
+  } catch (error) {
+    console.error('[SETTINGS] Toggle rule error:', error);
+  }
+}
+
+async function testRule() {
+  updateStatus('ルールテスト中...');
+  
+  const badge = document.getElementById('testBadge');
+  const shortText = document.getElementById('testShort');
+  const details = document.getElementById('testDetails');
+  
+  badge.className = 'test-badge pending';
+  badge.textContent = 'テスト中...';
+  shortText.textContent = '';
+  details.innerHTML = '';
+  
+  try {
+    // 現在のルールIDがあればテスト
+    if (!currentRuleId) {
+      badge.className = 'test-badge fail';
+      badge.textContent = 'エラー';
+      shortText.textContent = 'ルールを選択してください';
+      return;
+    }
+    
+    const response = await fetch('/rules/' + currentRuleId + '/test', {
+      method: 'POST'
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      const matches = result.matches || [];
+      if (matches.length > 0) {
+        badge.className = 'test-badge success';
+        badge.textContent = '発火';
+        shortText.textContent = `${matches.length}件の通貨で条件一致`;
+        details.innerHTML = matches.map(m => `<div>${m.symbol}: ${m.direction || ''}</div>`).join('');
+      } else {
+        badge.className = 'test-badge pending';
+        badge.textContent = '不発火';
+        shortText.textContent = '条件に一致する通貨はありません';
+      }
+    } else {
+      badge.className = 'test-badge fail';
+      badge.textContent = 'エラー';
+      shortText.textContent = result.msg || 'テストに失敗しました';
+    }
+    
+    updateStatus('テスト完了');
+  } catch (error) {
+    badge.className = 'test-badge fail';
+    badge.textContent = 'エラー';
+    shortText.textContent = 'テストに失敗しました';
+    details.textContent = error.message;
+    updateStatus('テストエラー');
+  }
+}
+
+function newRule() {
+  currentRuleId = null;
+  clearRuleForm();
+  document.querySelectorAll('#rulesList li').forEach(li => li.classList.remove('active'));
+}
+
+function clearRuleForm() {
+  document.getElementById('ruleName').value = '';
+  document.getElementById('ruleScope').value = '';
+  document.getElementById('voiceMessage').value = '';
+  document.getElementById('insertSymbol').checked = false;
+  document.getElementById('voiceDirectionBased').checked = false;
+  document.getElementById('playChimeFirst').checked = false;
+  document.getElementById('voiceSelect').value = '368'; // デフォルト: 七海
+  document.getElementById('chimeSelect').value = '';
+  document.getElementById('alignAllTf').checked = false;
+  document.querySelectorAll('.align-tf').forEach(cb => cb.checked = false);
+  document.getElementById('directionMessages').style.display = 'none';
+  
+  const container = document.getElementById('conditionsContainer');
+  const title = container.querySelector('div');
+  container.innerHTML = '';
+  container.appendChild(title);
+  
+  // テスト結果もクリア
+  document.getElementById('testBadge').className = 'test-badge pending';
+  document.getElementById('testBadge').textContent = '未実行';
+  document.getElementById('testShort').textContent = 'ルールを実行して結果を確認してください';
+  document.getElementById('testDetails').innerHTML = '';
+}
+
+// ===== イベントハンドラー =====
+function setupEventHandlers() {
+  // モード変更
+  document.getElementById('modeDark').addEventListener('change', (e) => {
+    if (e.target.checked) {
+      localStorage.setItem('tv_mode', 'dark');
+      notifyParent('mode_changed', { mode: 'dark' });
+    }
+  });
+  document.getElementById('modeLight').addEventListener('change', (e) => {
+    if (e.target.checked) {
+      localStorage.setItem('tv_mode', 'light');
+      notifyParent('mode_changed', { mode: 'light' });
+    }
+  });
+  
+  // フォントサイズ
+  document.getElementById('fontSizeSelect').addEventListener('change', (e) => {
+    localStorage.setItem('tv_font_size', e.target.value);
+    notifyParent('font_size_changed', { size: e.target.value });
+  });
+  
+  // 時間形式
+  document.getElementById('timeFormatSelect').addEventListener('change', (e) => {
+    localStorage.setItem('tv_time_format', e.target.value);
+    notifyParent('time_format_changed', { format: e.target.value });
+  });
+  
+  // 5分更新
+  document.getElementById('enable5mUpdateToggle').addEventListener('change', (e) => {
+    localStorage.setItem('tv_enable_5m_update', e.target.checked.toString());
+    notifyParent('enable_5m_changed', { enabled: e.target.checked });
+  });
+  
+  // 列表示
+  document.querySelectorAll('.col-toggle').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const cols = {};
+      document.querySelectorAll('.col-toggle').forEach(c => {
+        cols[c.dataset.col] = c.checked;
+      });
+      localStorage.setItem('tv_cols', JSON.stringify(cols));
+      notifyParent('columns_changed', { cols });
+    });
+  });
+  
+  // 行表示
+  document.querySelectorAll('.row-toggle').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const rows = {};
+      document.querySelectorAll('.row-toggle').forEach(r => {
+        rows[r.dataset.row] = r.checked;
+      });
+      localStorage.setItem('tv_rows', JSON.stringify(rows));
+      notifyParent('rows_changed', { rows });
+    });
+  });
+  
+  // 音量スライダー
+  document.getElementById('voiceVolume').addEventListener('input', (e) => {
+    const vol = parseFloat(e.target.value);
+    document.getElementById('voiceVolumeValue').textContent = Math.round(vol * 100) + '%';
+    localStorage.setItem('tv_voice_volume', vol.toString());
+    notifyParent('voice_volume_changed', { volume: vol });
+  });
+  
+  // 音速スライダー
+  document.getElementById('voiceRate').addEventListener('input', (e) => {
+    const rate = parseFloat(e.target.value);
+    document.getElementById('voiceRateValue').textContent = rate.toFixed(1) + 'x';
+    localStorage.setItem('tv_voice_rate', rate.toString());
+    notifyParent('voice_rate_changed', { rate });
+  });
+  
+  // 方向別チェックボックス
+  document.getElementById('voiceDirectionBased').addEventListener('change', (e) => {
+    document.getElementById('directionMessages').style.display = e.target.checked ? 'block' : 'none';
+  });
+  
+  // 全時間チェックボックス
+  document.getElementById('alignAllTf').addEventListener('change', (e) => {
+    document.querySelectorAll('.align-tf').forEach(cb => cb.checked = e.target.checked);
+  });
+  
+  // ルールボタン
+  document.getElementById('newRuleBtn').addEventListener('click', newRule);
+  document.getElementById('addCondBtn').addEventListener('click', () => addConditionRow());
+  document.getElementById('testRuleBtn').addEventListener('click', testRule);
+  document.getElementById('saveRuleBtn').addEventListener('click', saveRule);
+  document.getElementById('testVoiceBtn').addEventListener('click', testVoice);
+}
+
+async function testVoice() {
+  // 電子音を先に再生
+  const playChimeFirst = document.getElementById('playChimeFirst').checked;
+  const chimeFile = document.getElementById('chimeSelect').value;
+  
+  if (playChimeFirst && chimeFile) {
+    try {
+      const audio = new Audio('/Alarm/' + chimeFile);
+      audio.volume = parseFloat(document.getElementById('voiceVolume').value);
+      await new Promise((resolve, reject) => {
+        audio.onended = resolve;
+        audio.onerror = reject;
+        audio.play();
+      });
+    } catch (e) {
+      console.error('Chime playback error:', e);
+    }
+  }
+  
+  // メッセージを構築
+  let message = document.getElementById('voiceMessage').value || 'テスト音声';
+  
+  // 通貨名挿入
+  const insertSymbol = document.getElementById('insertSymbol').checked;
+  const symbolPosition = document.getElementById('symbolInsertPosition').value;
+  if (insertSymbol) {
+    const testSymbol = 'ドル円'; // テスト用
+    if (symbolPosition === 'prefix') {
+      message = testSymbol + '、' + message;
+    } else if (symbolPosition === 'suffix') {
+      message = message + '、' + testSymbol;
+    } else if (symbolPosition === 'both') {
+      message = testSymbol + '、' + message + '、' + testSymbol;
+    }
+  }
+  
+  // 方向別挿入
+  const directionBased = document.getElementById('voiceDirectionBased').checked;
+  if (directionBased) {
+    const messagePosition = document.getElementById('voiceMessagePosition').value;
+    const directionMsg = document.getElementById('voiceMessageUp').value || '上昇'; // テスト用に上昇を使用
+    if (messagePosition === 'prefix') {
+      message = directionMsg + '、' + message;
+    } else {
+      message = message + '、' + directionMsg;
+    }
+  }
+  
+  // 音声合成
+  const utterance = new SpeechSynthesisUtterance(message);
+  utterance.lang = 'ja-JP';
+  utterance.volume = parseFloat(document.getElementById('voiceVolume').value);
+  utterance.rate = parseFloat(document.getElementById('voiceRate').value);
+  
+  // 声優選択
+  const voiceIndex = document.getElementById('voiceSelect').value;
+  if (voiceIndex) {
+    const voices = speechSynthesis.getVoices();
+    const idx = parseInt(voiceIndex);
+    if (voices[idx]) {
+      utterance.voice = voices[idx];
+    }
+  }
+  
+  speechSynthesis.speak(utterance);
+}
+
+// ===== ユーティリティ =====
+function updateStatus(msg) {
+  const el = document.getElementById('statusText');
+  if (el) el.textContent = msg;
+}
+  </script>
+</body>
+</html>

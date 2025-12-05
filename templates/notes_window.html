@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ノート - TradingView Webhook</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    /* ===== テーマ定義 ===== */
+    /* ダークテーマ（固定） */
+    body {
+      background: #2a2a35;
+      color: #f5f7ff;
+    }
+    .header {
+      background: #2a2a35;
+      border-bottom-color: rgba(255,255,255,0.1);
+    }
+    .header h2 { color: #f5f7ff; }
+    .note-section {
+      background: #666673 !important;
+      border-color: rgba(255,255,255,0.1);
+    }
+    .note-section:hover { background: #a8a8a9; }
+    .note-section-header {
+      background: #2a2a35;
+    }
+    .note-content textarea, .note-content {
+      background: #2a2a35;
+      color: #f5f7ff;
+    }
+    .note-images {
+      background: #2a2a35;
+    }
+    .btn-primary, .btn-success, .btn-purple, .btn-add {
+      background: rgba(0, 0, 0, 0.6); color: #ffffff; border-color: #ffffff;
+    }
+    .font-size-select { background: rgba(0,0,0,0.2); color: #ffffff; border-color: rgba(255,255,255,0.3); }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .header h2 {
+      margin: 0;
+      font-size: 1.4em;
+      color: #f5f7ff;
+    }
+    
+    .header-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn {
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-primary, .btn-success, .btn-purple, .btn-add {
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+    }
+    .btn-primary:hover, .btn-success:hover, .btn-purple:hover, .btn-add:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    
+    .font-size-select {
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(0,0,0,0.2);
+      color: #ffffff;
+      font-size: 13px;
+      width: 70px;
+    }
+    
+    #noteSectionsContainer {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 200px;
+      padding: 4px;
+    }
+    
+    .note-section {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+      transition: all 0.2s ease;
+    }
+    .note-section:hover {
+      background: rgba(255,255,255,0.08);
+    }
+    .note-section.dragging {
+      opacity: 0.5;
+    }
+    
+    .note-section-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      gap: 8px;
+      background: transparent;
+    }
+    
+    .note-section-title-wrapper {
+      flex: 1;
+      background: #2a2a35;
+      border-radius: 4px;
+      padding: 2px;
+    }
+    
+    .note-section-title {
+      width: 100%;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #2a2a35 !important;
+      color: #f5f7ff;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .note-section-title:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .note-section-content {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #2a2a35 !important;
+      color: #f5f7ff;
+      font-size: 15px;
+      line-height: 1.6;
+      resize: vertical;
+    }
+    .note-section-content:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .note-section-delete {
+      padding: 4px 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .note-section-delete:hover { background: rgba(0, 0, 0, 0.8); }
+    
+    .note-section-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 10px;
+      background: #2a2a35 !important;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .note-image-thumb {
+      width: 60px;
+      height: 60px;
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.2);
+      position: relative;
+    }
+    .note-image-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .drop-zone {
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 4px;
+      padding: 16px;
+      text-align: center;
+      color: rgba(255,255,255,0.6);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .drop-zone.dragover {
+      border-color: #667eea;
+      background: rgba(102, 126, 234, 0.1);
+    }
+    
+    .page-navigation {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      margin-top: auto;
+    }
+    
+    .page-nav-left {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    
+    .page-nav-btn {
+      padding: 4px 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .page-nav-btn:hover { background: rgba(0, 0, 0, 0.8); }
+    .page-nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    #pageIndicator {
+      font-size: 0.9em;
+      color: rgba(255,255,255,0.8);
+    }
+    
+    #pageTitleInput {
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid #ffffff;
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+      text-align: center;
+      margin-left: 8px;
+    }
+    
+    .btn-page-add, .btn-page-delete {
+      padding: 4px 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-page-add:hover, .btn-page-delete:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    
+    /* スクロールバー */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+    
+    /* ステータスバー */
+    .status-bar {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      text-align: right;
+      padding-top: 4px;
+    }
+    
+    /* 画像モーダル */
+    .image-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      cursor: pointer;
+    }
+    .image-modal img {
+      max-width: 90%;
+      max-height: 90%;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>ノート</h2>
+    <div class="header-buttons">
+      <select id="noteFontSizeSelect" class="font-size-select">
+        <option value="11">11px</option>
+        <option value="12">12px</option>
+        <option value="13">13px</option>
+        <option value="14">14px</option>
+        <option value="15" selected>15px</option>
+        <option value="16">16px</option>
+        <option value="17">17px</option>
+        <option value="18">18px</option>
+      </select>
+      <button id="addNoteSection" class="btn btn-add">項目追加</button>
+      <button id="saveNote" class="btn btn-primary">保存</button>
+      <button id="exportNote" class="btn btn-success">出力</button>
+      <button id="importNote" class="btn btn-purple">読込</button>
+    </div>
+  </div>
+  
+  <div id="noteSectionsContainer">
+    <!-- ノート項目はJavaScriptで動的に生成されます -->
+  </div>
+  
+  <div class="page-navigation">
+    <div class="page-nav-left">
+      <button id="prevPage" class="page-nav-btn">◀</button>
+      <span id="pageIndicator">1/1</span>
+      <button id="nextPage" class="page-nav-btn">▶</button>
+      <input type="text" id="pageTitleInput" placeholder="ページタイトル">
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button id="addPage" class="btn-page-add">+ページ</button>
+      <button id="deletePage" class="btn-page-delete">削除</button>
+    </div>
+  </div>
+  
+  <div class="status-bar">
+    <span id="saveStatus">読み込み中...</span>
+  </div>
+  
+  <script>
+// ===== グローバル変数 =====
+let notePages = [];
+let currentNotePage = 0;
+let db = null; // IndexedDB
+let autoSaveTimer = null;
+let socket = null;
+
+// ===== 初期化 =====
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('[NOTE WINDOW] Initializing...');
+  
+  // IndexedDB 初期化
+  await initIndexedDB();
+  
+  // SocketIO 接続
+  initSocketIO();
+  
+  // ノートデータ読み込み
+  await loadNotePages();
+  
+  // イベントハンドラー設定
+  setupEventHandlers();
+  
+  // フォントサイズ復元
+  restoreFontSize();
+  
+  console.log('[NOTE WINDOW] Initialization complete');
+});
+
+// ===== SocketIO =====
+function initSocketIO() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const socketUrl = `${window.location.protocol}//${window.location.host}`;
+  
+  socket = io(socketUrl, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000
+  });
+  
+  socket.on('connect', () => {
+    console.log('[NOTE WINDOW] SocketIO connected');
+    updateStatus('接続済み');
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('[NOTE WINDOW] SocketIO disconnected');
+    updateStatus('切断');
+  });
+  
+  // 他のウィンドウからのノート更新を受信
+  socket.on('note_updated', async (data) => {
+    console.log('[NOTE WINDOW] Received note_updated event');
+    // 自分自身の更新でなければリロード
+    if (data.source !== 'notes_window') {
+      await loadNotePages();
+    }
+  });
+}
+
+// ===== IndexedDB =====
+async function initIndexedDB() {
+  return new Promise((resolve) => {
+    if (!window.indexedDB) {
+      console.warn('[INDEXEDDB] Not supported');
+      resolve(false);
+      return;
+    }
+    
+    try {
+      const request = indexedDB.open('TradingViewNotes', 2);
+      
+      request.onerror = (e) => {
+        console.error('[INDEXEDDB] Open error:', e);
+        resolve(false);
+      };
+      
+      request.onsuccess = (e) => {
+        db = e.target.result;
+        console.log('[INDEXEDDB] Opened successfully');
+        resolve(true);
+      };
+      
+      request.onupgradeneeded = (e) => {
+        const database = e.target.result;
+        if (!database.objectStoreNames.contains('noteImages')) {
+          database.createObjectStore('noteImages', { keyPath: 'hash' });
+        }
+        if (!database.objectStoreNames.contains('noteMetadata')) {
+          database.createObjectStore('noteMetadata', { keyPath: 'id' });
+        }
+      };
+    } catch (e) {
+      console.error('[INDEXEDDB] Error:', e);
+      resolve(false);
+    }
+  });
+}
+
+// IndexedDB に画像保存
+async function saveImageToIndexedDB(imageHash, base64Data) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(false); return; }
+    try {
+      const transaction = db.transaction(['noteImages'], 'readwrite');
+      const store = transaction.objectStore('noteImages');
+      store.put({ hash: imageHash, data: base64Data, savedAt: new Date().toISOString() });
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => resolve(false);
+    } catch (e) { resolve(false); }
+  });
+}
+
+// IndexedDB から画像取得
+async function getImageFromIndexedDB(imageHash) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(null); return; }
+    try {
+      const transaction = db.transaction(['noteImages'], 'readonly');
+      const store = transaction.objectStore('noteImages');
+      const request = store.get(imageHash);
+      request.onsuccess = () => resolve(request.result?.data || null);
+      request.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+
+// IndexedDB から画像削除
+async function deleteImageFromIndexedDB(imageHash) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(false); return; }
+    try {
+      const transaction = db.transaction(['noteImages'], 'readwrite');
+      const store = transaction.objectStore('noteImages');
+      store.delete(imageHash);
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => resolve(false);
+    } catch (e) { resolve(false); }
+  });
+}
+
+// ===== ノート読み込み・保存 =====
+async function loadNotePages() {
+  try {
+    updateStatus('読み込み中...');
+    
+    const response = await fetch('/api/load_notes');
+    if (!response.ok) throw new Error('Failed to load notes');
+    
+    const data = await response.json();
+    
+    if (data.notes && Array.isArray(data.notes) && data.notes.length > 0) {
+      notePages = data.notes;
+      currentNotePage = Math.min(
+        parseInt(localStorage.getItem('tv_note_current_page')) || 0,
+        notePages.length - 1
+      );
+      console.log('[NOTE WINDOW] Loaded', notePages.length, 'pages');
+    } else {
+      createDefaultPages();
+    }
+    
+    updatePageNavigation();
+    loadCurrentPage();
+    updateStatus('読み込み完了');
+    
+  } catch (error) {
+    console.error('[NOTE WINDOW] Load error:', error);
+    createDefaultPages();
+    updatePageNavigation();
+    loadCurrentPage();
+    updateStatus('読み込みエラー');
+  }
+}
+
+async function saveNotePages() {
+  if (notePages.length === 0) return;
+  
+  // 現在のページのセクションを更新
+  if (currentNotePage < notePages.length) {
+    notePages[currentNotePage].sections = getCurrentPageSections();
+    notePages[currentNotePage].lastModified = new Date().toISOString();
+  }
+  
+  try {
+    updateStatus('保存中...');
+    
+    const response = await fetch('/api/save_notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(notePages)
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      updateStatus('保存完了');
+      console.log('[NOTE WINDOW] Saved successfully');
+      
+      // 他のウィンドウに通知
+      if (socket && socket.connected) {
+        socket.emit('note_updated', { source: 'notes_window' });
+      }
+    } else {
+      updateStatus('保存エラー');
+    }
+  } catch (error) {
+    console.error('[NOTE WINDOW] Save error:', error);
+    updateStatus('保存エラー');
+  }
+}
+
+function createDefaultPages() {
+  notePages = [{
+    id: 1,
+    title: 'ノート',
+    sections: [],
+    lastModified: new Date().toISOString()
+  }];
+  currentNotePage = 0;
+}
+
+// ===== UI 更新 =====
+function loadCurrentPage() {
+  if (notePages.length === 0) return;
+  
+  const page = notePages[currentNotePage];
+  const container = document.getElementById('noteSectionsContainer');
+  container.innerHTML = '';
+  
+  if (!page.sections || page.sections.length === 0) {
+    container.appendChild(createNoteSection());
+  } else {
+    page.sections.forEach(section => {
+      container.appendChild(createNoteSection(
+        section.title || '',
+        section.content || '',
+        section.images || []
+      ));
+    });
+  }
+}
+
+function updatePageNavigation() {
+  const indicator = document.getElementById('pageIndicator');
+  const titleInput = document.getElementById('pageTitleInput');
+  const prevBtn = document.getElementById('prevPage');
+  const nextBtn = document.getElementById('nextPage');
+  
+  if (indicator) {
+    indicator.textContent = `${currentNotePage + 1}/${notePages.length}`;
+  }
+  
+  if (titleInput && notePages.length > 0) {
+    titleInput.value = notePages[currentNotePage].title || `ページ ${currentNotePage + 1}`;
+  }
+  
+  if (prevBtn) {
+    prevBtn.disabled = currentNotePage === 0;
+    prevBtn.style.opacity = currentNotePage === 0 ? '0.5' : '1';
+  }
+  
+  if (nextBtn) {
+    nextBtn.disabled = currentNotePage >= notePages.length - 1;
+    nextBtn.style.opacity = currentNotePage >= notePages.length - 1 ? '0.5' : '1';
+  }
+}
+
+function updateStatus(msg) {
+  const el = document.getElementById('saveStatus');
+  if (el) el.textContent = msg;
+}
+
+// ===== ノートセクション作成 =====
+function createNoteSection(title = '', content = '', images = []) {
+  const section = document.createElement('div');
+  section.className = 'note-section';
+  section.draggable = false; // デフォルトはドラッグ不可
+  
+  // ドラッグ&ドロップハンドル
+  const header = document.createElement('div');
+  header.className = 'note-section-header';
+  
+  const dragHandle = document.createElement('span');
+  dragHandle.textContent = '≡';
+  dragHandle.className = 'drag-handle';
+  dragHandle.style.cssText = 'cursor:grab;margin-right:8px;color:rgba(255,255,255,0.6);font-size:18px;padding:4px 8px;user-select:none;';
+  
+  // ドラッグハンドルでのみドラッグ開始
+  dragHandle.addEventListener('mousedown', () => {
+    section.draggable = true;
+  });
+  
+  dragHandle.addEventListener('mouseup', () => {
+    section.draggable = false;
+  });
+  
+  const titleWrapper = document.createElement('div');
+  titleWrapper.className = 'note-section-title-wrapper';
+  
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.className = 'note-section-title';
+  titleInput.placeholder = '項目タイトル';
+  titleInput.value = title;
+  titleInput.addEventListener('input', () => scheduleAutoSave());
+  
+  titleWrapper.appendChild(titleInput);
+  
+  // ボタンコンテナ
+  const btnContainer = document.createElement('div');
+  btnContainer.style.cssText = 'display:flex;gap:4px;margin-left:auto;';
+  
+  const upBtn = document.createElement('button');
+  upBtn.textContent = '↑';
+  upBtn.className = 'page-nav-btn';
+  upBtn.style.padding = '4px 8px';
+  upBtn.addEventListener('click', () => {
+    const prev = section.previousElementSibling;
+    if (prev) {
+      section.parentNode.insertBefore(section, prev);
+      scheduleAutoSave();
+    }
+  });
+  
+  const downBtn = document.createElement('button');
+  downBtn.textContent = '↓';
+  downBtn.className = 'page-nav-btn';
+  downBtn.style.padding = '4px 8px';
+  downBtn.addEventListener('click', () => {
+    const next = section.nextElementSibling;
+    if (next) {
+      section.parentNode.insertBefore(next, section);
+      scheduleAutoSave();
+    }
+  });
+  
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'note-section-delete';
+  deleteBtn.textContent = '×';
+  deleteBtn.addEventListener('click', () => {
+    if (confirm('この項目を削除しますか？')) {
+      section.remove();
+      scheduleAutoSave();
+    }
+  });
+  
+  btnContainer.append(upBtn, downBtn, deleteBtn);
+  header.append(dragHandle, titleWrapper, btnContainer);
+  
+  // コンテンツ
+  const contentArea = document.createElement('textarea');
+  contentArea.className = 'note-section-content';
+  contentArea.placeholder = '内容を入力してください...';
+  contentArea.value = content;
+  contentArea.addEventListener('input', () => scheduleAutoSave());
+  
+  // 画像コンテナ
+  const imageContainer = document.createElement('div');
+  imageContainer.className = 'note-section-images';
+  
+  // ドロップゾーン
+  const dropZone = document.createElement('div');
+  dropZone.className = 'drop-zone';
+  dropZone.textContent = '画像をドラッグ&ドロップ または クリックして選択';
+  
+  // ファイル入力
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  fileInput.multiple = true;
+  
+  dropZone.addEventListener('click', () => fileInput.click());
+  
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+  
+  dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    for (const file of files) {
+      await addImageToSection(imageContainer, file, dropZone);
+    }
+  });
+  
+  fileInput.addEventListener('change', async () => {
+    for (const file of fileInput.files) {
+      await addImageToSection(imageContainer, file, dropZone);
+    }
+    fileInput.value = '';
+  });
+  
+  // まずdropZoneとfileInputをコンテナに追加
+  imageContainer.appendChild(dropZone);
+  imageContainer.appendChild(fileInput);
+  
+  // 既存画像を表示（dropZone追加後に実行）
+  images.forEach(imageData => {
+    addExistingImage(imageContainer, imageData, dropZone);
+  });
+  
+  section.append(header, contentArea, imageContainer);
+  
+  // ドラッグイベント
+  setupSectionDrag(section);
+  
+  return section;
+}
+
+function setupSectionDrag(section) {
+  section.addEventListener('dragstart', (e) => {
+    // ドラッグハンドルから開始された場合のみ許可
+    if (!section.draggable) {
+      e.preventDefault();
+      return;
+    }
+    section.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  
+  section.addEventListener('dragend', () => {
+    section.classList.remove('dragging');
+    section.draggable = false; // ドラッグ終了時にリセット
+    scheduleAutoSave();
+  });
+  
+  section.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const dragging = document.querySelector('.dragging');
+    if (dragging && dragging !== section) {
+      const rect = section.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (e.clientY < mid) {
+        section.parentNode.insertBefore(dragging, section);
+      } else {
+        section.parentNode.insertBefore(dragging, section.nextSibling);
+      }
+    }
+  });
+}
+
+// ===== 画像処理 =====
+async function addImageToSection(container, file, dropZone) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result;
+      const hash = await generateImageHash(base64);
+      
+      // IndexedDBに保存
+      await saveImageToIndexedDB(hash, base64);
+      
+      // サムネイル作成
+      const thumb = createImageThumbnail(base64, hash, container);
+      container.insertBefore(thumb, dropZone);
+      
+      scheduleAutoSave();
+      resolve();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function addExistingImage(container, imageData, dropZone) {
+  const thumb = document.createElement('div');
+  thumb.className = 'note-image-thumb';
+  
+  const img = document.createElement('img');
+  
+  let imageHash = null;
+  
+  if (typeof imageData === 'string') {
+    if (imageData.startsWith('data:')) {
+      img.src = imageData;
+    } else {
+      return; // ファイルパスはスキップ
+    }
+  } else if (imageData.type === 'hash') {
+    imageHash = imageData.value;
+    img.dataset.imagehash = imageHash;
+    
+    // IndexedDBから取得
+    getImageFromIndexedDB(imageHash).then(base64 => {
+      if (base64) {
+        img.src = base64;
+      } else {
+        img.src = `/api/note-image/${imageHash}`;
+      }
+    });
+  } else if (imageData.type === 'base64') {
+    img.src = imageData.value;
+  }
+  
+  // 削除ボタン
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = '×';
+  deleteBtn.style.cssText = 'position:absolute;top:0;right:0;background:rgba(0,0,0,0.7);color:#fff;border:none;width:20px;height:20px;cursor:pointer;display:none;';
+  
+  thumb.addEventListener('mouseenter', () => deleteBtn.style.display = 'block');
+  thumb.addEventListener('mouseleave', () => deleteBtn.style.display = 'none');
+  
+  deleteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (imageHash) deleteImageFromIndexedDB(imageHash);
+    thumb.remove();
+    scheduleAutoSave();
+  });
+  
+  // クリックで拡大
+  thumb.addEventListener('click', () => showImageModal(img.src));
+  
+  thumb.append(img, deleteBtn);
+  container.insertBefore(thumb, dropZone);
+}
+
+function createImageThumbnail(base64, hash, container) {
+  const thumb = document.createElement('div');
+  thumb.className = 'note-image-thumb';
+  
+  const img = document.createElement('img');
+  img.src = base64;
+  img.dataset.imagehash = hash;
+  
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = '×';
+  deleteBtn.style.cssText = 'position:absolute;top:0;right:0;background:rgba(0,0,0,0.7);color:#fff;border:none;width:20px;height:20px;cursor:pointer;display:none;';
+  
+  thumb.addEventListener('mouseenter', () => deleteBtn.style.display = 'block');
+  thumb.addEventListener('mouseleave', () => deleteBtn.style.display = 'none');
+  
+  deleteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteImageFromIndexedDB(hash);
+    thumb.remove();
+    scheduleAutoSave();
+  });
+  
+  thumb.addEventListener('click', () => showImageModal(base64));
+  
+  thumb.append(img, deleteBtn);
+  return thumb;
+}
+
+function showImageModal(src) {
+  const modal = document.createElement('div');
+  modal.className = 'image-modal';
+  
+  const img = document.createElement('img');
+  img.src = src;
+  
+  modal.appendChild(img);
+  modal.addEventListener('click', () => modal.remove());
+  document.body.appendChild(modal);
+}
+
+async function generateImageHash(base64Data) {
+  try {
+    const data = base64Data.split(',')[1] || base64Data;
+    const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    
+    if (crypto && crypto.subtle) {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    
+    // フォールバック
+    let hash = 0;
+    for (let i = 0; i < bytes.length; i++) {
+      hash = ((hash << 5) - hash) + bytes[i];
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16);
+  } catch (e) {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+}
+
+// ===== ページ操作 =====
+function getCurrentPageSections() {
+  const sections = [];
+  const container = document.getElementById('noteSectionsContainer');
+  
+  container.querySelectorAll('.note-section').forEach(sectionEl => {
+    const title = sectionEl.querySelector('.note-section-title')?.value || '';
+    const content = sectionEl.querySelector('.note-section-content')?.value || '';
+    const images = [];
+    
+    sectionEl.querySelectorAll('.note-image-thumb img').forEach(img => {
+      if (img.dataset.imagehash) {
+        images.push({ type: 'hash', value: img.dataset.imagehash });
+      } else if (img.src.startsWith('data:')) {
+        images.push({ type: 'base64', value: img.src });
+      }
+    });
+    
+    sections.push({ title, content, images });
+  });
+  
+  return sections;
+}
+
+function switchToPage(index) {
+  if (index < 0 || index >= notePages.length) return;
+  
+  // 現在のページを保存
+  notePages[currentNotePage].sections = getCurrentPageSections();
+  
+  currentNotePage = index;
+  localStorage.setItem('tv_note_current_page', currentNotePage);
+  
+  updatePageNavigation();
+  loadCurrentPage();
+}
+
+function addNewPage() {
+  // 現在のページを保存
+  notePages[currentNotePage].sections = getCurrentPageSections();
+  
+  const newId = Math.max(...notePages.map(p => p.id)) + 1;
+  notePages.push({
+    id: newId,
+    title: `ページ ${notePages.length + 1}`,
+    sections: [],
+    lastModified: new Date().toISOString()
+  });
+  
+  currentNotePage = notePages.length - 1;
+  updatePageNavigation();
+  loadCurrentPage();
+  scheduleAutoSave();
+}
+
+function deletePage() {
+  if (notePages.length <= 1) {
+    alert('最後のページは削除できません');
+    return;
+  }
+  
+  if (!confirm('このページを削除しますか？')) return;
+  
+  notePages.splice(currentNotePage, 1);
+  currentNotePage = Math.min(currentNotePage, notePages.length - 1);
+  
+  updatePageNavigation();
+  loadCurrentPage();
+  scheduleAutoSave();
+}
+
+// ===== イベントハンドラー =====
+function setupEventHandlers() {
+  // 項目追加
+  document.getElementById('addNoteSection')?.addEventListener('click', () => {
+    const container = document.getElementById('noteSectionsContainer');
+    container.appendChild(createNoteSection());
+    scheduleAutoSave();
+  });
+  
+  // 保存
+  document.getElementById('saveNote')?.addEventListener('click', () => saveNotePages());
+  
+  // 出力
+  document.getElementById('exportNote')?.addEventListener('click', exportNotes);
+  
+  // 読込
+  document.getElementById('importNote')?.addEventListener('click', importNotes);
+  
+  // ページナビゲーション
+  document.getElementById('prevPage')?.addEventListener('click', () => {
+    if (currentNotePage > 0) switchToPage(currentNotePage - 1);
+  });
+  
+  document.getElementById('nextPage')?.addEventListener('click', () => {
+    if (currentNotePage < notePages.length - 1) switchToPage(currentNotePage + 1);
+  });
+  
+  document.getElementById('addPage')?.addEventListener('click', addNewPage);
+  document.getElementById('deletePage')?.addEventListener('click', deletePage);
+  
+  // ページタイトル
+  document.getElementById('pageTitleInput')?.addEventListener('input', (e) => {
+    if (notePages[currentNotePage]) {
+      notePages[currentNotePage].title = e.target.value;
+      scheduleAutoSave();
+    }
+  });
+  
+  // フォントサイズ
+  document.getElementById('noteFontSizeSelect')?.addEventListener('change', (e) => {
+    const size = e.target.value + 'px';
+    document.querySelectorAll('.note-section-content').forEach(el => {
+      el.style.fontSize = size;
+    });
+    localStorage.setItem('tv_note_font_size', e.target.value);
+  });
+}
+
+function restoreFontSize() {
+  const saved = localStorage.getItem('tv_note_font_size');
+  if (saved) {
+    const select = document.getElementById('noteFontSizeSelect');
+    if (select) select.value = saved;
+    document.querySelectorAll('.note-section-content').forEach(el => {
+      el.style.fontSize = saved + 'px';
+    });
+  }
+}
+
+// ===== 自動保存 =====
+function scheduleAutoSave() {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    saveNotePages();
+  }, 2000);
+}
+
+// ===== エクスポート/インポート =====
+async function exportNotes() {
+  updateStatus('エクスポート準備中...');
+  
+  // 現在のページを保存
+  notePages[currentNotePage].sections = getCurrentPageSections();
+  
+  // 画像データをbase64に変換してエクスポート用データを作成
+  const exportData = [];
+  
+  for (const page of notePages) {
+    const exportPage = {
+      id: page.id,
+      title: page.title,
+      lastModified: page.lastModified,
+      sections: []
+    };
+    
+    for (const section of (page.sections || [])) {
+      const exportSection = {
+        title: section.title,
+        content: section.content,
+        images: []
+      };
+      
+      // 画像をbase64に変換
+      for (const imageData of (section.images || [])) {
+        try {
+          if (imageData.type === 'base64') {
+            exportSection.images.push({ type: 'base64', value: imageData.value });
+          } else if (imageData.type === 'hash') {
+            // IndexedDBから取得してbase64に変換
+            const base64 = await getImageFromIndexedDB(imageData.value);
+            if (base64) {
+              exportSection.images.push({ type: 'base64', value: base64 });
+            }
+          } else if (typeof imageData === 'string' && imageData.startsWith('data:')) {
+            exportSection.images.push({ type: 'base64', value: imageData });
+          }
+        } catch (e) {
+          console.warn('[EXPORT] Failed to export image:', e);
+        }
+      }
+      
+      exportPage.sections.push(exportSection);
+    }
+    
+    exportData.push(exportPage);
+  }
+  
+  const data = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `notes_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  
+  URL.revokeObjectURL(url);
+  updateStatus('エクスポート完了');
+}
+
+function importNotes() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    
+    try {
+      updateStatus('インポート中...');
+      const text = await file.text();
+      console.log('[IMPORT] File content length:', text.length);
+      
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('[IMPORT] JSON parse error:', parseError);
+        alert('JSONの解析に失敗しました: ' + parseError.message);
+        updateStatus('インポート失敗');
+        return;
+      }
+      
+      console.log('[IMPORT] Parsed data:', typeof data, Array.isArray(data) ? data.length : 'not array');
+      
+      if (!Array.isArray(data)) {
+        alert('無効なファイル形式です: 配列ではありません');
+        updateStatus('インポート失敗');
+        return;
+      }
+      
+      if (data.length === 0) {
+        alert('無効なファイル形式です: データが空です');
+        updateStatus('インポート失敗');
+        return;
+      }
+      
+      // データ構造を検証・正規化
+      const normalizedPages = data.map((page, idx) => ({
+        id: page.id || idx + 1,
+        title: page.title || `ページ ${idx + 1}`,
+        sections: (page.sections || []).map(section => ({
+          title: section.title || '',
+          content: section.content || '',
+          images: (section.images || []).map(img => {
+            if (typeof img === 'string') {
+              return { type: 'base64', value: img };
+            } else if (img.type && img.value) {
+              return img;
+            }
+            return null;
+          }).filter(Boolean)
+        })),
+        lastModified: page.lastModified || new Date().toISOString()
+      }));
+      
+      // インポートオプション選択ダイアログを表示
+      showImportOptionsDialog(normalizedPages);
+      
+    } catch (e) {
+      console.error('[NOTE WINDOW] Import error:', e);
+      alert('インポートに失敗しました: ' + e.message);
+      updateStatus('インポート失敗');
+    }
+  });
+  
+  input.click();
+}
+
+// インポートオプション選択ダイアログ
+function showImportOptionsDialog(importedPages) {
+  // 既存のダイアログがあれば削除
+  const existingDialog = document.getElementById('importOptionsDialog');
+  if (existingDialog) existingDialog.remove();
+  
+  const overlay = document.createElement('div');
+  overlay.id = 'importOptionsDialog';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;';
+  
+  const dialog = document.createElement('div');
+  dialog.style.cssText = 'background:#3a3a4a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:20px;min-width:300px;max-width:400px;';
+  
+  dialog.innerHTML = `
+    <h3 style="margin:0 0 16px 0;color:#f5f7ff;font-size:16px;">読込オプション</h3>
+    <p style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:16px;">
+      ${importedPages.length}ページのデータを読み込みます。<br>
+      どのように処理しますか？
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button id="importReplace" class="btn" style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #fff;padding:10px;cursor:pointer;">
+        完全置換<br><small style="opacity:0.7;">現在のデータを削除して置き換え</small>
+      </button>
+      <button id="importMerge" class="btn" style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #fff;padding:10px;cursor:pointer;">
+        マージ追加<br><small style="opacity:0.7;">現在のデータの後に追加</small>
+      </button>
+      <button id="importPreview" class="btn" style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #fff;padding:10px;cursor:pointer;">
+        プレビュー表示<br><small style="opacity:0.7;">内容を確認してから決定</small>
+      </button>
+      <button id="importCancel" class="btn" style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #fff;padding:10px;cursor:pointer;margin-top:8px;">
+        キャンセル
+      </button>
+    </div>
+  `;
+  
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  
+  // イベントハンドラ
+  document.getElementById('importReplace').addEventListener('click', async () => {
+    overlay.remove();
+    await executeImport(importedPages, 'replace');
+  });
+  
+  document.getElementById('importMerge').addEventListener('click', async () => {
+    overlay.remove();
+    await executeImport(importedPages, 'merge');
+  });
+  
+  document.getElementById('importPreview').addEventListener('click', () => {
+    overlay.remove();
+    showImportPreview(importedPages);
+  });
+  
+  document.getElementById('importCancel').addEventListener('click', () => {
+    overlay.remove();
+    updateStatus('インポートをキャンセルしました');
+  });
+  
+  // オーバーレイクリックでキャンセル
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      updateStatus('インポートをキャンセルしました');
+    }
+  });
+}
+
+// インポート実行
+async function executeImport(importedPages, mode) {
+  try {
+    // 現在のページを保存
+    notePages[currentNotePage].sections = getCurrentPageSections();
+    
+    if (mode === 'replace') {
+      notePages = importedPages;
+      currentNotePage = 0;
+    } else if (mode === 'merge') {
+      // IDを再割り当てして追加
+      const maxId = Math.max(...notePages.map(p => p.id), 0);
+      importedPages.forEach((page, idx) => {
+        page.id = maxId + idx + 1;
+      });
+      notePages = [...notePages, ...importedPages];
+    }
+    
+    updatePageNavigation();
+    loadCurrentPage();
+    await saveNotePages();
+    updateStatus('インポート完了');
+    alert(`インポートが完了しました（${mode === 'replace' ? '置換' : 'マージ'}：${importedPages.length}ページ）`);
+  } catch (e) {
+    console.error('[IMPORT] Execute error:', e);
+    alert('インポート実行エラー: ' + e.message);
+    updateStatus('インポート失敗');
+  }
+}
+
+// プレビュー表示
+function showImportPreview(importedPages) {
+  const existingPreview = document.getElementById('importPreviewDialog');
+  if (existingPreview) existingPreview.remove();
+  
+  const overlay = document.createElement('div');
+  overlay.id = 'importPreviewDialog';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;';
+  
+  const dialog = document.createElement('div');
+  dialog.style.cssText = 'background:#3a3a4a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:20px;width:80%;max-width:600px;max-height:80%;display:flex;flex-direction:column;';
+  
+  let previewHtml = `
+    <h3 style="margin:0 0 16px 0;color:#f5f7ff;font-size:16px;">プレビュー（${importedPages.length}ページ）</h3>
+    <div style="flex:1;overflow-y:auto;margin-bottom:16px;background:rgba(0,0,0,0.2);border-radius:4px;padding:12px;">
+  `;
+  
+  importedPages.forEach((page, pageIdx) => {
+    previewHtml += `
+      <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1);">
+        <div style="font-weight:600;color:#f5f7ff;margin-bottom:8px;">📄 ${page.title || 'ページ ' + (pageIdx + 1)}</div>
+    `;
+    
+    (page.sections || []).forEach((section, secIdx) => {
+      const contentPreview = (section.content || '').substring(0, 100) + ((section.content || '').length > 100 ? '...' : '');
+      const imageCount = (section.images || []).length;
+      previewHtml += `
+        <div style="margin-left:16px;margin-bottom:6px;font-size:13px;color:rgba(255,255,255,0.8);">
+          <span style="color:#667eea;">▸</span> ${section.title || '(無題)'} 
+          ${imageCount > 0 ? `<span style="color:#22c55e;">[画像${imageCount}枚]</span>` : ''}
+          <div style="margin-left:16px;color:rgba(255,255,255,0.5);font-size:12px;">${contentPreview || '(内容なし)'}</div>
+        </div>
+      `;
+    });
+    
+    previewHtml += `</div>`;
+  });
+  
+  previewHtml += `</div>`;
+  
+  previewHtml += `
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button id="previewReplace" class="btn" style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #fff;padding:8px 16px;cursor:pointer;">完全置換</button>
+      <button id="previewMerge" class="btn" style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #fff;padding:8px 16px;cursor:pointer;">マージ追加</button>
+      <button id="previewCancel" class="btn" style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #fff;padding:8px 16px;cursor:pointer;">キャンセル</button>
+    </div>
+  `;
+  
+  dialog.innerHTML = previewHtml;
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  
+  document.getElementById('previewReplace').addEventListener('click', async () => {
+    overlay.remove();
+    await executeImport(importedPages, 'replace');
+  });
+  
+  document.getElementById('previewMerge').addEventListener('click', async () => {
+    overlay.remove();
+    await executeImport(importedPages, 'merge');
+  });
+  
+  document.getElementById('previewCancel').addEventListener('click', () => {
+    overlay.remove();
+    updateStatus('インポートをキャンセルしました');
+  });
+  
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      updateStatus('インポートをキャンセルしました');
+    }
+  });
+}
+
+// ===== テーマ管理 =====
+function initTheme() {
+  // ダークテーマ固定
+  document.body.className = '';
+}
+
+function applyTheme(themeName) {
+  // 固定テーマのため何もしない
+}
+
+function getThemeDisplayName(themeValue) {
+  return 'ダーク';
+}
+
+// ウィンドウを閉じる前に保存
+window.addEventListener('beforeunload', () => {
+  notePages[currentNotePage].sections = getCurrentPageSections();
+  // 同期的に保存はできないので、最後のデータをlocalStorageに一時保存
+  localStorage.setItem('tv_note_pages_backup', JSON.stringify(notePages));
+});
+  </script>
+</body>
+</html>

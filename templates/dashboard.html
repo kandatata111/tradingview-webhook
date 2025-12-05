@@ -660,6 +660,41 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   background: rgba(100,149,237,0.2);
 }
 
+/* スライドトグルスタイル */
+.rule-toggle-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px;
+  height: 20px;
+  border: none;
+  border-radius: 10px;
+  background: #555;
+  cursor: pointer;
+  transition: all 0.3s;
+  flex-shrink: 0;
+  position: relative;
+}
+.rule-toggle-slider:checked {
+  background: #4a90d9;
+}
+.rule-toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: left 0.3s;
+}
+.rule-toggle-slider:checked::after {
+  left: 18px;
+}
+.rule-toggle-slider:hover {
+  box-shadow: 0 0 8px rgba(74, 144, 217, 0.5);
+}
+
 /* 外部サイト表示ウィンドウ */
 #external-site-window {
   margin-top: 15px;
@@ -863,8 +898,12 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <div style="display:flex;gap:12px;width:100%;flex:1;min-height:0;">
         <!-- 左側: 保存済みルール -->
         <div class="rules-side-panel" style="flex:0 0 auto;border:1px solid rgba(255,255,255,0.08);padding:8px;border-radius:8px;background:rgba(0,0,0,0.12);">
-          <div style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);">
+          <div style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;">
             <strong>保存済みルール</strong>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.85em;font-weight:normal;cursor:pointer;">
+              <input type="checkbox" id="showEnabledOnly" class="rule-toggle-slider">
+              <span>有効のみ</span>
+            </label>
           </div>
           <ul id="rulesList" style="list-style:none;padding:0;margin:0;display:block"></ul>
         </div>
@@ -997,9 +1036,9 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
             </div>
           </div>
           <div style="display:flex;gap:8px">
-            <button id="addCondBtn" class="rule-btn" style="padding:6px 12px">条件を追加</button>
-            <button id="testRuleBtn" class="rule-btn" style="padding:6px 12px">ルールをテスト</button>
-            <button id="saveRuleBtn" class="rule-btn" style="margin-left:auto;padding:6px 12px">ルールを保存</button>
+            <button id="addCondBtn" class="rule-btn" style="padding:6px 12px">条件追加</button>
+            <button id="testRuleBtn" class="rule-btn" style="padding:6px 12px">ルールテスト</button>
+            <button id="saveRuleBtn" class="rule-btn" style="margin-left:auto;padding:6px 12px">ルール保存</button>
           </div>
           <div style="margin-top:8px">
             <div style="font-weight:600;margin-bottom:4px">テスト結果</div>
@@ -1145,36 +1184,33 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 // すべてのイベントリスナーを設定する関数
 let isResizingSettings = false;  // 設定モーダルリサイズ中フラグ（グローバル）
 
+// 子ウィンドウの参照を管理（グローバル）
+let noteWindowRef = null;
+let settingsWindowRef = null;
+
+// 利用可能な通貨リスト（子ウィンドウと共有用）
+let availableCurrenciesGlobal = [];
+
 async function setupAllEventListeners() {
   console.log('[INIT] Setting up all event listeners');
 
-  // 設定モーダルの開閉
+  // 設定ボタン: 子ウィンドウを開く/復帰させる
   const openBtn = document.getElementById('openSettings');
   const closeBtn = document.getElementById('closeSettings');
   const overlay = document.getElementById('settingsModal');
   const modal = document.querySelector('.modal');
 
   if (openBtn) openBtn.addEventListener('click', () => { 
-    if (overlay) {
-      overlay.style.display = 'flex';
-      // 保存されたサイズと位置を復元
-      if (modal) {
-        const savedWidth = localStorage.getItem('tv_settings_modal_width');
-        const savedHeight = localStorage.getItem('tv_settings_modal_height');
-        const savedLeft = localStorage.getItem('tv_settings_modal_left');
-        const savedTop = localStorage.getItem('tv_settings_modal_top');
-        
-        if (savedWidth) modal.style.width = savedWidth + 'px';
-        if (savedHeight) modal.style.height = savedHeight + 'px';
-        if (savedLeft && savedTop) {
-          modal.style.position = 'fixed';
-          modal.style.left = savedLeft;
-          modal.style.top = savedTop;
-          modal.style.margin = '0';
-        }
-      }
+    // 子ウィンドウが既に開いているか確認
+    if (settingsWindowRef && !settingsWindowRef.closed) {
+      // 既存ウィンドウを前面に
+      settingsWindowRef.focus();
+    } else {
+      // 新しい子ウィンドウを開く
+      settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
     }
   });
+  // closeBtn は子ウィンドウ側で処理するため、ここでは不要（モーダル用に残す）
   if (closeBtn) closeBtn.addEventListener('click', () => { if (overlay) overlay.style.display = 'none'; });
   if (overlay) overlay.addEventListener('click', (e) => { 
     // リサイズ中はオーバーレイクリックを無視
@@ -1199,69 +1235,13 @@ let currentNotePage = 0;
 let notePages = [];
 
 if (openNoteBtn) openNoteBtn.addEventListener('click', async () => { 
-  if (noteOverlay) {
-    noteOverlay.style.display = 'flex';
-    isNoteModalOpen = true;
-    // 保存されたノートページを読み込む（タイムアウト付き）
-    try {
-      const loadPromise = loadNotePages();
-      const timeoutPromise = new Promise((resolve) => {
-        setTimeout(() => {
-          console.warn('[NOTE] loadNotePages() timed out after 5 seconds');
-          resolve();
-        }, 5000);
-      });
-      await Promise.race([loadPromise, timeoutPromise]);
-    } catch (e) {
-      console.error('[NOTE] Error loading notes:', e);
-    }
-    // ページナビゲーションのイベントハンドラーを設定
-    setupPageNavigationHandlers();
-    
-    // ノートフォントサイズを適用
-    const currentNoteFontSize = localStorage.getItem('tv_note_font_size') || '15';
-    applyNoteFontSize(currentNoteFontSize);
-    
-    // 古い localStorage データをクリーンアップ（初回のみ）
-    if (!window.noteStorageCleanupDone) {
-      cleanupOldNoteStorage();
-      window.noteStorageCleanupDone = true;
-    }
-    
-    // サイズ復元を遅らせることでdisplay:flex後のサイズ適用を確実にする
-    setTimeout(() => {
-      if (noteOverlay) {
-        const modal = noteOverlay.querySelector('.modal');
-        if (modal) {
-          const savedWidth = parseInt(localStorage.getItem('tv_note_modal_width')) || 500;
-          const savedHeight = parseInt(localStorage.getItem('tv_note_modal_height')) || 400;
-          const savedLeft = localStorage.getItem('tv_note_modal_left');
-          const savedTop = localStorage.getItem('tv_note_modal_top');
-          
-          // ピクセル値で保存されているかどうかを確認
-          const hasPixelPosition = savedLeft && savedLeft.endsWith('px') && savedTop && savedTop.endsWith('px');
-          
-          console.log('[NOTE] Restoring size:', { savedWidth, savedHeight, savedLeft, savedTop, hasPixelPosition });
-          
-          modal.style.width = savedWidth + 'px';
-          modal.style.height = savedHeight + 'px';
-          modal.style.position = 'fixed';
-          modal.style.margin = '0';
-          
-          if (hasPixelPosition) {
-            // ピクセル値で保存されている場合はそのまま適用
-            modal.style.left = savedLeft;
-            modal.style.top = savedTop;
-            modal.style.transform = 'none';
-          } else {
-            // デフォルトは中央配置
-            modal.style.left = '50%';
-            modal.style.top = '50%';
-            modal.style.transform = 'translate(-50%, -50%)';
-          }
-        }
-      }
-    }, 50); // 遅延を50msに増やす
+  // 子ウィンドウが既に開いているか確認
+  if (noteWindowRef && !noteWindowRef.closed) {
+    // 既存ウィンドウを前面に
+    noteWindowRef.focus();
+  } else {
+    // 新しい子ウィンドウを開く
+    noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
   }
 });
 
@@ -3901,62 +3881,83 @@ function applyNoteFontSize(px) {
 }
 
 function applyColumnVisibility() {
-  const cols = document.querySelectorAll('.col-toggle');
-  cols.forEach(cb => {
-    const colIndex = parseInt(cb.dataset.col);
-    const visible = cb.checked;
-    // colIndex は 1-indexed（雲整列は0列目、ダウ転は1列目...）
+  // localStorageから設定を読み込み
+  const savedCols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
+  
+  // 列ごとに表示/非表示を適用
+  for (let colIndex = 1; colIndex <= 10; colIndex++) {
+    const visible = savedCols[colIndex.toString()] !== false; // デフォルトtrue
     const selector = `table th:nth-child(${colIndex + 1}), table td:nth-child(${colIndex + 1})`;
     document.querySelectorAll(selector).forEach(el => {
       el.style.display = visible ? '' : 'none';
     });
+  }
+  
+  // ダッシュボード内のチェックボックスがあれば更新
+  document.querySelectorAll('.col-toggle').forEach(cb => {
+    const col = cb.dataset.col;
+    cb.checked = savedCols[col] !== false;
   });
 }
 
 function applyRowVisibility() {
-  const rows = document.querySelectorAll('.row-toggle');
-  rows.forEach(cb => {
-    const rowLabel = cb.dataset.row;
-    const visible = cb.checked;
-    // 各行は tf-label セルの textContent で識別
-    const allRows = document.querySelectorAll('table tr');
-    allRows.forEach(tr => {
-      const labelCell = tr.querySelector('.tf-label');
-      if (labelCell) {
-        const text = labelCell.textContent.trim();
-        if ((rowLabel === 'price' && text === '価格') ||
-            (rowLabel === '5m' && text === '5m') ||
-            (rowLabel === '15m' && text === '15m') ||
-            (rowLabel === '1H' && text === '1H') ||
-            (rowLabel === '4H' && text === '4H')) {
-          tr.style.display = visible ? '' : 'none';
-        }
+  // localStorageから設定を読み込み
+  const savedRows = JSON.parse(localStorage.getItem('tv_rows') || '{}');
+  
+  const allRows = document.querySelectorAll('table tr');
+  allRows.forEach(tr => {
+    const labelCell = tr.querySelector('.tf-label');
+    if (labelCell) {
+      const text = labelCell.textContent.trim();
+      let rowLabel = null;
+      if (text === '価格') rowLabel = 'price';
+      else if (text === '5m') rowLabel = '5m';
+      else if (text === '15m') rowLabel = '15m';
+      else if (text === '1H') rowLabel = '1H';
+      else if (text === '4H') rowLabel = '4H';
+      
+      if (rowLabel) {
+        const visible = savedRows[rowLabel] !== false; // デフォルトtrue
+        tr.style.display = visible ? '' : 'none';
       }
-    });
+    }
+  });
+  
+  // ダッシュボード内のチェックボックスがあれば更新
+  document.querySelectorAll('.row-toggle').forEach(cb => {
+    const row = cb.dataset.row;
+    cb.checked = savedRows[row] !== false;
   });
 }
 
 function applyCurrencyFilter() {
-  const currencies = document.querySelectorAll('.currency-toggle');
-  const enabled = new Set();
-  currencies.forEach(cb => {
-    if (cb.checked) enabled.add(cb.dataset.currency);
-  });
+  // localStorageから設定を読み込み
+  const savedCurrencies = JSON.parse(localStorage.getItem('tv_currencies') || '{}');
   
   // 通貨ごとのセクションを表示/非表示
   document.querySelectorAll('.currency-section').forEach(section => {
     const symbol = section.dataset.symbol;
-    if (enabled.has(symbol)) {
+    const visible = savedCurrencies[symbol] !== false; // デフォルトtrue
+    if (visible) {
       section.classList.remove('hidden');
     } else {
       section.classList.add('hidden');
     }
+  });
+  
+  // ダッシュボード内のチェックボックスがあれば更新
+  document.querySelectorAll('.currency-toggle').forEach(cb => {
+    const currency = cb.dataset.currency;
+    cb.checked = savedCurrencies[currency] !== false;
   });
 }
 
 function updateCurrencyFilter(availableCurrencies) {
   const container = document.getElementById('currencyFilterContainer');
   const savedCurrencies = JSON.parse(localStorage.getItem('tv_currencies') || '{}');
+  
+  // TESTERを除外
+  const filteredCurrencies = availableCurrencies.filter(c => c !== 'TESTER');
   
   // 既存のチェックボックスの通貨を記録
   const existingCurrencies = new Set();
@@ -3965,7 +3966,7 @@ function updateCurrencyFilter(availableCurrencies) {
   });
   
   // 新しい通貨があれば追加
-  availableCurrencies.forEach(currency => {
+  filteredCurrencies.forEach(currency => {
     if (!existingCurrencies.has(currency)) {
       const label = document.createElement('label');
       label.style.fontSize = '0.9em';
@@ -4453,6 +4454,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     wireSectionToggles(); 
     wireSubsectionToggles();
     
+    // 子ウィンドウ（settings_window）からのメッセージを受信
+    window.addEventListener('message', async (event) => {
+      if (event.data && event.data.type === 'settings_action') {
+        console.log('[DASHBOARD] Received settings message:', event.data);
+        const { action, data } = event.data;
+        
+        switch (action) {
+          case 'mode_changed':
+            applyMode(data.mode);
+            await load();
+            break;
+          case 'font_size_changed':
+            applyFontSize(data.size);
+            await load();
+            break;
+          case 'time_format_changed':
+            await load();
+            break;
+          case 'enable_5m_changed':
+            // 設定はlocalStorageに保存済み
+            break;
+          case 'columns_changed':
+            applyColumnVisibility();
+            await load();
+            break;
+          case 'rows_changed':
+            applyRowVisibility();
+            await load();
+            break;
+          case 'voice_volume_changed':
+          case 'voice_rate_changed':
+            // 音声設定はlocalStorageから取得されるので特別な処理不要
+            break;
+          case 'currency_filter_changed':
+            applyCurrencyFilter();
+            await load();
+            break;
+          case 'rule_saved':
+          case 'rule_deleted':
+          case 'rule_toggled':
+          case 'rules_reordered':
+            // ルール変更の場合はルールを再読み込み
+            await loadRules();
+            break;
+        }
+      } else if (event.data && event.data.type === 'request_currencies') {
+        // 子ウィンドウが通貨リストを要求した場合
+        if (settingsWindowRef && !settingsWindowRef.closed && availableCurrenciesGlobal.length > 0) {
+          settingsWindowRef.postMessage({
+            type: 'currencies_update',
+            currencies: availableCurrenciesGlobal
+          }, '*');
+        }
+      }
+    });
+    
     // Initialize calendar language selector
     const savedCalendarLang = localStorage.getItem('tv_calendar_lang') || 'ja';
     const calendarLangSelect = document.getElementById('calendar-lang-select');
@@ -4816,8 +4873,17 @@ async function load() {
       // 現在のダッシュボードデータを保存（テスト時に使用）
       currentDashboardData = data.states;
       
-      // 利用可能な通貨を抽出
-      const availableCurrencies = [...new Set(data.states.map(s => s.symbol))];
+      // 利用可能な通貨を抽出（TESTERを除外）
+      const availableCurrencies = [...new Set(data.states.map(s => s.symbol))].filter(c => c !== 'TESTER');
+      // グローバル変数を更新（子ウィンドウ通信用）
+      availableCurrenciesGlobal = availableCurrencies;
+      // 設定ウィンドウが開いていれば通貨リストを送信
+      if (settingsWindowRef && !settingsWindowRef.closed) {
+        settingsWindowRef.postMessage({
+          type: 'currencies_update',
+          currencies: availableCurrencies
+        }, '*');
+      }
   updateCurrencyFilter(availableCurrencies);
   // Populate rule editor scope select with current available currencies
   try { populateRuleScopeSelect(availableCurrencies); } catch (e) { console.log('populateRuleScopeSelect call error', e); }
@@ -5224,6 +5290,14 @@ async function loadRules() {
         const opt = document.createElement('option'); opt.value = s; opt.textContent = s; scopeSelect.appendChild(opt);
       }
     });
+    // 「有効のみ」トグルのイベントを設定（初回のみ）
+    const showEnabledOnlyToggle = document.getElementById('showEnabledOnly');
+    if (showEnabledOnlyToggle && !showEnabledOnlyToggle.dataset.listenerAdded) {
+      showEnabledOnlyToggle.dataset.listenerAdded = 'true';
+      showEnabledOnlyToggle.addEventListener('change', () => {
+        renderRulesList(allRules);
+      });
+    }
   } catch (e) { console.log('loadRules error', e); }
 }
 
@@ -5324,11 +5398,15 @@ function renderRulesList(rules) {
   // sort_orderの順に表示（サーバーからの順序をそのまま使用）
   
   const ul = document.getElementById('rulesList'); ul.innerHTML = '';
+  const showEnabledOnly = document.getElementById('showEnabledOnly')?.checked || false;
   
   // ドラッグ中フラグ（実際に移動が行われたかを追跡）
   let dragMoved = false;
   
-  rules.forEach((rule, index) => {
+  // 有効のみフィルター
+  const filteredRules = showEnabledOnly ? rules.filter(r => r.enabled !== false) : rules;
+  
+  filteredRules.forEach((rule, index) => {
     const li = document.createElement('li'); 
     li.style.padding = '6px 4px'; 
     li.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
@@ -5373,22 +5451,32 @@ function renderRulesList(rules) {
     });
     
     const left = document.createElement('div'); left.style.display = 'flex'; left.style.alignItems = 'center'; left.style.gap = '8px';
-    const btns = document.createElement('div'); btns.style.display = 'flex'; btns.style.gap = '6px';
+    const btns = document.createElement('div'); btns.style.display = 'flex'; btns.style.gap = '6px'; btns.style.alignItems = 'center';
     
-    // 有効/無効トグルボタン
-    const toggle = document.createElement('button');
+    // ルール名（クリックで編集）
+    const title = document.createElement('div'); 
+    title.textContent = rule.name || rule.id; 
+    title.style.fontWeight = '600';
+    title.style.cursor = 'pointer';
+    title.title = 'クリックして編集';
+    title.addEventListener('click', () => openRuleEditor(rule));
+    title.addEventListener('mouseenter', () => { title.style.textDecoration = 'underline'; });
+    title.addEventListener('mouseleave', () => { title.style.textDecoration = 'none'; });
+    
+    // 有効/無効スライドトグル
     const isEnabled = rule.enabled !== false; // デフォルトは有効
-    toggle.textContent = isEnabled ? '有効' : '無効';
-    toggle.style.padding = '4px 8px';
-    toggle.style.fontWeight = '600';
-    toggle.style.background = isEnabled ? 'rgba(46, 160, 67, 0.2)' : 'rgba(176, 42, 42, 0.2)';
-    toggle.style.color = isEnabled ? '#4ade80' : '#f87171';
-    toggle.style.border = isEnabled ? '1px solid #4ade80' : '1px solid #f87171';
-    toggle.style.borderRadius = '4px';
-    toggle.style.cursor = 'pointer';
-    toggle.addEventListener('click', async () => {
+    const toggleLabel = document.createElement('label');
+    toggleLabel.style.display = 'flex';
+    toggleLabel.style.alignItems = 'center';
+    toggleLabel.style.cursor = 'pointer';
+    
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.className = 'rule-toggle-slider';
+    toggle.checked = isEnabled;
+    toggle.addEventListener('change', async () => {
       try {
-        const newEnabled = !isEnabled;
+        const newEnabled = toggle.checked;
         const updatedRule = { ...rule, enabled: newEnabled };
         const res = await fetch('/rules', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updatedRule) });
         const j = await res.json();
@@ -5399,10 +5487,15 @@ function renderRulesList(rules) {
         }
       } catch (e) { console.log('toggle error', e); alert('トグルエラー: ' + e.message); }
     });
+    toggleLabel.appendChild(toggle);
     
-    const edit = document.createElement('button'); edit.textContent = '編集'; edit.style.padding = '4px 8px'; edit.className = 'rule-btn';
+    // 複製ボタン
+    const dup = document.createElement('button'); dup.textContent = '複製'; dup.style.padding = '4px 8px'; dup.className = 'rule-btn';
+    dup.addEventListener('click', async () => {
+      await duplicateRule(rule);
+    });
+    
     const del = document.createElement('button'); del.textContent = '削除'; del.style.padding = '4px 8px'; del.className = 'rule-btn';
-    edit.addEventListener('click', () => openRuleEditor(rule));
     del.addEventListener('click', async () => {
       if (!confirm('ルールを削除しますか?')) return;
       try {
@@ -5416,21 +5509,65 @@ function renderRulesList(rules) {
       } catch (e) { console.log('delete error', e); alert('削除エラー: ' + e.message); }
     });
     
-    btns.appendChild(toggle); btns.appendChild(edit); btns.appendChild(del);
-    // According to request, place buttons first then rule name to the right
-    const title = document.createElement('div'); 
-    title.textContent = rule.name || rule.id; 
-    title.style.fontWeight = '600'; 
-    title.style.marginLeft = '12px';
-    title.style.opacity = isEnabled ? '1' : '0.5'; // 無効な場合は薄く表示
-    btns.style.opacity = isEnabled ? '1' : '0.5'; // ボタンも薄く表示
-    left.appendChild(btns); left.appendChild(title);
+    // レイアウト: ルール名 → スライドトグル → 複製ボタン → 削除ボタン
+    left.appendChild(title);
+    btns.appendChild(toggleLabel); btns.appendChild(dup); btns.appendChild(del);
+    
+    // 無効な場合は薄く表示
+    title.style.opacity = isEnabled ? '1' : '0.5';
+    btns.style.opacity = isEnabled ? '1' : '0.7';
     li.appendChild(left);
+    li.appendChild(btns);
     ul.appendChild(li);
   });
   
   // ルールリスト更新後にボタンを更新
   updateRuleCountButtons();
+}
+
+// ルール複製機能
+function generateUniqueName(originalName) {
+  let counter = 1;
+  let newName = originalName + '_' + counter;
+  while (allRules.some(r => r.name === newName)) {
+    counter++;
+    newName = originalName + '_' + counter;
+  }
+  return newName;
+}
+
+async function duplicateRule(originalRule) {
+  try {
+    // 新しいルールを作成（ディープコピー）
+    const newRule = JSON.parse(JSON.stringify(originalRule));
+    
+    // 新しいID生成
+    newRule.id = 'rule_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // 新しい名前生成（_1, _2...）
+    newRule.name = generateUniqueName(originalRule.name || originalRule.id);
+    
+    // 有効状態を維持
+    newRule.enabled = true;
+    
+    // サーバーに保存
+    const res = await fetch('/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newRule)
+    });
+    
+    const j = await res.json();
+    
+    if (j.status === 'success') {
+      await loadRules();
+    } else {
+      alert('複製に失敗しました: ' + (j.msg || JSON.stringify(j)));
+    }
+  } catch (e) {
+    console.log('duplicate error', e);
+    alert('複製エラー: ' + e.message);
+  }
 }
 
 function openRuleEditor(rule) {
@@ -6389,16 +6526,18 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
 // 音声有効化オーバーレイの表示
 function showAudioEnableOverlay() {
   // 既にアンロックされていれば表示しない
-  if (audioUnlocked) return;
-  
-  // localStorage で非表示設定を確認
-  if (localStorage.getItem('tv_audio_overlay_dismissed') === 'true') {
-    // 30分以内に閉じた場合は表示しない
-    const dismissedAt = parseInt(localStorage.getItem('tv_audio_overlay_dismissed_at') || '0');
-    if (Date.now() - dismissedAt < 30 * 60 * 1000) {
-      return;
-    }
+  if (audioUnlocked) {
+    console.log('[AUDIO_OVERLAY] Already unlocked, skipping overlay');
+    return;
   }
+  
+  // 既存のオーバーレイがあれば表示しない
+  if (document.getElementById('audioEnableOverlay')) {
+    console.log('[AUDIO_OVERLAY] Overlay already exists');
+    return;
+  }
+  
+  console.log('[AUDIO_OVERLAY] Showing audio enable overlay');
   
   const overlay = document.createElement('div');
   overlay.id = 'audioEnableOverlay';
@@ -6452,15 +6591,13 @@ function showAudioEnableOverlay() {
   overlay.addEventListener('click', () => {
     unlockAudio();
     overlay.remove();
-    localStorage.setItem('tv_audio_overlay_dismissed', 'true');
-    localStorage.setItem('tv_audio_overlay_dismissed_at', Date.now().toString());
     console.log('[AUDIO_OVERLAY] Dismissed and audio unlocked');
   });
   
   document.body.appendChild(overlay);
 }
 
-// ページ読み込み後にオーバーレイを表示
+// ページ読み込み後にオーバーレイを表示（常に表示）
 setTimeout(showAudioEnableOverlay, 500);
 </script>
 </body>
