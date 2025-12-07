@@ -26,6 +26,29 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .settings-button { background:transparent;color:#f5f7ff;border:1px solid rgba(255,255,255,0.8);padding:7px 16px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
 .settings-button::before { content:'\2699'; font-size:1.05em; }
 .settings-button:hover { background:rgba(255,255,255,0.15); color:#ffffff; }
+
+/* ツールボタン（サイドメニュー用） */
+.tools-button { background:transparent;color:#f5f7ff;border:1px solid rgba(255,255,255,0.8);padding:7px 16px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+.tools-button::before { content:'\2630'; font-size:1.05em; }
+.tools-button:hover { background:rgba(255,255,255,0.15); color:#ffffff; }
+
+/* サイドメニュー用オーバーレイ */
+.side-menu-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:none; z-index:9998; opacity:0; transition:opacity 0.3s; }
+.side-menu-overlay.active { display:block; opacity:1; }
+
+/* サイドメニュー */
+.side-menu { position:fixed; top:0; right:-180px; width:180px; height:auto; background:rgba(30,60,114,0.98); backdrop-filter:blur(10px); box-shadow:-2px 0 15px rgba(0,0,0,0.4); z-index:9999; transition:right 0.3s ease-out; display:flex; flex-direction:column; border-left:1px solid rgba(255,255,255,0.15); border-radius:0 0 0 8px; }
+.side-menu.active { right:0; }
+.side-menu-header { padding:10px 12px; background:rgba(0,0,0,0.3); border-bottom:1px solid rgba(255,255,255,0.15); display:flex; justify-content:space-between; align-items:center; }
+.side-menu-header h2 { font-size:1em; margin:0; color:#f5f7ff; font-weight:normal; }
+.side-menu-close { background:none; border:none; color:#f5f7ff; font-size:1.1em; cursor:pointer; padding:0; width:20px; height:20px; display:flex; align-items:center; justify-content:center; transition:transform 0.2s, opacity 0.2s; opacity:0.8; }
+.side-menu-close:hover { transform:scale(1.2); opacity:1; }
+.side-menu-items { flex:1; overflow-y:auto; padding:5px 0; }
+.side-menu-item { padding:8px 12px; border:none; background:none; cursor:pointer; width:100%; text-align:left; font-size:0.8em; color:#f5f7ff; border-bottom:1px solid rgba(255,255,255,0.08); transition:all 0.2s; display:flex; align-items:center; gap:8px; }
+.side-menu-item:hover { background:rgba(255,255,255,0.1); padding-left:16px; }
+.side-menu-item.window-open { background:rgba(74,222,128,0.15); border-left:3px solid #4ade80; }
+.side-menu-item .menu-icon { font-size:1em; width:18px; text-align:center; }
+.side-menu-item .menu-status { margin-left:auto; font-size:0.8em; opacity:0.6; }
 .modal-overlay { position:fixed; left:0;top:0;right:0;bottom:0; background: rgba(0,0,0,0.4); display:none; align-items:center; justify-content:center; z-index:9999 }
   .modal { background:rgba(255,255,255,0.18); color:#f5f7ff; padding:20px 22px; border-radius:14px; min-width:280px; position:relative; cursor:move; user-select:none; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,0.35); box-shadow:0 18px 40px rgba(0,0,0,0.35); max-height:90vh; overflow:auto; resize:both; min-height:200px; }
   .modal .resize-handle { position:absolute; right:0; bottom:0; width:20px; height:20px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%); border-radius:0 0 14px 0; }
@@ -779,8 +802,40 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <span style="width:8px; height:8px; border-radius:50%; background:#90EE90; display:inline-block;" id="marketStatusLight"></span>
       <span id="marketStatusText">市場チェック中...</span>
     </div>
-    <button id="openNote" class="settings-button">Note</button>
-    <button id="openSettings" class="settings-button">設定</button>
+    <button id="openToolsMenu" class="tools-button">ツール</button>
+  </div>
+</div>
+
+<!-- サイドメニュー用オーバーレイ -->
+<div class="side-menu-overlay" id="sideMenuOverlay"></div>
+
+<!-- サイドメニュー -->
+<div class="side-menu" id="sideMenu">
+  <div class="side-menu-header">
+    <h2>ツール</h2>
+    <button class="side-menu-close" id="closeSideMenu">✕</button>
+  </div>
+  <div class="side-menu-items">
+    <button class="side-menu-item" id="menuSettings">
+      <span class="menu-icon">⚙️</span>
+      <span>設定</span>
+      <span class="menu-status" id="statusSettings"></span>
+    </button>
+    <button class="side-menu-item" id="menuNote">
+      <span class="menu-icon">📝</span>
+      <span>Note</span>
+      <span class="menu-status" id="statusNote"></span>
+    </button>
+    <button class="side-menu-item" id="menuEconomicCalendar">
+      <span class="menu-icon">📊</span>
+      <span>経済指標</span>
+      <span class="menu-status" id="statusEconomicCalendar"></span>
+    </button>
+    <button class="side-menu-item" id="menuShepherdColumn">
+      <span class="menu-icon">🐑</span>
+      <span>羊飼い</span>
+      <span class="menu-status" id="statusShepherdColumn"></span>
+    </button>
   </div>
 </div>
 
@@ -1112,11 +1167,6 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
     <!-- 通貨ごとの表と発火履歴が動的に生成されます -->
   </div>
   
-  <!-- 外部コンテンツボタンセクション -->
-  <div id="external-buttons-section" style="margin-top: 15px; display: flex; gap: 12px; padding: 0 6px;">
-    <button id="openEconomicCalendar" class="settings-button">経済指標</button>
-    <button id="openShepherdColumn" class="settings-button">羊飼い</button>
-  </div>
 </div>
 
 </div>
@@ -1150,7 +1200,110 @@ let availableCurrenciesGlobal = [];
 async function setupAllEventListeners() {
   console.log('[INIT] Setting up all event listeners');
 
-  // 設定ボタン: 子ウィンドウを開く/復帰させる
+  // サイドメニューの開閉
+  const toolsBtn = document.getElementById('openToolsMenu');
+  const sideMenu = document.getElementById('sideMenu');
+  const sideMenuOverlay = document.getElementById('sideMenuOverlay');
+  const closeSideMenuBtn = document.getElementById('closeSideMenu');
+
+  function openSideMenu() {
+    sideMenu.classList.add('active');
+    sideMenuOverlay.classList.add('active');
+    updateMenuStatus();
+  }
+
+  function closeSideMenu() {
+    sideMenu.classList.remove('active');
+    sideMenuOverlay.classList.remove('active');
+  }
+
+  // メニューの状態を更新（開いているウィンドウをハイライト）
+  function updateMenuStatus() {
+    const menuItems = [
+      { id: 'menuSettings', ref: settingsWindowRef, statusId: 'statusSettings' },
+      { id: 'menuNote', ref: noteWindowRef, statusId: 'statusNote' },
+      { id: 'menuEconomicCalendar', ref: economicCalendarWindowRef, statusId: 'statusEconomicCalendar' },
+      { id: 'menuShepherdColumn', ref: shepherdColumnWindowRef, statusId: 'statusShepherdColumn' }
+    ];
+
+    menuItems.forEach(item => {
+      const menuItem = document.getElementById(item.id);
+      const statusEl = document.getElementById(item.statusId);
+      const isOpen = item.ref && !item.ref.closed;
+      
+      if (menuItem) {
+        if (isOpen) {
+          menuItem.classList.add('window-open');
+        } else {
+          menuItem.classList.remove('window-open');
+        }
+      }
+      if (statusEl) {
+        statusEl.textContent = isOpen ? '開' : '';
+      }
+    });
+  }
+
+  if (toolsBtn) toolsBtn.addEventListener('click', openSideMenu);
+  if (closeSideMenuBtn) closeSideMenuBtn.addEventListener('click', closeSideMenu);
+  if (sideMenuOverlay) sideMenuOverlay.addEventListener('click', closeSideMenu);
+
+  // ウィンドウの表示状態を追跡（前面にあるかどうか）
+  let settingsWindowVisible = false;
+  let noteWindowVisible = false;
+  let economicCalendarWindowVisible = false;
+  let shepherdColumnWindowVisible = false;
+
+  // 設定メニュー項目: 子ウィンドウを開く/前面に出す/背面に移動
+  const menuSettings = document.getElementById('menuSettings');
+  if (menuSettings) menuSettings.addEventListener('click', () => {
+    if (settingsWindowRef && !settingsWindowRef.closed) {
+      // ウィンドウが開いている場合は前面に出す
+      settingsWindowRef.focus();
+    } else {
+      // 新しいウィンドウを開く
+      settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
+    }
+    updateMenuStatus();
+  });
+
+  // Noteメニュー項目: 子ウィンドウを開く/前面に出す
+  const menuNote = document.getElementById('menuNote');
+  if (menuNote) menuNote.addEventListener('click', () => {
+    if (noteWindowRef && !noteWindowRef.closed) {
+      noteWindowRef.focus();
+    } else {
+      noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
+    }
+    updateMenuStatus();
+  });
+
+  // 経済指標メニュー項目: 子ウィンドウを開く/前面に出す
+  const menuEconomicCalendar = document.getElementById('menuEconomicCalendar');
+  if (menuEconomicCalendar) menuEconomicCalendar.addEventListener('click', () => {
+    if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
+      economicCalendarWindowRef.focus();
+    } else {
+      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
+    }
+    updateMenuStatus();
+  });
+
+  // 羊飼いメニュー項目: 子ウィンドウを開く/前面に出す
+  const menuShepherdColumn = document.getElementById('menuShepherdColumn');
+  if (menuShepherdColumn) menuShepherdColumn.addEventListener('click', () => {
+    if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
+      shepherdColumnWindowRef.focus();
+    } else {
+      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
+    }
+    updateMenuStatus();
+  });
+
+  // ウィンドウが閉じられたときのステータス更新（定期チェック）
+  setInterval(updateMenuStatus, 1000);
+
+  // 設定ボタン: 子ウィンドウを開く/復帰させる（旧コード - 互換性のため残す）
   const openBtn = document.getElementById('openSettings');
   const closeBtn = document.getElementById('closeSettings');
   const overlay = document.getElementById('settingsModal');
@@ -1174,7 +1327,7 @@ async function setupAllEventListeners() {
     if (e.target === overlay) overlay.style.display = 'none'; 
   });
 
-// ノートモーダルの開閉
+// ノートモーダルの開閉（旧コード - 互換性のため残す）
 const openNoteBtn = document.getElementById('openNote');
 const closeNoteBtn = document.getElementById('closeNote');
 const noteOverlay = document.getElementById('noteModal');
@@ -1201,7 +1354,7 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
   }
 });
 
-  // 経済指標ボタン: 子ウィンドウを開く/復帰させる
+  // 経済指標ボタン: 子ウィンドウを開く/復帰させる（旧コード - 互換性のため残す）
   const openEconomicCalendarBtn = document.getElementById('openEconomicCalendar');
   if (openEconomicCalendarBtn) openEconomicCalendarBtn.addEventListener('click', () => {
     if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
@@ -1211,7 +1364,7 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
     }
   });
 
-  // 羊飼いボタン: 子ウィンドウを開く/復帰させる
+  // 羊飼いボタン: 子ウィンドウを開く/復帰させる（旧コード - 互換性のため残す）
   const openShepherdColumnBtn = document.getElementById('openShepherdColumn');
   if (openShepherdColumnBtn) openShepherdColumnBtn.addEventListener('click', () => {
     if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {

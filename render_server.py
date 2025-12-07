@@ -782,6 +782,7 @@ def toggle_rule(rule_id):
     try:
         data = request.get_json() or {}
         enabled = data.get('enabled', True)
+        enabled_int = 1 if enabled else 0
         
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -794,14 +795,15 @@ def toggle_rule(rule_id):
             conn.close()
             return jsonify({'status': 'error', 'msg': 'Rule not found'}), 404
         
-        # ルールを更新
+        # ルールを更新（rule_jsonとenabledカラムの両方を更新）
         rule = json.loads(row[0])
         rule['enabled'] = enabled
         
-        c.execute('UPDATE rules SET rule_json = ? WHERE id = ?', (json.dumps(rule, ensure_ascii=False), rule_id))
+        c.execute('UPDATE rules SET rule_json = ?, enabled = ? WHERE id = ?', (json.dumps(rule, ensure_ascii=False), enabled_int, rule_id))
         conn.commit()
         conn.close()
         
+        print(f'[RULE] Toggled rule {rule_id} enabled={enabled}')
         return jsonify({'status': 'success', 'enabled': enabled}), 200
     except Exception as e:
         print(f'[ERROR][toggle_rule] {e}')
