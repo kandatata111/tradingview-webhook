@@ -26,6 +26,10 @@ print(f"[STORAGE] Persistent directory: {PERSISTENT_DIR}")
 print(f"[STORAGE] Database path: {DB_PATH}")
 print(f"[STORAGE] Directory exists: {os.path.exists(PERSISTENT_DIR)}")
 print(f"[STORAGE] Database exists: {os.path.exists(DB_PATH)}")
+if os.path.exists(DB_PATH):
+    db_size_mb = os.path.getsize(DB_PATH) / (1024 * 1024)
+    print(f"[STORAGE] Database size: {db_size_mb:.2f} MB")
+
 
 @app.errorhandler(405)
 def method_not_allowed(error):
@@ -196,6 +200,48 @@ def proxy_external_site():
         print(f'[PROXY] Unexpected error: {e}')
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
+def cleanup_old_data():
+    """
+    古いデータを削除し、各通貨ペア・各時間足の最新レコードのみを保持する。
+    これによりデータベースサイズを最小限に抑える。
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # states テーブルから各(symbol, tf)の最新レコード以外を削除
+        # PRIMARY KEY (symbol, tf) なので実際には古いレコードは上書きされているはずだが、
+        # timestampが古いレコードがあれば削除
+        c.execute('''
+            DELETE FROM states 
+            WHERE rowid NOT IN (
+                SELECT MAX(rowid) 
+                FROM states 
+                GROUP BY symbol, tf
+            )
+        ''')
+        deleted_states = c.rowcount
+        
+        # fire_history テーブルから30日より古いレコードを削除
+        from datetime import datetime, timedelta
+        import pytz
+        jst = pytz.timezone('Asia/Tokyo')
+        threshold = (datetime.now(jst) - timedelta(days=30)).isoformat()
+        
+        c.execute('DELETE FROM fire_history WHERE fired_at < ?', (threshold,))
+        deleted_fire = c.rowcount
+        
+        conn.commit()
+        conn.close()
+        
+        if deleted_states > 0 or deleted_fire > 0:
+            print(f'[CLEANUP] Deleted {deleted_states} old state(s), {deleted_fire} old fire record(s)')
+        else:
+            print('[CLEANUP] No old data to clean up')
+            
+    except Exception as e:
+        print(f'[CLEANUP ERROR] {e}')
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -297,6 +343,9 @@ def init_db():
     conn.commit()
     conn.close()
     print('[OK] Currency order table ensured')
+    
+    # 古いデータのクリーンアップ（最新データのみ保持）
+    cleanup_old_data()
     
     # ノートデータファイルの確認
     notes_path = os.path.join(BASE_DIR, 'notes_data.json')
