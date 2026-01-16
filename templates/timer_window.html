@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⏱</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background: #f5f7fa;
+      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+      padding: 0;
+      overflow: hidden;
+    }
+    
+    .header {
+      display: none;  /* ヘッダーを非表示 */
+    }
+    
+    .content {
+      padding: 8px;
+      overflow-y: auto;
+    }
+    
+    /* 通知設定セクション（折りたたみ可能） */
+    .settings-section {
+      background: white;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .settings-header {
+      padding: 6px 10px;
+      background: #1e3c72;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    
+    .settings-header:hover {
+      background: #2a5aa8;
+    }
+    
+    .settings-title {
+      font-size: 0.85em;
+      font-weight: 600;
+    }
+    
+    .collapse-icon {
+      font-size: 0.8em;
+      transition: transform 0.3s;
+    }
+    
+    .collapse-icon.collapsed {
+      transform: rotate(-90deg);
+    }
+    
+    .settings-content {
+      padding: 8px;
+      max-height: 500px;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    
+    .settings-content.collapsed {
+      max-height: 0;
+      padding: 0 8px;
+    }
+    
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 0.8em;
+    }
+    
+    .setting-row label {
+      color: #333;
+      flex: 1;
+    }
+    
+    .setting-row input[type="number"],
+    .setting-row select,
+    .setting-row input[type="text"] {
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.9em;
+      min-width: 100px;
+    }
+    
+    .setting-row input[type="text"] {
+      min-width: 200px;
+    }
+    
+    .setting-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    
+    /* メッセージ行用の横並びレイアウト */
+    .message-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 0.8em;
+    }
+    
+    .message-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    
+    .message-row label {
+      color: #333;
+      min-width: 50px;
+      flex-shrink: 0;
+    }
+    
+    .message-row input[type="text"] {
+      flex: 1;
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.9em;
+      min-width: 180px;
+    }
+    
+    .message-row .btn-play {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.8em;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #4caf50;
+      color: white;
+      flex-shrink: 0;
+      min-width: 50px;
+    }
+    
+    .message-row .btn-play:hover {
+      background: #45a049;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex: 1;
+    }
+    
+    .btn-primary {
+      background: #1e3c72;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #2a5aa8;
+    }
+    
+    .btn-test {
+      background: #4caf50;
+      color: white;
+    }
+    
+    .btn-test:hover {
+      background: #45a049;
+    }
+    
+    .status-message {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 0.8em;
+      text-align: center;
+      display: none;
+    }
+    
+    .status-message.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      display: block;
+    }
+    
+    .status-message.error {
+      background: #ffebee;
+      color: #c62828;
+      display: block;
+    }
+    
+    /* ズームコントロール用スタイル */
+    .zoom-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .zoom-control select {
+      flex: 1;
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.9em;
+      min-width: 100px;
+    }
+    
+    /* スケーリング用コンテナ */
+    .scale-container {
+      transform-origin: top left;
+      transition: transform 0.2s ease;
+    }
+    
+    /* タイマーカード横並び */
+    .timers-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .timer-card {
+      background: white;
+      border-radius: 6px;
+      padding: 8px;
+      flex: 1;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      border: 2px solid #e0e0e0;
+      transition: all 0.3s;
+    }
+    
+    .timer-card.warning {
+      border-color: #ff9800;
+      background: #fff3e0;
+    }
+    
+    .timer-card.danger {
+      border-color: #f44336;
+      background: #ffebee;
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+    
+    .timer-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    
+    .timer-label {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: #1e3c72;
+    }
+    
+    .timer-status {
+      font-size: 0.75em;
+      padding: 1px 5px;
+      border-radius: 6px;
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    
+    .timer-display {
+      font-size: 1.8em;
+      font-weight: bold;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      color: #1e3c72;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      transition: all 0.3s;
+    }
+    
+    /* デザインスタイル1: デフォルト（現在のスタイル） */
+    .design-1 .timer-display {
+      font-family: 'Courier New', monospace;
+      font-size: 1.8em;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    
+    /* デザインスタイル2: デジタル時計風 */
+    .design-2 .timer-display {
+      font-family: 'DS-Digital', 'Courier New', monospace;
+      font-size: 2.2em;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-shadow: 0 0 10px rgba(30, 60, 114, 0.3);
+      background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 100%);
+      padding: 8px;
+      border-radius: 6px;
+    }
+    
+    /* デザインスタイル3: モダン太字 */
+    .design-3 .timer-display {
+      font-family: 'Arial Black', 'Arial', sans-serif;
+      font-size: 1.6em;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* デザインスタイル4: シンプル細字 */
+    .design-4 .timer-display {
+      font-family: 'Segoe UI', 'Helvetica', sans-serif;
+      font-size: 1.6em;
+      font-weight: 300;
+      letter-spacing: 0.5px;
+    }
+    
+    /* デザインスタイル5: レトロ風 */
+    .design-5 .timer-display {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 2em;
+      font-weight: bold;
+      letter-spacing: 4px;
+      background: #000;
+      color: #00ff00;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.2);
+    }
+    
+    .design-5 .timer-card {
+      background: #1a1a1a;
+      border-color: #333;
+    }
+    
+    .design-5 .timer-label,
+    .design-5 .timer-status,
+    .design-5 .timer-info {
+      color: #00ff00;
+    }
+    
+    /* デザインスタイル6: ネオンブルー */
+    .design-6 .timer-display {
+      font-family: 'Courier New', monospace;
+      font-size: 2em;
+      font-weight: bold;
+      letter-spacing: 3px;
+      color: #00d4ff;
+      text-shadow: 0 0 10px #00d4ff, 0 0 20px #00d4ff;
+      background: #0a0a1a;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    
+    .design-6 .timer-card {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-color: #0a3d62;
+    }
+    
+    .design-6 .timer-label {
+      color: #00d4ff;
+      text-shadow: 0 0 5px #00d4ff;
+    }
+    
+    .design-6 .timer-status {
+      background: rgba(0, 212, 255, 0.2);
+      color: #00d4ff;
+    }
+    
+    .design-6 .timer-info {
+      color: #00d4ff;
+    }
+    
+    /* デザインスタイル7: エレガント */
+    .design-7 .timer-display {
+      font-family: 'MS Mincho', 'ヒラギノ明朝 ProN', 'Yu Mincho', serif;
+      font-size: 1.8em;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: #2c3e50;
+      background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+    }
+    
+    .design-7 .timer-card {
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      border-color: #ccc;
+    }
+    
+    /* デザインスタイル8: シンプルボックス */
+    .design-8 .timer-display {
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 1.5em;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #fff;
+      background: #1e3c72;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    
+    .design-8 .timer-card {
+      background: #f0f3f8;
+    }
+    
+    .timer-info {
+      font-size: 0.8em;
+      color: #666;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>確定タイマー</h2>
+  </div>
+  
+  <div class="content scale-container" id="scaleContainer">
+    <!-- タイマーカード横並び -->
+    <div class="timers-container">
+      <!-- 15分タイマー -->
+      <div class="timer-card" id="timer15m">
+        <div class="timer-header">
+          <span class="timer-label">15m</span>
+          <span class="timer-status" id="status15m">待機中</span>
+        </div>
+        <div class="timer-display" id="display15m">--:--</div>
+        <div class="timer-info" id="info15m">次回: --:--</div>
+      </div>
+      
+      <!-- 1時間タイマー -->
+      <div class="timer-card" id="timer1h">
+        <div class="timer-header">
+          <span class="timer-label">1H</span>
+          <span class="timer-status" id="status1h">待機中</span>
+        </div>
+        <div class="timer-display" id="display1h">--:--</div>
+        <div class="timer-info" id="info1h">次回: --:--</div>
+      </div>
+      
+      <!-- 4時間タイマー -->
+      <div class="timer-card" id="timer4h">
+        <div class="timer-header">
+          <span class="timer-label">4H</span>
+          <span class="timer-status" id="status4h">待機中</span>
+        </div>
+        <div class="timer-display" id="display4h">--:--:--</div>
+        <div class="timer-info" id="info4h">次回: --:--:--</div>
+      </div>
+    </div>
+    
+    <!-- 通知設定セクション（折りたたみ可能） -->
+    <div class="settings-section">
+      <div class="settings-header" onclick="toggleSettings()">
+        <div class="settings-title">通知設定</div>
+        <div class="collapse-icon" id="collapseIcon">▼</div>
+      </div>
+      
+      <div class="settings-content" id="settingsContent">
+        <div class="setting-row">
+          <label for="notifyBefore">バー確定 X 秒前に通知：</label>
+          <input type="number" id="notifyBefore" min="0" max="300" value="60" step="10">
+        </div>
+        
+        <div class="setting-row">
+          <label for="enableNotify">通知を有効化：</label>
+          <input type="checkbox" id="enableNotify" checked>
+        </div>
+        
+        <div class="setting-row">
+          <label for="designSelect">デザイン選択：</label>
+          <select id="designSelect" onchange="changeDesign()">
+            <option value="1">デフォルト</option>
+            <option value="2">デジタル時計風</option>
+            <option value="3">モダン太字</option>
+            <option value="4">シンプル細字</option>
+            <option value="5">レトロ風</option>
+            <option value="6">ネオンブルー</option>
+            <option value="7">エレガント</option>
+            <option value="8">シンプルボックス</option>
+          </select>
+        </div>
+        
+        <div class="setting-row">
+          <label for="timer4hFormat">4時間表示：</label>
+          <select id="timer4hFormat" onchange="changeTimer4hFormat()">
+            <option value="hms">時:分:秒 (03:59:00)</option>
+            <option value="ms">分:秒 (239:00)</option>
+          </select>
+        </div>
+        
+        <div class="setting-row">
+          <label for="zoomLevel">ズーム：</label>
+          <select id="zoomLevel" onchange="updateZoom()">
+            <option value="50">50%</option>
+            <option value="60">60%</option>
+            <option value="70">70%</option>
+            <option value="80">80%</option>
+            <option value="90">90%</option>
+            <option value="100" selected>100%</option>
+            <option value="110">110%</option>
+            <option value="120">120%</option>
+            <option value="130">130%</option>
+            <option value="140">140%</option>
+            <option value="150">150%</option>
+            <option value="160">160%</option>
+            <option value="170">170%</option>
+            <option value="180">180%</option>
+            <option value="190">190%</option>
+            <option value="200">200%</option>
+          </select>
+        </div>
+        
+        <div class="setting-row">
+          <label for="voiceSelect">声優選択：</label>
+          <select id="voiceSelect">
+            <option value="368">七海[女性]</option>
+            <option value="369">圭太[男性]</option>
+            <option value="370">碧衣[女性]</option>
+            <option value="371">大智[男性]</option>
+            <option value="372">真夕[女性]</option>
+            <option value="373">直紀[男性]</option>
+            <option value="374">志織[女性]</option>
+          </select>
+        </div>
+        
+        <div class="setting-row">
+          <label for="enableChime">電子音：</label>
+          <input type="checkbox" id="enableChime">
+        </div>
+        
+        <div class="setting-row">
+          <label for="chimeSelect">電子音選択：</label>
+          <select id="chimeSelect">
+            <option value="">なし</option>
+          </select>
+        </div>
+        
+        <!-- 15分足メッセージ -->
+        <div class="message-row">
+          <input type="checkbox" id="enable15m" checked>
+          <label for="message15m">15分：</label>
+          <input type="text" id="message15m" value="15分足のバーが確定します" placeholder="通知メッセージを入力">
+          <button class="btn-play" onclick="testPlay15m()">再生</button>
+        </div>
+        
+        <!-- 1時間足メッセージ -->
+        <div class="message-row">
+          <input type="checkbox" id="enable1h" checked>
+          <label for="message1h">1時間：</label>
+          <input type="text" id="message1h" value="1時間足のバーが確定します" placeholder="通知メッセージを入力">
+          <button class="btn-play" onclick="testPlay1h()">再生</button>
+        </div>
+        
+        <!-- 4時間足メッセージ -->
+        <div class="message-row">
+          <input type="checkbox" id="enable4h" checked>
+          <label for="message4h">4時間：</label>
+          <input type="text" id="message4h" value="4時間足のバーが確定します" placeholder="通知メッセージを入力">
+          <button class="btn-play" onclick="testPlay4h()">再生</button>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="saveSettings()">設定を保存</button>
+        </div>
+        
+        <div id="statusMessage" class="status-message"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let notifyBefore = 60;
+    let enableNotify = true;
+    let voiceId = 368;  // 七海のインデックス
+    let message15m = '15分足のバーが確定します';
+    let message1h = '1時間足のバーが確定します';
+    let message4h = '4時間足のバーが確定します';
+    let enable15m = true;  // 15分足の発声有効/無効
+    let enable1h = true;   // 1時間足の発声有効/無効
+    let enable4h = true;   // 4時間足の発声有効/無効
+    let enableChime = false;  // 電子音有効/無効
+    let chimeFile = '';  // 電子音ファイル
+    let notifiedTimers = { '15m': false, '1h': false, '4h': false };
+    let currentDesign = 1;
+    let timer4hFormat = 'hms';  // 'hms' or 'ms'
+    let zoomLevel = 100;  // ズームレベル（パーセント）
+    
+    // 電子音ファイルリストを取得して表示
+    async function populateChimeFiles() {
+      const select = document.getElementById('chimeSelect');
+      console.log('[TIMER] Populating chime files...');
+      try {
+        const response = await fetch('/api/chime_files');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[TIMER] Chime files response:', data);
+          if (data.status === 'success' && data.files) {
+            data.files.forEach(file => {
+              const option = document.createElement('option');
+              option.value = file;
+              option.textContent = file.replace('.mp3', '').replace('.wav', '').replace('.ogg', '');
+              select.appendChild(option);
+            });
+            console.log('[TIMER] Added', data.files.length, 'chime files to select');
+          }
+        }
+      } catch (e) {
+        console.error('[TIMER] Error fetching chime files:', e);
+      }
+    }
+    
+    // ズーム更新
+    function updateZoom() {
+      zoomLevel = parseInt(document.getElementById('zoomLevel').value);
+      const scale = zoomLevel / 100;
+      const container = document.getElementById('scaleContainer');
+      container.style.transform = `scale(${scale})`;
+      // スケールに応じて幅と高さを調整（scale(0.5)なら幅と高さを倍に）
+      const adjustedSize = `${10000 / zoomLevel}%`;
+      container.style.width = adjustedSize;
+      // bodyの高さをコンテンツのスケール後の高さに調整
+      const actualHeight = container.scrollHeight * scale;
+      document.body.style.height = actualHeight + 'px';
+      console.log('[TIMER] Updated zoom to:', zoomLevel + '%', 'width:', adjustedSize, 'height:', actualHeight + 'px');
+    }
+    
+    // デザイン変更
+    function changeDesign() {
+      currentDesign = parseInt(document.getElementById('designSelect').value);
+      applyDesign(currentDesign);
+    }
+    
+    // デザインを適用
+    function applyDesign(designNum) {
+      const container = document.querySelector('.timers-container');
+      // 既存のデザインクラスをすべて削除
+      container.className = 'timers-container';
+      // 新しいデザインクラスを追加
+      container.classList.add('design-' + designNum);
+      console.log('[TIMER] Applied design:', designNum);
+    }
+    
+    // 4時間タイマー表示形式を変更
+    function changeTimer4hFormat() {
+      timer4hFormat = document.getElementById('timer4hFormat').value;
+      console.log('[TIMER] Changed 4h format to:', timer4hFormat);
+      // 即座に表示を更新
+      mainLoop();
+    }
+    
+    // 設定の折りたたみトグル
+    function toggleSettings() {
+      const content = document.getElementById('settingsContent');
+      const icon = document.getElementById('collapseIcon');
+      
+      if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        icon.classList.remove('collapsed');
+      } else {
+        content.classList.add('collapsed');
+        icon.classList.add('collapsed');
+      }
+    }
+    
+    // 設定を読み込み
+    function loadSettings() {
+      const saved = localStorage.getItem('tv_timer_settings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        notifyBefore = settings.notifyBefore || 60;
+        enableNotify = settings.enableNotify !== false;
+        voiceId = settings.voiceId || 368;  // デフォルト: 七海
+        enableChime = settings.enableChime || false;
+        chimeFile = settings.chimeFile || '';
+        message15m = settings.message15m || '15分足のバーが確定します';
+        message1h = settings.message1h || '1時間足のバーが確定します';
+        message4h = settings.message4h || '4時間足のバーが確定します';
+        enable15m = settings.enable15m !== false;
+        enable1h = settings.enable1h !== false;
+        enable4h = settings.enable4h !== false;
+        zoomLevel = settings.zoomLevel || 100;
+        
+        document.getElementById('notifyBefore').value = notifyBefore;
+        document.getElementById('enableNotify').checked = enableNotify;
+        document.getElementById('voiceSelect').value = voiceId;
+        document.getElementById('enableChime').checked = enableChime;
+        
+        // 電子音の選択を復元（プルダウンにオプションがある場合のみ）
+        const chimeSelect = document.getElementById('chimeSelect');
+        if (chimeFile && chimeSelect.options.length > 1) {
+          chimeSelect.value = chimeFile;
+          console.log('[TIMER] Restored chime file:', chimeFile);
+        } else {
+          console.log('[TIMER] Chime file not restored. chimeFile:', chimeFile, 'options:', chimeSelect.options.length);
+        }
+        
+        document.getElementById('message15m').value = message15m;
+        document.getElementById('message1h').value = message1h;
+        document.getElementById('message4h').value = message4h;
+        document.getElementById('enable15m').checked = enable15m;
+        document.getElementById('enable1h').checked = enable1h;
+        document.getElementById('enable4h').checked = enable4h;
+        document.getElementById('zoomLevel').value = zoomLevel;
+        
+        currentDesign = settings.design || 1;
+        document.getElementById('designSelect').value = currentDesign;
+        applyDesign(currentDesign);
+        
+        timer4hFormat = settings.timer4hFormat || 'hms';
+        document.getElementById('timer4hFormat').value = timer4hFormat;
+        
+        updateZoom();  // ズームを適用
+      } else {
+        applyDesign(1);
+      }
+    }
+    
+    // 設定を保存
+    function saveSettings() {
+      notifyBefore = parseInt(document.getElementById('notifyBefore').value);
+      enableNotify = document.getElementById('enableNotify').checked;
+      voiceId = document.getElementById('voiceSelect').value;
+      enableChime = document.getElementById('enableChime').checked;
+      chimeFile = document.getElementById('chimeSelect').value;
+      console.log('[TIMER] Saving settings - enableChime:', enableChime, 'chimeFile:', chimeFile);
+      message15m = document.getElementById('message15m').value || '15分足のバーが確定します';
+      message1h = document.getElementById('message1h').value || '1時間足のバーが確定します';
+      message4h = document.getElementById('message4h').value || '4時間足のバーが確定します';
+      enable15m = document.getElementById('enable15m').checked;
+      enable1h = document.getElementById('enable1h').checked;
+      enable4h = document.getElementById('enable4h').checked;
+      
+      const settings = {
+        notifyBefore,
+        enableNotify,
+        voiceId,
+        enableChime,
+        chimeFile,
+        message15m,
+        message1h,
+        message4h,
+        enable15m,
+        enable1h,
+        enable4h,
+        design: currentDesign,
+        timer4hFormat: timer4hFormat,
+        zoomLevel: zoomLevel
+      };
+      localStorage.setItem('tv_timer_settings', JSON.stringify(settings));
+      
+      const msg = document.getElementById('statusMessage');
+      msg.textContent = '設定を保存しました';
+      msg.className = 'status-message success';
+      
+      setTimeout(() => {
+        msg.style.display = 'none';
+      }, 3000);
+    }
+    
+    // テスト通知（旧関数 - 互換性のため残す）
+    function testNotification() {
+      testPlay15m();
+    }
+    
+    // 15分足テスト再生
+    function testPlay15m() {
+      const testMessage = document.getElementById('message15m').value || '15分足のバーが確定します';
+      const testVoiceIndex = parseInt(document.getElementById('voiceSelect').value);
+      
+      // 電子音を再生し、完了後に声優を発声
+      playChimeSound(() => {
+        playVoice(testMessage, testVoiceIndex);
+      });
+    }
+    
+    // 1時間足テスト再生
+    function testPlay1h() {
+      const testMessage = document.getElementById('message1h').value || '1時間足のバーが確定します';
+      const testVoiceIndex = parseInt(document.getElementById('voiceSelect').value);
+      
+      // 電子音を再生し、完了後に声優を発声
+      playChimeSound(() => {
+        playVoice(testMessage, testVoiceIndex);
+      });
+    }
+    
+    // 4時間足テスト再生
+    function testPlay4h() {
+      const testMessage = document.getElementById('message4h').value || '4時間足のバーが確定します';
+      const testVoiceIndex = parseInt(document.getElementById('voiceSelect').value);
+      
+      // 電子音を再生し、完了後に声優を発声
+      playChimeSound(() => {
+        playVoice(testMessage, testVoiceIndex);
+      });
+    }
+    
+    // 音声再生共通関数
+    function playVoice(message, voiceIndex) {
+      console.log(`[TIMER TEST] Playing: ${message} with voice index ${voiceIndex}`);
+      
+      // 親ウィンドウに音声再生を依頼
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          type: 'play_voice',
+          text: message,
+          voiceIndex: voiceIndex
+        }, '*');
+        
+        const msg = document.getElementById('statusMessage');
+        msg.textContent = 'テスト音声を再生中...';
+        msg.className = 'status-message success';
+        
+        setTimeout(() => {
+          msg.style.display = 'none';
+        }, 3000);
+      } else {
+        const msg = document.getElementById('statusMessage');
+        msg.textContent = 'エラー: 親ウィンドウが見つかりません';
+        msg.className = 'status-message error';
+        
+        setTimeout(() => {
+          msg.style.display = 'none';
+        }, 3000);
+      }
+    }
+    
+    // 次のバー確定時刻を計算
+    // 米国夏時間（サマータイム）判定関数
+    // 3月第2日曜 2:00 ～ 11月第1日曜 2:00
+    function isDST(date) {
+      const year = date.getFullYear();
+      
+      // 3月第2日曜を計算
+      const marchSecondSunday = new Date(year, 2, 1); // 3月1日
+      marchSecondSunday.setDate(1 + (7 - marchSecondSunday.getDay() + 7) % 7 + 7); // 第2日曜
+      marchSecondSunday.setHours(2, 0, 0, 0);
+      
+      // 11月第1日曜を計算
+      const novemberFirstSunday = new Date(year, 10, 1); // 11月1日
+      novemberFirstSunday.setDate(1 + (7 - novemberFirstSunday.getDay()) % 7); // 第1日曜
+      novemberFirstSunday.setHours(2, 0, 0, 0);
+      
+      return date >= marchSecondSunday && date < novemberFirstSunday;
+    }
+    
+    function getNextBarTime(interval) {
+      try {
+        const now = new Date();
+        const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+        
+        let nextTime = new Date(jst);
+        
+        if (interval === 15) {
+          // 15分足: 次の 00, 15, 30, 45 分
+          const currentMinute = jst.getMinutes();
+          const nextMinute = Math.ceil((currentMinute + 1) / 15) * 15;
+          nextTime.setMinutes(nextMinute);
+          nextTime.setSeconds(0);
+          nextTime.setMilliseconds(0);
+          
+          if (nextMinute >= 60) {
+            nextTime.setHours(jst.getHours() + 1);
+            nextTime.setMinutes(0);
+          }
+        } else if (interval === 60) {
+          // 1時間足: 次の 00 分
+          nextTime.setHours(jst.getHours() + 1);
+          nextTime.setMinutes(0);
+          nextTime.setSeconds(0);
+          nextTime.setMilliseconds(0);
+        } else if (interval === 240) {
+          // 4時間足: 夏時間と冬時間で異なる確定時刻
+          // 夏時間: 06:00, 10:00, 14:00, 18:00, 22:00, 02:00
+          // 冬時間: 07:00, 11:00, 15:00, 19:00, 23:00, 03:00
+          const currentHour = jst.getHours();
+          const isSummerTime = isDST(jst);
+          
+          let barHours;
+          if (isSummerTime) {
+            // 夏時間: 6時始まりで4時間ごと
+            barHours = [6, 10, 14, 18, 22, 2];
+          } else {
+            // 冬時間: 7時始まりで4時間ごと
+            barHours = [7, 11, 15, 19, 23, 3];
+          }
+          
+          // 次の確定時刻を探す
+          let nextHour = null;
+          for (let h of barHours) {
+            if (h > currentHour || (h === currentHour && jst.getMinutes() === 0 && jst.getSeconds() === 0)) {
+              nextHour = h;
+              break;
+            }
+          }
+          
+          // 見つからない場合は翌日の最初の時刻
+          if (nextHour === null) {
+            nextTime.setDate(jst.getDate() + 1);
+            nextHour = barHours[0];
+          }
+          
+          nextTime.setHours(nextHour);
+          nextTime.setMinutes(0);
+          nextTime.setSeconds(0);
+          nextTime.setMilliseconds(0);
+        }
+        
+        console.log(`[TIMER] getNextBarTime(${interval}): current=${jst.toISOString()}, next=${nextTime.toISOString()}`);
+        return nextTime;
+      } catch (e) {
+        console.error('[TIMER] Error in getNextBarTime:', e);
+        return new Date(Date.now() + 60000); // フォールバック: 1分後
+      }
+    }
+    
+    // 残り時間をフォーマット
+    function formatTime(seconds, is4h = false) {
+      if (seconds < 0) return is4h && timer4hFormat === 'hms' ? '--:--:--' : '--:--';
+      
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      
+      // 4時間タイマーの場合
+      if (is4h) {
+        if (timer4hFormat === 'ms') {
+          // 分:秒表示
+          const totalMinutes = Math.floor(seconds / 60);
+          const remainingSecs = seconds % 60;
+          return `${String(totalMinutes).padStart(3, '0')}:${String(remainingSecs).padStart(2, '0')}`;
+        } else {
+          // 時:分:秒表示
+          return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+      }
+      
+      // 15分・1時間タイマーの場合
+      if (hours > 0) {
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      } else {
+        return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+    }
+    
+    // タイマーを更新
+    function updateTimer(interval, timerId, displayId, infoId, statusId) {
+      const now = new Date();
+      const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+      const nextTime = getNextBarTime(interval);
+      
+      const diffMs = nextTime - jst;
+      const diffSec = Math.floor(diffMs / 1000);
+      
+      // 表示を更新
+      const is4h = interval === 240;
+      document.getElementById(displayId).textContent = formatTime(diffSec, is4h);
+      
+      const timeStr = nextTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
+      
+      // 4時間足の場合は夏時間/冬時間を表示
+      let infoText = `次回: ${timeStr}`;
+      if (is4h) {
+        const isSummerTime = isDST(jst);
+        const seasonText = isSummerTime ? '夏' : '冬';
+        infoText += ` ${seasonText}`;
+      }
+      document.getElementById(infoId).textContent = infoText;
+      
+      // カードのスタイルを更新
+      const card = document.getElementById(timerId);
+      const status = document.getElementById(statusId);
+      
+      if (diffSec <= 10) {
+        card.className = 'timer-card danger';
+        status.textContent = '後少し';
+      } else if (diffSec <= notifyBefore) {
+        card.className = 'timer-card warning';
+        status.textContent = '通知済';
+      } else {
+        card.className = 'timer-card';
+        status.textContent = '待機中';
+      }
+      
+      // 通知を送信（重複時の優先度: 4H > 1H > 15m）
+      if (enableNotify && diffSec <= notifyBefore && diffSec > (notifyBefore - 5)) {
+        const timerId_short = timerId.replace('timer', '');
+        
+        // 重複チェック
+        let shouldNotify = false;
+        if (interval === 240 && !notifiedTimers['4h']) {
+          // 4時間は常に優先
+          shouldNotify = true;
+          // 他をリセット
+          notifiedTimers['15m'] = true;
+          notifiedTimers['1h'] = true;
+        } else if (interval === 60 && !notifiedTimers['1h'] && !notifiedTimers['4h']) {
+          // 1時間は4時間が通知されていない場合のみ
+          shouldNotify = true;
+          notifiedTimers['15m'] = true;
+        } else if (interval === 15 && !notifiedTimers['15m'] && !notifiedTimers['1h'] && !notifiedTimers['4h']) {
+          // 15分は他が通知されていない場合のみ
+          shouldNotify = true;
+        }
+        
+        if (shouldNotify) {
+          notifiedTimers[timerId_short] = true;
+          sendNotification(interval);
+          
+          // 次のバーのためにリセット
+          setTimeout(() => {
+            notifiedTimers['15m'] = false;
+            notifiedTimers['1h'] = false;
+            notifiedTimers['4h'] = false;
+          }, (notifyBefore + 10) * 1000);
+        }
+      }
+    }
+    
+    // 電子音を再生
+    function playChimeSound(onComplete) {
+      console.log('[TIMER] playChimeSound called - enableChime:', enableChime, 'chimeFile:', chimeFile);
+      if (!enableChime || !chimeFile) {
+        console.log('[TIMER] Chime not enabled or file not set');
+        if (onComplete) onComplete();  // 電子音なしの場合は即座にコールバック実行
+        return;
+      }
+      
+      try {
+        const audioPath = `/Alarm/${chimeFile}`;
+        console.log('[TIMER] Playing chime from:', audioPath);
+        const audio = new Audio(audioPath);
+        audio.volume = 0.8;
+        
+        // 電子音の再生完了を待つ
+        audio.addEventListener('ended', () => {
+          console.log('[TIMER] Chime playback completed');
+          if (onComplete) onComplete();
+        });
+        
+        // エラー時もコールバックを実行
+        audio.addEventListener('error', (err) => {
+          console.error('[TIMER] Chime playback error:', err);
+          if (onComplete) onComplete();
+        });
+        
+        audio.play().then(() => {
+          console.log('[TIMER] Chime playback started successfully');
+        }).catch(err => {
+          console.error('[TIMER] Failed to play chime:', err);
+          if (onComplete) onComplete();
+        });
+      } catch (e) {
+        console.error('[TIMER] Error playing chime:', e);
+        if (onComplete) onComplete();
+      }
+    }
+    
+    // 通知を送信
+    async function sendNotification(interval) {
+      let message;
+      let isEnabled = true;
+      
+      if (interval === 15) {
+        message = message15m;
+        isEnabled = enable15m;
+      } else if (interval === 60) {
+        message = message1h;
+        isEnabled = enable1h;
+      } else if (interval === 240) {
+        message = message4h;
+        isEnabled = enable4h;
+      }
+      
+      // チェックボックスが無効の場合は通知しない
+      if (!isEnabled) {
+        console.log(`[TIMER] Notification disabled for ${interval}min`);
+        return;
+      }
+      
+      console.log(`[TIMER] Sending notification for ${interval}min - message: ${message}`);
+      
+      // 電子音を先に再生し、完了後に声優を発声
+      playChimeSound(() => {
+        // 電子音の再生完了後に音声を再生
+        console.log('[TIMER] Chime completed, now playing voice');
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            type: 'play_voice',
+            text: message,
+            voiceIndex: voiceId
+          }, '*');
+        }
+      });
+    }
+    
+    // メインループ
+    function mainLoop() {
+      updateTimer(15, 'timer15m', 'display15m', 'info15m', 'status15m');
+      updateTimer(60, 'timer1h', 'display1h', 'info1h', 'status1h');
+      updateTimer(240, 'timer4h', 'display4h', 'info4h', 'status4h');
+    }
+    
+    // 初期化
+    async function initTimer() {
+      console.log('[TIMER] Initializing...');
+      await populateChimeFiles();  // 電子音ファイルリストを取得
+      loadSettings();  // ファイルリスト取得後に設定を読み込む
+      
+      // 電子音選択のchangeイベントリスナーを設定
+      const chimeSelect = document.getElementById('chimeSelect');
+      chimeSelect.addEventListener('change', (e) => {
+        chimeFile = e.target.value;
+        console.log('[TIMER] Chime file changed to:', chimeFile);
+        saveSettings();  // すぐに保存
+      });
+      
+      // 電子音有効/無効のchangeイベントリスナーを設定
+      const enableChimeCheckbox = document.getElementById('enableChime');
+      enableChimeCheckbox.addEventListener('change', (e) => {
+        enableChime = e.target.checked;
+        console.log('[TIMER] Enable chime changed to:', enableChime);
+        saveSettings();  // すぐに保存
+      });
+      
+      console.log('[TIMER] Event listeners attached');
+      
+      mainLoop();
+      setInterval(mainLoop, 1000);
+      console.log('[TIMER] Initialization complete');
+    }
+    
+    initTimer();
+  </script>
+</body>
+</html>

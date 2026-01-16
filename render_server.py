@@ -277,6 +277,18 @@ def init_db():
     conn.close()
     print('[OK] Market status table ensured')
     
+    # currency_order テーブル（通貨ペアの表示順序管理用）
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS currency_order (
+        symbol TEXT PRIMARY KEY,
+        sort_order INTEGER NOT NULL,
+        updated_at TEXT
+    )''')
+    conn.commit()
+    conn.close()
+    print('[OK] Currency order table ensured')
+    
     # ノートデータファイルの確認
     notes_path = os.path.join(BASE_DIR, 'notes_data.json')
     if os.path.exists(notes_path):
@@ -289,6 +301,76 @@ def init_db():
             print(f'[WARNING] Notes data file exists but could not be read: {e}')
     else:
         print('[INFO] No notes data file found, will be created on first save')
+
+def calculate_trend(cloud_data, config):
+    """
+    トレンドを判定する
+    
+    Args:
+        cloud_data: 各時間足の雲データ（dict）
+                   - gc: True/False
+                   - angle: 雲角度（度）
+                   - thickness: 雲厚み（Pips）
+                   - dauten: "up"/"down"
+        config: トレンド判定設定（dict）
+                - use_angle: True/False
+                - angle_threshold: 閾値（度）
+                - use_thickness: True/False
+                - thickness_threshold: 閾値（Pips）
+                - use_dauten: True/False
+    
+    Returns:
+        str: "↗上昇", "↘下降", "レンジ"
+    """
+    if not cloud_data or not config:
+        return "レンジ"
+    
+    conditions = []  # 各条件の方向を記録（1=上昇, -1=下降）
+    
+    # 雲角度チェック
+    if config.get('use_angle', False):
+        angle = cloud_data.get('angle', 0)
+        threshold = config.get('angle_threshold', 20)
+        if abs(angle) >= threshold:
+            # 角度の符号で方向判定（正=上昇、負=下降）
+            direction = 1 if angle > 0 else -1
+            conditions.append(direction)
+        else:
+            return "レンジ"  # 閾値未達
+    
+    # 雲厚みチェック
+    if config.get('use_thickness', False):
+        thickness = cloud_data.get('thickness', 0)
+        threshold = config.get('thickness_threshold', 5)
+        gc = cloud_data.get('gc', False)
+        if abs(thickness) >= threshold:
+            # GC/DCで方向判定（GC=上昇、DC=下降）
+            direction = 1 if gc else -1
+            conditions.append(direction)
+        else:
+            return "レンジ"  # 閾値未達
+    
+    # ダウ転チェック
+    if config.get('use_dauten', False):
+        dauten = cloud_data.get('dauten', '')
+        if dauten == 'up':
+            conditions.append(1)
+        elif dauten == 'down':
+            conditions.append(-1)
+        else:
+            return "レンジ"  # ダウ転なし
+    
+    # 有効な条件がない場合
+    if not conditions:
+        return "レンジ"
+    
+    # 全ての条件が同じ方向か確認
+    if all(c == 1 for c in conditions):
+        return "↗上昇"
+    elif all(c == -1 for c in conditions):
+        return "↘下降"
+    else:
+        return "レンジ"  # 方向不一致
 
 def is_fx_market_open():
     """
@@ -346,7 +428,7 @@ def get_chime_files():
     try:
         alarm_dir = os.path.join(BASE_DIR, 'Alarm')
         if not os.path.exists(alarm_dir):
-            return jsonify([])
+            return jsonify({'status': 'success', 'files': []})
         
         files = []
         for filename in os.listdir(alarm_dir):
@@ -354,10 +436,10 @@ def get_chime_files():
                 files.append(filename)
         
         files.sort()
-        return jsonify(files)
+        return jsonify({'status': 'success', 'files': files})
     except Exception as e:
         print(f'[ERROR] Getting chime files: {e}')
-        return jsonify([])
+        return jsonify({'status': 'error', 'files': []})
 
 @app.route('/')
 def dashboard():
@@ -415,6 +497,48 @@ def economic_calendar_window():
 def shepherd_column_window():
     """羊飼い専用ウィンドウ"""
     response = make_response(render_template('shepherd_column_window.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/timer_window')
+def timer_window():
+    """確定タイマー専用ウィンドウ"""
+    response = make_response(render_template('timer_window.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/timer_showcase')
+def timer_showcase():
+    """タイマーデザイン一覧表示"""
+    response = make_response(render_template('timer_showcase.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/timer_preview/<int:design_num>')
+def timer_preview(design_num):
+    """タイマーデザインプレビュー"""
+    design_names = {
+        1: 'デフォルト',
+        2: 'デジタル時計風',
+        3: 'モダン太字',
+        4: 'シンプル細字',
+        5: 'レトロ風',
+        6: 'ネオンブルー',
+        7: 'エレガント',
+        8: 'シンプルボックス'
+    }
+    
+    design_name = design_names.get(design_num, 'デザイン')
+    
+    response = make_response(render_template('timer_preview.html', 
+                                             design_num=design_num,
+                                             design_name=design_name))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
@@ -609,6 +733,11 @@ def current_states():
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
+        
+        # 通貨ペアの表示順序を取得
+        c.execute('SELECT symbol FROM currency_order ORDER BY sort_order ASC')
+        ordered_symbols = [row[0] for row in c.fetchall()]
+        
         c.execute('SELECT * FROM states')
         rows, cols = c.fetchall(), [d[0] for d in c.description]
         conn.close()
@@ -627,6 +756,13 @@ def current_states():
             d['swing'] = {'status': d.get('swing_status', ''), 'bos': d.get('swing_bos', ''), 'time': d.get('swing_time', '')}
             print(f'[INFO] State: {d.get("symbol")}/{d.get("tf")}')
             states.append(d)
+        
+        # 通貨ペアの表示順序に従ってソート
+        if ordered_symbols:
+            states.sort(key=lambda x: (ordered_symbols.index(x['symbol']) 
+                                      if x['symbol'] in ordered_symbols 
+                                      else len(ordered_symbols)))
+        
         return jsonify({'status': 'success', 'states': states}), 200
     except Exception as e:
         print(f'[ERROR] {e}')
@@ -787,26 +923,72 @@ def toggle_rule(rule_id):
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
-        # 現在のルールを取得
+        # rule_json内のenabledフィールドも更新する
         c.execute('SELECT rule_json FROM rules WHERE id = ?', (rule_id,))
         row = c.fetchone()
+        if row:
+            rule_json = json.loads(row[0]) if row[0] else {}
+            rule_json['enabled'] = enabled
+            c.execute('UPDATE rules SET enabled = ?, rule_json = ? WHERE id = ?', 
+                     (enabled_int, json.dumps(rule_json, ensure_ascii=False), rule_id))
+        else:
+            # rule_jsonがない場合はenabledカラムのみ更新
+            c.execute('UPDATE rules SET enabled = ? WHERE id = ?', (enabled_int, rule_id))
         
-        if not row:
-            conn.close()
-            return jsonify({'status': 'error', 'msg': 'Rule not found'}), 404
-        
-        # ルールを更新（rule_jsonとenabledカラムの両方を更新）
-        rule = json.loads(row[0])
-        rule['enabled'] = enabled
-        
-        c.execute('UPDATE rules SET rule_json = ?, enabled = ? WHERE id = ?', (json.dumps(rule, ensure_ascii=False), enabled_int, rule_id))
         conn.commit()
         conn.close()
         
         print(f'[RULE] Toggled rule {rule_id} enabled={enabled}')
-        return jsonify({'status': 'success', 'enabled': enabled}), 200
+        return jsonify({'status': 'success', 'rule_id': rule_id, 'enabled': enabled}), 200
     except Exception as e:
         print(f'[ERROR][toggle_rule] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/api/currency_order', methods=['GET'])
+def get_currency_order():
+    """通貨ペアの表示順序を取得"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT symbol FROM currency_order ORDER BY sort_order ASC')
+        symbols = [row[0] for row in c.fetchall()]
+        conn.close()
+        return jsonify({'status': 'success', 'order': symbols}), 200
+    except Exception as e:
+        print(f'[ERROR][get_currency_order] {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/api/currency_order', methods=['POST'])
+def save_currency_order():
+    """通貨ペアの表示順序を保存"""
+    try:
+        data = request.json
+        symbols = data.get('symbols', [])
+        
+        if not symbols:
+            return jsonify({'status': 'error', 'msg': 'No symbols provided'}), 400
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 既存データをクリア
+        c.execute('DELETE FROM currency_order')
+        
+        # 新しい順序で保存
+        for idx, symbol in enumerate(symbols):
+            c.execute('''INSERT INTO currency_order (symbol, sort_order, updated_at)
+                        VALUES (?, ?, ?)''',
+                     (symbol, idx, datetime.now(jst).isoformat()))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f'[OK] Currency order saved: {symbols}')
+        return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        print(f'[ERROR][save_currency_order] {e}')
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 

@@ -7,13 +7,14 @@
 <meta http-equiv="Expires" content="0">
 <title>ダウ雲表 v2</title>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://unpkg.com/sortablejs@1.15.0/Sortable.min.js"></script>
 <style>
 body { font-family: 'Yu Gothic', 'Meiryo', sans-serif; background: #1e3c72; color: #fff; padding: 0 !important; margin: 0 !important; }
 .container { max-width: none; margin: 0 !important; padding: 0; }
 .header-row { display:flex; align-items:center; justify-content:space-between; padding: 10px 10px 12px 6px; margin: 0 8px 14px 6px; border-bottom: 1px solid rgba(255,255,255,0.45); }
 h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text-shadow: none; }
 .datetime-section { display: flex; align-items: center; gap: 15px; flex: 1; justify-content: center; }
-.datetime-small { font-size: 0.8em; color: #bbb; font-weight: 500; font-family: 'Helvetica', 'Arial', sans-serif; }
+.datetime-small { font-size: 0.8em; color: #bbb; font-weight: 700; font-family: 'Helvetica', 'Arial', sans-serif; }
 .datetime-large { font-size: 1.8em; font-weight: bold; color: #4ade80; font-family: 'Helvetica', 'Arial', sans-serif; }
 .right-section { display: flex; align-items: center; gap: 15px; }
 #dashboard { margin: 0; padding: 0 8px 0 6px; }
@@ -196,6 +197,8 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .light-mode h1 { color: #111 !important; }
 .light-mode .settings-button { color:#111; border-color: rgba(0,0,0,0.7); }
 .light-mode .settings-button:hover { background: rgba(0,0,0,0.08); color:#000; }
+.light-mode .tools-button { color:#111; border-color: rgba(0,0,0,0.7); }
+.light-mode .tools-button:hover { background: rgba(0,0,0,0.08); color:#000; }
 .light-mode .modal-overlay { background: rgba(255,255,255,0.7); }
 .light-mode .modal { background:rgba(255,255,255,0.95); color:#111; border:1px solid rgba(0,0,0,0.3); box-shadow:0 18px 40px rgba(0,0,0,0.15); }
 .light-mode .modal h3 { color:#111; }
@@ -246,6 +249,37 @@ table th:nth-child(11), table td:nth-child(11) {
 /* ヘッダーのダウ時間と交差時間をセンター揃え */
 table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   text-align: center;
+}
+
+/* ドラッグ&ドロップ用のスタイル */
+.currency-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: #999;
+  font-weight: bold;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-size: 0.9em;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.dragging-row {
+  opacity: 0.5;
+  background: #e3f2fd;
+}
+
+.sortable-ghost {
+  opacity: 0.4;
 }
 
 /* 発火履歴ウィンドウ */
@@ -792,7 +826,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 <div class="container">
 <!-- タイトルと設定ボタンを横並び -->
 <div class="header-row">
-  <h1>ダウ雲表</h1>
+  <h1>■</h1>
   <div class="datetime-section">
     <span class="datetime-small">2025[R07]11/17 月</span>
     <span class="datetime-large">14:32:45</span>
@@ -802,7 +836,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <span style="width:8px; height:8px; border-radius:50%; background:#90EE90; display:inline-block;" id="marketStatusLight"></span>
       <span id="marketStatusText">市場チェック中...</span>
     </div>
-    <button id="openToolsMenu" class="tools-button">ツール</button>
+    <button id="openToolsMenu" class="tools-button">Tool</button>
   </div>
 </div>
 
@@ -812,7 +846,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 <!-- サイドメニュー -->
 <div class="side-menu" id="sideMenu">
   <div class="side-menu-header">
-    <h2>ツール</h2>
+    <h2>Tool</h2>
     <button class="side-menu-close" id="closeSideMenu">✕</button>
   </div>
   <div class="side-menu-items">
@@ -835,6 +869,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <span class="menu-icon">🐑</span>
       <span>羊飼い</span>
       <span class="menu-status" id="statusShepherdColumn"></span>
+    </button>
+    <button class="side-menu-item" id="menuTimer">
+      <span class="menu-icon">⏱️</span>
+      <span>確定タイマー</span>
+      <span class="menu-status" id="statusTimer"></span>
     </button>
   </div>
 </div>
@@ -900,6 +939,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="8" checked> ダウ時間</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="9" checked> 交差時間</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="10" checked> 時間差</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="11" checked> トレンド</label>
       </div>
     </div>
     
@@ -1193,6 +1233,7 @@ let noteWindowRef = null;
 let settingsWindowRef = null;
 let economicCalendarWindowRef = null;
 let shepherdColumnWindowRef = null;
+let timerWindowRef = null;
 
 // 利用可能な通貨リスト（子ウィンドウと共有用）
 let availableCurrenciesGlobal = [];
@@ -1223,7 +1264,8 @@ async function setupAllEventListeners() {
       { id: 'menuSettings', ref: settingsWindowRef, statusId: 'statusSettings' },
       { id: 'menuNote', ref: noteWindowRef, statusId: 'statusNote' },
       { id: 'menuEconomicCalendar', ref: economicCalendarWindowRef, statusId: 'statusEconomicCalendar' },
-      { id: 'menuShepherdColumn', ref: shepherdColumnWindowRef, statusId: 'statusShepherdColumn' }
+      { id: 'menuShepherdColumn', ref: shepherdColumnWindowRef, statusId: 'statusShepherdColumn' },
+      { id: 'menuTimer', ref: timerWindowRef, statusId: 'statusTimer' }
     ];
 
     menuItems.forEach(item => {
@@ -1296,6 +1338,17 @@ async function setupAllEventListeners() {
       shepherdColumnWindowRef.focus();
     } else {
       shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
+    }
+    updateMenuStatus();
+  });
+
+  // 確定タイマーメニュー項目: 子ウィンドウを開く/前面に出す
+  const menuTimer = document.getElementById('menuTimer');
+  if (menuTimer) menuTimer.addEventListener('click', () => {
+    if (timerWindowRef && !timerWindowRef.closed) {
+      timerWindowRef.focus();
+    } else {
+      timerWindowRef = window.open('/timer_window', 'timer_window', 'width=500,height=700,left=300,top=100,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
@@ -3931,7 +3984,7 @@ function applyColumnVisibility() {
   const savedCols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   
   // 列ごとに表示/非表示を適用
-  for (let colIndex = 1; colIndex <= 10; colIndex++) {
+  for (let colIndex = 1; colIndex <= 11; colIndex++) {
     const visible = savedCols[colIndex.toString()] !== false; // デフォルトtrue
     const selector = `table th:nth-child(${colIndex + 1}), table td:nth-child(${colIndex + 1})`;
     document.querySelectorAll(selector).forEach(el => {
@@ -4282,14 +4335,19 @@ function populateVoiceSelect() {
   const voices = speechSynthesis.getVoices();
   console.log('[VOICE] Total voices available:', voices.length);
   
+  // 日本語音声をすべてコンソールに出力
+  console.log('[VOICE] ========== All Japanese voices ==========');
+  const japaneseVoices = voices.filter(v => v.lang.includes('ja') || v.lang.includes('JP'));
+  japaneseVoices.forEach((v, idx) => {
+    const globalIdx = voices.indexOf(v);
+    console.log(`  Index ${globalIdx}: ${v.name}`);
+  });
+  console.log(`[VOICE] Total Japanese voices: ${japaneseVoices.length}`);
+  console.log('[VOICE] =========================================');
+  
   const allowedVoices = {
     'Microsoft 七海 Online (Natural) - Japanese (Japan)': '七海［女性］',
-    'Microsoft 圭太 Online (Natural) - Japanese (Japan)': '圭太［男性］',
-    'Microsoft 碧衣 Online (Natural) - Japanese (Japan)': '碧衣［女性］',
-    'Microsoft 大智 Online (Natural) - Japanese (Japan)': '大智［男性］',
-    'Microsoft 真夕 Online (Natural) - Japanese (Japan)': '真夕［女性］',
-    'Microsoft 直紀 Online (Natural) - Japanese (Japan)': '直紀［男性］',
-    'Microsoft 志織 Online (Natural) - Japanese (Japan)': '志織［女性］'
+    'Microsoft 圭太 Online (Natural) - Japanese (Japan)': '圭太［男性］'
   };
   
   let addedCount = 0;
@@ -4446,10 +4504,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           
           if (marketOpen) {
             statusLight.style.background = '#90EE90';  // 緑
-            statusText.textContent = '営業中';
+            statusText.textContent = '開';
           } else {
             statusLight.style.background = '#FFB6C6';  // 赤ピンク
-            statusText.textContent = '休場中';
+            statusText.textContent = '休';
           }
         }
       } catch (e) {
@@ -4482,7 +4540,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const timeLarge = document.querySelector('.datetime-large');
       
       if (dateSmall) {
-        dateSmall.textContent = year + ' R' + wareki + ' ' + month + '/' + day + ' ' + dayOfWeek;
+        dateSmall.textContent = String(year).slice(-2) + '/' + month + '/' + day + ' ' + dayOfWeek;
       }
       if (timeLarge) {
         timeLarge.textContent = hours + ':' + minutes + ':' + seconds;
@@ -4556,6 +4614,72 @@ document.addEventListener('DOMContentLoaded', async () => {
             type: 'currencies_update',
             currencies: availableCurrenciesGlobal
           }, '*');
+        }
+      } else if (event.data && event.data.type === 'play_voice') {
+        // タイマーウィンドウからの音声再生リクエスト
+        console.log('[DASHBOARD] Received play_voice request:', event.data);
+        const { text, voiceIndex } = event.data;
+        
+        if (text && voiceIndex !== undefined) {
+          // 既存の音声を停止
+          if (speechSynthesis.speaking) {
+            console.log('[DASHBOARD] Canceling existing speech');
+            speechSynthesis.cancel();
+            // キャンセル後は少し長めに待機
+            setTimeout(() => processTimerVoice(), 200);
+            return;
+          }
+          
+          processTimerVoice();
+          
+          function processTimerVoice() {
+            // 音声リストを取得（キャッシュ優先）
+            let voices = cachedVoices.length > 0 ? cachedVoices : speechSynthesis.getVoices();
+            
+            // 音声リストが空の場合は再取得を試みる
+            if (voices.length === 0) {
+              console.log('[DASHBOARD] Voices not loaded, triggering load...');
+              voices = speechSynthesis.getVoices();
+              if (voices.length > 0) {
+                cachedVoices = voices;
+              } else {
+                // 音声がまだ読み込まれていない場合は再試行
+                console.log('[DASHBOARD] Voices still not available, retrying in 300ms...');
+                setTimeout(processTimerVoice, 300);
+                return;
+              }
+            }
+            
+            console.log('[DASHBOARD] Total voices available:', voices.length);
+            console.log('[DASHBOARD] Requested voice index:', voiceIndex);
+            
+            if (voices[voiceIndex]) {
+              console.log('[DASHBOARD] Selected voice:', voices[voiceIndex].name);
+              
+              // 音声設定を構築
+              const voiceSettings = {
+                voice_name: voices[voiceIndex].name
+              };
+              
+              // 音声合成エンジンの初期化を確実にするため待機時間を延長
+              setTimeout(() => {
+                console.log('[DASHBOARD] Starting timer speech synthesis with voice:', voiceSettings.voice_name);
+                playVoiceMessage(text, voiceSettings, null, null, 0);
+              }, 250); // 100ms → 250ms に延長
+            } else {
+              console.error('[DASHBOARD] Voice index out of range:', voiceIndex, 'Available:', voices.length);
+              // フォールバック: 利用可能な音声がある場合は最初の音声で再生
+              if (voices.length > 0) {
+                console.log('[DASHBOARD] Attempting fallback with first available voice');
+                const voiceSettings = {
+                  voice_name: voices[0].name
+                };
+                setTimeout(() => {
+                  playVoiceMessage(text, voiceSettings, null, null, 0);
+                }, 250);
+              }
+            }
+          }
         }
       }
     });
@@ -4778,6 +4902,97 @@ function formatElapsedTime(datetimeStr, format) {
   }
 }
 
+function calculateTrend(cloud) {
+  // localStorageからトレンド設定を読み込み
+  const configStr = localStorage.getItem('tv_trend_config');
+  if (!configStr) {
+    // デフォルト設定
+    const defaults = {
+      '5m': { use_angle: true, angle_threshold: 15, use_thickness: true, thickness_threshold: 3, use_dauten: true },
+      '15m': { use_angle: true, angle_threshold: 20, use_thickness: true, thickness_threshold: 5, use_dauten: true },
+      '1H': { use_angle: true, angle_threshold: 25, use_thickness: true, thickness_threshold: 8, use_dauten: true },
+      '4H': { use_angle: true, angle_threshold: 30, use_thickness: true, thickness_threshold: 10, use_dauten: true }
+    };
+    const config = defaults[cloud.label] || defaults['5m'];
+    return calculateTrendWithConfig(cloud, config);
+  }
+  
+  try {
+    const allConfig = JSON.parse(configStr);
+    const config = allConfig[cloud.label] || allConfig['5m'];
+    return calculateTrendWithConfig(cloud, config);
+  } catch (e) {
+    console.error('Failed to parse trend config:', e);
+    return 'レンジ';
+  }
+}
+
+function calculateTrendWithConfig(cloud, config) {
+  // 各判定条件のチェック
+  let angleUp = null;
+  let thicknessUp = null;
+  let dautenUp = null;
+  
+  // 角度チェック
+  if (config.use_angle) {
+    if (cloud.angle !== null && cloud.angle !== undefined) {
+      const absAngle = Math.abs(cloud.angle);
+      if (absAngle >= config.angle_threshold) {
+        angleUp = cloud.angle > 0; // 正の角度 = 上昇
+      } else {
+        // 閾値を満たしていない場合はレンジ確定
+        return 'レンジ';
+      }
+    } else {
+      // データがない場合はレンジ
+      return 'レンジ';
+    }
+  }
+  
+  // 厚みチェック
+  if (config.use_thickness) {
+    if (cloud.thickness !== null && cloud.thickness !== undefined) {
+      const absThickness = Math.abs(cloud.thickness);
+      if (absThickness >= config.thickness_threshold) {
+        thicknessUp = cloud.gc === true; // GC = 上昇, DC = 下降
+      } else {
+        // 閾値を満たしていない場合はレンジ確定
+        return 'レンジ';
+      }
+    } else {
+      // データがない場合はレンジ
+      return 'レンジ';
+    }
+  }
+  
+  // ダウ転チェック
+  if (config.use_dauten) {
+    if (cloud.dauten) {
+      dautenUp = cloud.dauten === 'up';
+    } else {
+      // データがない場合はレンジ
+      return 'レンジ';
+    }
+  }
+  
+  // 有効な判定条件を集める
+  const conditions = [];
+  if (angleUp !== null) conditions.push(angleUp);
+  if (thicknessUp !== null) conditions.push(thicknessUp);
+  if (dautenUp !== null) conditions.push(dautenUp);
+  
+  // 条件が1つもない場合はレンジ
+  if (conditions.length === 0) return 'レンジ';
+  
+  // すべての条件が同じ方向を示しているかチェック
+  const allUp = conditions.every(c => c === true);
+  const allDown = conditions.every(c => c === false);
+  
+  if (allUp) return '↗上昇';
+  if (allDown) return '↘下降';
+  return 'レンジ';
+}
+
 function calculateTransferTimeDiff(cloud) {
   const dautenTimeStr = cloud.dauten_start_time_str;
   const crossTimeStr = cloud.elapsed_str;
@@ -4823,8 +5038,13 @@ function calculateTransferTimeDiff(cloud) {
 }
 
 function formatTimeDiff(diffMin, format) {
-  if (format === 'datetime') return '-';
   if (diffMin === null) return '-';
+  if (format === 'datetime') {
+    // 測定開始時間が選択されている場合、時間差を「時:分」形式で表示
+    const hours = Math.floor(diffMin / 60);
+    const mins = diffMin % 60;
+    return String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
+  }
   if (format === 'm') return diffMin + 'm';
   if (format === 'hm') {
     const hours = Math.floor(diffMin / 60);
@@ -4981,6 +5201,9 @@ async function load() {
       
       // ルールカウントボタンを更新（load()でDOMが再生成されるため）
       setTimeout(updateRuleCountButtons, 150);
+      
+      // ドラッグ&ドロップの初期化
+      setTimeout(initCurrencySortable, 200);
     } else {
       document.getElementById('dashboards-container').innerHTML = '<div class="loading">データなし</div>';
     }
@@ -5050,13 +5273,13 @@ function renderCurrencyTable(symbol, allStates, container) {
     }
   });
   
-  let html = '<div class="table-wrap"><table><tr><th colspan="11" style="text-align: center;">' + state5m.symbol + ' - ' + state5m.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
-  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th></tr>';
+  let html = '<div class="table-wrap"><table data-symbol="' + state5m.symbol + '"><tr><th class="drag-handle" colspan="12" style="text-align: center; cursor: grab; color: white;">' + state5m.symbol + ' - ' + state5m.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
+  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">トレンド</th></tr>';
 
   orderedRows.forEach(row => {
     if (row.type === 'price') {
       html += '<tr class="price-row"><td class="tf-label">価格</td>';
-      html += '<td colspan="10"></td></tr>';
+      html += '<td colspan="11"></td></tr>';
     } else {
       const c = row;
       html += '<tr>';
@@ -5138,9 +5361,19 @@ function renderCurrencyTable(symbol, allStates, container) {
         timeDiffBg = 'rgba(128,128,128,0.5)';
       }
       if (timeDiffBg) {
-        html += '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td></tr>';
+        html += '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
       } else {
-        html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td></tr>';
+        html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
+      }
+      
+      // トレンド判定
+      const trend = calculateTrend(c);
+      if (trend === '↗上昇') {
+        html += '<td style="background:#06b7f9; color:#fff; font-weight:bold">↗上昇</td></tr>';
+      } else if (trend === '↘下降') {
+        html += '<td style="background:#ff57ea; color:#fff; font-weight:bold">↘下降</td></tr>';
+      } else {
+        html += '<td style="background:#95a5a6; color:#fff">レンジ</td></tr>';
       }
     }
   });
@@ -5871,20 +6104,58 @@ function updateFireHistory(notifications) {
       html += '</div>';
     });
     
-    listEl.innerHTML = html;
-    
-    // ソート状態を適用（降順がデフォルト）
-    const sortDesc = fireHistorySortStates[symbol] !== false;
-    if (!sortDesc) {
-      // 昇順の場合はソートを実行
-      toggleSortOrder(symbol);
-    }
   });  // Apply current font size to newly created elements
   const savedSize = localStorage.getItem('tv_font_size') || '14';
   applyFontSize(savedSize);
   
   // Sync fire history heights after content update
   syncAllFireHistoryHeights();
+}
+
+// ドラッグ&ドロップで通貨の順序を変更
+function initCurrencySortable() {
+  const container = document.getElementById('dashboards-container');
+  if (!container) return;
+  
+  // 既存のSortableインスタンスがあれば破棄
+  if (window.currencySortable) {
+    window.currencySortable.destroy();
+  }
+  
+  // ドラッグ可能な通貨セクション全体をソート対象にする
+  window.currencySortable = new Sortable(container, {
+    handle: '.drag-handle',  // テーブルヘッダーのみドラッグ可能
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'dragging-row',
+    onEnd: function(evt) {
+      // ドラッグ終了後に順序を保存
+      const symbols = [];
+      document.querySelectorAll('.currency-section').forEach(section => {
+        const symbol = section.dataset.symbol;
+        if (symbol) {
+          symbols.push(symbol);
+        }
+      });
+      
+      console.log('[SORTABLE] New order:', symbols);
+      
+      // サーバーに保存
+      fetch('/api/currency_order', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbols: symbols})
+      }).then(res => res.json())
+        .then(data => {
+          if (data.status === 'success') {
+            console.log('[SORTABLE] Currency order saved successfully');
+          } else {
+            console.error('[SORTABLE] Failed to save order:', data.msg);
+          }
+        })
+        .catch(err => console.error('[SORTABLE] Save error:', err));
+    }
+  });
 }
 
 // 全通貨の発火履歴ウィンドウの高さを同期する
@@ -6355,6 +6626,7 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
       console.log('[VOICE_MESSAGE] ✓ Using custom voice:', selectedVoice.name);
     } else {
       console.warn('[VOICE_MESSAGE] ⚠️ Custom voice not found:', voiceSettings.voice_name);
+      console.warn('[VOICE_MESSAGE] Available voices:', availableVoices.map(v => v.name));
       // 許可された音声リストから最初の利用可能な音声を選択
       const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
       if (fallbackVoice) {
@@ -6362,6 +6634,7 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
         console.warn('[VOICE_MESSAGE] ⚠️ Using fallback voice:', fallbackVoice.name);
       } else {
         console.error('[VOICE_MESSAGE] ❌ No allowed voices available! Canceling speech.');
+        console.error('[VOICE_MESSAGE] Available JP voices:', availableVoices.filter(v => v.lang.includes('ja') || v.lang.includes('JP')).map(v => v.name));
         if (onComplete) onComplete();
         return; // 音声再生をキャンセル
       }
@@ -6480,6 +6753,10 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
   }
   
   // 完了イベントハンドラーを設定
+  utterance.onstart = () => {
+    console.log('[VOICE_MESSAGE] ✓ Voice synthesis started successfully');
+  };
+  
   utterance.onend = () => {
     console.log('[VOICE_MESSAGE] Voice message completed');
     if (onComplete) onComplete();
@@ -6490,24 +6767,39 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
     if (onComplete) onComplete();
   };
   
-  // Speak
-  speechCallCounter++;
-  const currentCallId = speechCallCounter;
-  console.log('[VOICE_MESSAGE] 🔊 speechSynthesis.speak() call #' + currentCallId);
-  console.log('[VOICE_MESSAGE] Final voice check - Selected:', utterance.voice ? utterance.voice.name : 'DEFAULT (System)');
-  console.log('[VOICE_MESSAGE] Final voice check - Lang:', utterance.lang);
-  
-  // 音声が明示的に設定されているか確認
-  if (!utterance.voice) {
-    console.error('[VOICE_MESSAGE] ❌ ERROR: No voice set! This should never happen!');
-    console.error('[VOICE_MESSAGE] ❌ Available voices:', speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja')).map(v => v.name));
-    if (onComplete) onComplete();
-    return;
+  // 既存の音声を停止してから新しい音声を再生
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    console.log('[VOICE_MESSAGE] Canceling existing speech before starting new one');
+    speechSynthesis.cancel();
+    // キャンセル後に少し待機
+    setTimeout(() => {
+      startSpeech();
+    }, 50);
+  } else {
+    startSpeech();
   }
   
-  speechSynthesis.speak(utterance);
-  
-  console.log('[VOICE_MESSAGE] Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
+  function startSpeech() {
+    // Speak
+    speechCallCounter++;
+    const currentCallId = speechCallCounter;
+    console.log('[VOICE_MESSAGE] 🔊 speechSynthesis.speak() call #' + currentCallId);
+    console.log('[VOICE_MESSAGE] Final voice check - Selected:', utterance.voice ? utterance.voice.name : 'DEFAULT (System)');
+    console.log('[VOICE_MESSAGE] Final voice check - Lang:', utterance.lang);
+    console.log('[VOICE_MESSAGE] Message to speak:', message);
+    
+    // 音声が明示的に設定されているか確認
+    if (!utterance.voice) {
+      console.error('[VOICE_MESSAGE] ❌ ERROR: No voice set! This should never happen!');
+      console.error('[VOICE_MESSAGE] ❌ Available voices:', speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja')).map(v => v.name));
+      if (onComplete) onComplete();
+      return;
+    }
+    
+    speechSynthesis.speak(utterance);
+    
+    console.log('[VOICE_MESSAGE] Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
+  }
 }
 
 // 音声有効化オーバーレイの表示

@@ -294,6 +294,16 @@
       width: 60px;
     }
     
+    /* トレンド管理の数値入力欄のスピンボタンを非表示 */
+    .trend-number-input::-webkit-inner-spin-button,
+    .trend-number-input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .trend-number-input {
+      -moz-appearance: textfield;
+    }
+    
     .test-result {
       margin-top: 12px;
       padding: 10px;
@@ -434,6 +444,7 @@
         <label><input type="checkbox" class="col-toggle" data-col="8" checked> ダウ時間</label>
         <label><input type="checkbox" class="col-toggle" data-col="9" checked> 交差時間</label>
         <label><input type="checkbox" class="col-toggle" data-col="10" checked> 時間差</label>
+        <label><input type="checkbox" class="col-toggle" data-col="11" checked> トレンド</label>
       </div>
     </div>
   </div>
@@ -475,6 +486,80 @@
         <label for="voiceRate">音速</label>
         <input type="range" id="voiceRate" min="0.5" max="2.0" step="0.1" value="1.0">
         <span id="voiceRateValue">1.0x</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- トレンド管理セクション -->
+  <div class="section">
+    <div class="section-header" data-section="trend">トレンド管理</div>
+    <div class="section-body" data-section-body="trend">
+      <div class="row" style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;">
+        <span style="font-weight:600;min-width:50px;">5分足</span>
+        <label style="display:flex;align-items:center;gap:4px;min-width:90px;">
+          <input type="checkbox" id="trend5mUseAngle" checked> 角度
+        </label>
+        <input type="number" id="trend5mAngle" value="15" min="0" max="90" step="1" class="trend-number-input" style="width:60px;font-size:12px;">
+        <span style="margin-right:8px;">°</span>
+        <label style="display:flex;align-items:center;gap:4px;min-width:90px;">
+          <input type="checkbox" id="trend5mUseThickness" checked> 厚み
+        </label>
+        <input type="number" id="trend5mThickness" value="3" min="0" step="0.1" class="trend-number-input" style="width:60px;font-size:12px;">
+        <span style="margin-right:8px;">Pips</span>
+        <label style="display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="trend5mUseDauten" checked> ダウ転
+        </label>
+      </div>
+      
+      <div class="row" style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;">
+        <span style="font-weight:600;min-width:50px;">15分足</span>
+        <label style="display:flex;align-items:center;gap:4px;min-width:90px;">
+          <input type="checkbox" id="trend15mUseAngle" checked> 角度
+        </label>
+        <input type="number" id="trend15mAngle" value="20" min="0" max="90" step="1" class="trend-number-input" style="width:60px;font-size:12px;">
+        <span style="margin-right:8px;">°</span>
+        <label style="display:flex;align-items:center;gap:4px;min-width:90px;">
+          <input type="checkbox" id="trend15mUseThickness" checked> 厚み
+        </label>
+        <input type="number" id="trend15mThickness" value="5" min="0" step="0.1" class="trend-number-input" style="width:60px;font-size:12px;">
+        <span style="margin-right:8px;">Pips</span>
+        <label style="display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="trend15mUseDauten" checked> ダウ転
+        </label>
+      </div>
+      
+      <div class="row" style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;">
+        <span style="font-weight:600;min-width:50px;">1時間足</span>
+        <label style="display:flex;align-items:center;gap:4px;min-width:90px;">
+          <input type="checkbox" id="trend1HUseAngle" checked> 角度
+        </label>
+        <input type="number" id="trend1HAngle" value="25" min="0" max="90" step="1" class="trend-number-input" style="width:60px;font-size:12px;">
+        <span style="margin-right:8px;">°</span>
+        <label style="display:flex;align-items:center;gap:4px;min-width:90px;">
+          <input type="checkbox" id="trend1HUseThickness" checked> 厚み
+        </label>
+        <input type="number" id="trend1HThickness" value="8" min="0" step="0.1" class="trend-number-input" style="width:60px;font-size:12px;">
+        <span style="margin-right:8px;">Pips</span>
+        <label style="display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="trend1HUseDauten" checked> ダウ転
+        </label>
+      </div>
+      
+      <div class="row" style="margin-bottom:10px;font-size:12px;">
+        <span style="font-weight:600;min-width:50px;">4時間足</span>
+        <label style="display:flex;align-items:center;gap:4px;min-width:90px;">
+          <input type="checkbox" id="trend4HUseAngle" checked> 角度
+        </label>
+        <input type="number" id="trend4HAngle" value="30" min="0" max="90" step="1" class="trend-number-input" style="width:60px;font-size:12px;">
+        <span style="margin-right:8px;">°</span>
+        <label style="display:flex;align-items:center;gap:4px;min-width:90px;">
+          <input type="checkbox" id="trend4HUseThickness" checked> 厚み
+        </label>
+        <input type="number" id="trend4HThickness" value="10" min="0" step="0.1" class="trend-number-input" style="width:60px;font-size:12px;">
+        <span style="margin-right:8px;">Pips</span>
+        <label style="display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="trend4HUseDauten" checked> ダウ転
+        </label>
       </div>
     </div>
   </div>
@@ -759,6 +844,36 @@ function loadSettingsFromLocalStorage() {
   const rate = parseFloat(localStorage.getItem('tv_voice_rate') || '1.0');
   document.getElementById('voiceRate').value = rate;
   document.getElementById('voiceRateValue').textContent = rate.toFixed(1) + 'x';
+  
+  // トレンド設定
+  const trendConfig = JSON.parse(localStorage.getItem('tv_trend_config') || '{}');
+  ['5m', '15m', '1H', '4H'].forEach(tf => {
+    const config = trendConfig[tf] || {};
+    const prefix = `trend${tf}`;
+    document.getElementById(`${prefix}UseAngle`).checked = config.use_angle !== false;
+    document.getElementById(`${prefix}Angle`).value = config.angle_threshold || (tf === '5m' ? 15 : tf === '15m' ? 20 : tf === '1H' ? 25 : 30);
+    document.getElementById(`${prefix}UseThickness`).checked = config.use_thickness !== false;
+    document.getElementById(`${prefix}Thickness`).value = config.thickness_threshold || (tf === '5m' ? 3 : tf === '15m' ? 5 : tf === '1H' ? 8 : 10);
+    document.getElementById(`${prefix}UseDauten`).checked = config.use_dauten !== false;
+  });
+}
+
+// ===== トレンド設定保存 =====
+function saveTrendConfig() {
+  const config = {};
+  ['5m', '15m', '1H', '4H'].forEach(tf => {
+    const prefix = `trend${tf}`;
+    config[tf] = {
+      use_angle: document.getElementById(`${prefix}UseAngle`).checked,
+      angle_threshold: parseFloat(document.getElementById(`${prefix}Angle`).value),
+      use_thickness: document.getElementById(`${prefix}UseThickness`).checked,
+      thickness_threshold: parseFloat(document.getElementById(`${prefix}Thickness`).value),
+      use_dauten: document.getElementById(`${prefix}UseDauten`).checked
+    };
+  });
+  localStorage.setItem('tv_trend_config', JSON.stringify(config));
+  console.log('[SETTINGS] Trend config saved:', config);
+  notifyParent('trend_config_changed', { config });
 }
 
 // ===== 電子音ファイル取得 =====
@@ -767,21 +882,36 @@ async function loadChimeFiles() {
     const response = await fetch('/api/chime_files');
     if (!response.ok) throw new Error('Failed to load chime files');
     
-    const files = await response.json();
+    const data = await response.json();
+    console.log('[SETTINGS] Chime files loaded:', data);
+    
     const select = document.getElementById('chimeSelect');
+    if (!select) {
+      console.error('[SETTINGS] chimeSelect element not found');
+      return;
+    }
     
     // 既存のオプションをクリア（なしは残す）
     while (select.options.length > 1) {
       select.remove(1);
     }
     
+    // APIレスポンスの形式を確認
+    const files = data.files || data;
+    console.log('[SETTINGS] Files to add:', files);
+    
     // ファイルを追加
-    files.forEach(file => {
-      const opt = document.createElement('option');
-      opt.value = file;
-      opt.textContent = file.replace(/\.(mp3|wav|ogg)$/i, '');
-      select.appendChild(opt);
-    });
+    if (Array.isArray(files)) {
+      files.forEach(file => {
+        const opt = document.createElement('option');
+        opt.value = file;
+        opt.textContent = file.replace(/\.(mp3|wav|ogg)$/i, '');
+        select.appendChild(opt);
+      });
+      console.log('[SETTINGS] Added', files.length, 'chime files');
+    } else {
+      console.error('[SETTINGS] Files is not an array:', files);
+    }
   } catch (error) {
     console.error('[SETTINGS] Load chime files error:', error);
   }
@@ -1463,6 +1593,17 @@ function setupEventHandlers() {
     document.getElementById('voiceRateValue').textContent = rate.toFixed(1) + 'x';
     localStorage.setItem('tv_voice_rate', rate.toString());
     notifyParent('voice_rate_changed', { rate });
+  });
+  
+  // トレンド設定の変更
+  ['5m', '15m', '1H', '4H'].forEach(tf => {
+    const prefix = `trend${tf}`;
+    ['UseAngle', 'Angle', 'UseThickness', 'Thickness', 'UseDauten'].forEach(suffix => {
+      const el = document.getElementById(`${prefix}${suffix}`);
+      if (el) {
+        el.addEventListener('change', saveTrendConfig);
+      }
+    });
   });
   
   // 方向別チェックボックス

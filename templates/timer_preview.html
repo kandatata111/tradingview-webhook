@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>タイマープレビュー - デザイン{{ design_num }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background: #f5f7fa;
+      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: #fff;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .header h2 {
+      margin: 0;
+      font-size: 1em;
+      color: #333;
+    }
+    
+    .test-controls {
+      display: flex;
+      gap: 8px;
+      font-size: 0.85em;
+    }
+    
+    .test-btn {
+      padding: 4px 10px;
+      border: none;
+      border-radius: 4px;
+      background: #1e3c72;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    
+    .test-btn:hover {
+      background: #2a5aa8;
+    }
+    
+    .content {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+    }
+    
+    /* タイマーカード横並び */
+    .timers-container {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .timer-card {
+      background: white;
+      border-radius: 8px;
+      padding: 10px;
+      flex: 1;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      border: 2px solid #e0e0e0;
+      transition: all 0.3s;
+    }
+    
+    .timer-card.warning {
+      border-color: #ff9800;
+      background: #fff3e0;
+    }
+    
+    .timer-card.danger {
+      border-color: #f44336;
+      background: #ffebee;
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+    
+    .timer-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    
+    .timer-label {
+      font-size: 0.8em;
+      font-weight: 600;
+      color: #1e3c72;
+    }
+    
+    .timer-status {
+      font-size: 0.65em;
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    
+    .timer-display {
+      font-size: 2.2em;
+      font-weight: bold;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      color: #1e3c72;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      transition: all 0.3s;
+    }
+    
+    .timer-info {
+      font-size: 0.7em;
+      color: #666;
+      text-align: center;
+    }
+    
+    /* デザインスタイル1: デフォルト（モダン） */
+    .design-1 .timer-display {
+      font-family: 'Courier New', monospace;
+      font-size: 2.2em;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+    
+    /* デザインスタイル2: デジタル時計風 */
+    .design-2 .timer-display {
+      font-family: 'DS-Digital', 'Courier New', monospace;
+      font-size: 2.6em;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-shadow: 0 0 10px rgba(30, 60, 114, 0.3);
+      background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 100%);
+      padding: 10px;
+      border-radius: 6px;
+    }
+    
+    /* デザインスタイル3: モダン太字 */
+    .design-3 .timer-display {
+      font-family: 'Arial Black', 'Arial', sans-serif;
+      font-size: 2.4em;
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.15);
+    }
+    
+    /* デザインスタイル4: シンプル細字 */
+    .design-4 .timer-display {
+      font-family: 'Segoe UI', 'Helvetica', sans-serif;
+      font-size: 2em;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+    
+    /* デザインスタイル5: レトロ風 */
+    .design-5 .timer-display {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 2.4em;
+      font-weight: bold;
+      letter-spacing: 5px;
+      background: #000;
+      color: #00ff00;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.2);
+    }
+    
+    .design-5 .timer-card {
+      background: #1a1a1a;
+      border-color: #333;
+    }
+    
+    .design-5 .timer-label,
+    .design-5 .timer-status,
+    .design-5 .timer-info {
+      color: #00ff00;
+    }
+    
+    /* デザインスタイル6: ネオンブルー */
+    .design-6 .timer-display {
+      font-family: 'Courier New', monospace;
+      font-size: 2.5em;
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: #00d4ff;
+      text-shadow: 0 0 10px #00d4ff, 0 0 20px #00d4ff, 0 0 30px #00d4ff;
+      background: #0a0a1a;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    
+    .design-6 .timer-card {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-color: #0a3d62;
+    }
+    
+    .design-6 .timer-label {
+      color: #00d4ff;
+      text-shadow: 0 0 5px #00d4ff;
+    }
+    
+    .design-6 .timer-status {
+      background: rgba(0, 212, 255, 0.2);
+      color: #00d4ff;
+    }
+    
+    .design-6 .timer-info {
+      color: #00d4ff;
+    }
+    
+    /* デザインスタイル7: エレガント */
+    .design-7 .timer-display {
+      font-family: 'Georgia', 'Times New Roman', serif;
+      font-size: 2.2em;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: #2c3e50;
+      background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+    }
+    
+    .design-7 .timer-card {
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      border-color: #ccc;
+    }
+    
+    /* デザインスタイル8: シンプルボックス */
+    .design-8 .timer-display {
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 2.3em;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: #fff;
+      background: #1e3c72;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    
+    .design-8 .timer-card {
+      background: #f0f3f8;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>デザイン{{ design_num }}: {{ design_name }}</h2>
+    <div class="test-controls">
+      <button class="test-btn" onclick="testWarning()">通知テスト</button>
+      <button class="test-btn" onclick="testDanger()">後少しテスト</button>
+      <button class="test-btn" onclick="resetTest()">リセット</button>
+    </div>
+  </div>
+  
+  <div class="content">
+    <div class="timers-container design-{{ design_num }}">
+      <!-- 15分タイマー -->
+      <div class="timer-card" id="timer15m">
+        <div class="timer-header">
+          <span class="timer-label">15分</span>
+          <span class="timer-status" id="status15m">待機中</span>
+        </div>
+        <div class="timer-display" id="display15m">06:15</div>
+        <div class="timer-info" id="info15m">次の確定: 16:15</div>
+      </div>
+      
+      <!-- 1時間タイマー -->
+      <div class="timer-card" id="timer1h">
+        <div class="timer-header">
+          <span class="timer-label">1時間</span>
+          <span class="timer-status" id="status1h">待機中</span>
+        </div>
+        <div class="timer-display" id="display1h">50:45</div>
+        <div class="timer-info" id="info1h">次の確定: 17:00</div>
+      </div>
+      
+      <!-- 4時間タイマー -->
+      <div class="timer-card" id="timer4h">
+        <div class="timer-header">
+          <span class="timer-label">4時間</span>
+          <span class="timer-status" id="status4h">待機中</span>
+        </div>
+        <div class="timer-display" id="display4h">03:50:45</div>
+        <div class="timer-info" id="info4h">次の確定: 20:00</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function testWarning() {
+      // 通知済みスタイルをテスト
+      document.getElementById('timer15m').className = 'timer-card warning';
+      document.getElementById('status15m').textContent = '通知済';
+      document.getElementById('display15m').textContent = '00:45';
+      
+      document.getElementById('timer1h').className = 'timer-card warning';
+      document.getElementById('status1h').textContent = '通知済';
+      document.getElementById('display1h').textContent = '00:30';
+      
+      document.getElementById('timer4h').className = 'timer-card warning';
+      document.getElementById('status4h').textContent = '通知済';
+      document.getElementById('display4h').textContent = '00:55:20';
+    }
+    
+    function testDanger() {
+      // 後少しスタイルをテスト（アニメーション付き）
+      document.getElementById('timer15m').className = 'timer-card danger';
+      document.getElementById('status15m').textContent = '後少し';
+      document.getElementById('display15m').textContent = '00:05';
+      
+      document.getElementById('timer1h').className = 'timer-card danger';
+      document.getElementById('status1h').textContent = '後少し';
+      document.getElementById('display1h').textContent = '00:08';
+      
+      document.getElementById('timer4h').className = 'timer-card danger';
+      document.getElementById('status4h').textContent = '後少し';
+      document.getElementById('display4h').textContent = '00:00:09';
+    }
+    
+    function resetTest() {
+      // 元に戻す
+      document.getElementById('timer15m').className = 'timer-card';
+      document.getElementById('status15m').textContent = '待機中';
+      document.getElementById('display15m').textContent = '06:15';
+      
+      document.getElementById('timer1h').className = 'timer-card';
+      document.getElementById('status1h').textContent = '待機中';
+      document.getElementById('display1h').textContent = '50:45';
+      
+      document.getElementById('timer4h').className = 'timer-card';
+      document.getElementById('status4h').textContent = '待機中';
+      document.getElementById('display4h').textContent = '03:50:45';
+    }
+  </script>
+</body>
+</html>
