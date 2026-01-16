@@ -5265,27 +5265,15 @@ function renderCurrencyTable(symbol, allStates, container) {
       const merged = { ...cloud };
       
       // 専用データがあれば、そちらを優先してマージ
-      // clouds[0]からデータを取得（bos_countは数値、daytrade.bosは文字列なので注意）
-      if (label === '5m' && state5m && state5m.clouds?.[0]) {
-        merged.dauten = state5m.clouds[0].dauten ?? cloud.dauten;
-        merged.bos_count = state5m.clouds[0].bos_count ?? cloud.bos_count;
-        merged.dauten_start_time_str = state5m.clouds[0].dauten_start_time_str ?? cloud.dauten_start_time_str;
-        merged.elapsed_str = state5m.clouds[0].elapsed_str ?? cloud.elapsed_str;
-      } else if (label === '15m' && state15m && state15m.clouds?.[0]) {
-        merged.dauten = state15m.clouds[0].dauten ?? cloud.dauten;
-        merged.bos_count = state15m.clouds[0].bos_count ?? cloud.bos_count;
-        merged.dauten_start_time_str = state15m.clouds[0].dauten_start_time_str ?? cloud.dauten_start_time_str;
-        merged.elapsed_str = state15m.clouds[0].elapsed_str ?? cloud.elapsed_str;
-      } else if (label === '1H' && state1h && state1h.clouds?.[0]) {
-        merged.dauten = state1h.clouds[0].dauten ?? cloud.dauten;
-        merged.bos_count = state1h.clouds[0].bos_count ?? cloud.bos_count;
-        merged.dauten_start_time_str = state1h.clouds[0].dauten_start_time_str ?? cloud.dauten_start_time_str;
-        merged.elapsed_str = state1h.clouds[0].elapsed_str ?? cloud.elapsed_str;
-      } else if (label === '4H' && state4h && state4h.clouds?.[0]) {
-        merged.dauten = state4h.clouds[0].dauten ?? cloud.dauten;
-        merged.bos_count = state4h.clouds[0].bos_count ?? cloud.bos_count;
-        merged.dauten_start_time_str = state4h.clouds[0].dauten_start_time_str ?? cloud.dauten_start_time_str;
-        merged.elapsed_str = state4h.clouds[0].elapsed_str ?? cloud.elapsed_str;
+      // clouds配列から該当labelのデータを探す（bos_countは数値、daytrade.bosは文字列なので注意）
+      if (state && state.clouds && state.clouds.length > 0) {
+        // 該当labelのcloud要素を探す
+        const specificCloud = state.clouds.find(c => c.label === label) || state.clouds[0];
+        
+        merged.dauten = specificCloud.dauten ?? cloud.dauten;
+        merged.bos_count = specificCloud.bos_count ?? cloud.bos_count;
+        merged.dauten_start_time_str = specificCloud.dauten_start_time_str ?? cloud.dauten_start_time_str;
+        merged.elapsed_str = specificCloud.elapsed_str ?? cloud.elapsed_str;
       }
       
       mergedClouds.push(merged);
