@@ -5214,11 +5214,17 @@ async function load() {
 
 // 通貨ごとのテーブルを生成する関数
 function renderCurrencyTable(symbol, allStates, container) {
-  // 各時間足のデータを取得（複数のtf表記に対応）
-  const state5m = allStates.find(x => x.symbol === symbol && (x.tf === '5' || x.tf === '5m' || x.tf === '5M'));
-  const state15m = allStates.find(x => x.symbol === symbol && (x.tf === '15' || x.tf === '15m' || x.tf === '15M'));
-  const state1h = allStates.find(x => x.symbol === symbol && (x.tf === '60' || x.tf === '1h' || x.tf === '1H'));
-  const state4h = allStates.find(x => x.symbol === symbol && (x.tf === '240' || x.tf === '4h' || x.tf === '4H'));
+  // 各時間足のデータを取得（複数のtf表記に対応、空データは除外）
+  const findValidState = (symbol, tfVariants) => {
+    const matches = allStates.filter(x => x.symbol === symbol && tfVariants.includes(x.tf));
+    // clouds配列が存在する最も完全なデータを優先
+    return matches.find(x => x.clouds && x.clouds.length > 0) || matches[0];
+  };
+  
+  const state5m = findValidState(symbol, ['5', '5m', '5M']);
+  const state15m = findValidState(symbol, ['15', '15m', '15M']);
+  const state1h = findValidState(symbol, ['60', '1h', '1H']);
+  const state4h = findValidState(symbol, ['240', '4h', '4H']);
   
   // いずれかのデータが存在すれば表示可能
   if (!state5m && !state15m && !state1h && !state4h) {
