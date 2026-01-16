@@ -5341,7 +5341,7 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
       else html += '<td>' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
 
-      const displayBos = (bosVal === null || bosVal === undefined || bosVal === '' ? '-' : bosVal);
+      const displayBos = (bosVal === null || bosVal === undefined || bosVal === '' || bosVal === 0 ? '-' : 'BOS-' + bosVal);
       if (dautenColor) {
         html += '<td style="background:' + dautenColor + '; color:#fff">' + displayBos + '</td>';
       } else {
