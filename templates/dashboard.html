@@ -5265,13 +5265,14 @@ function renderCurrencyTable(symbol, allStates, container) {
       const merged = { ...cloud };
       
       // 専用データがあれば、そちらを優先してマージ
-      // clouds配列から該当labelのデータを探す（bos_countは数値、daytrade.bosは文字列なので注意）
+      // daytrade.bosは文字列("BOS-1")、clouds[x].bos_countは数値なので注意
       if (state && state.clouds && state.clouds.length > 0) {
         // 該当labelのcloud要素を探す
         const specificCloud = state.clouds.find(c => c.label === label) || state.clouds[0];
         
         merged.dauten = specificCloud.dauten ?? cloud.dauten;
-        merged.bos_count = specificCloud.bos_count ?? cloud.bos_count;
+        // 突破数はdaytrade.bosから取得（"BOS-1", "BOS-2"などの文字列）
+        merged.bos_count = state.daytrade?.bos || cloud.bos_count;
         merged.dauten_start_time_str = specificCloud.dauten_start_time_str ?? cloud.dauten_start_time_str;
         merged.elapsed_str = specificCloud.elapsed_str ?? cloud.elapsed_str;
       }
@@ -5341,7 +5342,18 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
       else html += '<td>' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
 
-      const displayBos = (bosVal === null || bosVal === undefined || bosVal === '' || bosVal === 0 ? '-' : 'BOS-' + bosVal);
+      // bosValはdaytrade.bosから来るので既に"BOS-1"形式の文字列、または数値の可能性あり
+      let displayBos = '-';
+      if (bosVal !== null && bosVal !== undefined && bosVal !== '') {
+        // 文字列の場合（"BOS-1", "BOS-2"など）はそのまま使用
+        if (typeof bosVal === 'string') {
+          displayBos = bosVal;
+        } 
+        // 数値の場合（0, 1, 2など）は0なら"-"、それ以外は"BOS-数値"
+        else if (typeof bosVal === 'number') {
+          displayBos = bosVal === 0 ? '-' : 'BOS-' + bosVal;
+        }
+      }
       if (dautenColor) {
         html += '<td style="background:' + dautenColor + '; color:#fff">' + displayBos + '</td>';
       } else {
