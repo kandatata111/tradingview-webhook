@@ -5219,52 +5219,79 @@ function renderCurrencyTable(symbol, allStates, container) {
   const state1h = allStates.find(x => x.symbol === symbol && x.tf === '60');
   const state4h = allStates.find(x => x.symbol === symbol && x.tf === '240');
   
-  if (!state5m) {
-    container.innerHTML = '<div class="loading">5mデータがありません</div>';
+  // いずれかのデータが存在すれば表示可能
+  if (!state5m && !state15m && !state1h && !state4h) {
+    container.innerHTML = '<div class="loading">データがありません</div>';
     return;
   }
   
-  // 更新時刻を計算（JST）
-  const updateTime = state5m.timestamp ? new Date(state5m.timestamp).toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', hour12: false}).split(' ')[1] : 'N/A';
+  // 代表データ（更新時刻とprice用）
+  const mainState = state5m || state15m || state1h || state4h;
   
-  // 5m のクラウド配列をベースに統合
-  const mergedClouds = (state5m.clouds || []).map(cloud => {
-    const merged = {...cloud};
+  // 更新時刻を計算（JST）
+  const updateTime = mainState.timestamp ? new Date(mainState.timestamp).toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', hour12: false}).split(' ')[1] : 'N/A';
+  
+  // 各時間足のデータを統合
+  // 5m のクラウド配列をベースにするが、なければ各時間足の専用データから構築
+  let baseClouds = state5m?.clouds || [];
+  
+  // 5m足のclouds配列に各時間足のデータがない場合、専用データから追加
+  const timeframes = [
+    { label: '5m', state: state5m },
+    { label: '15m', state: state15m },
+    { label: '1H', state: state1h },
+    { label: '4H', state: state4h }
+  ];
+  
+  const mergedClouds = [];
+  
+  timeframes.forEach(({ label, state }) => {
+    // baseCloudsにこの時間足のデータがあるか確認
+    let cloud = baseClouds.find(c => c.label === label);
     
-    if (cloud.label === '15m' && state15m) {
-      merged.dauten = state15m.clouds?.[0]?.dauten || cloud.dauten;
-      merged.bos_count = state15m.daytrade?.bos || cloud.bos_count;
-      merged.dauten_start_time_str = state15m.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
-      merged.elapsed_str = state15m.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
-    } else if (cloud.label === '1H' && state1h) {
-      merged.dauten = state1h.clouds?.[0]?.dauten || cloud.dauten;
-      merged.bos_count = state1h.daytrade?.bos || cloud.bos_count;
-      merged.dauten_start_time_str = state1h.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
-      merged.elapsed_str = state1h.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
-    } else if (cloud.label === '4H' && state4h) {
-      merged.dauten = state4h.clouds?.[0]?.dauten || cloud.dauten;
-      merged.bos_count = state4h.daytrade?.bos || cloud.bos_count;
-      merged.dauten_start_time_str = state4h.clouds?.[0]?.dauten_start_time_str || cloud.dauten_start_time_str;
-      merged.elapsed_str = state4h.clouds?.[0]?.elapsed_str || cloud.elapsed_str;
-    } else if (cloud.label === '5m') {
-      merged.bos_count = state5m.daytrade?.bos || cloud.bos_count;
-    } else if (cloud.label !== '5m') {
-      merged.dauten = '';
-      merged.bos_count = null;
-      merged.dauten_start_time_str = '';
-      merged.elapsed_str = '';
+    if (!cloud && state && state.clouds && state.clouds.length > 0) {
+      // baseCloudsにないが専用データがある場合、専用データから作成
+      cloud = { ...state.clouds[0], label: label };
     }
     
-    return merged;
+    if (cloud) {
+      const merged = { ...cloud };
+      
+      // 専用データがあれば、そちらを優先してマージ
+      // clouds[0]からデータを取得（bos_countは数値、daytrade.bosは文字列なので注意）
+      if (label === '5m' && state5m && state5m.clouds?.[0]) {
+        merged.dauten = state5m.clouds[0].dauten ?? cloud.dauten;
+        merged.bos_count = state5m.clouds[0].bos_count ?? cloud.bos_count;
+        merged.dauten_start_time_str = state5m.clouds[0].dauten_start_time_str ?? cloud.dauten_start_time_str;
+        merged.elapsed_str = state5m.clouds[0].elapsed_str ?? cloud.elapsed_str;
+      } else if (label === '15m' && state15m && state15m.clouds?.[0]) {
+        merged.dauten = state15m.clouds[0].dauten ?? cloud.dauten;
+        merged.bos_count = state15m.clouds[0].bos_count ?? cloud.bos_count;
+        merged.dauten_start_time_str = state15m.clouds[0].dauten_start_time_str ?? cloud.dauten_start_time_str;
+        merged.elapsed_str = state15m.clouds[0].elapsed_str ?? cloud.elapsed_str;
+      } else if (label === '1H' && state1h && state1h.clouds?.[0]) {
+        merged.dauten = state1h.clouds[0].dauten ?? cloud.dauten;
+        merged.bos_count = state1h.clouds[0].bos_count ?? cloud.bos_count;
+        merged.dauten_start_time_str = state1h.clouds[0].dauten_start_time_str ?? cloud.dauten_start_time_str;
+        merged.elapsed_str = state1h.clouds[0].elapsed_str ?? cloud.elapsed_str;
+      } else if (label === '4H' && state4h && state4h.clouds?.[0]) {
+        merged.dauten = state4h.clouds[0].dauten ?? cloud.dauten;
+        merged.bos_count = state4h.clouds[0].bos_count ?? cloud.bos_count;
+        merged.dauten_start_time_str = state4h.clouds[0].dauten_start_time_str ?? cloud.dauten_start_time_str;
+        merged.elapsed_str = state4h.clouds[0].elapsed_str ?? cloud.elapsed_str;
+      }
+      
+      mergedClouds.push(merged);
+    }
   });
   
-  // row_order に従って行を並べ替え
-  const rowOrder = state5m.row_order || ['5m', '15m', 'price', '1H', '4H'];
+  // row_order に従って行を並べ替え（なければデフォルト順序）
+  const rowOrder = mainState.row_order || ['5m', '15m', 'price', '1H', '4H'];
   const orderedRows = [];
   
   rowOrder.forEach(label => {
     if (label === 'price') {
-      orderedRows.push({ type: 'price', price: state5m.price });
+      orderedRows.push({ type: 'price', price: mainState.price });
     } else {
       const cloud = mergedClouds.find(c => c.label === label);
       if (cloud) {
@@ -5273,7 +5300,7 @@ function renderCurrencyTable(symbol, allStates, container) {
     }
   });
   
-  let html = '<div class="table-wrap"><table data-symbol="' + state5m.symbol + '"><tr><th class="drag-handle" colspan="12" style="text-align: center; cursor: grab; color: white;">' + state5m.symbol + ' - ' + state5m.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
+  let html = '<div class="table-wrap"><table data-symbol="' + mainState.symbol + '"><tr><th class="drag-handle" colspan="12" style="text-align: center; cursor: grab; color: white;">' + mainState.symbol + ' - ' + mainState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
   html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">トレンド</th></tr>';
 
   orderedRows.forEach(row => {
