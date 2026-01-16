@@ -15,8 +15,17 @@ with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as
 
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 socketio = SocketIO(app, cors_allowed_origins="*")
-DB_PATH = os.path.join(BASE_DIR, 'webhook_data.db')
+
+# Render Diskの永続ストレージパスを環境変数から取得（未設定の場合はローカルパス）
+PERSISTENT_DIR = os.getenv('PERSISTENT_STORAGE_PATH', BASE_DIR)
+DB_PATH = os.path.join(PERSISTENT_DIR, 'webhook_data.db')
 NOTE_IMAGES_DIR = os.path.expanduser(r'C:\Users\kanda\Desktop\NoteImages')
+
+# 起動時にストレージ設定を確認
+print(f"[STORAGE] Persistent directory: {PERSISTENT_DIR}")
+print(f"[STORAGE] Database path: {DB_PATH}")
+print(f"[STORAGE] Directory exists: {os.path.exists(PERSISTENT_DIR)}")
+print(f"[STORAGE] Database exists: {os.path.exists(DB_PATH)}")
 
 @app.errorhandler(405)
 def method_not_allowed(error):

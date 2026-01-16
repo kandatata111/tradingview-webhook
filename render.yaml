@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: tradingview-webhook
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn render_server:app
+    envVars:
+      - key: PERSISTENT_STORAGE_PATH
+        value: /var/data
+    disk:
+      name: webhook-data
+      mountPath: /var/data
+      sizeGB: 1
