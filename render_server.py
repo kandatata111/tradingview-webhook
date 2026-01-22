@@ -516,6 +516,19 @@ def dashboard():
 def test():
     return render_template('test.html')
 
+@app.route('/debug_test')
+def debug_test():
+    """デバッグページ: baseTimeframe選択と実際のデータを確認"""
+    try:
+        response = make_response(render_template('debug_test.html'))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except Exception as e:
+        print(f'[ERROR] Debug test error: {e}')
+        return f'Error: {e}', 500
+
 @app.route('/json_test_panel')
 def json_test_panel():
     response = make_response(render_template('json_test_panel.html'))
@@ -802,6 +815,10 @@ def current_states():
         
         print(f'[INFO] Found {len(rows)} states in DB')
         
+        # デバッグ: GBPJPYのtfを表示
+        gbpjpy_tfs = [dict(zip(cols, r)).get('tf') for r in rows if dict(zip(cols, r)).get('symbol') == 'GBPJPY']
+        print(f'[DEBUG] GBPJPY timeframes in DB: {gbpjpy_tfs}')
+        
         states = []
         for r in rows:
             d = dict(zip(cols, r))
@@ -812,7 +829,8 @@ def current_states():
             d['state'] = {'flag': d.get('state_flag', ''), 'word': d.get('state_word', '')}
             d['daytrade'] = {'status': d.get('daytrade_status', ''), 'bos': d.get('daytrade_bos', ''), 'time': d.get('daytrade_time', '')}
             d['swing'] = {'status': d.get('swing_status', ''), 'bos': d.get('swing_bos', ''), 'time': d.get('swing_time', '')}
-            print(f'[INFO] State: {d.get("symbol")}/{d.get("tf")}')
+            clouds_count = len(d['clouds']) if d['clouds'] else 0
+            print(f'[INFO] State: {d.get("symbol")}/{d.get("tf")} (clouds={clouds_count})')
             states.append(d)
         
         # 通貨ペアの表示順序に従ってソート
@@ -821,7 +839,11 @@ def current_states():
                                       if x['symbol'] in ordered_symbols 
                                       else len(ordered_symbols)))
         
-        return jsonify({'status': 'success', 'states': states}), 200
+        response = jsonify({'status': 'success', 'states': states})
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response, 200
     except Exception as e:
         print(f'[ERROR] {e}')
         import traceback

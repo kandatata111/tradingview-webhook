@@ -830,6 +830,13 @@ function loadSettingsFromLocalStorage() {
   const enable5m = localStorage.getItem('tv_enable_5m_update') !== 'false';
   document.getElementById('enable5mUpdateToggle').checked = enable5m;
   
+  // 主体時間足
+  const baseTimeframe = localStorage.getItem('tv_base_timeframe') || '5';
+  const baseTimeframeSelect = document.getElementById('baseTimeframe');
+  if (baseTimeframeSelect) {
+    baseTimeframeSelect.value = baseTimeframe;
+  }
+  
   // 列の表示
   const cols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   document.querySelectorAll('.col-toggle').forEach(cb => {
@@ -1563,6 +1570,15 @@ function setupEventHandlers() {
     localStorage.setItem('tv_enable_5m_update', e.target.checked.toString());
     notifyParent('enable_5m_changed', { enabled: e.target.checked });
   });
+  
+  // 主体時間足
+  const baseTimeframeSelect = document.getElementById('baseTimeframe');
+  if (baseTimeframeSelect) {
+    baseTimeframeSelect.addEventListener('change', (e) => {
+      localStorage.setItem('tv_base_timeframe', e.target.value);
+      notifyParent('base_timeframe_changed', { timeframe: e.target.value });
+    });
+  }
   
   // 列表示
   document.querySelectorAll('.col-toggle').forEach(cb => {

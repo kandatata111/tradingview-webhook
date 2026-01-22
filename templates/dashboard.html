@@ -4597,6 +4597,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           case 'enable_5m_changed':
             // 設定はlocalStorageに保存済み
             break;
+          case 'base_timeframe_changed':
+            // 主体時間足が変更されたのでテーブル再描画
+            console.log('[BASE_TF] Settings changed to:', data.timeframe);
+            console.log('[BASE_TF] localStorage value:', localStorage.getItem('tv_base_timeframe'));
+            console.log('[BASE_TF] Calling load() to refresh tables...');
+            await load();
+            console.log('[BASE_TF] load() completed');
+            break;
           case 'columns_changed':
             applyColumnVisibility();
             await load();
@@ -5253,6 +5261,7 @@ async function load() {
         container.appendChild(section);
         
         // テーブルを生成
+        console.log(`[LOAD] Rendering table for ${symbol}, baseTimeframe in localStorage: ${localStorage.getItem('tv_base_timeframe')}`);
         renderCurrencyTable(symbol, data.states, dashboardDiv);
       });
       
@@ -5282,9 +5291,18 @@ async function load() {
 
 // 通貨ごとのテーブルを生成する関数
 function renderCurrencyTable(symbol, allStates, container) {
-  // 主体時間足を取得（デフォルトは5m）
-  const baseTimeframe = document.getElementById('baseTimeframe')?.value || '5';
+  // 主体時間足を取得（設定ウィンドウの要素、またはlocalStorage、デフォルトは5m）
+  let baseTimeframe = document.getElementById('baseTimeframe')?.value;
+  const fromElement = !!baseTimeframe;
+  if (!baseTimeframe) {
+    baseTimeframe = localStorage.getItem('tv_base_timeframe') || '5';
+  }
+  
+  console.log(`[RENDER_START] ${symbol} - baseTimeframe=${baseTimeframe} (from ${fromElement ? 'element' : 'localStorage'})`);
+  
   const config = timeframeConfig[baseTimeframe];
+  
+  console.log('[BASE_TF] renderCurrencyTable using baseTimeframe:', baseTimeframe);
   
   if (!config) {
     container.innerHTML = '<div class="loading">設定エラー</div>';
@@ -5313,6 +5331,9 @@ function renderCurrencyTable(symbol, allStates, container) {
     container.innerHTML = '<div class="loading">主体時間足のデータがありません</div>';
     return;
   }
+  
+  console.log(`[RENDER] ${symbol} - baseTimeframe=${baseTimeframe}, baseState.tf=${baseState.tf}, timestamp=${baseState.timestamp}`);
+  console.log(`[RENDER] ${symbol} - baseState.clouds数=${baseState.clouds?.length}`);
   
   // 上位足のデータを取得（ダウ転、突破数、ダウ時間の補足用）
   const upperStates = {};
@@ -5350,10 +5371,28 @@ function renderCurrencyTable(symbol, allStates, container) {
     
     // 各時間足の専用JSONからデータを取得
     let sourceState = null;
+    let cloudData = null;
+    
     if (tf === baseTimeframe) {
+      // ベース時間足の場合、その state を使用
       sourceState = baseState;
+      cloudData = baseState.clouds;
     } else if (upperStates[tf]) {
+      // 上位足が独立した state として存在する場合
       sourceState = upperStates[tf];
+      cloudData = upperStates[tf].clouds;
+    } else {
+      // 上位足が独立した state として無い場合、ベース state の clouds から探す
+      console.log(`[DATA] TF=${tf} - No independent state found, searching in baseState.clouds`);
+      cloudData = baseState.clouds;
+      if (cloudData && cloudData.length > 0) {
+        const cloudObj = cloudData.find(c => c.label === label);
+        if (cloudObj) {
+          // clouds配列から該当labelデータを見つけた
+          sourceState = { ...baseState, clouds: [cloudObj] };
+          console.log(`[DATA] TF=${tf} - Found in baseState.clouds:`, cloudObj);
+        }
+      }
     }
     
     console.log(`[DATA] TF=${tf}, Label=${label}, State:`, sourceState);
@@ -5373,16 +5412,35 @@ function renderCurrencyTable(symbol, allStates, container) {
         cloud = { ...cloud };
       }
       
-      // daytrade情報を優先的に使用
-      if (sourceState.daytrade) {
-        console.log(`[DATA] TF=${tf} - Applying daytrade:`, sourceState.daytrade);
+      // daytrade情報を優先的に使用（主体時間足のみ）
+      // 上位足はcloudの個別dauten情報を保持
+      if (sourceState.daytrade && tf === baseTimeframe) {
+        // 主体時間足の場合のみdaytradeで上書き
+        console.log(`[DATA] TF=${tf} - Applying daytrade (base TF):`, sourceState.daytrade);
         cloud.bos_count = sourceState.daytrade.bos || cloud.bos_count;
-        cloud.dauten = sourceState.daytrade.status || cloud.dauten;
+        
+        // daytrade.statusを'up'/'down'に変換（"上昇ダウ" → 'up', "下降ダウ" → 'down'）
+        if (sourceState.daytrade.status) {
+          const statusStr = sourceState.daytrade.status;
+          if (statusStr.includes('上昇')) {
+            cloud.dauten = 'up';
+          } else if (statusStr.includes('下降')) {
+            cloud.dauten = 'down';
+          } else {
+            // 既存の cloud.dauten を保持
+            console.warn(`[DATA] Unknown daytrade.status: ${statusStr}`);
+          }
+        }
+        
         cloud.dauten_start_time_str = sourceState.daytrade.time || cloud.dauten_start_time_str;
+        console.log(`[DATA] TF=${tf} - Final dauten after conversion:`, cloud.dauten);
+      } else if (sourceState.daytrade && tf !== baseTimeframe) {
+        // 上位足の場合はcloudの個別情報を保持
+        console.log(`[DATA] TF=${tf} - Keeping individual cloud dauten:`, cloud.dauten);
       }
       
       mergedClouds.push(cloud);
-      console.log(`[DATA] TF=${tf} - Merged cloud:`, cloud);
+      console.log(`[DATA] TF=${tf} - Merged cloud - dauten:${cloud.dauten}, angle:${cloud.angle}, dist_prev:${cloud.distance_from_prev}, dist_price:${cloud.distance_from_price}`);
     } else {
       console.warn(`[DATA] TF=${tf} - No valid state or clouds found`);
     }
@@ -5392,16 +5450,26 @@ function renderCurrencyTable(symbol, allStates, container) {
   const rowOrder = config.displayOrder;
   const orderedRows = [];
   
+  console.log('[RENDER] rowOrder:', rowOrder);
+  console.log('[RENDER] mergedClouds labels:', mergedClouds.map(c => c.label));
+  
   rowOrder.forEach(label => {
     if (label === 'price') {
       orderedRows.push({ type: 'price', price: baseState.price });
     } else {
-      const cloud = mergedClouds.find(c => c.label === label);
+      // labelを変換（'15' → '15m', '60' → '1H', など）
+      const displayLabel = getTfLabel(label);
+      const cloud = mergedClouds.find(c => c.label === displayLabel);
       if (cloud) {
         orderedRows.push({ type: 'cloud', ...cloud });
+        console.log('[RENDER] Added cloud for', label, '→', displayLabel, ':', cloud);
+      } else {
+        console.warn('[RENDER] Cloud not found for', label, '→', displayLabel);
       }
     }
   });
+  
+  console.log('[RENDER] orderedRows count:', orderedRows.length);
   
   let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="12" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
   html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">トレンド</th></tr>';
@@ -5436,7 +5504,11 @@ function renderCurrencyTable(symbol, allStates, container) {
 
       let bosVal = c.bos_count;
 
-      const toNum = v => (v === null || v === undefined || v === '' ? null : Number(v));
+      const toNum = v => {
+        if (v === null || v === undefined || v === '' || v === 'N/A' || v === 'na') return null;
+        const num = Number(v);
+        return isNaN(num) ? null : num;
+      };
       const prev = toNum(c.distance_from_prev);
       const prevColor = (prev !== null ? (prev > 0 ? '#2962ff' : (prev < 0 ? '#f23645' : '')) : '');
       const dp = toNum(c.distance_from_price);
@@ -5520,7 +5592,17 @@ function renderCurrencyTable(symbol, allStates, container) {
   });
 
   html += '</table></div>';
-  container.innerHTML = html;
+  
+  console.log('[RENDER] HTML length:', html.length, 'characters');
+  console.log('[RENDER] Container:', container);
+  console.log('[RENDER] Container exists:', !!container);
+  
+  if (container) {
+    container.innerHTML = html;
+    console.log('[RENDER] ✓ HTML inserted into container');
+  } else {
+    console.error('[RENDER] ✗ Container not found!');
+  }
 }
 
 // 初期読み込みと定期的な更新

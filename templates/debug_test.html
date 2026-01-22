@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>デバッグテスト</title>
+</head>
+<body>
+    <h1>主体時間足変更テスト</h1>
+    
+    <div>
+        <label>主体時間足を選択:</label>
+        <select id="baseTimeframe">
+            <option value="5">5分足</option>
+            <option value="15" selected>15分足</option>
+            <option value="60">1時間足</option>
+            <option value="240">4時間足</option>
+        </select>
+        <button onclick="testRender()">テスト実行</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+    async function testRender() {
+        const baseTimeframe = document.getElementById('baseTimeframe').value;
+        console.log('═'.repeat(80));
+        console.log(`[TEST] baseTimeframe=${baseTimeframe} でGBPJPYを表示`);
+        console.log('═'.repeat(80));
+        
+        // データ取得（キャッシュバスティング）
+        const cacheBuster = Date.now();
+        const response = await fetch(`/current_states?_=${cacheBuster}`, {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+        });
+        const data = await response.json();
+        const allStates = data.states;
+        
+        console.log(`[FETCH] データ取得完了: ${allStates.length} states (cacheBuster=${cacheBuster})`);
+        
+        const symbol = 'GBPJPY';
+        
+        // baseState取得
+        const baseTfVariants = baseTimeframe === '5' ? ['5', '5m', '5M'] :
+                               baseTimeframe === '15' ? ['15', '15m', '15M'] :
+                               baseTimeframe === '60' ? ['60', '1h', '1H'] :
+                               baseTimeframe === '240' ? ['240', '4h', '4H'] : [baseTimeframe];
+        
+        console.log(`検索中: tfVariants=${JSON.stringify(baseTfVariants)}`);
+        console.log(`利用可能なstates: ${allStates.filter(x => x.symbol === symbol).map(x => x.tf).join(', ')}`);
+        
+        const baseState = allStates.find(s => s.symbol === symbol && baseTfVariants.includes(s.tf));
+        
+        if (!baseState) {
+            console.error('baseState not found');
+            return;
+        }
+        
+        console.log(`✓ baseState取得: symbol=${baseState.symbol}, tf=${baseState.tf}, timestamp=${baseState.timestamp}`);
+        console.log(`  clouds数: ${baseState.clouds.length}`);
+        
+        // 4Hデータを探す
+        const cloud4h = baseState.clouds.find(c => c.label === '4H');
+        if (cloud4h) {
+            console.log(`\n【4Hデータ】`);
+            console.log(`  angle: ${cloud4h.angle?.toFixed(2)}°`);
+            console.log(`  distance_from_prev: ${cloud4h.distance_from_prev?.toFixed(2)}`);
+            console.log(`  distance_from_price: ${cloud4h.distance_from_price?.toFixed(2)}`);
+            console.log(`  dauten: ${cloud4h.dauten}`);
+            
+            // 結果表示
+            document.getElementById('result').innerHTML = `
+                <h3>結果 (baseTimeframe=${baseTimeframe})</h3>
+                <pre>
+baseState.tf: ${baseState.tf}
+timestamp: ${baseState.timestamp}
+
+4Hデータ:
+  angle: ${cloud4h.angle?.toFixed(2)}°
+  dist_prev: ${cloud4h.distance_from_prev?.toFixed(2)}
+  dist_price: ${cloud4h.distance_from_price?.toFixed(2)}
+  dauten: ${cloud4h.dauten}
+                </pre>
+            `;
+        } else {
+            console.error('4H cloud not found in baseState');
+        }
+        
+        console.log('═'.repeat(80));
+    }
+    
+    // 初回実行
+    window.onload = () => testRender();
+    </script>
+</body>
+</html>
