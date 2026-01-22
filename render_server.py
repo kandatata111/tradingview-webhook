@@ -829,6 +829,33 @@ def current_states():
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 
+@app.route('/download_db')
+def download_db():
+    """データベースファイルをダウンロードするエンドポイント"""
+    print('[ACCESS] Database download request')
+    try:
+        if not os.path.exists(DB_PATH):
+            return jsonify({'status': 'error', 'msg': 'Database file not found'}), 404
+        
+        # データベースファイルのサイズを確認
+        db_size_mb = os.path.getsize(DB_PATH) / (1024 * 1024)
+        print(f'[DOWNLOAD] Database size: {db_size_mb:.2f} MB')
+        
+        # データベースファイルを送信
+        directory = os.path.dirname(DB_PATH)
+        filename = os.path.basename(DB_PATH)
+        
+        response = send_from_directory(directory, filename, as_attachment=True)
+        print(f'[DOWNLOAD] Sending database file: {filename}')
+        
+        return response
+    except Exception as e:
+        print(f'[ERROR] Database download failed: {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
 @app.route('/rules', methods=['GET', 'POST'])
 def rules():
     try:

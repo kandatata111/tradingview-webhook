@@ -4430,6 +4430,20 @@ async function populateChimeSelect() {
   }
 }
 
+// 主体時間足選択のイベントリスナー
+function setupBaseTimeframeListener() {
+  const baseTimeframe = document.getElementById('baseTimeframe');
+  if (baseTimeframe) {
+    baseTimeframe.addEventListener('change', async () => {
+      console.log('[BASE_TF] Changed to:', baseTimeframe.value);
+      await load(); // テーブルを再描画
+    });
+    console.log('[BASE_TF] Event listener attached');
+  } else {
+    console.warn('[BASE_TF] baseTimeframe element not found');
+  }
+}
+
 // 初期化: 設定を読み込み、UI を配線
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -4753,6 +4767,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.error('[INIT] Setup failed:', e.message);
     }
 
+    // 主体時間足選択のイベントリスナーを設定
+    try {
+      setupBaseTimeframeListener();
+    } catch (e) {
+      console.error('[INIT] BaseTimeframe listener setup failed:', e.message);
+    }
+
     // Notification polling initialization (moved from separate DOMContentLoaded listener)
     const REQUIRED_VERSION = '2025-12-05-v3';
     const currentVersion = localStorage.getItem('app_version');
@@ -5061,6 +5082,53 @@ function formatTimeDiff(diffMin, format) {
   return diffMin + 'm';
 }
 
+// 主体時間足ごとの設定
+const timeframeConfig = {
+  '5': {
+    label: '5分足',
+    upper: ['15', '60', '240'],  // 15m/1H/4H
+    displayOrder: ['5', 'price', '15', '60', '240'],
+    tfLabels: { '5': '5m', '15': '15m', '60': '1H', '240': '4H' }
+  },
+  '15': {
+    label: '15分足',
+    upper: ['60', '240', 'D'],  // 1H/4H/日足
+    displayOrder: ['15', 'price', '60', '240', 'D'],
+    tfLabels: { '15': '15m', '60': '1H', '240': '4H', 'D': 'D' }
+  },
+  '60': {
+    label: '1時間足',
+    upper: ['240', 'D', 'W'],  // 4H/日足/週足
+    displayOrder: ['60', 'price', '240', 'D', 'W'],
+    tfLabels: { '60': '1H', '240': '4H', 'D': 'D', 'W': 'W' }
+  },
+  '240': {
+    label: '4時間足',
+    upper: ['D', 'W', 'M'],  // 日足/週足/年足
+    displayOrder: ['240', 'price', 'D', 'W', 'M'],
+    tfLabels: { '240': '4H', 'D': 'D', 'W': 'W', 'M': 'M' }
+  },
+  // 将来の拡張用
+  'D': {
+    label: '日足',
+    upper: ['W', 'M'],
+    displayOrder: ['D', 'price', 'W', 'M'],
+    tfLabels: { 'D': 'D', 'W': 'W', 'M': 'M' }
+  },
+  'W': {
+    label: '週足',
+    upper: ['M'],
+    displayOrder: ['W', 'price', 'M'],
+    tfLabels: { 'W': 'W', 'M': 'M' }
+  },
+  'M': {
+    label: '年足',
+    upper: [],
+    displayOrder: ['M', 'price'],
+    tfLabels: { 'M': 'M' }
+  }
+};
+
 async function load() {
   const update_at = new Date().toISOString();
   console.log('[CLIENT UPDATE START]', update_at);
@@ -5214,6 +5282,15 @@ async function load() {
 
 // 通貨ごとのテーブルを生成する関数
 function renderCurrencyTable(symbol, allStates, container) {
+  // 主体時間足を取得（デフォルトは5m）
+  const baseTimeframe = document.getElementById('baseTimeframe')?.value || '5';
+  const config = timeframeConfig[baseTimeframe];
+  
+  if (!config) {
+    container.innerHTML = '<div class="loading">設定エラー</div>';
+    return;
+  }
+  
   // 各時間足のデータを取得（複数のtf表記に対応、空データは除外）
   const findValidState = (symbol, tfVariants) => {
     const matches = allStates.filter(x => x.symbol === symbol && tfVariants.includes(x.tf));
@@ -5221,73 +5298,103 @@ function renderCurrencyTable(symbol, allStates, container) {
     return matches.find(x => x.clouds && x.clouds.length > 0) || matches[0];
   };
   
-  const state5m = findValidState(symbol, ['5', '5m', '5M']);
-  const state15m = findValidState(symbol, ['15', '15m', '15M']);
-  const state1h = findValidState(symbol, ['60', '1h', '1H']);
-  const state4h = findValidState(symbol, ['240', '4h', '4H']);
+  // 主体時間足のデータを取得
+  const baseTfVariants = baseTimeframe === '5' ? ['5', '5m', '5M'] :
+                         baseTimeframe === '15' ? ['15', '15m', '15M'] :
+                         baseTimeframe === '60' ? ['60', '1h', '1H'] :
+                         baseTimeframe === '240' ? ['240', '4h', '4H'] :
+                         baseTimeframe === 'D' ? ['D', '1D'] :
+                         baseTimeframe === 'W' ? ['W', '1W'] :
+                         baseTimeframe === 'M' ? ['M', '1M'] : [baseTimeframe];
   
-  // いずれかのデータが存在すれば表示可能
-  if (!state5m && !state15m && !state1h && !state4h) {
-    container.innerHTML = '<div class="loading">データがありません</div>';
+  const baseState = findValidState(symbol, baseTfVariants);
+  
+  if (!baseState) {
+    container.innerHTML = '<div class="loading">主体時間足のデータがありません</div>';
     return;
   }
   
-  // 代表データ（更新時刻とprice用）
-  const mainState = state5m || state15m || state1h || state4h;
+  // 上位足のデータを取得（ダウ転、突破数、ダウ時間の補足用）
+  const upperStates = {};
+  config.upper.forEach(tf => {
+    const tfVariants = tf === '5' ? ['5', '5m', '5M'] :
+                       tf === '15' ? ['15', '15m', '15M'] :
+                       tf === '60' ? ['60', '1h', '1H'] :
+                       tf === '240' ? ['240', '4h', '4H'] :
+                       tf === 'D' ? ['D', '1D'] :
+                       tf === 'W' ? ['W', '1W'] :
+                       tf === 'M' ? ['M', '1M'] : [tf];
+    upperStates[tf] = findValidState(symbol, tfVariants);
+  });
   
   // 更新時刻を計算（JST）
-  const updateTime = mainState.timestamp ? new Date(mainState.timestamp).toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', hour12: false}).split(' ')[1] : 'N/A';
+  const updateTime = baseState.timestamp ? new Date(baseState.timestamp).toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', hour12: false}).split(' ')[1] : 'N/A';
   
-  // 各時間足のデータを統合
-  // 5m のクラウド配列をベースにするが、なければ各時間足の専用データから構築
-  let baseClouds = state5m?.clouds || [];
-  
-  // 5m足のclouds配列に各時間足のデータがない場合、専用データから追加
-  const timeframes = [
-    { label: '5m', state: state5m },
-    { label: '15m', state: state15m },
-    { label: '1H', state: state1h },
-    { label: '4H', state: state4h }
-  ];
-  
+  // 各時間足から完全データを抽出してマージ
   const mergedClouds = [];
   
-  timeframes.forEach(({ label, state }) => {
-    // baseCloudsにこの時間足のデータがあるか確認
-    let cloud = baseClouds.find(c => c.label === label);
+  // 表示する時間足のリスト（主体時間足+上位足）
+  const displayTfs = [baseTimeframe, ...config.upper];
+  
+  // 各時間足の表示ラベルを取得
+  const getTfLabel = (tf) => {
+    if (tf === '5') return '5m';
+    if (tf === '15') return '15m';
+    if (tf === '60') return '1H';
+    if (tf === '240') return '4H';
+    return tf; // D, W, Mはそのまま
+  };
+  
+  displayTfs.forEach(tf => {
+    const label = getTfLabel(tf);
     
-    if (!cloud && state && state.clouds && state.clouds.length > 0) {
-      // baseCloudsにないが専用データがある場合、専用データから作成
-      cloud = { ...state.clouds[0], label: label };
+    // 各時間足の専用JSONからデータを取得
+    let sourceState = null;
+    if (tf === baseTimeframe) {
+      sourceState = baseState;
+    } else if (upperStates[tf]) {
+      sourceState = upperStates[tf];
     }
     
-    if (cloud) {
-      const merged = { ...cloud };
+    console.log(`[DATA] TF=${tf}, Label=${label}, State:`, sourceState);
+    
+    if (sourceState && sourceState.clouds && sourceState.clouds.length > 0) {
+      console.log(`[DATA] TF=${tf} has ${sourceState.clouds.length} clouds:`, sourceState.clouds);
       
-      // 専用データがあれば、そちらを優先してマージ
-      // daytrade.bosは文字列("BOS-1")、clouds[x].bos_countは数値なので注意
-      if (state && state.clouds && state.clouds.length > 0) {
-        // 該当labelのcloud要素を探す
-        const specificCloud = state.clouds.find(c => c.label === label) || state.clouds[0];
-        
-        merged.dauten = specificCloud.dauten ?? cloud.dauten;
-        // 突破数はdaytrade.bosから取得（"BOS-1", "BOS-2"などの文字列）
-        merged.bos_count = state.daytrade?.bos || cloud.bos_count;
-        merged.dauten_start_time_str = specificCloud.dauten_start_time_str ?? cloud.dauten_start_time_str;
-        merged.elapsed_str = specificCloud.elapsed_str ?? cloud.elapsed_str;
+      // clouds配列から該当labelのデータを探す
+      let cloud = sourceState.clouds.find(c => c.label === label);
+      
+      // なければ1番目の要素を使用（labelは上書き）
+      if (!cloud) {
+        console.log(`[DATA] TF=${tf} - Label ${label} not found in clouds, using first element`);
+        cloud = { ...sourceState.clouds[0], label: label };
+      } else {
+        console.log(`[DATA] TF=${tf} - Found cloud with label ${label}:`, cloud);
+        cloud = { ...cloud };
       }
       
-      mergedClouds.push(merged);
+      // daytrade情報を優先的に使用
+      if (sourceState.daytrade) {
+        console.log(`[DATA] TF=${tf} - Applying daytrade:`, sourceState.daytrade);
+        cloud.bos_count = sourceState.daytrade.bos || cloud.bos_count;
+        cloud.dauten = sourceState.daytrade.status || cloud.dauten;
+        cloud.dauten_start_time_str = sourceState.daytrade.time || cloud.dauten_start_time_str;
+      }
+      
+      mergedClouds.push(cloud);
+      console.log(`[DATA] TF=${tf} - Merged cloud:`, cloud);
+    } else {
+      console.warn(`[DATA] TF=${tf} - No valid state or clouds found`);
     }
   });
   
-  // row_order に従って行を並べ替え（なければデフォルト順序）
-  const rowOrder = mainState.row_order || ['5m', '15m', 'price', '1H', '4H'];
+  // 行順序を決定（主体時間足 → price → 上位足の順）
+  const rowOrder = config.displayOrder;
   const orderedRows = [];
   
   rowOrder.forEach(label => {
     if (label === 'price') {
-      orderedRows.push({ type: 'price', price: mainState.price });
+      orderedRows.push({ type: 'price', price: baseState.price });
     } else {
       const cloud = mergedClouds.find(c => c.label === label);
       if (cloud) {
@@ -5296,7 +5403,7 @@ function renderCurrencyTable(symbol, allStates, container) {
     }
   });
   
-  let html = '<div class="table-wrap"><table data-symbol="' + mainState.symbol + '"><tr><th class="drag-handle" colspan="12" style="text-align: center; cursor: grab; color: white;">' + mainState.symbol + ' - ' + mainState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
+  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="12" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
   html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">トレンド</th></tr>';
 
   orderedRows.forEach(row => {
