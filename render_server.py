@@ -699,7 +699,22 @@ def webhook():
                      json.dumps(data.get('clouds', []), ensure_ascii=False),
                      json.dumps(data.get('meta', {}), ensure_ascii=False)))
             conn.commit()
+            # WALモード有効時の即時書き込み確保
+            try:
+                c.execute('PRAGMA optimize')
+            except:
+                pass
             conn.close()
+            
+            # 【重要】ファイルレベルの同期（Renderで再起動時のデータ損失防止）
+            try:
+                fd = os.open(DB_PATH, os.O_RDONLY)
+                os.fsync(fd)
+                os.close(fd)
+                print(f'[DB_SYNC] ✓ Forced disk sync for {symbol_val}/{tf_val}')
+            except Exception as e:
+                print(f'[DB_SYNC] ⚠ Sync failed: {e}')
+            
             saved_at = datetime.now(jst).isoformat()
             print(f'[OK] Saved immediately: {symbol_val}/{tf_val} at {saved_at}')
             
