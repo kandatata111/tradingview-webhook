@@ -5094,9 +5094,9 @@ function formatTimeDiff(diffMin, format) {
 const timeframeConfig = {
   '5': {
     label: '5分足',
-    upper: ['15', '60', '240'],  // 15m/1H/4H
-    displayOrder: ['5', 'price', '15', '60', '240'],
-    tfLabels: { '5': '5m', '15': '15m', '60': '1H', '240': '4H' }
+    upper: ['15', '60', '240', 'D'],  // 15m/1H/4H/日足
+    displayOrder: ['5', 'price', '15', '60', '240', 'D'],
+    tfLabels: { '5': '5m', '15': '15m', '60': '1H', '240': '4H', 'D': 'D' }
   },
   '15': {
     label: '15分足',
@@ -5345,7 +5345,17 @@ function renderCurrencyTable(symbol, allStates, container) {
                        tf === 'D' ? ['D', '1D'] :
                        tf === 'W' ? ['W', '1W'] :
                        tf === 'M' ? ['M', '1M'] : [tf];
-    upperStates[tf] = findValidState(symbol, tfVariants);
+    const foundState = findValidState(symbol, tfVariants);
+    upperStates[tf] = foundState;
+    if (tf === 'D') {
+      console.log(`[DEBUG] upperStates['D'] search for ${symbol}:`, {
+        tfVariants: tfVariants,
+        found: !!foundState,
+        state_tf: foundState?.tf,
+        has_daytrade: !!foundState?.daytrade,
+        daytrade: foundState?.daytrade
+      });
+    }
   });
   
   // 更新時刻を計算（JST）
@@ -5356,6 +5366,7 @@ function renderCurrencyTable(symbol, allStates, container) {
   
   // 表示する時間足のリスト（主体時間足+上位足）
   const displayTfs = [baseTimeframe, ...config.upper];
+  console.log(`[RENDER] ${symbol} - displayTfs:`, displayTfs, 'config.upper:', config.upper);
   
   // 各時間足の表示ラベルを取得
   const getTfLabel = (tf) => {
@@ -5368,6 +5379,7 @@ function renderCurrencyTable(symbol, allStates, container) {
   
   displayTfs.forEach(tf => {
     const label = getTfLabel(tf);
+    console.log(`[LOOP] ${symbol} TF=${tf} (label=${label})`);
     
     // 各時間足のデータを取得
     // 重要: 上位足のデータは常にbaseState.cloudsからのみ取得する
@@ -5416,20 +5428,27 @@ function renderCurrencyTable(symbol, allStates, container) {
       // ダウ情報（ダウ転、突破数、ダウ時間）は各時間足の独立したdaytradeからのみ取得
       // 取得できない場合はデータ欠損として扱う（フォールバックしない）
       let dautenSource = null;
+      console.log(`[DAUTEN_LOGIC] TF=${tf}, baseTimeframe=${baseTimeframe}, check: tf===baseTimeframe = ${tf === baseTimeframe}`);
       if (tf === baseTimeframe) {
         // 主体時間足の場合
         dautenSource = baseState.daytrade;
         console.log(`[DATA] TF=${tf} - Using baseState.daytrade:`, dautenSource);
-      } else if (upperStates[tf] && upperStates[tf].daytrade) {
-        // 上位足の独立したdaytradeを使用
-        dautenSource = upperStates[tf].daytrade;
-        console.log(`[DATA] TF=${tf} - Using upperStates[${tf}].daytrade:`, dautenSource);
       } else {
-        // 独立したdaytradeが無い場合はデータ欠損として扱う
-        console.warn(`[DATA] TF=${tf} - No independent daytrade found - ダウ情報欠損`);
-        cloud.dauten = null;
-        cloud.bos_count = null;
-        cloud.dauten_start_time_str = null;
+        console.log(`[DAUTEN_LOGIC] TF=${tf} - Not baseTimeframe, checking upperStates[${tf}]...`, {
+          exists: !!upperStates[tf],
+          has_daytrade: !!upperStates[tf]?.daytrade
+        });
+        if (upperStates[tf] && upperStates[tf].daytrade) {
+          // 上位足の独立したdaytradeを使用
+          dautenSource = upperStates[tf].daytrade;
+          console.log(`[DATA] TF=${tf} - Using upperStates[${tf}].daytrade:`, dautenSource);
+        } else {
+          // 独立したdaytradeが無い場合はデータ欠損として扱う
+          console.warn(`[DATA] TF=${tf} - No independent daytrade found - ダウ情報欠損`);
+          cloud.dauten = null;
+          cloud.bos_count = null;
+          cloud.dauten_start_time_str = null;
+        }
       }
       
       // dautenSourceがある場合のみダウ情報を設定
@@ -5503,6 +5522,9 @@ function renderCurrencyTable(symbol, allStates, container) {
       else if (c.label === '15m') tfBgColor = '#fbd0b2';
       else if (c.label === '1H') tfBgColor = '#8dc7fc';
       else if (c.label === '4H') tfBgColor = '#fa8dfe';
+      else if (c.label === 'D') tfBgColor = '#dccb9c';
+      else if (c.label === 'W') tfBgColor = '#d99ee6';
+      else if (c.label === 'M') tfBgColor = '#c0c0c0';
       
       if (tfBgColor) {
         html += '<td class="tf-label" style="background:' + tfBgColor + '; color:#000">' + c.label + '</td>';
