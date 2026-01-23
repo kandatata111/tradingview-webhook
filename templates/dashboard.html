@@ -5369,7 +5369,9 @@ function renderCurrencyTable(symbol, allStates, container) {
   displayTfs.forEach(tf => {
     const label = getTfLabel(tf);
     
-    // 各時間足の専用JSONからデータを取得
+    // 各時間足のデータを取得
+    // 重要: 上位足のデータは常にbaseState.cloudsからのみ取得する
+    // データが無い場合はスキップ（古いデータで補完しない）
     let sourceState = null;
     let cloudData = null;
     
@@ -5377,13 +5379,9 @@ function renderCurrencyTable(symbol, allStates, container) {
       // ベース時間足の場合、その state を使用
       sourceState = baseState;
       cloudData = baseState.clouds;
-    } else if (upperStates[tf]) {
-      // 上位足が独立した state として存在する場合
-      sourceState = upperStates[tf];
-      cloudData = upperStates[tf].clouds;
     } else {
-      // 上位足が独立した state として無い場合、ベース state の clouds から探す
-      console.log(`[DATA] TF=${tf} - No independent state found, searching in baseState.clouds`);
+      // 上位足は常にbaseState.cloudsからのみ取得
+      console.log(`[DATA] TF=${tf} - Searching in baseState.clouds for label ${label}`);
       cloudData = baseState.clouds;
       if (cloudData && cloudData.length > 0) {
         const cloudObj = cloudData.find(c => c.label === label);
@@ -5391,6 +5389,9 @@ function renderCurrencyTable(symbol, allStates, container) {
           // clouds配列から該当labelデータを見つけた
           sourceState = { ...baseState, clouds: [cloudObj] };
           console.log(`[DATA] TF=${tf} - Found in baseState.clouds:`, cloudObj);
+        } else {
+          // データが無い場合は警告のみ（フォールバックしない）
+          console.warn(`[DATA] TF=${tf} - Label ${label} not found in baseState.clouds - データ欠損`);
         }
       }
     }
@@ -5400,7 +5401,7 @@ function renderCurrencyTable(symbol, allStates, container) {
     if (sourceState && sourceState.clouds && sourceState.clouds.length > 0) {
       console.log(`[DATA] TF=${tf} has ${sourceState.clouds.length} clouds:`, sourceState.clouds);
       
-      // clouds配列から該当labelのデータを探す
+      // clouds配列から該当labelのデータを探す（雲情報用）
       let cloud = sourceState.clouds.find(c => c.label === label);
       
       // なければ1番目の要素を使用（labelは上書き）
@@ -5412,31 +5413,46 @@ function renderCurrencyTable(symbol, allStates, container) {
         cloud = { ...cloud };
       }
       
-      // daytrade情報を優先的に使用（主体時間足のみ）
-      // 上位足はcloudの個別dauten情報を保持
-      if (sourceState.daytrade && tf === baseTimeframe) {
-        // 主体時間足の場合のみdaytradeで上書き
-        console.log(`[DATA] TF=${tf} - Applying daytrade (base TF):`, sourceState.daytrade);
-        cloud.bos_count = sourceState.daytrade.bos || cloud.bos_count;
+      // ダウ情報（ダウ転、突破数、ダウ時間）は各時間足の独立したdaytradeからのみ取得
+      // 取得できない場合はデータ欠損として扱う（フォールバックしない）
+      let dautenSource = null;
+      if (tf === baseTimeframe) {
+        // 主体時間足の場合
+        dautenSource = baseState.daytrade;
+        console.log(`[DATA] TF=${tf} - Using baseState.daytrade:`, dautenSource);
+      } else if (upperStates[tf] && upperStates[tf].daytrade) {
+        // 上位足の独立したdaytradeを使用
+        dautenSource = upperStates[tf].daytrade;
+        console.log(`[DATA] TF=${tf} - Using upperStates[${tf}].daytrade:`, dautenSource);
+      } else {
+        // 独立したdaytradeが無い場合はデータ欠損として扱う
+        console.warn(`[DATA] TF=${tf} - No independent daytrade found - ダウ情報欠損`);
+        cloud.dauten = null;
+        cloud.bos_count = null;
+        cloud.dauten_start_time_str = null;
+      }
+      
+      // dautenSourceがある場合のみダウ情報を設定
+      if (dautenSource) {
+        cloud.bos_count = dautenSource.bos || '-';
         
         // daytrade.statusを'up'/'down'に変換（"上昇ダウ" → 'up', "下降ダウ" → 'down'）
-        if (sourceState.daytrade.status) {
-          const statusStr = sourceState.daytrade.status;
+        if (dautenSource.status) {
+          const statusStr = dautenSource.status;
           if (statusStr.includes('上昇')) {
             cloud.dauten = 'up';
           } else if (statusStr.includes('下降')) {
             cloud.dauten = 'down';
           } else {
-            // 既存の cloud.dauten を保持
             console.warn(`[DATA] Unknown daytrade.status: ${statusStr}`);
+            cloud.dauten = null;
           }
+        } else {
+          cloud.dauten = null;
         }
         
-        cloud.dauten_start_time_str = sourceState.daytrade.time || cloud.dauten_start_time_str;
-        console.log(`[DATA] TF=${tf} - Final dauten after conversion:`, cloud.dauten);
-      } else if (sourceState.daytrade && tf !== baseTimeframe) {
-        // 上位足の場合はcloudの個別情報を保持
-        console.log(`[DATA] TF=${tf} - Keeping individual cloud dauten:`, cloud.dauten);
+        cloud.dauten_start_time_str = dautenSource.time || '-';
+        console.log(`[DATA] TF=${tf} - Applied daytrade - dauten:${cloud.dauten}, bos:${cloud.bos_count}, time:${cloud.dauten_start_time_str}`);
       }
       
       mergedClouds.push(cloud);
