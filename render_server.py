@@ -5,6 +5,10 @@ import threading
 import pytz
 import requests
 from flask_socketio import SocketIO, emit
+import traceback
+
+# バックアップデータ定数をインポート
+from backup_constants import HOURLY_DATA_BACKUP, FOUR_HOURLY_DATA_BACKUP
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -274,39 +278,38 @@ DAILY_DATA_BACKUP = [
     {"symbol":"EURJPY","tf":"D","time":1769032800000,"daytrade":{"status":"上昇ダウ","bos":"BOS-9","time":"25/05/01/06:00"},"row_order":["price","D","W","M","Y"],"cloud_order":["D","W","M","Y"],"clouds":[{"label":"D","tf":"D","gc":True,"thickness":60.5563911787,"angle":35.8457454249,"elapsed":155580,"cross_start_time":1759698000000,"elapsed_str":"25/10/06/06:00","in_cloud":False,"star":False,"distance_from_price":182.5718044106,"distance_from_prev":182.5718044106,"topPrice":184.7190639118,"bottomPrice":184.1135,"dauten":"up","bos_count":0,"dauten_start_time":1746046800000,"dauten_start_time_str":"25/05/01/06:00"}],"price":186.242}
 ]
 
-def restore_daily_data_if_missing():
+def restore_missing_data():
     """
-    起動時に日足データが不足している場合、バックアップから自動復元
+    起動時にD/4H/1H足データが不足している場合、バックアップから自動復元
     """
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
+        jst = pytz.timezone('Asia/Tokyo')
         
-        # 現在の日足データ数を確認
+        # 各時間足のデータ数を確認
         c.execute("SELECT COUNT(DISTINCT symbol) FROM states WHERE tf='D'")
         daily_count = c.fetchone()[0]
+        c.execute("SELECT COUNT(DISTINCT symbol) FROM states WHERE tf='240'")
+        four_hourly_count = c.fetchone()[0]
+        c.execute("SELECT COUNT(DISTINCT symbol) FROM states WHERE tf='60'")
+        hourly_count = c.fetchone()[0]
         
-        print(f"[INIT] Current daily data: {daily_count}/10 currencies")
+        print(f"[INIT] Current data - D: {daily_count}/10, 4H: {four_hourly_count}/10, 1H: {hourly_count}/10")
         
+        total_restored = 0
+        
+        # D足データの復元
         if daily_count < 10:
-            print(f"[INIT] Restoring missing daily data from backup...")
-            restored = 0
-            
-            jst = pytz.timezone('Asia/Tokyo')
-            
+            print(f"[INIT] Restoring missing daily data...")
             for data in DAILY_DATA_BACKUP:
-                symbol = data['symbol']
-                tf = data['tf']
-                
-                # 既に存在するかチェック
+                symbol, tf = data['symbol'], data['tf']
                 c.execute("SELECT COUNT(*) FROM states WHERE symbol=? AND tf=?", (symbol, tf))
                 if c.fetchone()[0] > 0:
                     continue
-                
-                # データを挿入
+                    
                 timestamp = datetime.now(jst).isoformat()
                 daytrade = data.get('daytrade', {})
-                
                 c.execute('''
                     INSERT OR REPLACE INTO states (
                         symbol, tf, timestamp, price, time, state_flag, state_word,
@@ -324,21 +327,78 @@ def restore_daily_data_if_missing():
                     json.dumps(data.get('clouds', []), ensure_ascii=False),
                     json.dumps(data.get('meta', {}), ensure_ascii=False)
                 ))
-                restored += 1
-            
-            conn.commit()
-            conn.close()
-            
-            if restored > 0:
-                print(f"[INIT] ✓ Restored {restored} daily data records from backup")
-            else:
-                print(f"[INIT] All daily data already present")
+                total_restored += 1
+        
+        # 4H足データの復元
+        if four_hourly_count < 10:
+            print(f"[INIT] Restoring missing 4H data...")
+            for data in FOUR_HOURLY_DATA_BACKUP:
+                symbol, tf = data['symbol'], data['tf']
+                c.execute("SELECT COUNT(*) FROM states WHERE symbol=? AND tf=?", (symbol, tf))
+                if c.fetchone()[0] > 0:
+                    continue
+                    
+                timestamp = datetime.now(jst).isoformat()
+                daytrade = data.get('daytrade', {})
+                c.execute('''
+                    INSERT OR REPLACE INTO states (
+                        symbol, tf, timestamp, price, time, state_flag, state_word,
+                        daytrade_status, daytrade_bos, daytrade_time,
+                        swing_status, swing_bos, swing_time,
+                        row_order, cloud_order, clouds_json, meta_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    symbol, tf, timestamp, data.get('price'), data.get('time'),
+                    '', '',
+                    daytrade.get('status', ''), daytrade.get('bos', ''), daytrade.get('time', ''),
+                    '', '', '',
+                    ','.join(data.get('row_order', [])),
+                    ','.join(data.get('cloud_order', [])),
+                    json.dumps(data.get('clouds', []), ensure_ascii=False),
+                    json.dumps(data.get('meta', {}), ensure_ascii=False)
+                ))
+                total_restored += 1
+        
+        # 1H足データの復元
+        if hourly_count < 10:
+            print(f"[INIT] Restoring missing 1H data...")
+            for data in HOURLY_DATA_BACKUP:
+                symbol, tf = data['symbol'], data['tf']
+                c.execute("SELECT COUNT(*) FROM states WHERE symbol=? AND tf=?", (symbol, tf))
+                if c.fetchone()[0] > 0:
+                    continue
+                    
+                timestamp = datetime.now(jst).isoformat()
+                daytrade = data.get('daytrade', {})
+                c.execute('''
+                    INSERT OR REPLACE INTO states (
+                        symbol, tf, timestamp, price, time, state_flag, state_word,
+                        daytrade_status, daytrade_bos, daytrade_time,
+                        swing_status, swing_bos, swing_time,
+                        row_order, cloud_order, clouds_json, meta_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    symbol, tf, timestamp, data.get('price'), data.get('time'),
+                    '', '',
+                    daytrade.get('status', ''), daytrade.get('bos', ''), daytrade.get('time', ''),
+                    '', '', '',
+                    ','.join(data.get('row_order', [])),
+                    ','.join(data.get('cloud_order', [])),
+                    json.dumps(data.get('clouds', []), ensure_ascii=False),
+                    json.dumps(data.get('meta', {}), ensure_ascii=False)
+                ))
+                total_restored += 1
+        
+        conn.commit()
+        conn.close()
+        
+        if total_restored > 0:
+            print(f"[INIT] ✓ Restored {total_restored} records from backup (D/4H/1H)")
         else:
-            conn.close()
-            print(f"[INIT] ✓ All daily data present ({daily_count}/10)")
+            print(f"[INIT] ✓ All data present (D: {daily_count}, 4H: {four_hourly_count}, 1H: {hourly_count})")
             
     except Exception as e:
-        print(f"[INIT ERROR] Failed to restore daily data: {e}")
+        print(f"[INIT ERROR] Failed to restore data: {e}")
         import traceback
         traceback.print_exc()
 
@@ -447,8 +507,8 @@ def init_db():
     # 古いデータのクリーンアップ（最新データのみ保持）
     cleanup_old_data()
     
-    # 日足データの自動復元 (Render Free tier の ephemeral storage 対策)
-    restore_daily_data_if_missing()
+    # D/4H/1H足データの自動復元 (Render Free tier の ephemeral storage 対策)
+    restore_missing_data()
     
     # ノートデータファイルの確認
     notes_path = os.path.join(BASE_DIR, 'notes_data.json')
