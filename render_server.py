@@ -2908,6 +2908,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 # ===== ウォームアップ期間チェック =====
                 # サーバー起動後60秒以内は発火をスキップ（再起動時の誤発火防止）
                 utc_now = datetime.now(pytz.UTC)
+                wlog(f'[RULE] Checking warmup: SERVER_START_TIME={SERVER_START_TIME}, utc_now={utc_now}')
+                
                 if SERVER_START_TIME is None:
                     # SERVER_START_TIMEが未設定の場合は安全のため発火をスキップ
                     wlog(f'[RULE] SERVER_START_TIME is None, skipping fire for safety')
@@ -2915,6 +2917,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 seconds_since_startup = (utc_now - SERVER_START_TIME).total_seconds()
                 in_warmup_period = seconds_since_startup < 60
+                wlog(f'[RULE] Warmup check: seconds_since_startup={seconds_since_startup:.1f}, in_warmup={in_warmup_period}')
                 
                 if in_warmup_period:
                     wlog(f'[RULE] In warmup period ({seconds_since_startup:.1f}s since startup), skipping fire')
