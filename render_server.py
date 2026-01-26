@@ -2956,6 +2956,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             wlog(f'[RULE] Warmup state recorded for rule {rule_name}')
                         except Exception as e:
                             wlog(f'[RULE] Error recording warmup state: {e}')
+                    wlog(f'[RULE] Skipping rule evaluation during warmup period')
                     continue  # 次のルールへ
                 
                 if all_matched:
