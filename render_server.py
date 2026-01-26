@@ -12,6 +12,10 @@ from backup_constants import HOURLY_DATA_BACKUP, FOUR_HOURLY_DATA_BACKUP
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# サーバー起動時刻を記録（ウォームアップ期間の判定用）
+# init_db()で明示的に設定される
+SERVER_START_TIME = None
+
 # IMMEDIATELY log the file path to confirm which render_server.py is running
 with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as _f:
     _f.write(f'\n====== LOADING render_server.py FROM: {__file__} ======\n')
@@ -403,6 +407,14 @@ def restore_missing_data():
         traceback.print_exc()
 
 def init_db():
+    global SERVER_START_TIME
+    SERVER_START_TIME = datetime.now(pytz.UTC)
+    
+    # ログに起動時刻を記録
+    with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+        f.write(f'\n====== SERVER_START_TIME: {SERVER_START_TIME.isoformat()} ======\n')
+        f.write(f'====== Starting init_db at {datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()} ======\n\n')
+    
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS states (
@@ -2889,18 +2901,72 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 # ===== 発火判定ロジック =====
                 # 「条件が崩れてから再度揃った」場合に発火
                 # 1. 条件を満たしている (all_matched=True)
-                # 2. かつ、前回発火時に条件が揃っていなかった、または初回評価
+                # 2. かつ、前回発火時に条件が揃っていなかった、または明確な変化がある
                 
                 should_fire = False
+                
+                # ===== ウォームアップ期間チェック =====
+                # サーバー起動後60秒以内は発火をスキップ（再起動時の誤発火防止）
+                utc_now = datetime.now(pytz.UTC)
+                if SERVER_START_TIME is None:
+                    # SERVER_START_TIMEが未設定の場合は安全のため発火をスキップ
+                    wlog(f'[RULE] SERVER_START_TIME is None, skipping fire for safety')
+                    continue
+                
+                seconds_since_startup = (utc_now - SERVER_START_TIME).total_seconds()
+                in_warmup_period = seconds_since_startup < 60
+                
+                if in_warmup_period:
+                    wlog(f'[RULE] In warmup period ({seconds_since_startup:.1f}s since startup), skipping fire')
+                    # ウォームアップ期間中は発火せず、状態のみ記録
+                    if all_matched:
+                        # 現在の状態をスナップショットとして保存（次回の比較用）
+                        state_snapshot = {
+                            'symbol': symbol,
+                            'conditions': str(conditions),
+                            '__conditions_matched__': True,
+                            '__warmup_record__': True
+                        }
+                        
+                        # Alignment ルールの場合は tf_order を保存
+                        if alignment_is_active and current_tf_order:
+                            state_snapshot['tf_order'] = current_tf_order
+                        
+                        # 各条件のフィールド値を保存
+                        for cond in conditions:
+                            tf_label = cond.get('timeframe') or cond.get('label')
+                            field = cond.get('field')
+                            cond_cloud_data = tf_cloud_data.get(tf_label, {})
+                            raw_value = cond_cloud_data.get(field)
+                            normalized_value = normalize_value_for_comparison(raw_value, field)
+                            state_snapshot[f'{tf_label}.{field}'] = normalized_value
+                        
+                        # fire_historyに記録（発火ではなく状態記録として）
+                        try:
+                            conn_warmup = sqlite3.connect(DB_PATH)
+                            c_warmup = conn_warmup.cursor()
+                            c_warmup.execute('''INSERT INTO fire_history 
+                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                             VALUES (?, ?, ?, ?, ?, ?)''',
+                                          (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                           json.dumps({'warmup': True}, ensure_ascii=False),
+                                           json.dumps(state_snapshot, ensure_ascii=False)))
+                            conn_warmup.commit()
+                            conn_warmup.close()
+                            wlog(f'[RULE] Warmup state recorded for rule {rule_name}')
+                        except Exception as e:
+                            wlog(f'[RULE] Error recording warmup state: {e}')
+                    continue  # 次のルールへ
                 
                 if all_matched:
                     # 条件を満たしている場合、前回の状態をチェック
                     has_field_change = False
                     
                     if last_state is None:
-                        # 初回評価の場合は発火
-                        has_field_change = True
-                        wlog(f'[RULE] First evaluation with matched conditions, should_fire=True')
+                        # 初回評価の場合は発火せず、状態を記録するのみ
+                        # （次回以降の変化検出のため）
+                        wlog(f'[RULE] First evaluation with matched conditions, recording state without firing')
+                        has_field_change = False  # 発火しない
                     elif last_state.get('__conditions_matched__') == False:
                         # 前回発火時は条件が崩れていた → 今回揃ったので発火
                         has_field_change = True
@@ -2961,6 +3027,44 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             wlog(f'[RULE] Conditions matched but no field change, should_fire=False')
                     
                     should_fire = has_field_change
+                    
+                    # 初回評価の場合は状態を記録（発火はしない）
+                    if last_state is None and all_matched:
+                        wlog(f'[RULE] Recording initial state for rule {rule_name}')
+                        state_snapshot = {
+                            'symbol': symbol,
+                            'conditions': str(conditions),
+                            '__conditions_matched__': True,
+                            '__initial_record__': True
+                        }
+                        
+                        # Alignment ルールの場合は tf_order を保存
+                        if alignment_is_active and current_tf_order:
+                            state_snapshot['tf_order'] = current_tf_order
+                        
+                        # 各条件のフィールド値を保存
+                        for cond in conditions:
+                            tf_label = cond.get('timeframe') or cond.get('label')
+                            field = cond.get('field')
+                            cond_cloud_data = tf_cloud_data.get(tf_label, {})
+                            raw_value = cond_cloud_data.get(field)
+                            normalized_value = normalize_value_for_comparison(raw_value, field)
+                            state_snapshot[f'{tf_label}.{field}'] = normalized_value
+                        
+                        try:
+                            conn_init = sqlite3.connect(DB_PATH)
+                            c_init = conn_init.cursor()
+                            c_init.execute('''INSERT INTO fire_history 
+                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                             VALUES (?, ?, ?, ?, ?, ?)''',
+                                          (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                           json.dumps({'initial_record': True}, ensure_ascii=False),
+                                           json.dumps(state_snapshot, ensure_ascii=False)))
+                            conn_init.commit()
+                            conn_init.close()
+                            wlog(f'[RULE] Initial state recorded for rule {rule_name}')
+                        except Exception as e:
+                            wlog(f'[RULE] Error recording initial state: {e}')
                 else:
                     wlog(f'[RULE] Conditions not matched, should_fire=False')
                     
@@ -2998,7 +3102,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     state_snapshot = {
                         'symbol': symbol,
                         'conditions': str(conditions),
-                        '__conditions_matched__': current_conditions_matched
+                        '__conditions_matched__': current_conditions_matched,
+                        '__fired_at__': datetime.now(jst).isoformat()
                     }
                     
                     # Alignment ルールの場合は tf_order（価格除外のTF順序）を保存
