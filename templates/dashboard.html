@@ -5481,8 +5481,17 @@ function renderCurrencyTable(symbol, allStates, container) {
     }
   });
   
-  // 行順序を決定（主体時間足 → price → 上位足の順）
-  const rowOrder = config.displayOrder;
+  // 行順序を決定：TradingViewからのrow_orderを優先、なければconfig.displayOrderを使用
+  let rowOrder;
+  if (baseState.row_order && Array.isArray(baseState.row_order) && baseState.row_order.length > 0) {
+    // TradingViewから送られてくる動的な row_order（価格位置による整列）
+    rowOrder = baseState.row_order;
+    console.log('[RENDER] Using dynamic row_order from TradingView:', rowOrder);
+  } else {
+    // フォールバック：固定順序
+    rowOrder = config.displayOrder;
+    console.log('[RENDER] Using fallback displayOrder:', rowOrder);
+  }
   const orderedRows = [];
   
   console.log('[RENDER] rowOrder:', rowOrder);

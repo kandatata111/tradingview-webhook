@@ -21,14 +21,32 @@ PERSISTENT_DIR = os.getenv('PERSISTENT_STORAGE_PATH', BASE_DIR)
 DB_PATH = os.path.join(PERSISTENT_DIR, 'webhook_data.db')
 NOTE_IMAGES_DIR = os.path.expanduser(r'C:\Users\kanda\Desktop\NoteImages')
 
-# 起動時にストレージ設定を確認
+# 起動時にストレージ設定を確認し、ディレクトリを作成
 print(f"[STORAGE] Persistent directory: {PERSISTENT_DIR}")
 print(f"[STORAGE] Database path: {DB_PATH}")
 print(f"[STORAGE] Directory exists: {os.path.exists(PERSISTENT_DIR)}")
+
+# 永続ストレージディレクトリが存在しない場合は作成
+if not os.path.exists(PERSISTENT_DIR):
+    try:
+        os.makedirs(PERSISTENT_DIR, exist_ok=True)
+        print(f"[STORAGE] Created persistent directory: {PERSISTENT_DIR}")
+    except Exception as e:
+        print(f"[STORAGE ERROR] Failed to create directory: {e}")
+
 print(f"[STORAGE] Database exists: {os.path.exists(DB_PATH)}")
 if os.path.exists(DB_PATH):
     db_size_mb = os.path.getsize(DB_PATH) / (1024 * 1024)
     print(f"[STORAGE] Database size: {db_size_mb:.2f} MB")
+    
+    # DB が writable か確認
+    try:
+        test_conn = sqlite3.connect(DB_PATH)
+        test_conn.execute("SELECT 1")
+        test_conn.close()
+        print(f"[STORAGE] Database is readable and writable")
+    except Exception as e:
+        print(f"[STORAGE ERROR] Database access failed: {e}")
 
 
 @app.errorhandler(405)
