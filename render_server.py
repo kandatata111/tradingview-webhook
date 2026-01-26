@@ -16,6 +16,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # init_db()で明示的に設定される
 SERVER_START_TIME = None
 
+# 各タイムフレームの初回受信フラグ（再起動時の誤発火防止）
+# True = 既に受信済み（通常評価）、False = 未受信（初回は状態記録のみ）
+FIRST_RECEIVE_FLAGS = {}
+
 # IMMEDIATELY log the file path to confirm which render_server.py is running
 with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as _f:
     _f.write(f'\n====== LOADING render_server.py FROM: {__file__} ======\n')
@@ -407,13 +411,17 @@ def restore_missing_data():
         traceback.print_exc()
 
 def init_db():
-    global SERVER_START_TIME
+    global SERVER_START_TIME, FIRST_RECEIVE_FLAGS
     SERVER_START_TIME = datetime.now(pytz.UTC)
+    
+    # 各タイムフレームの初回受信フラグをリセット
+    FIRST_RECEIVE_FLAGS = {}
     
     # ログに起動時刻を記録
     with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
         f.write(f'\n====== SERVER_START_TIME: {SERVER_START_TIME.isoformat()} ======\n')
-        f.write(f'====== Starting init_db at {datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()} ======\n\n')
+        f.write(f'====== Starting init_db at {datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()} ======\n')
+        f.write(f'====== FIRST_RECEIVE_FLAGS reset ======\n\n')
     
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -2447,8 +2455,23 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
             pass
     
     try:
+        global FIRST_RECEIVE_FLAGS
         jst = pytz.timezone('Asia/Tokyo')
         wlog(f'[EVALUATE] Starting rule evaluation for {symbol}/{tf_val}')
+        
+        # 受信タイムフレームのラベルを取得
+        tf_label_map = {'5': '5m', '15': '15m', '60': '1H', '240': '4H'}
+        received_tf_label = tf_label_map.get(tf_val, tf_val)
+        
+        # 初回受信チェック（symbol + tf の組み合わせで管理）
+        tf_key = f'{symbol}_{received_tf_label}'
+        is_first_receive = tf_key not in FIRST_RECEIVE_FLAGS
+        
+        if is_first_receive:
+            wlog(f'[FIRST_RECEIVE] First data reception for {symbol}/{received_tf_label}')
+            FIRST_RECEIVE_FLAGS[tf_key] = True
+        else:
+            wlog(f'[RECEIVE] Subsequent data reception for {symbol}/{received_tf_label}')
         
         # 全タイムフレームの最新データをDBから取得
         conn = sqlite3.connect(DB_PATH)
@@ -2500,8 +2523,8 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
                     all_clouds[label] = cloud
                     wlog(f'[DEBUG] Extracted cloud from webhook: {label} - dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
         
-        # 統合データを使用してルール評価
-        _evaluate_rules_with_db_state(tf_states, symbol, all_clouds, tf_val)
+        # 統合データを使用してルール評価（初回受信フラグを渡す）
+        _evaluate_rules_with_db_state(tf_states, symbol, all_clouds, tf_val, is_first_receive)
         wlog(f'[DEBUG] _evaluate_rules_with_db_state completed for {symbol}')
         
     except Exception as e:
@@ -2510,13 +2533,14 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
         traceback.print_exc()
 
 
-def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf=None):
+def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf=None, is_first_receive=False):
     """DBから取得した全タイムフレームのデータを使用してルール評価
     
     表に表示されている現在値を基にルール判定
     - 5mのDBレコードには雲情報（gc, thickness等）
     - 各TF（15m, 1H, 4H）のDBレコードにはそのTFのダウ転換情報
     all_clouds: webhook から受け取った全TFのクラウドデータ {tf_label: cloud_data, ...}
+    is_first_receive: このタイムフレーム・通貨ペアの組み合わせで初回受信かどうか
     """
     # Simple inline logging function - writes directly to file
     def wlog(msg):
@@ -2960,6 +2984,51 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         except Exception as e:
                             wlog(f'[RULE] Error recording warmup state: {e}')
                     wlog(f'[RULE] Skipping rule evaluation during warmup period')
+                    continue  # 次のルールへ
+                
+                # ===== 初回受信チェック =====
+                # サーバー起動後、各タイムフレームで初めてデータを受信した時は発火をスキップ
+                # （15分足、1時間足、4時間足の遅延受信時の誤発火防止）
+                if is_first_receive:
+                    wlog(f'[RULE] First receive for this timeframe, skipping fire')
+                    # 初回受信時は発火せず、状態のみ記録
+                    if all_matched:
+                        state_snapshot = {
+                            'symbol': symbol,
+                            'conditions': str(conditions),
+                            '__conditions_matched__': True,
+                            '__first_receive_record__': True
+                        }
+                        
+                        # Alignment ルールの場合は tf_order を保存
+                        if alignment_is_active and current_tf_order:
+                            state_snapshot['tf_order'] = current_tf_order
+                        
+                        # 各条件のフィールド値を保存
+                        for cond in conditions:
+                            tf_label = cond.get('timeframe') or cond.get('label')
+                            field = cond.get('field')
+                            cond_cloud_data = tf_cloud_data.get(tf_label, {})
+                            raw_value = cond_cloud_data.get(field)
+                            normalized_value = normalize_value_for_comparison(raw_value, field)
+                            state_snapshot[f'{tf_label}.{field}'] = normalized_value
+                        
+                        # fire_historyに記録
+                        try:
+                            conn_first = sqlite3.connect(DB_PATH)
+                            c_first = conn_first.cursor()
+                            c_first.execute('''INSERT INTO fire_history 
+                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                             VALUES (?, ?, ?, ?, ?, ?)''',
+                                          (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                           json.dumps({'first_receive': True}, ensure_ascii=False),
+                                           json.dumps(state_snapshot, ensure_ascii=False)))
+                            conn_first.commit()
+                            conn_first.close()
+                            wlog(f'[RULE] First receive state recorded for rule {rule_name}')
+                        except Exception as e:
+                            wlog(f'[RULE] Error recording first receive state: {e}')
+                    wlog(f'[RULE] Skipping rule evaluation for first receive')
                     continue  # 次のルールへ
                 
                 if all_matched:
