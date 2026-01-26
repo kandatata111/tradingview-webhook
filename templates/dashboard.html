@@ -820,6 +820,98 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .light-mode #external-site-window .window-header h3 {
   color: #111;
 }
+
+/* データ更新時刻コンテキストメニュー */
+.data-timestamp-menu {
+  position: fixed;
+  background: rgba(20, 30, 50, 0.98);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  display: none;
+  min-width: 280px;
+  color: #fff;
+  font-size: 0.9em;
+}
+
+.data-timestamp-menu.show {
+  display: block;
+}
+
+.data-timestamp-menu-header {
+  font-weight: bold;
+  font-size: 1.05em;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  color: #4ade80;
+}
+
+.data-timestamp-menu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  gap: 12px;
+}
+
+.data-timestamp-menu-label {
+  color: #aaa;
+  font-size: 0.95em;
+}
+
+.data-timestamp-menu-value {
+  color: #fff;
+  font-weight: 600;
+  text-align: right;
+}
+
+.data-timestamp-warning {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 6px;
+  color: #fca5a5;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.data-timestamp-warning::before {
+  content: '⚠';
+  font-size: 1.2em;
+  color: #ef4444;
+}
+
+.light-mode .data-timestamp-menu {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(0, 0, 0, 0.3);
+  color: #111;
+}
+
+.light-mode .data-timestamp-menu-header {
+  color: #2962ff;
+  border-bottom-color: rgba(0, 0, 0, 0.2);
+}
+
+.light-mode .data-timestamp-menu-label {
+  color: #666;
+}
+
+.light-mode .data-timestamp-menu-value {
+  color: #111;
+}
+
+.light-mode .data-timestamp-warning {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
 </style>
 </head>
 <body>
@@ -1207,6 +1299,30 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
     <!-- 通貨ごとの表と発火履歴が動的に生成されます -->
   </div>
   
+</div>
+
+<!-- データ更新時刻コンテキストメニュー -->
+<div class="data-timestamp-menu" id="dataTimestampMenu">
+  <div class="data-timestamp-menu-header">データ更新情報</div>
+  <div class="data-timestamp-menu-row">
+    <span class="data-timestamp-menu-label">通貨ペア:</span>
+    <span class="data-timestamp-menu-value" id="menuSymbol">-</span>
+  </div>
+  <div class="data-timestamp-menu-row">
+    <span class="data-timestamp-menu-label">時間足:</span>
+    <span class="data-timestamp-menu-value" id="menuTimeframe">-</span>
+  </div>
+  <div class="data-timestamp-menu-row">
+    <span class="data-timestamp-menu-label">最終更新:</span>
+    <span class="data-timestamp-menu-value" id="menuTimestamp">-</span>
+  </div>
+  <div class="data-timestamp-menu-row">
+    <span class="data-timestamp-menu-label">経過時間:</span>
+    <span class="data-timestamp-menu-value" id="menuElapsed">-</span>
+  </div>
+  <div id="menuWarning" class="data-timestamp-warning" style="display: none;">
+    古いバックアップデータが表示されています
+  </div>
 </div>
 
 </div>
@@ -7148,6 +7264,289 @@ function showAudioEnableOverlay() {
 
 // ページ読み込み後にオーバーレイを表示（常に表示）
 setTimeout(showAudioEnableOverlay, 500);
+
+// ===== データ更新時刻コンテキストメニュー機能 =====
+(function() {
+  const contextMenu = document.getElementById('dataTimestampMenu');
+  let currentCellData = null;
+  
+  // 相対時間を計算（日本語表示）
+  function getRelativeTime(timestamp) {
+    if (!timestamp) return '不明';
+    
+    try {
+      const updateTime = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now - updateTime;
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHour = Math.floor(diffMin / 60);
+      const diffDay = Math.floor(diffHour / 24);
+      
+      if (diffSec < 60) {
+        return diffSec + '秒前';
+      } else if (diffMin < 60) {
+        return diffMin + '分前';
+      } else if (diffHour < 24) {
+        return diffHour + '時間前';
+      } else {
+        return diffDay + '日前';
+      }
+    } catch (e) {
+      console.error('[CONTEXT_MENU] Error calculating relative time:', e);
+      return '不明';
+    }
+  }
+  
+  // 営業日判定（土日をスキップ）
+  function isBusinessDay(date) {
+    const day = date.getDay();
+    // 0=日, 1=月, ..., 6=土
+    return day !== 0 && day !== 6; // 日曜・土曜は休場
+  }
+  
+  // タイムスタンプから営業日を取得（土日をスキップして前の営業日へ）
+  function getPreviousBusinessDay(date) {
+    const d = new Date(date);
+    d.setDate(d.getDate() - 1);
+    while (!isBusinessDay(d)) {
+      d.setDate(d.getDate() - 1);
+    }
+    return d;
+  }
+  
+  // 2つの日付が異なる営業日かチェック（時間は無視）
+  function isDifferentBusinessDay(date1, date2) {
+    // JST（UTC+9）で日付を比較
+    const getDateJST = (d) => {
+      const utcDate = new Date(d);
+      const jstDate = new Date(utcDate.getTime() + 9 * 60 * 60 * 1000);
+      return jstDate.toDateString();
+    };
+    
+    const dateStr1 = getDateJST(date1);
+    const dateStr2 = getDateJST(date2);
+    return dateStr1 !== dateStr2;
+  }
+  
+  // バックアップデータとの比較（複数タイムフレーム対応）
+  function isStaleData(symbol, tf, timestamp) {
+    if (!timestamp) return true;
+    
+    try {
+      const updateTime = new Date(timestamp);
+      const now = new Date();
+      
+      // 各タイムフレームの警告閾値（分単位）
+      const thresholds = {
+        '5': 6,      // 5分足：6分以上で警告
+        '15': 16,    // 15分足：16分以上で警告
+        '60': 61,    // 1時間足：61分以上で警告
+        '240': 241,  // 4時間足：241分以上で警告（4時間1分）
+        'D': null,   // 日足は営業日ベース（下記で処理）
+        '1D': null
+      };
+      
+      // 日足の場合：営業日ベース + 30分閾値
+      if (tf === 'D' || tf === '1D') {
+        // 営業日が変わったかチェック
+        if (isDifferentBusinessDay(updateTime, now)) {
+          // 営業日が異なる場合、07:30以降で警告
+          const nowJST = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+          const hours = nowJST.getUTCHours();
+          const minutes = nowJST.getUTCMinutes();
+          
+          // 現在がJST 07:30以降なら警告
+          if (hours > 7 || (hours === 7 && minutes >= 30)) {
+            return true;
+          }
+        }
+        return false;
+      }
+      
+      // それ以外のタイムフレーム
+      const threshold = thresholds[tf];
+      if (threshold === undefined) return false;
+      
+      const diffMinutes = (now - updateTime) / (1000 * 60);
+      return diffMinutes >= threshold;
+    } catch (e) {
+      console.error('[CONTEXT_MENU] Error checking stale data:', e);
+      return false;
+    }
+  }
+  
+  // テーブルセルに右クリックイベントを追加
+  function attachContextMenuToTable() {
+    // すべてのテーブルに対してイベントリスナーを設定
+    document.addEventListener('contextmenu', function(e) {
+      // セルのクリックかどうか確認
+      const td = e.target.closest('td');
+      if (!td) {
+        contextMenu.classList.remove('show');
+        return;
+      }
+      
+      // テーブルから通貨ペアを取得
+      const table = e.target.closest('table');
+      if (!table) {
+        contextMenu.classList.remove('show');
+        return;
+      }
+      
+      const symbol = table.dataset.symbol;
+      if (!symbol) {
+        contextMenu.classList.remove('show');
+        return;
+      }
+      
+      // 行から時間足を取得
+      const row = td.closest('tr');
+      if (!row) {
+        contextMenu.classList.remove('show');
+        return;
+      }
+      
+      // 最初のセルから時間足ラベルを取得
+      const tfCell = row.querySelector('.tf-label');
+      if (!tfCell || tfCell.textContent === '価格') {
+        contextMenu.classList.remove('show');
+        return; // 価格行は対象外
+      }
+      
+      const tfLabel = tfCell.textContent.trim();
+      
+      // 対応するstateデータを探す
+      // グローバル変数から最新のstatesデータを取得する必要がある
+      const statesData = window.lastFetchedStates;
+      if (!statesData) {
+        console.warn('[CONTEXT_MENU] No states data available');
+        contextMenu.classList.remove('show');
+        return;
+      }
+      
+      // tfLabelから実際のtf値を逆引き
+      const tfMap = {
+        '5m': '5',
+        '15m': '15',
+        '1H': '60',
+        '4H': '240',
+        'D': 'D',
+        'W': 'W',
+        'M': 'M'
+      };
+      
+      const tf = tfMap[tfLabel] || tfLabel;
+      
+      // 該当する state を探す
+      const state = statesData.find(s => s.symbol === symbol && s.tf === tf);
+      
+      if (!state || !state.timestamp) {
+        console.warn('[CONTEXT_MENU] State not found for', symbol, tf);
+        contextMenu.classList.remove('show');
+        return;
+      }
+      
+      // コンテキストメニュー表示を防止
+      e.preventDefault();
+      
+      // メニュー内容を更新
+      document.getElementById('menuSymbol').textContent = symbol;
+      document.getElementById('menuTimeframe').textContent = tfLabel;
+      
+      // タイムスタンプをフォーマット（JST）
+      const timestamp = new Date(state.timestamp);
+      const timestampStr = timestamp.toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      
+      document.getElementById('menuTimestamp').textContent = timestampStr;
+      document.getElementById('menuElapsed').textContent = getRelativeTime(state.timestamp);
+      
+      // 警告表示の判定
+      const isStale = isStaleData(symbol, tf, state.timestamp);
+      const warningDiv = document.getElementById('menuWarning');
+      if (isStale) {
+        warningDiv.style.display = 'flex';
+      } else {
+        warningDiv.style.display = 'none';
+      }
+      
+      // メニュー位置を設定（fixed positionなのでclientX/Yを使用）
+      const menuWidth = 280;
+      const menuHeight = isStale ? 220 : 180;
+      let x = e.clientX;
+      let y = e.clientY;
+      
+      // 画面外に出ないように調整（viewport基準）
+      if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 10;
+      }
+      if (y + menuHeight > window.innerHeight) {
+        y = window.innerHeight - menuHeight - 10;
+      }
+      
+      // 左端・上端からはみ出さないようにする
+      if (x < 10) {
+        x = 10;
+      }
+      if (y < 10) {
+        y = 10;
+      }
+      
+      contextMenu.style.left = x + 'px';
+      contextMenu.style.top = y + 'px';
+      
+      // メニュー表示
+      contextMenu.classList.add('show');
+      
+      console.log('[CONTEXT_MENU] Showing menu for', symbol, tfLabel, '- Updated:', timestampStr);
+    });
+    
+    // メニュー外クリックで閉じる
+    document.addEventListener('click', function(e) {
+      if (!contextMenu.contains(e.target)) {
+        contextMenu.classList.remove('show');
+      }
+    });
+    
+    // Escキーで閉じる
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        contextMenu.classList.remove('show');
+      }
+    });
+  }
+  
+  // データフェッチ時にstatesを保存するフックを追加
+  const originalFetch = window.fetch;
+  window.fetch = function(...args) {
+    return originalFetch.apply(this, args).then(response => {
+      if (args[0] && args[0].includes('/current_states')) {
+        response.clone().json().then(data => {
+          if (data && data.states) {
+            window.lastFetchedStates = data.states;
+            console.log('[CONTEXT_MENU] States data cached:', data.states.length, 'items');
+          }
+        }).catch(e => {
+          console.error('[CONTEXT_MENU] Error caching states:', e);
+        });
+      }
+      return response;
+    });
+  };
+  
+  // ページ読み込み時に初期化
+  attachContextMenuToTable();
+  console.log('[CONTEXT_MENU] Context menu initialized');
+})();
 </script>
 </body>
 </html>
