@@ -2987,11 +2987,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     continue  # 次のルールへ
                 
                 # ===== 初回受信チェック =====
-                # サーバー起動後、各タイムフレームで初めてデータを受信した時は発火をスキップ
-                # （15分足、1時間足、4時間足の遅延受信時の誤発火防止）
-                if is_first_receive:
-                    wlog(f'[RULE] First receive for this timeframe, skipping fire')
-                    # 初回受信時は発火せず、状態のみ記録
+                # サーバー起動後、各タイムフレームで初めてデータを受信した時の処理
+                # ただし、過去の履歴（last_state）がある場合は通常評価を行う
+                # （新しい変化があれば発火する必要があるため - 特に4H足で重要）
+                if is_first_receive and last_state is None:
+                    wlog(f'[RULE] First receive with no history, recording state without firing')
+                    # 完全な初回（履歴なし）の場合のみ発火をスキップ
                     if all_matched:
                         state_snapshot = {
                             'symbol': symbol,
@@ -3028,8 +3029,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             wlog(f'[RULE] First receive state recorded for rule {rule_name}')
                         except Exception as e:
                             wlog(f'[RULE] Error recording first receive state: {e}')
-                    wlog(f'[RULE] Skipping rule evaluation for first receive')
+                    wlog(f'[RULE] Skipping rule evaluation for first receive (no history)')
                     continue  # 次のルールへ
+                elif is_first_receive and last_state is not None:
+                    # 初回受信だが過去の履歴がある場合は通常評価を継続
+                    # （新しいダウ転などの変化を検出するため）
+                    wlog(f'[RULE] First receive but history exists, evaluating normally (may fire if changed)')
                 
                 if all_matched:
                     # 条件を満たしている場合、前回の状態をチェック
