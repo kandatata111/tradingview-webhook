@@ -311,7 +311,7 @@ def restore_missing_data():
                 timestamp = datetime.now(jst).isoformat()
                 daytrade = data.get('daytrade', {})
                 c.execute('''
-                    INSERT OR REPLACE INTO states (
+                    INSERT INTO states (
                         symbol, tf, timestamp, price, time, state_flag, state_word,
                         daytrade_status, daytrade_bos, daytrade_time,
                         swing_status, swing_bos, swing_time,
@@ -341,7 +341,7 @@ def restore_missing_data():
                 timestamp = datetime.now(jst).isoformat()
                 daytrade = data.get('daytrade', {})
                 c.execute('''
-                    INSERT OR REPLACE INTO states (
+                    INSERT INTO states (
                         symbol, tf, timestamp, price, time, state_flag, state_word,
                         daytrade_status, daytrade_bos, daytrade_time,
                         swing_status, swing_bos, swing_time,
@@ -371,7 +371,7 @@ def restore_missing_data():
                 timestamp = datetime.now(jst).isoformat()
                 daytrade = data.get('daytrade', {})
                 c.execute('''
-                    INSERT OR REPLACE INTO states (
+                    INSERT INTO states (
                         symbol, tf, timestamp, price, time, state_flag, state_word,
                         daytrade_status, daytrade_bos, daytrade_time,
                         swing_status, swing_bos, swing_time,
