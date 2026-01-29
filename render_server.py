@@ -32,6 +32,10 @@ SERVER_START_TIME = None
 # True = 既に受信済み（通常評価）、False = 未受信（初回は状態記録のみ）
 FIRST_RECEIVE_FLAGS = {}
 
+# 通貨強弱の最弱・最強変更履歴記録用グローバル変数
+# 形式: {'15m': {'weakest': 'USD', 'strongest': 'JPY'}, '1H': {...}, ...}
+previous_extreme_currencies = {}
+
 # IMMEDIATELY log the file path to confirm which render_server.py is running
 with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as _f:
     _f.write(f'\n====== LOADING render_server.py FROM: {__file__} ======\n')
@@ -550,6 +554,24 @@ def init_db():
     conn.close()
     print('[OK] Currency order table ensured')
     
+    # change_history テーブル（通貨強弱の最弱・最強変更履歴記録用）
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS change_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timeframe TEXT NOT NULL,
+        weakest TEXT NOT NULL,
+        strongest TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )''')
+    # timeframe でインデックス作成（検索高速化）
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_change_history_timeframe 
+                 ON change_history(timeframe, created_at DESC)''')
+    conn.commit()
+    conn.close()
+    print('[OK] Change history table ensured')
+    
     # 古いデータのクリーンアップ（最新データのみ保持）
     cleanup_old_data()
     
@@ -691,6 +713,22 @@ def currency_strength_window():
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
+    return response
+
+@app.route('/currency_strength_final')
+def currency_strength_final():
+    """通貨強弱ページ（最終版）"""
+    response = make_response(render_template('currency_strength_final.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/test_api')
+def test_api():
+    """APIテストページ"""
+    response = make_response(render_template('test_api.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     return response
 
 @app.route('/debug_currency_strength')
@@ -896,6 +934,71 @@ def calculate_currency_strength_data():
     
     return result
 
+def detect_and_record_extreme_changes(currency_data):
+    """通貨強弱の最弱・最強の変更を検出してDBに記録"""
+    global previous_extreme_currencies
+    jst = pytz.timezone('Asia/Tokyo')
+    current_time = datetime.now(jst).strftime('%y/%m/%d/%H:%M')
+    
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    for timeframe, data in currency_data.items():
+        if 'currencies' not in data or len(data['currencies']) == 0:
+            continue
+        
+        currencies = data['currencies']
+        weakest = currencies[0]['currency']  # 最初（最弱）
+        strongest = currencies[-1]['currency']  # 最後（最強）
+        
+        # 前回の値と比較
+        previous = previous_extreme_currencies.get(timeframe)
+        
+        if previous is None:
+            # 初回は記録のみ
+            previous_extreme_currencies[timeframe] = {
+                'weakest': weakest,
+                'strongest': strongest
+            }
+            print(f'[CHANGE_HISTORY] Initial state for {timeframe}: weakest={weakest}, strongest={strongest}')
+        else:
+            # 変更があった場合のみ記録
+            changed = False
+            if previous['weakest'] != weakest or previous['strongest'] != strongest:
+                changed = True
+                
+                # DBに記録
+                try:
+                    c.execute('''INSERT INTO change_history 
+                                 (timeframe, weakest, strongest, timestamp, created_at) 
+                                 VALUES (?, ?, ?, ?, ?)''',
+                              (timeframe, weakest, strongest, current_time, datetime.now(jst).isoformat()))
+                    conn.commit()
+                    print(f'[CHANGE_HISTORY] Recorded change for {timeframe}: {weakest}⇔{strongest}')
+                    
+                    # 各時間足ごとに最大5件を維持（古い履歴を削除）
+                    c.execute('''SELECT id FROM change_history 
+                                 WHERE timeframe = ? 
+                                 ORDER BY created_at DESC 
+                                 LIMIT -1 OFFSET 5''', (timeframe,))
+                    old_ids = [row[0] for row in c.fetchall()]
+                    if old_ids:
+                        placeholders = ','.join(['?'] * len(old_ids))
+                        c.execute(f'DELETE FROM change_history WHERE id IN ({placeholders})', old_ids)
+                        conn.commit()
+                        print(f'[CHANGE_HISTORY] Deleted {len(old_ids)} old records for {timeframe}')
+                    
+                except Exception as e:
+                    print(f'[ERROR] Failed to record change history for {timeframe}: {e}')
+                
+                # グローバル変数を更新
+                previous_extreme_currencies[timeframe] = {
+                    'weakest': weakest,
+                    'strongest': strongest
+                }
+    
+    conn.close()
+
 @app.route('/api/currency_strength', methods=['GET'])
 def api_currency_strength():
     """通貨強弱を計算して返す（APIエンドポイント）"""
@@ -908,6 +1011,67 @@ def api_currency_strength():
         
     except Exception as e:
         print(f'[ERROR][api/currency_strength] {e}')
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/change_history', methods=['GET'])
+def api_change_history():
+    """通貨強弱の最弱・最強変更履歴を取得（APIエンドポイント）"""
+    try:
+        timeframe = request.args.get('timeframe')  # optional
+        limit = int(request.args.get('limit', 5))
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        result = {}
+        
+        if timeframe:
+            # 特定の時間足のみ取得
+            c.execute('''SELECT timeframe, weakest, strongest, timestamp, created_at 
+                         FROM change_history 
+                         WHERE timeframe = ? 
+                         ORDER BY created_at DESC 
+                         LIMIT ?''', (timeframe, limit))
+            rows = c.fetchall()
+            result[timeframe] = [
+                {
+                    'timestamp': row[3],
+                    'weakest': row[1],
+                    'strongest': row[2],
+                    'created_at': row[4]
+                }
+                for row in rows
+            ]
+        else:
+            # 全ての時間足を取得
+            timeframes = ['15m', '1H', '4H', 'D', 'Av']
+            for tf in timeframes:
+                c.execute('''SELECT timeframe, weakest, strongest, timestamp, created_at 
+                             FROM change_history 
+                             WHERE timeframe = ? 
+                             ORDER BY created_at DESC 
+                             LIMIT ?''', (tf, limit))
+                rows = c.fetchall()
+                result[tf] = [
+                    {
+                        'timestamp': row[3],
+                        'weakest': row[1],
+                        'strongest': row[2],
+                        'created_at': row[4]
+                    }
+                    for row in rows
+                ]
+        
+        conn.close()
+        
+        return jsonify({
+            'status': 'success',
+            'data': result
+        }), 200
+        
+    except Exception as e:
+        print(f'[ERROR][api/change_history] {e}')
         traceback.print_exc()
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
@@ -1269,6 +1433,10 @@ def webhook():
             # 通貨強弱データを計算してemit
             try:
                 currency_data = calculate_currency_strength_data()
+                
+                # 変更を検出してDBに記録
+                detect_and_record_extreme_changes(currency_data)
+                
                 socketio.emit('currency_strength_update', {
                     'status': 'success',
                     'data': currency_data,

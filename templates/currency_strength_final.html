@@ -178,57 +178,177 @@
     .strong { background: #388e3c; color: #fff; }
     .very-strong { background: #1976d2; color: #fff; }
 
-    /* 設定項目 */
-    .settings-box {
-      background: #2a2a2a;
-      border: 2px solid #2d68f8;
-      border-radius: 8px;
-      padding: 12px;
+    /* アコーディオン */
+    .accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
       margin-top: 10px;
     }
 
-    .settings-title {
-      color: #2d68f8;
-      font-weight: bold;
-      font-size: 16px;
-      margin-bottom: 10px;
+    .accordion-item {
+      background: #2a2a2a;
+      border-radius: 8px;
+      border: 1px solid #444;
+      overflow: hidden;
     }
 
-    .settings-content {
+    .accordion-header {
       display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      cursor: pointer;
+      background: linear-gradient(90deg, #2a2a2a, #252525);
+      transition: background 0.3s;
+      user-select: none;
+    }
+
+    .accordion-header:hover {
+      background: linear-gradient(90deg, #333, #2a2a2a);
+    }
+
+    .accordion-header.active {
+      background: linear-gradient(90deg, #2d68f8, #1e4fcc);
+    }
+
+    .accordion-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 15px;
+      font-weight: bold;
       color: #e0e0e0;
     }
 
-    .settings-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+    .accordion-header.active .accordion-title {
+      color: #fff;
     }
 
-    .settings-group-title {
-      color: #06b7f9;
-      font-weight: bold;
+    .accordion-icon {
+      font-size: 20px;
+    }
+
+    .accordion-arrow {
+      font-size: 18px;
+      transition: transform 0.3s;
+    }
+
+    .accordion-header.active .accordion-arrow {
+      transform: rotate(180deg);
+    }
+
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease-out, padding 0.4s ease-out;
+      padding: 0 20px;
+    }
+
+    .accordion-content.active {
+      max-height: 1000px;
+      padding: 20px;
+      border-top: 2px solid #444;
+    }
+
+    /* フォーム要素 */
+    .form-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .form-row label {
       font-size: 13px;
-      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .checkbox-item {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       font-size: 13px;
     }
 
     .checkbox-item input[type="checkbox"] {
       cursor: pointer;
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
     }
 
     .checkbox-item label {
       cursor: pointer;
+    }
+
+    select, input[type="text"] {
+      padding: 8px 12px;
+      background: #333;
+      color: #fff;
+      border: 1px solid #666;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    button {
+      padding: 8px 16px;
+      background: #2d68f8;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: bold;
+      transition: background 0.3s;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      background: #4080ff;
+    }
+
+    /* 音声設定の1行レイアウト */
+    .voice-timeframe {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .voice-timeframe input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .voice-timeframe label {
+      min-width: 80px;
+      font-weight: bold;
+    }
+
+    .voice-timeframe input[type="text"] {
+      flex: 1;
+    }
+
+    /* チェックボックスグリッド */
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+    }
+
+    .subsection-title {
+      color: #06b7f9;
+      font-size: 13px;
+      font-weight: bold;
+      margin: 16px 0 8px;
     }
   </style>
 </head>
@@ -248,127 +368,242 @@
     </div>
 
     <!-- 設定項目 -->
-    <div class="settings-box">
-      <div class="settings-title">⚙️ 設定項目</div>
-      <div class="settings-content">
-        <!-- ズーム機能 -->
-        <div class="settings-group" style="border-left: 2px solid #ffd700; padding-left: 15px; margin-bottom: 12px;">
-          <div class="settings-group-title">🔍 通貨強弱表ズーム</div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label style="font-size:12px;">表示倍率：</label>
-            <select id="zoomLevel" style="padding:4px 6px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;">
-              <option value="50">50%</option>
-              <option value="60">60%</option>
-              <option value="70">70%</option>
-              <option value="80">80%</option>
-              <option value="90">90%</option>
-              <option value="100" selected>100%</option>
-              <option value="110">110%</option>
-              <option value="120">120%</option>
-              <option value="130">130%</option>
-              <option value="140">140%</option>
-              <option value="150">150%</option>
-            </select>
+    <div class="accordion" id="settingsContainer" style="transform-origin: top left; transition: transform 0.2s ease;">
+      <!-- 最強・最弱変更履歴 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="accordion-title">
+            <span class="accordion-icon">📜</span>
+            <span>最強・最弱変更履歴</span>
+          </div>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-content">
+          <div id="changeHistory" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+            <!-- JavaScriptで動的に生成 -->
           </div>
         </div>
-        
-        <div class="settings-group">
-          <div class="settings-group-title">表示項目</div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="showCurrencies" checked>
-            <label for="showCurrencies">通貨強弱を表示</label>
+      </div>
+
+      <!-- 表示設定 -->
+      <div class="accordion-item">
+        <div class="accordion-header active" onclick="toggleAccordion(this)">
+          <div class="accordion-title">
+            <span class="accordion-icon">📊</span>
+            <span>表示設定</span>
           </div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="showRecommended" checked>
-            <label for="showRecommended">推奨ペアを表示</label>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-content active">
+          <div class="form-section">
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: start;">
+              <div>
+                <div class="subsection-title">表示項目</div>
+                <div style="display: flex; gap: 20px; margin-bottom: 16px;">
+                  <label class="checkbox-item">
+                    <input type="checkbox" id="showCurrencies" checked>
+                    通貨強弱を表示
+                  </label>
+                  <label class="checkbox-item">
+                    <input type="checkbox" id="showRecommended" checked>
+                    推奨ペアを表示
+                  </label>
+                </div>
+              </div>
+              <div>
+                <div class="subsection-title">ズーム倍率</div>
+                <select id="zoomLevel">
+                  <option value="50">50%</option>
+                  <option value="60">60%</option>
+                  <option value="70">70%</option>
+                  <option value="80">80%</option>
+                  <option value="90">90%</option>
+                  <option value="100" selected>100%</option>
+                  <option value="110">110%</option>
+                  <option value="120">120%</option>
+                  <option value="130">130%</option>
+                  <option value="140">140%</option>
+                  <option value="150">150%</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="subsection-title">時間足</div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+              <label class="checkbox-item">
+                <input type="checkbox" id="show15m" checked>
+                15分足
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="show1H" checked>
+                1時間足
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="show4H" checked>
+                4時間足
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="showD" checked>
+                日足
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="showAv" checked>
+                平均
+              </label>
+            </div>
           </div>
         </div>
-        <div class="settings-group">
-          <div class="settings-group-title">時間足</div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="show15m" checked>
-            <label for="show15m">15mを表示</label>
+      </div>
+
+      <!-- 音声通知設定 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="accordion-title">
+            <span class="accordion-icon">🔊</span>
+            <span>音声通知設定</span>
           </div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="show1H" checked>
-            <label for="show1H">1Hを表示</label>
-          </div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="show4H" checked>
-            <label for="show4H">4Hを表示</label>
-          </div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="showD" checked>
-            <label for="showD">Dを表示</label>
-          </div>
-          <div class="checkbox-item">
-            <input type="checkbox" id="showAv" checked>
-            <label for="showAv">Avを表示</label>
-          </div>
+          <span class="accordion-arrow">▼</span>
         </div>
-        
-        <!-- 音声通知設定 -->
-        <div class="settings-group" style="border-left: 2px solid #2d68f8; padding-left: 15px;">
-          <div class="settings-group-title">🔊 最弱・最強変更通知</div>
-          
-          <div style="margin-bottom: 8px;">
-            <label style="font-size:12px;">声優選択：</label>
-            <select id="voiceActress" style="padding:4px 6px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;">
-              <option value="nanami">七海（女性）</option>
-              <option value="keita">圭太（男性）</option>
-            </select>
-          </div>
-          
-          <div style="margin-bottom: 8px;">
-            <input type="checkbox" id="enableElectronic" style="width:16px;height:16px;cursor:pointer;">
-            <label for="enableElectronic" style="cursor:pointer;">電子音選択：</label>
-            <select id="electronicSound" style="padding:4px 6px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;" disabled>
-              <option value="buzzer">開演ブザー</option>
-              <option value="bell">チャイム</option>
-              <option value="notification">通知音</option>
-            </select>
-          </div>
-          
-          <!-- 各時間足の通知設定 -->
-          <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #555;">
-            <div class="checkbox-item">
+        <div class="accordion-content">
+          <div class="form-section">
+            <div class="form-row">
+              <label style="min-width: 100px;">声優選択：</label>
+              <select id="voiceActress">
+                <option value="nanami">七海（女性）</option>
+                <option value="keita">圭太（男性）</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <input type="checkbox" id="enableElectronic">
+              <label>電子音を有効化</label>
+              <select id="electronicSound" style="margin-left: 12px;" disabled>
+                <option value="">なし</option>
+              </select>
+            </div>
+
+            <div class="subsection-title">時間足別通知設定</div>
+            
+            <div class="voice-timeframe">
               <input type="checkbox" id="notify15m" checked>
-              <label for="notify15m">15分：</label>
-              <input type="text" id="msg15m" placeholder="メッセージを入力" style="width:200px;padding:4px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;margin:0 4px;">
-              <button id="play15m" style="padding:4px 8px;background:#2d68f8;color:#fff;border:none;border-radius:3px;cursor:pointer;">再生</button>
+              <label for="notify15m">15分足</label>
+              <input type="text" id="msg15m" placeholder="通知メッセージ">
+              <button id="play15m">▶ 再生</button>
             </div>
-            
-            <div class="checkbox-item">
+
+            <div class="voice-timeframe">
               <input type="checkbox" id="notify1H" checked>
-              <label for="notify1H">1時間：</label>
-              <input type="text" id="msg1H" placeholder="メッセージを入力" style="width:200px;padding:4px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;margin:0 4px;">
-              <button id="play1H" style="padding:4px 8px;background:#2d68f8;color:#fff;border:none;border-radius:3px;cursor:pointer;">再生</button>
+              <label for="notify1H">1時間足</label>
+              <input type="text" id="msg1H" placeholder="通知メッセージ">
+              <button id="play1H">▶ 再生</button>
             </div>
-            
-            <div class="checkbox-item">
+
+            <div class="voice-timeframe">
               <input type="checkbox" id="notify4H" checked>
-              <label for="notify4H">4時間：</label>
-              <input type="text" id="msg4H" placeholder="メッセージを入力" style="width:200px;padding:4px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;margin:0 4px;">
-              <button id="play4H" style="padding:4px 8px;background:#2d68f8;color:#fff;border:none;border-radius:3px;cursor:pointer;">再生</button>
+              <label for="notify4H">4時間足</label>
+              <input type="text" id="msg4H" placeholder="通知メッセージ">
+              <button id="play4H">▶ 再生</button>
             </div>
           </div>
-          
-          <!-- 設定保存ボタン -->
-          <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #555;">
-            <button id="saveSettings" style="padding:8px 20px;background:#28a745;color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:bold;width:100%;">
-              💾 設定を保存
-            </button>
-            <div id="saveMessage" style="margin-top:6px;font-size:12px;text-align:center;color:#28a745;display:none;">✓ 設定を保存しました</div>
+        </div>
+      </div>
+
+      <!-- 設定保存 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="accordion-title">
+            <span class="accordion-icon">💾</span>
+            <span>設定保存</span>
           </div>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-content">
+          <button id="saveSettings" style="width:100%;padding:12px;font-size:15px;">💾 設定を保存</button>
+          <div id="saveMessage" style="margin-top:12px;text-align:center;color:#28a745;display:none;font-weight:bold;">✓ 設定を保存しました</div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
+    // アコーディオンのトグル（複数同時に開ける）
+    function toggleAccordion(header) {
+      const content = header.nextElementSibling;
+      const isActive = header.classList.contains('active');
+      
+      // クリックされたアコーディオンのみをトグル
+      if (isActive) {
+        header.classList.remove('active');
+        content.classList.remove('active');
+      } else {
+        header.classList.add('active');
+        content.classList.add('active');
+      }
+    }
+
     // 設定の保存キー
     const STORAGE_KEY_VOICE_SETTINGS = 'currencyStrengthVoiceSettings';
     const STORAGE_KEY_ZOOM = 'currencyStrengthZoom';
+    
+    // 変更履歴を表示（サーバーから取得）
+    async function renderChangeHistory() {
+      const container = document.getElementById('changeHistory');
+      if (!container) return;
+      
+      try {
+        // サーバーから変更履歴を取得
+        const response = await fetch('/api/change_history?limit=5');
+        const result = await response.json();
+        
+        if (result.status !== 'success') {
+          console.error('[HISTORY] Failed to fetch history:', result.msg);
+          container.innerHTML = '<div style="color: #f44; padding: 12px;">履歴の取得に失敗しました</div>';
+          return;
+        }
+        
+        const history = result.data;
+        
+        // 時間足リスト
+        const timeframes = [
+          { key: '15m', label: '15分足' },
+          { key: '1H', label: '1時間足' },
+          { key: '4H', label: '4時間足' },
+          { key: 'D', label: '日足' },
+          { key: 'Av', label: '平均' }
+        ];
+        
+        let html = '';
+        
+        timeframes.forEach(tf => {
+          const records = history[tf.key] || [];
+          
+          html += `
+            <div style="background: #222; padding: 12px; border-radius: 6px; border-left: 3px solid #2d68f8;">
+              <div style="color: #06b7f9; font-weight: bold; margin-bottom: 8px;">${tf.label}</div>
+              <div style="font-size: 12px; font-family: 'Consolas', monospace;">
+          `;
+          
+          if (records.length === 0) {
+            html += `<div style="color: #666;">変更履歴なし</div>`;
+          } else {
+            records.forEach(record => {
+              html += `<div style="margin-bottom: 4px;">${record.timestamp}　${record.weakest}⇔${record.strongest}</div>`;
+            });
+          }
+          
+          html += `
+              </div>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+        console.log('[HISTORY] Rendered change history from server');
+      } catch (e) {
+        console.error('[HISTORY] Failed to render history:', e);
+        container.innerHTML = '<div style="color: #f44; padding: 12px;">履歴の表示に失敗しました</div>';
+      }
+    }
     
     // 設定を保存
     function saveSettings() {
@@ -449,12 +684,18 @@
     
     // ズームを適用
     function applyZoom(level) {
-      const container = document.getElementById('strengthTableContainer');
-      if (container) {
-        const scale = level / 100;
-        container.style.transform = `scale(${scale})`;
-        console.log('[ZOOM] ズームを適用:', level + '%', 'scale:', scale);
+      const strengthContainer = document.getElementById('strengthTableContainer');
+      const settingsContainer = document.getElementById('settingsContainer');
+      const scale = level / 100;
+      
+      if (strengthContainer) {
+        strengthContainer.style.transform = `scale(${scale})`;
       }
+      if (settingsContainer) {
+        settingsContainer.style.transform = `scale(${scale})`;
+      }
+      
+      console.log('[ZOOM] ズームを適用:', level + '%', 'scale:', scale);
     }
     
     // Web Speech API の音声リストを読み込む
@@ -1017,6 +1258,9 @@
         window.currentData = payload.data;
         renderStrengthData(payload.data);
         
+        // 変更履歴を更新（サーバーから取得）
+        renderChangeHistory();
+        
         // 更新時刻を表示
         const updateTime = new Date(payload.timestamp);
         const timeStr = updateTime.toLocaleTimeString('ja-JP');
@@ -1038,6 +1282,9 @@
       
       // 保存された設定を読み込み
       loadSettings();
+      
+      // 変更履歴を表示
+      renderChangeHistory();
       
       // 保存ボタンのイベントリスナーを追加
       const saveBtn = document.getElementById('saveSettings');
