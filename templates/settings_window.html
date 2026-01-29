@@ -467,6 +467,9 @@
         <label><input type="checkbox" class="row-toggle" data-row="15m" checked> 15m</label>
         <label><input type="checkbox" class="row-toggle" data-row="1H" checked> 1H</label>
         <label><input type="checkbox" class="row-toggle" data-row="4H" checked> 4H</label>
+        <label><input type="checkbox" class="row-toggle" data-row="D" checked> D</label>
+        <label><input type="checkbox" class="row-toggle" data-row="W"> W</label>
+        <label><input type="checkbox" class="row-toggle" data-row="M"> M</label>
         <label><input type="checkbox" class="row-toggle" data-row="price" checked> 価格</label>
       </div>
     </div>
@@ -974,15 +977,10 @@ function setupVoiceOptions() {
   // 既存のオプションをクリア
   select.innerHTML = '';
   
-  // 声優オプションを追加（speechSynthesis.getVoices()のインデックス）
+  // 声優オプションを追加（実際に動作する音声のみ - インデックスベース）
   const voices = [
-    { value: '368', label: '七海 [女性]' },
-    { value: '369', label: '圭太 [男性]' },
-    { value: '370', label: '碧衣 [女性]' },
-    { value: '371', label: '大智 [男性]' },
-    { value: '372', label: '真夕 [女性]' },
-    { value: '373', label: '直紀 [男性]' },
-    { value: '374', label: '志織 [女性]' }
+    { value: '369', label: '七海 [女性]' },
+    { value: '370', label: '圭太 [男性]' }
   ];
   
   voices.forEach(v => {
@@ -1268,7 +1266,7 @@ function selectRule(ruleId) {
   document.getElementById('voiceMessageDown').value = voice.messageDown || '';
   document.getElementById('playChimeFirst').checked = voice.playChimeFirst || false;
   document.getElementById('chimeSelect').value = voice.chime || '';
-  document.getElementById('voiceSelect').value = voice.voiceFile || '368'; // デフォルト: 七海
+  document.getElementById('voiceSelect').value = voice.voiceFile || '369'; // デフォルト: 七海
   
   // 方向別メッセージ表示
   document.getElementById('directionMessages').style.display = voice.directionBased ? 'block' : 'none';
@@ -1553,7 +1551,7 @@ function clearRuleForm() {
   document.getElementById('insertSymbol').checked = false;
   document.getElementById('voiceDirectionBased').checked = false;
   document.getElementById('playChimeFirst').checked = false;
-  document.getElementById('voiceSelect').value = '368'; // デフォルト: 七海
+  document.getElementById('voiceSelect').value = '369'; // デフォルト: 七海
   document.getElementById('chimeSelect').value = '';
   document.getElementById('alignAllTf').checked = false;
   document.querySelectorAll('.align-tf').forEach(cb => cb.checked = false);
@@ -1684,12 +1682,15 @@ function setupEventHandlers() {
 }
 
 async function testVoice() {
+  console.log('[音声テスト] 開始');
+  
   // 電子音を先に再生
   const playChimeFirst = document.getElementById('playChimeFirst').checked;
   const chimeFile = document.getElementById('chimeSelect').value;
   
   if (playChimeFirst && chimeFile) {
     try {
+      console.log('[音声テスト] チャイム再生:', chimeFile);
       const audio = new Audio('/Alarm/' + chimeFile);
       audio.volume = parseFloat(document.getElementById('voiceVolume').value);
       await new Promise((resolve, reject) => {
@@ -1698,7 +1699,7 @@ async function testVoice() {
         audio.play();
       });
     } catch (e) {
-      console.error('Chime playback error:', e);
+      console.error('[音声テスト] チャイム再生エラー:', e);
     }
   }
   
@@ -1731,22 +1732,94 @@ async function testVoice() {
     }
   }
   
+  console.log('[音声テスト] メッセージ:', message);
+  
   // 音声合成
   const utterance = new SpeechSynthesisUtterance(message);
   utterance.lang = 'ja-JP';
   utterance.volume = parseFloat(document.getElementById('voiceVolume').value);
   utterance.rate = parseFloat(document.getElementById('voiceRate').value);
   
+  console.log('[音声テスト] 音量:', utterance.volume, '速度:', utterance.rate);
+  
+  // 許可された音声リスト（実際に使用可能な音声のみ）
+  const allowedVoiceNames = [
+    'Microsoft 七海 Online (Natural) - Japanese (Japan)',
+    'Microsoft 圭太 Online (Natural) - Japanese (Japan)'
+  ];
+  
+  // ブロックする音声リスト（オフライン音声など）
+  const blockedVoiceNames = [
+    'Microsoft Ayumi - Japanese (Japan)',
+    'Microsoft Haruka - Japanese (Japan)',
+    'Microsoft Ichiro - Japanese (Japan)',
+    'Microsoft Sayaka - Japanese (Japan)',
+    'Microsoft Ayumi Desktop - Japanese (Japan)',
+    'Microsoft Haruka Desktop - Japanese (Japan)',
+    'Microsoft Ichiro Desktop - Japanese (Japan)',
+    'Microsoft Sayaka Desktop - Japanese (Japan)',
+    'Microsoft Ayumi (Japanese)',
+    'Microsoft Haruka (Japanese)',
+    'Microsoft Ichiro (Japanese)',
+    'Microsoft Sayaka (Japanese)'
+  ];
+  
   // 声優選択
   const voiceIndex = document.getElementById('voiceSelect').value;
+  const voices = speechSynthesis.getVoices();
+  
+  console.log('[音声テスト] 利用可能な音声数:', voices.length);
+  
+  // ブロックされた音声を除外
+  const availableVoices = voices.filter(v => !blockedVoiceNames.includes(v.name));
+  
   if (voiceIndex) {
-    const voices = speechSynthesis.getVoices();
     const idx = parseInt(voiceIndex);
     if (voices[idx]) {
-      utterance.voice = voices[idx];
+      const selectedVoice = voices[idx];
+      console.log('[音声テスト] 選択された音声:', selectedVoice.name);
+      // 選択された音声が許可リストにあるか確認
+      if (allowedVoiceNames.includes(selectedVoice.name)) {
+        utterance.voice = selectedVoice;
+        console.log('[音声テスト] ✓ 使用する音声:', selectedVoice.name);
+      } else {
+        console.warn('[音声テスト] ⚠ ブロックされた音声:', selectedVoice.name);
+        // デフォルトで七海を使用
+        const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
+        if (fallbackVoice) {
+          utterance.voice = fallbackVoice;
+          console.log('[音声テスト] フォールバック音声:', fallbackVoice.name);
+        }
+      }
+    }
+  } else {
+    // 音声が選択されていない場合、デフォルトで七海を使用
+    const defaultVoice = availableVoices.find(v => v.name === 'Microsoft 七海 Online (Natural) - Japanese (Japan)');
+    if (defaultVoice) {
+      utterance.voice = defaultVoice;
+      console.log('[音声テスト] デフォルト音声:', defaultVoice.name);
+    } else {
+      // 七海が見つからない場合、許可リストの最初の音声を使用
+      const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
+      if (fallbackVoice) {
+        utterance.voice = fallbackVoice;
+        console.log('[音声テスト] フォールバック音声:', fallbackVoice.name);
+      } else {
+        console.error('[音声テスト] ❌ 使用可能な音声が見つかりません');
+        return;
+      }
     }
   }
   
+  // 発声前にキャンセルして音声キューをクリア
+  speechSynthesis.cancel();
+  
+  // イベントリスナーを追加してデバッグ
+  utterance.onstart = () => console.log('[音声テスト] 発声開始');
+  utterance.onend = () => console.log('[音声テスト] 発声終了');
+  utterance.onerror = (e) => console.error('[音声テスト] 発声エラー:', e);
+  
+  console.log('[音声テスト] speechSynthesis.speak() 実行');
   speechSynthesis.speak(utterance);
 }
 

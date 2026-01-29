@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>通貨強弱 シンプルテスト</title>
+  <style>
+    body { background: #1a1a1a; color: #e0e0e0; font-family: monospace; padding: 20px; }
+    .log { background: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 4px; }
+    .success { color: #4ade80; }
+    .error { color: #f87171; }
+    .info { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <h1>🔍 通貨強弱 シンプルテスト</h1>
+  <div id="logs"></div>
+  
+  <script>
+    const logsDiv = document.getElementById('logs');
+    
+    function log(message, type = 'info') {
+      const logEntry = document.createElement('div');
+      logEntry.className = `log ${type}`;
+      logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logsDiv.appendChild(logEntry);
+      console.log(message);
+    }
+    
+    async function runTest() {
+      log('テスト開始', 'info');
+      
+      try {
+        // API テスト
+        log('API リクエスト送信: /api/currency_strength', 'info');
+        const response = await fetch('/api/currency_strength?_=' + Date.now());
+        log(`API レスポンス: ${response.status} ${response.statusText}`, 'info');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        log(`データ受信成功: status=${data.status}`, 'success');
+        
+        if (data.data) {
+          for (let tf of ['15m', '1H', '4H']) {
+            if (data.data[tf]) {
+              const currencies = data.data[tf].currencies;
+              log(`[${tf}] 通貨数: ${currencies.length}`, 'success');
+              if (currencies.length > 0) {
+                log(`  最弱: ${currencies[0].currency} (${currencies[0].percentage}%)`, 'info');
+                log(`  最強: ${currencies[currencies.length-1].currency} (${currencies[currencies.length-1].percentage}%)`, 'info');
+              }
+            }
+          }
+        }
+        
+        log('✓ すべてのテスト成功！', 'success');
+        
+      } catch (error) {
+        log(`✗ テスト失敗: ${error.message}`, 'error');
+        log(`スタック: ${error.stack}`, 'error');
+      }
+    }
+    
+    log('ページロード完了', 'success');
+    runTest();
+  </script>
+</body>
+</html>

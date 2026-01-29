@@ -967,6 +967,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <span>確定タイマー</span>
       <span class="menu-status" id="statusTimer"></span>
     </button>
+    <button class="side-menu-item" id="menuCurrencyStrength">
+      <span class="menu-icon">💪</span>
+      <span>通貨強弱</span>
+      <span class="menu-status" id="statusCurrencyStrength"></span>
+    </button>
   </div>
 </div>
 
@@ -1045,6 +1050,9 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="15m" checked> 15m</label>
         <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="1H" checked> 1H</label>
         <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="4H" checked> 4H</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="D" checked> D</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="W"> W</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="M"> M</label>
         <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="price" checked> 価格</label>
       </div>
     </div>
@@ -1084,7 +1092,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <!-- 左右並びコンテナ -->
       <div style="display:flex;gap:12px;width:100%;flex:1;min-height:0;">
         <!-- 左側: 保存済みルール -->
-        <div class="rules-side-panel" style="flex:0 0 auto;border:1px solid rgba(255,255,255,0.08);padding:8px;border-radius:8px;background:rgba(0,0,0,0.12);">
+        <div class="rules-side-panel" style="flex:0 0 350px;border:1px solid rgba(255,255,255,0.08);padding:8px;border-radius:8px;background:rgba(0,0,0,0.12);overflow-y:auto;">
           <div style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;">
             <strong>保存済みルール</strong>
             <label style="display:flex;align-items:center;gap:6px;font-size:0.85em;font-weight:normal;cursor:pointer;">
@@ -1092,7 +1100,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
               <span>有効のみ</span>
             </label>
           </div>
-          <ul id="rulesList" style="list-style:none;padding:0;margin:0;display:block"></ul>
+          <ul id="rulesList" style="list-style:none;padding:0;margin:0;display:block;max-width:330px;word-break:break-word;"></ul>
         </div>
 
         <!-- 右側: ルール編集 -->
@@ -1350,6 +1358,7 @@ let settingsWindowRef = null;
 let economicCalendarWindowRef = null;
 let shepherdColumnWindowRef = null;
 let timerWindowRef = null;
+let currencyStrengthWindowRef = null;
 
 // 利用可能な通貨リスト（子ウィンドウと共有用）
 let availableCurrenciesGlobal = [];
@@ -1381,7 +1390,8 @@ async function setupAllEventListeners() {
       { id: 'menuNote', ref: noteWindowRef, statusId: 'statusNote' },
       { id: 'menuEconomicCalendar', ref: economicCalendarWindowRef, statusId: 'statusEconomicCalendar' },
       { id: 'menuShepherdColumn', ref: shepherdColumnWindowRef, statusId: 'statusShepherdColumn' },
-      { id: 'menuTimer', ref: timerWindowRef, statusId: 'statusTimer' }
+      { id: 'menuTimer', ref: timerWindowRef, statusId: 'statusTimer' },
+      { id: 'menuCurrencyStrength', ref: currencyStrengthWindowRef, statusId: 'statusCurrencyStrength' }
     ];
 
     menuItems.forEach(item => {
@@ -1465,6 +1475,17 @@ async function setupAllEventListeners() {
       timerWindowRef.focus();
     } else {
       timerWindowRef = window.open('/timer_window', 'timer_window', 'width=500,height=700,left=300,top=100,resizable=yes,scrollbars=yes');
+    }
+    updateMenuStatus();
+  });
+
+  // 通貨強弱メニュー項目: 子ウィンドウを開く/前面に出す
+  const menuCurrencyStrength = document.getElementById('menuCurrencyStrength');
+  if (menuCurrencyStrength) menuCurrencyStrength.addEventListener('click', () => {
+    if (currencyStrengthWindowRef && !currencyStrengthWindowRef.closed) {
+      currencyStrengthWindowRef.focus();
+    } else {
+      currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window', 'width=1400,height=800,left=350,top=150,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
@@ -1788,7 +1809,7 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
     testVoiceBtn.addEventListener('click', () => {
       console.log('[EVENT] Test voice button clicked');
       const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
-      const voiceName = document.getElementById('voiceSelect').value;
+      const voiceIndex = parseInt(document.getElementById('voiceSelect').value);
       const messagePosition = document.getElementById('voiceMessagePosition').value;
       const playChime = document.getElementById('playChimeFirst').checked;
       const chimeFile = document.getElementById('chimeSelect').value;
@@ -1830,8 +1851,23 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         }
       }
 
+      // インデックスベースで音声を取得
       const voiceSettings = {};
-      if (voiceName) voiceSettings.voice_name = voiceName;
+      if (!isNaN(voiceIndex)) {
+        const voices = speechSynthesis.getVoices();
+        if (voices[voiceIndex]) {
+          voiceSettings.voice_name = voices[voiceIndex].name;
+          console.log('[EVENT] Selected voice index:', voiceIndex, 'name:', voiceSettings.voice_name);
+        } else {
+          // インデックスが無効な場合、デフォルトで七海を設定
+          voiceSettings.voice_name = 'Microsoft 七海 Online (Natural) - Japanese (Japan)';
+          console.log('[EVENT] Invalid voice index, using default:', voiceSettings.voice_name);
+        }
+      } else {
+        // インデックスが指定されていない場合、デフォルトで七海を設定
+        voiceSettings.voice_name = 'Microsoft 七海 Online (Natural) - Japanese (Japan)';
+        console.log('[EVENT] No voice index selected, using default:', voiceSettings.voice_name);
+      }
       if (playChime && chimeFile) voiceSettings.chime_file = chimeFile;
       if (insertSymbol && ruleScope) {
         voiceSettings.insert_symbol = true;
@@ -4130,6 +4166,9 @@ function applyRowVisibility() {
       else if (text === '15m') rowLabel = '15m';
       else if (text === '1H') rowLabel = '1H';
       else if (text === '4H') rowLabel = '4H';
+      else if (text === 'D') rowLabel = 'D';
+      else if (text === 'W') rowLabel = 'W';
+      else if (text === 'M') rowLabel = 'M';
       
       if (rowLabel) {
         const visible = savedRows[rowLabel] !== false; // デフォルトtrue
@@ -4451,39 +4490,33 @@ function populateVoiceSelect() {
   const voices = speechSynthesis.getVoices();
   console.log('[VOICE] Total voices available:', voices.length);
   
-  // 日本語音声をすべてコンソールに出力
-  console.log('[VOICE] ========== All Japanese voices ==========');
-  const japaneseVoices = voices.filter(v => v.lang.includes('ja') || v.lang.includes('JP'));
-  japaneseVoices.forEach((v, idx) => {
-    const globalIdx = voices.indexOf(v);
-    console.log(`  Index ${globalIdx}: ${v.name}`);
-  });
-  console.log(`[VOICE] Total Japanese voices: ${japaneseVoices.length}`);
-  console.log('[VOICE] =========================================');
+  // 利用可能な日本語オンライン音声を定義（インデックスベース）
+  const japaneseOnlineVoices = [
+    { index: 369, name: '七海', displayName: '七海［女性］' },
+    { index: 370, name: '圭太', displayName: '圭太［男性］' }
+  ];
   
-  const allowedVoices = {
-    'Microsoft 七海 Online (Natural) - Japanese (Japan)': '七海［女性］',
-    'Microsoft 圭太 Online (Natural) - Japanese (Japan)': '圭太［男性］'
-  };
-  
-  let addedCount = 0;
-  voices.forEach(voice => {
-    console.log('[VOICE] Checking voice:', voice.name, 'lang:', voice.lang);
-    if (voice.lang.startsWith('ja') && allowedVoices[voice.name]) {
+  console.log('[VOICE] Available Japanese online voices:');
+  japaneseOnlineVoices.forEach(v => {
+    if (voices[v.index]) {
+      console.log(`  [${v.index}] ${v.name}: ${voices[v.index].name}`);
+      
       const option = document.createElement('option');
-      option.value = voice.name;
-      option.textContent = allowedVoices[voice.name];
+      option.value = v.index.toString(); // インデックスを保存
+      option.textContent = v.displayName;
       select.appendChild(option);
-      addedCount++;
-      console.log('[VOICE] Added:', allowedVoices[voice.name]);
+    } else {
+      console.warn(`  [${v.index}] ${v.name}: NOT FOUND`);
     }
   });
   
-  console.log('[VOICE] Total voices added:', addedCount);
+  console.log('[VOICE] Total voices added:', select.options.length);
   
   // Restore previous selection if it still exists
   if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
     select.value = currentValue;
+  } else if (select.options.length > 0) {
+    select.value = select.options[0].value; // デフォルトは最初の選択肢
   }
 }
 
@@ -5742,15 +5775,70 @@ function renderCurrencyTable(symbol, allStates, container) {
         html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
       }
       
-      // トレンド判定
-      const trend = calculateTrend(c);
-      if (trend === '↗上昇') {
-        html += '<td style="background:#06b7f9; color:#fff; font-weight:bold">↗上昇</td></tr>';
-      } else if (trend === '↘下降') {
-        html += '<td style="background:#ff57ea; color:#fff; font-weight:bold">↘下降</td></tr>';
-      } else {
-        html += '<td style="background:#95a5a6; color:#fff">レンジ</td></tr>';
+      // ★ トレンド強度判定（v2ロジック）- サーバーから受け取ったデータを使用
+      // c.label（各TFの雲データ）に対応するstateを探す
+      // labelのマッピング: '5m' → ['5', '5m'], '15m' → ['15', '15m'], '1H' → ['60', '1h', '1H'], '4H' → ['240', '4h', '4H']
+      const labelToTfMap = {
+        '5m': ['5', '5m', '5M'],
+        '15m': ['15', '15m', '15M'],
+        '1H': ['60', '1h', '1H'],
+        '4H': ['240', '4h', '4H'],
+        'D': ['D', '1D'],
+        'W': ['W', '1W'],
+        'M': ['M', '1M']
+      };
+      
+      const tfVariants = labelToTfMap[c.label] || [c.label];
+      
+      // tf_normalizedの完全一致を最優先、見つからなければtfでマッチング
+      let tfState = allStates.find(s => s.symbol === symbol && s.tf_normalized === c.label);
+      if (!tfState) {
+        tfState = allStates.find(s => s.symbol === symbol && tfVariants.includes(s.tf));
       }
+      
+      let trendScore = 0;
+      let trendColor = '#9c9c9c'; // デフォルト: グレー（レンジ）
+      let trendDisplay = '00% □□□□';
+      
+      // 方向を判定（trend_direction: 'up'=上昇, 'down'=下降, 'range'=レンジ）
+      const direction = tfState && tfState.trend_direction ? tfState.trend_direction : null;
+      
+      if (tfState && tfState.trend_strength && direction && direction !== 'range') {
+        trendScore = tfState.trend_score || 0;
+        
+        // 方向に応じた背景色を設定
+        trendColor = (direction === 'up') ? '#06b7f9' : '#ff57ea'; // 上昇:青, 下降:ピンク
+        
+        // パーセント計算（0-100%）
+        const percentage = Math.min(100, Math.max(0, trendScore));
+        const percentStr = String(percentage).padStart(2, '0');
+        
+        // ゲージバー: 4個の四角で表現（各25%刻み）
+        // 0-25%: □□□□
+        // 26-50%: ■□□□
+        // 51-75%: ■■□□
+        // 76-100%: ■■■□ または ■■■■
+        const gaugeCount = Math.round(percentage / 25);
+        const fullBars = '■'.repeat(gaugeCount);
+        const emptyBars = '□'.repeat(4 - gaugeCount);
+        const gaugeBar = fullBars + emptyBars;
+        
+        trendDisplay = percentStr + '% ' + gaugeBar;
+      } else {
+        // 横トレンド（direction='range' または directionなし）
+        trendScore = tfState && tfState.trend_score ? tfState.trend_score : 0;
+        trendColor = '#9c9c9c'; // グレー（0-19点がレンジ判定）
+        
+        const percentage = Math.min(100, Math.max(0, trendScore));
+        const percentStr = String(percentage).padStart(2, '0');
+        
+        trendDisplay = percentStr + '% □□□□'; // すべてくり抜き
+      }
+      
+      // トレンド強度を表示（パーセント + ゲージバー）
+      html += '<td style="background:' + trendColor + '; color:#fff; font-weight:bold; font-size:0.95em; font-family: monospace; letter-spacing: 0.1em;">' + 
+              trendDisplay +
+              '</td></tr>';
     }
   });
 
@@ -6064,7 +6152,12 @@ function renderRulesList(rules) {
     title.textContent = rule.name || rule.id; 
     title.style.fontWeight = '600';
     title.style.cursor = 'pointer';
-    title.title = 'クリックして編集';
+    title.style.flex = '1';  // 利用可能なスペースを占有
+    title.style.minWidth = '0';  // フレックスアイテムが収縮できるように
+    title.style.overflow = 'hidden';  // はみ出しを隠す
+    title.style.textOverflow = 'ellipsis';  // はみ出した文字を...で表示
+    title.style.whiteSpace = 'nowrap';  // テキストを折り返さない
+    title.title = rule.name || rule.id;  // ホバーで全文を表示
     title.addEventListener('click', () => openRuleEditor(rule));
     title.addEventListener('mouseenter', () => { title.style.textDecoration = 'underline'; });
     title.addEventListener('mouseleave', () => { title.style.textDecoration = 'none'; });
@@ -6966,15 +7059,10 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
   utterance.volume = globalVolume;
   utterance.rate = globalRate;
   
-  // 許可された音声リスト
+  // 許可された音声リスト（実際に使用可能な音声のみ）
   const allowedVoiceNames = [
     'Microsoft 七海 Online (Natural) - Japanese (Japan)',
-    'Microsoft 圭太 Online (Natural) - Japanese (Japan)',
-    'Microsoft 碧衣 Online (Natural) - Japanese (Japan)',
-    'Microsoft 大智 Online (Natural) - Japanese (Japan)',
-    'Microsoft 真夕 Online (Natural) - Japanese (Japan)',
-    'Microsoft 直紀 Online (Natural) - Japanese (Japan)',
-    'Microsoft 志織 Online (Natural) - Japanese (Japan)'
+    'Microsoft 圭太 Online (Natural) - Japanese (Japan)'
   ];
   
   // ブロックする音声リスト（オフライン音声など）
@@ -7006,23 +7094,28 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
   
   // Set voice if specified
   if (voiceSettings && voiceSettings.voice_name) {
-    const selectedVoice = availableVoices.find(v => v.name === voiceSettings.voice_name);
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-      console.log('[VOICE_MESSAGE] ✓ Using custom voice:', selectedVoice.name);
+    // 許可リストに含まれている音声のみを選択
+    if (allowedVoiceNames.includes(voiceSettings.voice_name)) {
+      const selectedVoice = availableVoices.find(v => v.name === voiceSettings.voice_name);
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        console.log('[VOICE_MESSAGE] ✓ Using custom voice:', selectedVoice.name);
+      } else {
+        console.warn('[VOICE_MESSAGE] ⚠️ Voice not found in available voices:', voiceSettings.voice_name);
+        // フォールバック: 許可された音声リストから最初の利用可能な音声を選択
+        const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
+        if (fallbackVoice) {
+          utterance.voice = fallbackVoice;
+          console.warn('[VOICE_MESSAGE] ⚠️ Using fallback voice:', fallbackVoice.name);
+        }
+      }
     } else {
-      console.warn('[VOICE_MESSAGE] ⚠️ Custom voice not found:', voiceSettings.voice_name);
-      console.warn('[VOICE_MESSAGE] Available voices:', availableVoices.map(v => v.name));
-      // 許可された音声リストから最初の利用可能な音声を選択
+      console.warn('[VOICE_MESSAGE] ⚠️ Requested voice not in allowed list:', voiceSettings.voice_name);
+      // 許可リストにない音声が指定されたので、デフォルト音声を使用
       const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
       if (fallbackVoice) {
         utterance.voice = fallbackVoice;
-        console.warn('[VOICE_MESSAGE] ⚠️ Using fallback voice:', fallbackVoice.name);
-      } else {
-        console.error('[VOICE_MESSAGE] ❌ No allowed voices available! Canceling speech.');
-        console.error('[VOICE_MESSAGE] Available JP voices:', availableVoices.filter(v => v.lang.includes('ja') || v.lang.includes('JP')).map(v => v.name));
-        if (onComplete) onComplete();
-        return; // 音声再生をキャンセル
+        console.warn('[VOICE_MESSAGE] ⚠️ Using allowed fallback voice:', fallbackVoice.name);
       }
     }
   } else {

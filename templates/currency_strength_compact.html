@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>通貨強弱デザイン案 - コンパクト版</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Meiryo, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #06b7f9;
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+
+    .design-section {
+      margin-bottom: 40px;
+      border: 2px solid #444;
+      border-radius: 8px;
+      padding: 15px;
+      background: #222;
+    }
+
+    .design-title {
+      color: #ffd700;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #ffd700;
+      padding-bottom: 5px;
+    }
+
+    /* ==================== デザイン案1: インライン型 ==================== */
+    .design1 {
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .design1 .tf-row {
+      padding: 5px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    .design1 .tf-label {
+      display: inline-block;
+      width: 50px;
+      font-weight: bold;
+      color: #06b7f9;
+    }
+
+    .design1 .currency {
+      display: inline-block;
+      padding: 2px 8px;
+      margin: 0 2px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+
+    .design1 .avg-row {
+      background: #2a2a2a;
+      padding: 8px 0;
+      font-weight: bold;
+      border-top: 2px solid #06b7f9;
+      margin-top: 5px;
+    }
+
+    /* ==================== デザイン案2: カード横並び型 ==================== */
+    .design2 {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .design2 .tf-card {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 8px 12px;
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .design2 .tf-title {
+      font-weight: bold;
+      color: #06b7f9;
+      font-size: 14px;
+      margin-bottom: 5px;
+      text-align: center;
+    }
+
+    .design2 .currency-list {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .design2 .currency {
+      text-align: center;
+      padding: 3px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+
+    /* ==================== デザイン案3: グリッド型 ==================== */
+    .design3 {
+      display: grid;
+      grid-template-columns: 60px repeat(5, 1fr);
+      gap: 2px;
+      font-size: 12px;
+    }
+
+    .design3 .cell {
+      background: #2a2a2a;
+      padding: 6px;
+      text-align: center;
+      border: 1px solid #333;
+    }
+
+    .design3 .header {
+      background: #333;
+      color: #06b7f9;
+      font-weight: bold;
+    }
+
+    .design3 .tf-label {
+      background: #1a1a1a;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .design3 .avg-label {
+      background: #06b7f9;
+      color: #000;
+      font-weight: bold;
+    }
+
+    /* ==================== デザイン案4: バー埋め込み型 ==================== */
+    .design4 {
+      font-size: 12px;
+    }
+
+    .design4 .tf-row {
+      display: flex;
+      align-items: center;
+      padding: 4px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    .design4 .tf-label {
+      width: 50px;
+      font-weight: bold;
+      color: #06b7f9;
+    }
+
+    .design4 .strength-bar {
+      flex: 1;
+      display: flex;
+      height: 24px;
+      background: #1a1a1a;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .design4 .currency-segment {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: bold;
+      font-size: 11px;
+      border-right: 1px solid #000;
+    }
+
+    /* ==================== デザイン案5: タブ切り替え型 ==================== */
+    .design5 {
+      background: #2a2a2a;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .design5 .tabs {
+      display: flex;
+      background: #1a1a1a;
+      border-bottom: 2px solid #06b7f9;
+    }
+
+    .design5 .tab {
+      flex: 1;
+      padding: 8px;
+      text-align: center;
+      font-weight: bold;
+      cursor: pointer;
+      border-right: 1px solid #333;
+      transition: all 0.3s;
+    }
+
+    .design5 .tab:hover {
+      background: #333;
+    }
+
+    .design5 .tab.active {
+      background: #06b7f9;
+      color: #000;
+    }
+
+    .design5 .tab-content {
+      padding: 10px;
+      display: flex;
+      justify-content: space-around;
+      font-size: 13px;
+    }
+
+    .design5 .currency {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    /* 共通: 通貨色分け */
+    .very-weak { background: #d32f2f; color: #fff; }
+    .weak { background: #f57c00; color: #fff; }
+    .neutral { background: #616161; color: #fff; }
+    .strong { background: #388e3c; color: #fff; }
+    .very-strong { background: #1976d2; color: #fff; }
+
+    .arrow { color: #666; margin: 0 3px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 通貨強弱デザイン案（コンパクト版）</h1>
+
+    <!-- ==================== デザイン案1: インライン型 ==================== -->
+    <div class="design-section">
+      <div class="design-title">案1: インライン型（最もコンパクト）</div>
+      <div class="design1">
+        <div class="tf-row">
+          <span class="tf-label">15m</span>
+          <span class="currency very-weak">JPY-45</span><span class="arrow">＜</span>
+          <span class="currency weak">AUD-23</span><span class="arrow">＜</span>
+          <span class="currency neutral">EUR-12</span><span class="arrow">＜</span>
+          <span class="currency neutral">GBP+8</span><span class="arrow">＜</span>
+          <span class="currency strong">USD+32</span>
+        </div>
+        <div class="tf-row">
+          <span class="tf-label">1H</span>
+          <span class="currency weak">JPY-30</span><span class="arrow">＜</span>
+          <span class="currency neutral">AUD-18</span><span class="arrow">＜</span>
+          <span class="currency neutral">EUR-10</span><span class="arrow">＜</span>
+          <span class="currency neutral">GBP+5</span><span class="arrow">＜</span>
+          <span class="currency strong">USD+20</span>
+        </div>
+        <div class="tf-row">
+          <span class="tf-label">4H</span>
+          <span class="currency weak">JPY-28</span><span class="arrow">＜</span>
+          <span class="currency neutral">EUR-15</span><span class="arrow">＜</span>
+          <span class="currency neutral">AUD-12</span><span class="arrow">＜</span>
+          <span class="currency neutral">USD+15</span><span class="arrow">＜</span>
+          <span class="currency neutral">GBP+18</span>
+        </div>
+        <div class="tf-row">
+          <span class="tf-label">D</span>
+          <span class="currency weak">AUD-20</span><span class="arrow">＜</span>
+          <span class="currency neutral">JPY-15</span><span class="arrow">＜</span>
+          <span class="currency neutral">EUR-8</span><span class="arrow">＜</span>
+          <span class="currency neutral">GBP+10</span><span class="arrow">＜</span>
+          <span class="currency strong">USD+25</span>
+        </div>
+        <div class="tf-row avg-row">
+          <span class="tf-label">平均</span>
+          <span class="currency weak">JPY-30</span><span class="arrow">＜</span>
+          <span class="currency neutral">AUD-18</span><span class="arrow">＜</span>
+          <span class="currency neutral">EUR-11</span><span class="arrow">＜</span>
+          <span class="currency neutral">GBP+10</span><span class="arrow">＜</span>
+          <span class="currency strong">USD+24</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== デザイン案2: カード横並び型 ==================== -->
+    <div class="design-section">
+      <div class="design-title">案2: カード横並び型（視認性重視）</div>
+      <div class="design2">
+        <div class="tf-card">
+          <div class="tf-title">15m</div>
+          <div class="currency-list">
+            <span class="currency very-weak">JPY<br>-45</span>
+            <span class="currency weak">AUD<br>-23</span>
+            <span class="currency neutral">EUR<br>-12</span>
+            <span class="currency neutral">GBP<br>+8</span>
+            <span class="currency strong">USD<br>+32</span>
+          </div>
+        </div>
+        <div class="tf-card">
+          <div class="tf-title">1H</div>
+          <div class="currency-list">
+            <span class="currency weak">JPY<br>-30</span>
+            <span class="currency neutral">AUD<br>-18</span>
+            <span class="currency neutral">EUR<br>-10</span>
+            <span class="currency neutral">GBP<br>+5</span>
+            <span class="currency strong">USD<br>+20</span>
+          </div>
+        </div>
+        <div class="tf-card">
+          <div class="tf-title">4H</div>
+          <div class="currency-list">
+            <span class="currency weak">JPY<br>-28</span>
+            <span class="currency neutral">EUR<br>-15</span>
+            <span class="currency neutral">AUD<br>-12</span>
+            <span class="currency neutral">USD<br>+15</span>
+            <span class="currency neutral">GBP<br>+18</span>
+          </div>
+        </div>
+        <div class="tf-card">
+          <div class="tf-title">D</div>
+          <div class="currency-list">
+            <span class="currency weak">AUD<br>-20</span>
+            <span class="currency neutral">JPY<br>-15</span>
+            <span class="currency neutral">EUR<br>-8</span>
+            <span class="currency neutral">GBP<br>+10</span>
+            <span class="currency strong">USD<br>+25</span>
+          </div>
+        </div>
+        <div class="tf-card" style="border: 2px solid #06b7f9;">
+          <div class="tf-title">平均</div>
+          <div class="currency-list">
+            <span class="currency weak">JPY<br>-30</span>
+            <span class="currency neutral">AUD<br>-18</span>
+            <span class="currency neutral">EUR<br>-11</span>
+            <span class="currency neutral">GBP<br>+10</span>
+            <span class="currency strong">USD<br>+24</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== デザイン案3: グリッド型 ==================== -->
+    <div class="design-section">
+      <div class="design-title">案3: グリッド型（テーブルライク）</div>
+      <div class="design3">
+        <div class="cell header">TF</div>
+        <div class="cell header">1位</div>
+        <div class="cell header">2位</div>
+        <div class="cell header">3位</div>
+        <div class="cell header">4位</div>
+        <div class="cell header">5位</div>
+
+        <div class="cell tf-label">15m</div>
+        <div class="cell currency very-weak">JPY<br>-45</div>
+        <div class="cell currency weak">AUD<br>-23</div>
+        <div class="cell currency neutral">EUR<br>-12</div>
+        <div class="cell currency neutral">GBP<br>+8</div>
+        <div class="cell currency strong">USD<br>+32</div>
+
+        <div class="cell tf-label">1H</div>
+        <div class="cell currency weak">JPY<br>-30</div>
+        <div class="cell currency neutral">AUD<br>-18</div>
+        <div class="cell currency neutral">EUR<br>-10</div>
+        <div class="cell currency neutral">GBP<br>+5</div>
+        <div class="cell currency strong">USD<br>+20</div>
+
+        <div class="cell tf-label">4H</div>
+        <div class="cell currency weak">JPY<br>-28</div>
+        <div class="cell currency neutral">EUR<br>-15</div>
+        <div class="cell currency neutral">AUD<br>-12</div>
+        <div class="cell currency neutral">USD<br>+15</div>
+        <div class="cell currency neutral">GBP<br>+18</div>
+
+        <div class="cell tf-label">D</div>
+        <div class="cell currency weak">AUD<br>-20</div>
+        <div class="cell currency neutral">JPY<br>-15</div>
+        <div class="cell currency neutral">EUR<br>-8</div>
+        <div class="cell currency neutral">GBP<br>+10</div>
+        <div class="cell currency strong">USD<br>+25</div>
+
+        <div class="cell avg-label">平均</div>
+        <div class="cell currency weak">JPY<br>-30</div>
+        <div class="cell currency neutral">AUD<br>-18</div>
+        <div class="cell currency neutral">EUR<br>-11</div>
+        <div class="cell currency neutral">GBP<br>+10</div>
+        <div class="cell currency strong">USD<br>+24</div>
+      </div>
+    </div>
+
+    <!-- ==================== デザイン案4: バー埋め込み型 ==================== -->
+    <div class="design-section">
+      <div class="design-title">案4: バー埋め込み型（ビジュアル重視）</div>
+      <div class="design4">
+        <div class="tf-row">
+          <span class="tf-label">15m</span>
+          <div class="strength-bar">
+            <div class="currency-segment very-weak" style="width: 15%;">JPY -45</div>
+            <div class="currency-segment weak" style="width: 18%;">AUD -23</div>
+            <div class="currency-segment neutral" style="width: 19%;">EUR -12</div>
+            <div class="currency-segment neutral" style="width: 21%;">GBP +8</div>
+            <div class="currency-segment strong" style="width: 27%; border-right: none;">USD +32</div>
+          </div>
+        </div>
+        <div class="tf-row">
+          <span class="tf-label">1H</span>
+          <div class="strength-bar">
+            <div class="currency-segment weak" style="width: 17%;">JPY -30</div>
+            <div class="currency-segment neutral" style="width: 19%;">AUD -18</div>
+            <div class="currency-segment neutral" style="width: 20%;">EUR -10</div>
+            <div class="currency-segment neutral" style="width: 21%;">GBP +5</div>
+            <div class="currency-segment strong" style="width: 23%; border-right: none;">USD +20</div>
+          </div>
+        </div>
+        <div class="tf-row">
+          <span class="tf-label">4H</span>
+          <div class="strength-bar">
+            <div class="currency-segment weak" style="width: 18%;">JPY -28</div>
+            <div class="currency-segment neutral" style="width: 19%;">EUR -15</div>
+            <div class="currency-segment neutral" style="width: 20%;">AUD -12</div>
+            <div class="currency-segment neutral" style="width: 21%;">USD +15</div>
+            <div class="currency-segment neutral" style="width: 22%; border-right: none;">GBP +18</div>
+          </div>
+        </div>
+        <div class="tf-row">
+          <span class="tf-label">D</span>
+          <div class="strength-bar">
+            <div class="currency-segment weak" style="width: 18%;">AUD -20</div>
+            <div class="currency-segment neutral" style="width: 19%;">JPY -15</div>
+            <div class="currency-segment neutral" style="width: 20%;">EUR -8</div>
+            <div class="currency-segment neutral" style="width: 21%;">GBP +10</div>
+            <div class="currency-segment strong" style="width: 22%; border-right: none;">USD +25</div>
+          </div>
+        </div>
+        <div class="tf-row" style="border-top: 2px solid #06b7f9; padding-top: 8px; margin-top: 5px;">
+          <span class="tf-label">平均</span>
+          <div class="strength-bar">
+            <div class="currency-segment weak" style="width: 18%;">JPY -30</div>
+            <div class="currency-segment neutral" style="width: 19%;">AUD -18</div>
+            <div class="currency-segment neutral" style="width: 20%;">EUR -11</div>
+            <div class="currency-segment neutral" style="width: 21%;">GBP +10</div>
+            <div class="currency-segment strong" style="width: 22%; border-right: none;">USD +24</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== デザイン案5: タブ切り替え型 ==================== -->
+    <div class="design-section">
+      <div class="design-title">案5: タブ切り替え型（超コンパクト）</div>
+      <div class="design5">
+        <div class="tabs">
+          <div class="tab active">15m</div>
+          <div class="tab">1H</div>
+          <div class="tab">4H</div>
+          <div class="tab">D</div>
+          <div class="tab">平均</div>
+        </div>
+        <div class="tab-content">
+          <span class="currency very-weak">JPY -45</span>
+          <span class="arrow">＜</span>
+          <span class="currency weak">AUD -23</span>
+          <span class="arrow">＜</span>
+          <span class="currency neutral">EUR -12</span>
+          <span class="arrow">＜</span>
+          <span class="currency neutral">GBP +8</span>
+          <span class="arrow">＜</span>
+          <span class="currency strong">USD +32</span>
+        </div>
+      </div>
+      <div style="margin-top: 10px; color: #888; font-size: 11px;">
+        ※ タブをクリックで時間足切り替え（実装時にJavaScript必要）
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

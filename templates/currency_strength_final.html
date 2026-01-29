@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>通貨強弱メーター</title>
+  <!-- Socket.IO CDN -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Meiryo, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 6px;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0;
+    }
+
+    h1 {
+      text-align: center;
+      color: #06b7f9;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    /* 通貨強弱表 */
+    .strength-table {
+      background: #2a2a2a;
+      border-radius: 8px;
+      padding: 6px;
+      border: 1px solid #444;
+      margin-bottom: 0;
+    }
+
+    .strength-title {
+      color: #06b7f9;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #06b7f9;
+    }
+
+    /* テーブルレイアウト */
+    .strength-table-wrapper {
+      width: 100%;
+    }
+
+    .strength-table-grid {
+      display: grid;
+      grid-template-columns: 50px repeat(5, 1fr) 2fr;
+      gap: 2px;
+      font-family: 'Consolas', monospace;
+      font-size: 14px;
+      font-weight: bold;
+      width: 100%;
+    }
+
+    .table-header {
+      font-weight: bold;
+      background: #2d68f8;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4px;
+      border: 1px solid #555;
+      border-radius: 3px;
+    }
+
+    .table-header-currencies {
+      font-weight: bold;
+      background: #2d68f8;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4px;
+      border: 1px solid #555;
+      border-radius: 3px;
+      grid-column: span 5;
+    }
+
+    .table-header-recommended {
+      font-weight: bold;
+      background: #2d68f8;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4px;
+      border: 1px solid #555;
+      border-radius: 3px;
+    }
+
+    .table-row-label {
+      font-weight: bold;
+      background: #2d68f8;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border: 1px solid #555;
+      padding: 4px;
+      border-radius: 3px;
+    }
+
+    .table-cell {
+      border: 1px solid #fff;
+      padding: 4px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .table-cell.very-weak { background: #d32f2f; color: #fff; }
+    .table-cell.weak { background: #f57c00; color: #fff; }
+    .table-cell.neutral { background: #616161; color: #fff; }
+    .table-cell.strong { background: #388e3c; color: #fff; }
+    .table-cell.very-strong { background: #1976d2; color: #fff; }
+
+    .table-recommended {
+      border: 1px solid #555;
+      padding: 4px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      flex-wrap: nowrap;
+    }
+
+    .recommended-pair {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .buy-badge {
+      background: #1976d2;
+      color: #fff;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .sell-badge {
+      background: #ff57ea;
+      color: #fff;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    /* 推奨ペア */
+    .recommended {
+      display: none;
+    }
+
+    /* 通貨色分け */
+    .very-weak { background: #d32f2f; color: #fff; }
+    .weak { background: #f57c00; color: #fff; }
+    .neutral { background: #616161; color: #fff; }
+    .strong { background: #388e3c; color: #fff; }
+    .very-strong { background: #1976d2; color: #fff; }
+
+    /* 設定項目 */
+    .settings-box {
+      background: #2a2a2a;
+      border: 2px solid #2d68f8;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+
+    .settings-title {
+      color: #2d68f8;
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .settings-content {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      color: #e0e0e0;
+    }
+
+    .settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .settings-group-title {
+      color: #06b7f9;
+      font-weight: bold;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+
+    .checkbox-item label {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 通貨強弱 + 推奨ペア -->
+    <div class="strength-table" id="strengthTableContainer" style="transform-origin: top left; transition: transform 0.2s ease;">
+      <div class="strength-title">
+        通貨強弱ランキング + 推奨ペア 
+        <span id="loadingText" style="color:#ffd700;font-size:14px;margin-left:10px;">読み込み中...</span>
+        <span id="updateTime" style="color:#fff;font-size:12px;margin-left:10px;"></span>
+      </div>
+      
+      <div id="strengthData">
+        <!-- JavaScriptで動的に生成 -->
+      </div>
+    </div>
+
+    <!-- 設定項目 -->
+    <div class="settings-box">
+      <div class="settings-title">⚙️ 設定項目</div>
+      <div class="settings-content">
+        <!-- ズーム機能 -->
+        <div class="settings-group" style="border-left: 2px solid #ffd700; padding-left: 15px; margin-bottom: 12px;">
+          <div class="settings-group-title">🔍 通貨強弱表ズーム</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:12px;">表示倍率：</label>
+            <select id="zoomLevel" style="padding:4px 6px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;">
+              <option value="50">50%</option>
+              <option value="60">60%</option>
+              <option value="70">70%</option>
+              <option value="80">80%</option>
+              <option value="90">90%</option>
+              <option value="100" selected>100%</option>
+              <option value="110">110%</option>
+              <option value="120">120%</option>
+              <option value="130">130%</option>
+              <option value="140">140%</option>
+              <option value="150">150%</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="settings-group">
+          <div class="settings-group-title">表示項目</div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="showCurrencies" checked>
+            <label for="showCurrencies">通貨強弱を表示</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="showRecommended" checked>
+            <label for="showRecommended">推奨ペアを表示</label>
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-group-title">時間足</div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="show15m" checked>
+            <label for="show15m">15mを表示</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="show1H" checked>
+            <label for="show1H">1Hを表示</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="show4H" checked>
+            <label for="show4H">4Hを表示</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="showD" checked>
+            <label for="showD">Dを表示</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="showAv" checked>
+            <label for="showAv">Avを表示</label>
+          </div>
+        </div>
+        
+        <!-- 音声通知設定 -->
+        <div class="settings-group" style="border-left: 2px solid #2d68f8; padding-left: 15px;">
+          <div class="settings-group-title">🔊 最弱・最強変更通知</div>
+          
+          <div style="margin-bottom: 8px;">
+            <label style="font-size:12px;">声優選択：</label>
+            <select id="voiceActress" style="padding:4px 6px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;">
+              <option value="nanami">七海（女性）</option>
+              <option value="keita">圭太（男性）</option>
+            </select>
+          </div>
+          
+          <div style="margin-bottom: 8px;">
+            <input type="checkbox" id="enableElectronic" style="width:16px;height:16px;cursor:pointer;">
+            <label for="enableElectronic" style="cursor:pointer;">電子音選択：</label>
+            <select id="electronicSound" style="padding:4px 6px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;" disabled>
+              <option value="buzzer">開演ブザー</option>
+              <option value="bell">チャイム</option>
+              <option value="notification">通知音</option>
+            </select>
+          </div>
+          
+          <!-- 各時間足の通知設定 -->
+          <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #555;">
+            <div class="checkbox-item">
+              <input type="checkbox" id="notify15m" checked>
+              <label for="notify15m">15分：</label>
+              <input type="text" id="msg15m" placeholder="メッセージを入力" style="width:200px;padding:4px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;margin:0 4px;">
+              <button id="play15m" style="padding:4px 8px;background:#2d68f8;color:#fff;border:none;border-radius:3px;cursor:pointer;">再生</button>
+            </div>
+            
+            <div class="checkbox-item">
+              <input type="checkbox" id="notify1H" checked>
+              <label for="notify1H">1時間：</label>
+              <input type="text" id="msg1H" placeholder="メッセージを入力" style="width:200px;padding:4px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;margin:0 4px;">
+              <button id="play1H" style="padding:4px 8px;background:#2d68f8;color:#fff;border:none;border-radius:3px;cursor:pointer;">再生</button>
+            </div>
+            
+            <div class="checkbox-item">
+              <input type="checkbox" id="notify4H" checked>
+              <label for="notify4H">4時間：</label>
+              <input type="text" id="msg4H" placeholder="メッセージを入力" style="width:200px;padding:4px;background:#333;color:#fff;border:1px solid #666;border-radius:3px;margin:0 4px;">
+              <button id="play4H" style="padding:4px 8px;background:#2d68f8;color:#fff;border:none;border-radius:3px;cursor:pointer;">再生</button>
+            </div>
+          </div>
+          
+          <!-- 設定保存ボタン -->
+          <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #555;">
+            <button id="saveSettings" style="padding:8px 20px;background:#28a745;color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:bold;width:100%;">
+              💾 設定を保存
+            </button>
+            <div id="saveMessage" style="margin-top:6px;font-size:12px;text-align:center;color:#28a745;display:none;">✓ 設定を保存しました</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 設定の保存キー
+    const STORAGE_KEY_VOICE_SETTINGS = 'currencyStrengthVoiceSettings';
+    const STORAGE_KEY_ZOOM = 'currencyStrengthZoom';
+    
+    // 設定を保存
+    function saveSettings() {
+      try {
+        // 音声通知設定を保存
+        const settings = {
+          voiceActress: voiceNotificationSettings.voiceActress,
+          enableElectronic: voiceNotificationSettings.enableElectronic,
+          electronicSound: voiceNotificationSettings.electronicSound,
+          notify: voiceNotificationSettings.notify,
+          customMessages: voiceNotificationSettings.customMessages
+        };
+        localStorage.setItem(STORAGE_KEY_VOICE_SETTINGS, JSON.stringify(settings));
+        
+        // ズーム設定を保存
+        const zoomLevel = document.getElementById('zoomLevel').value;
+        localStorage.setItem(STORAGE_KEY_ZOOM, zoomLevel);
+        
+        // 保存成功メッセージを表示
+        const saveMsg = document.getElementById('saveMessage');
+        saveMsg.style.display = 'block';
+        setTimeout(() => {
+          saveMsg.style.display = 'none';
+        }, 2000);
+        
+        console.log('[SAVE] 設定を保存しました:', settings, 'zoom:', zoomLevel);
+      } catch (e) {
+        console.error('[SAVE] 設定の保存に失敗:', e);
+        alert('設定の保存に失敗しました');
+      }
+    }
+    
+    // 設定を読み込み
+    function loadSettings() {
+      try {
+        // 音声通知設定を読み込み
+        const savedSettings = localStorage.getItem(STORAGE_KEY_VOICE_SETTINGS);
+        if (savedSettings) {
+          const settings = JSON.parse(savedSettings);
+          console.log('[LOAD] 保存された設定を読み込み:', settings);
+          
+          // 設定を復元
+          document.getElementById('voiceActress').value = settings.voiceActress || 'nanami';
+          voiceNotificationSettings.voiceActress = settings.voiceActress || 'nanami';
+          
+          document.getElementById('enableElectronic').checked = settings.enableElectronic || false;
+          voiceNotificationSettings.enableElectronic = settings.enableElectronic || false;
+          
+          const soundSelect = document.getElementById('electronicSound');
+          soundSelect.value = settings.electronicSound || '';
+          soundSelect.disabled = !settings.enableElectronic;
+          voiceNotificationSettings.electronicSound = settings.electronicSound || '';
+          
+          // 各時間足の設定を復元
+          ['15m', '1H', '4H'].forEach(tf => {
+            if (settings.notify && settings.notify[tf] !== undefined) {
+              document.getElementById(`notify${tf}`).checked = settings.notify[tf];
+              voiceNotificationSettings.notify[tf] = settings.notify[tf];
+            }
+            if (settings.customMessages && settings.customMessages[tf]) {
+              document.getElementById(`msg${tf}`).value = settings.customMessages[tf];
+              voiceNotificationSettings.customMessages[tf] = settings.customMessages[tf];
+            }
+          });
+        }
+        
+        // ズーム設定を読み込み
+        const savedZoom = localStorage.getItem(STORAGE_KEY_ZOOM);
+        if (savedZoom) {
+          document.getElementById('zoomLevel').value = savedZoom;
+          applyZoom(savedZoom);
+          console.log('[LOAD] ズーム設定を復元:', savedZoom + '%');
+        }
+      } catch (e) {
+        console.error('[LOAD] 設定の読み込みに失敗:', e);
+      }
+    }
+    
+    // ズームを適用
+    function applyZoom(level) {
+      const container = document.getElementById('strengthTableContainer');
+      if (container) {
+        const scale = level / 100;
+        container.style.transform = `scale(${scale})`;
+        console.log('[ZOOM] ズームを適用:', level + '%', 'scale:', scale);
+      }
+    }
+    
+    // Web Speech API の音声リストを読み込む
+    let voicesLoaded = false;
+    
+    function loadVoices() {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        voicesLoaded = true;
+        console.log(`[VOICE_INIT] 音声リスト読み込み完了: ${voices.length} voices`);
+        // 日本語音声をリスト表示（デバッグ用）
+        const jaVoices = voices.filter(v => v.lang.startsWith('ja'));
+        console.log(`[VOICE_INIT] 日本語音声数: ${jaVoices.length}`);
+        jaVoices.forEach((v, i) => {
+          const actualIndex = voices.indexOf(v);
+          console.log(`[VOICE_INIT]   [${actualIndex}] ${v.name} (${v.lang})`);
+        });
+      }
+    }
+    
+    // 音声リストの読み込みを待つ
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = loadVoices;
+    }
+    loadVoices(); // 即座に試行
+    
+    // 電子音ファイルリストを取得して表示
+    async function populateChimeFiles() {
+      const select = document.getElementById('electronicSound');
+      console.log('[CHIME] Populating chime files...');
+      try {
+        const response = await fetch('/api/chime_files');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[CHIME] Chime files response:', data);
+          if (data.status === 'success' && data.files) {
+            // 既存のオプションをクリア（「なし」以外）
+            select.innerHTML = '<option value="">なし</option>';
+            
+            data.files.forEach(file => {
+              const option = document.createElement('option');
+              option.value = file;
+              option.textContent = file.replace('.mp3', '').replace('.wav', '').replace('.ogg', '');
+              select.appendChild(option);
+            });
+            console.log('[CHIME] Added', data.files.length, 'chime files to select');
+          }
+        }
+      } catch (e) {
+        console.error('[CHIME] Error fetching chime files:', e);
+      }
+    }
+    
+    // 電子音を再生
+    function playChimeSound(onComplete) {
+      if (!voiceNotificationSettings.enableElectronic || !voiceNotificationSettings.electronicSound) {
+        console.log('[CHIME] Chime not enabled or file not set');
+        if (onComplete) onComplete();
+        return;
+      }
+      
+      try {
+        const audioPath = `/Alarm/${voiceNotificationSettings.electronicSound}`;
+        console.log('[CHIME] Playing chime from:', audioPath);
+        const audio = new Audio(audioPath);
+        audio.volume = 0.8;
+        
+        audio.addEventListener('ended', () => {
+          console.log('[CHIME] Chime playback completed');
+          if (onComplete) onComplete();
+        });
+        
+        audio.addEventListener('error', (err) => {
+          console.error('[CHIME] Chime playback error:', err);
+          if (onComplete) onComplete();
+        });
+        
+        audio.play().then(() => {
+          console.log('[CHIME] Chime playback started successfully');
+        }).catch(err => {
+          console.error('[CHIME] Failed to play chime:', err);
+          if (onComplete) onComplete();
+        });
+      } catch (e) {
+        console.error('[CHIME] Error playing chime:', e);
+        if (onComplete) onComplete();
+      }
+    }
+    
+    // 表示設定
+    const displaySettings = {
+      showCurrencies: true,
+      showRecommended: true,
+      show15m: true,
+      show1H: true,
+      show4H: true,
+      showD: true,
+      showAv: true
+    };
+    
+    // 音声通知設定
+    const voiceNotificationSettings = {
+      voiceActress: 'nanami',
+      enableElectronic: false,
+      electronicSound: '',
+      notify: {
+        '15m': true,
+        '1H': true,
+        '4H': true
+      },
+      customMessages: {
+        '15m': '15分足で最弱・最強が変更になりました',
+        '1H': '1時間足で最弱・最強が変更になりました',
+        '4H': '4時間足で最弱・最強が変更になりました'
+      }
+    };
+    
+    // 前回の最弱・最強を保存
+    let previousExtreme = {
+      '15m': { weakest: null, strongest: null },
+      '1H': { weakest: null, strongest: null },
+      '4H': { weakest: null, strongest: null },
+      'D': { weakest: null, strongest: null },
+      'Av': { weakest: null, strongest: null }
+    };
+    
+    // 電子音選択のトグル
+    document.getElementById('enableElectronic').addEventListener('change', (e) => {
+      voiceNotificationSettings.enableElectronic = e.target.checked;
+      document.getElementById('electronicSound').disabled = !e.target.checked;
+    });
+    
+    // 声優選択
+    document.getElementById('voiceActress').addEventListener('change', (e) => {
+      voiceNotificationSettings.voiceActress = e.target.value;
+    });
+    
+    // 電子音選択
+    document.getElementById('electronicSound').addEventListener('change', (e) => {
+      voiceNotificationSettings.electronicSound = e.target.value;
+    });
+    
+    // 通知有効化チェックボックス
+    ['15m', '1H', '4H'].forEach(tf => {
+      const checkbox = document.getElementById(`notify${tf}`);
+      if (checkbox) {
+        checkbox.addEventListener('change', (e) => {
+          voiceNotificationSettings.notify[tf] = e.target.checked;
+        });
+      }
+      
+      // メッセージ入力
+      const msgInput = document.getElementById(`msg${tf}`);
+      if (msgInput) {
+        msgInput.addEventListener('input', (e) => {
+          voiceNotificationSettings.customMessages[tf] = e.target.value;
+        });
+      }
+    });
+    
+    // 再生ボタンの処理
+    console.log('[VOICE_SETUP] Setting up play button listeners...');
+    ['15m', '1H', '4H'].forEach(tf => {
+      const playBtn = document.getElementById(`play${tf}`);
+      console.log(`[VOICE_SETUP] play${tf} button:`, playBtn);
+      if (playBtn) {
+        playBtn.addEventListener('click', () => {
+          console.log(`[VOICE_SETUP] Play button clicked for ${tf}`);
+          const msgInput = document.getElementById(`msg${tf}`);
+          const message = msgInput ? (msgInput.value || voiceNotificationSettings.customMessages[tf]) : `${tf}足で最弱・最強が変更になりました`;
+          console.log(`[VOICE_SETUP] Message:`, message);
+          playNotificationSound(tf, message);
+        });
+        console.log(`[VOICE_SETUP] ✓ Listener attached to play${tf}`);
+      } else {
+        console.error(`[VOICE_SETUP] ✗ Button play${tf} not found!`);
+      }
+    });
+    console.log('[VOICE_SETUP] Play button setup complete');
+    
+    // 音声通知を再生（Web Speech API を使用）
+    function playNotificationSound(timeframe, message) {
+      try {
+        console.log(`[playNotificationSound] リクエスト: timeframe=${timeframe}, message="${message}"`);
+        
+        // 電子音を先に再生し、完了後に音声を発声
+        playChimeSound(() => {
+          console.log('[playNotificationSound] Chime completed, now playing voice');
+          playVoiceMessage(message);
+        });
+        
+      } catch (e) {
+        console.error('[playNotificationSound] 音声通知エラー:', e);
+        console.error('[playNotificationSound] Stack:', e.stack);
+        alert('音声の再生に失敗しました: ' + e.message);
+      }
+    }
+    
+    // 音声メッセージを再生
+    function playVoiceMessage(message) {
+      try {
+        // Web Speech API を使用
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'ja-JP';
+        
+        // 声優選択（369: 七海（女性）, 370: 圭太（男性））
+        const voiceIndex = voiceNotificationSettings.voiceActress === 'keita' ? 370 : 369;
+        const voices = speechSynthesis.getVoices();
+        
+        console.log(`[playVoiceMessage] 利用可能な音声数: ${voices.length}`);
+        console.log(`[playVoiceMessage] 選択された声優: ${voiceNotificationSettings.voiceActress} (index: ${voiceIndex})`);
+        
+        if (voices.length > voiceIndex) {
+          utterance.voice = voices[voiceIndex];
+          console.log(`[playVoiceMessage] 音声設定: ${voices[voiceIndex].name}`);
+        } else {
+          console.warn(`[playVoiceMessage] 指定された音声が見つかりません。デフォルト音声を使用します。`);
+          // 日本語音声を検索
+          const jaVoice = voices.find(v => v.lang === 'ja-JP');
+          if (jaVoice) {
+            utterance.voice = jaVoice;
+            console.log(`[playVoiceMessage] 代替音声: ${jaVoice.name}`);
+          }
+        }
+        
+        // 音声合成イベント
+        utterance.onstart = () => {
+          console.log(`[playVoiceMessage] ✓ 音声再生開始`);
+        };
+        
+        utterance.onend = () => {
+          console.log(`[playVoiceMessage] ✓ 音声再生完了`);
+        };
+        
+        utterance.onerror = (event) => {
+          console.error(`[playVoiceMessage] 音声再生エラー:`, event.error);
+        };
+        
+        // 音声を再生
+        speechSynthesis.speak(utterance);
+        console.log(`[playVoiceMessage] speechSynthesis.speak() 呼び出し完了`);
+        
+      } catch (e) {
+        console.error('[playVoiceMessage] エラー:', e);
+      }
+    }
+
+    // チェックボックスのイベントリスナーを設定
+    document.addEventListener('DOMContentLoaded', () => {
+      ['showCurrencies', 'showRecommended', 'show15m', 'show1H', 'show4H', 'showD', 'showAv'].forEach(id => {
+        const checkbox = document.getElementById(id);
+        if (checkbox) {
+          checkbox.addEventListener('change', (e) => {
+            displaySettings[id] = e.target.checked;
+            // 現在のデータを再描画
+            if (window.currentData) {
+              renderStrengthData(window.currentData);
+            }
+          });
+        }
+      });
+    });
+    // 通貨ペアの定義（実在するペアのみ）
+    const PAIR_DEFINITIONS = {
+      'USDJPY': ['USD', 'JPY'],
+      'EURUSD': ['EUR', 'USD'],
+      'GBPUSD': ['GBP', 'USD'],
+      'AUDUSD': ['AUD', 'USD'],
+      'EURJPY': ['EUR', 'JPY'],
+      'GBPJPY': ['GBP', 'JPY'],
+      'AUDJPY': ['AUD', 'JPY'],
+      'EURGBP': ['EUR', 'GBP'],
+      'EURAUD': ['EUR', 'AUD'],
+      'GBPAUD': ['GBP', 'AUD']
+    };
+
+    // 通貨強弱の色分け
+    function getStrengthClass(score) {
+      if (score <= -40) return 'very-weak';
+      if (score <= -20) return 'weak';
+      if (score <= 19) return 'neutral';
+      if (score <= 39) return 'strong';
+      return 'very-strong';
+    }
+
+    // 推奨ペアを計算
+    function calculateRecommendedPairs(currencies, rawScores) {
+      const pairs = [];
+      
+      for (const [pair, [base, quote]] of Object.entries(PAIR_DEFINITIONS)) {
+        const baseScore = rawScores[base] || 0;
+        const quoteScore = rawScores[quote] || 0;
+        const diff = Math.abs(baseScore - quoteScore);
+        
+        // 差が小さい（レンジ）はスキップ
+        if (diff < 20) continue;
+        
+        let direction, displayPair;
+        if (baseScore > quoteScore) {
+          // ベース通貨が強い = 買い
+          direction = 'buy';
+          displayPair = pair;
+        } else {
+          // クォート通貨が強い = 売り
+          direction = 'sell';
+          displayPair = pair;
+        }
+        
+        pairs.push({ pair: displayPair, direction, score: Math.round(diff) });
+      }
+      
+      // スコア順にソート
+      pairs.sort((a, b) => b.score - a.score);
+      
+      return pairs.slice(0, 3);  // 上位3つ
+    }
+
+    // データを表示
+    function renderStrengthData(data) {
+      try {
+        console.log('[renderStrengthData] Starting render with data:', data);
+        
+        const container = document.getElementById('strengthData');
+        if (!container) {
+          console.error('[renderStrengthData] Container #strengthData not found!');
+          return;
+        }
+        
+        container.innerHTML = '';
+        
+        // テーブル作成
+        const table = document.createElement('div');
+        table.className = 'strength-table-wrapper';
+        
+        const grid = document.createElement('div');
+        grid.className = 'strength-table-grid';
+        
+        // ヘッダー行
+        const headerTime = document.createElement('div');
+        headerTime.className = 'table-header';
+        headerTime.textContent = '時間';
+        grid.appendChild(headerTime);
+        
+        if (displaySettings.showCurrencies) {
+          const headerCurrencies = document.createElement('div');
+          headerCurrencies.className = 'table-header-currencies';
+          headerCurrencies.textContent = '弱 ← 中 → 強';
+          grid.appendChild(headerCurrencies);
+        }
+        
+        if (displaySettings.showRecommended) {
+          const headerRecommended = document.createElement('div');
+          headerRecommended.className = 'table-header-recommended';
+          headerRecommended.textContent = '推奨ペア';
+          grid.appendChild(headerRecommended);
+        }
+        
+        console.log('[renderStrengthData] Headers created');
+        
+        // データ行
+      const timeframes = [
+        { key: '15m', id: 'show15m' },
+        { key: '1H', id: 'show1H' },
+        { key: '4H', id: 'show4H' },
+        { key: 'D', id: 'showD' },
+        { key: 'Av', id: 'showAv' }
+      ];
+      
+      timeframes.forEach(tf => {
+        if (!displaySettings[tf.id] || !data[tf.key]) return;
+        
+        const tfData = data[tf.key];
+        const currencies = tfData.currencies; // すでにソート済み（弱→強）
+        const rawScores = tfData.raw_scores;
+        const recommendedPairs = calculateRecommendedPairs(currencies, rawScores);
+        
+        // 🔔 変更検出：最弱と最強をチェック
+        if (currencies && currencies.length > 0 && voiceNotificationSettings.notify[tf.key]) {
+          const currentWeakest = currencies[0].currency;  // 最弱
+          const currentStrongest = currencies[currencies.length - 1].currency;  // 最強
+          const prevState = previousExtreme[tf.key] || {};
+          
+          console.log(`[${tf.key}] 通知チェック: 最弱=${currentWeakest}, 最強=${currentStrongest}`);
+          
+          // 前回の状態がない場合は初期化
+          if (!prevState.weakest) {
+            console.log(`[${tf.key}] 初回初期化: weakest=${currentWeakest}, strongest=${currentStrongest}`);
+            previousExtreme[tf.key] = {
+              weakest: currentWeakest,
+              strongest: currentStrongest
+            };
+          } else {
+            // 最弱が変更されたか、最強が変更されたか確認
+            const weakestChanged = prevState.weakest !== currentWeakest;
+            const strongestChanged = prevState.strongest !== currentStrongest;
+            
+            console.log(`[${tf.key}] 変更検出: weakest ${prevState.weakest}→${currentWeakest} (${weakestChanged}), strongest ${prevState.strongest}→${currentStrongest} (${strongestChanged})`);
+            
+            if (weakestChanged || strongestChanged) {
+              // メッセージを生成して通知を発火
+              let message = voiceNotificationSettings.customMessages[tf.key] || `${tf.key}の通貨強弱が変更されました。`;
+              
+              // ユーザーがメッセージにプレースホルダを含めていないか確認
+              if (message.includes('[WEAKEST]') || message.includes('[STRONGEST]')) {
+                message = message
+                  .replace('[WEAKEST]', currentWeakest)
+                  .replace('[STRONGEST]', currentStrongest);
+              }
+              
+              console.log(`[${tf.key}] 🔔 通知発火: "${message}"`);
+              playNotificationSound(tf.key, message);
+              
+              // 状態を更新
+              previousExtreme[tf.key] = {
+                weakest: currentWeakest,
+                strongest: currentStrongest
+              };
+            }
+          }
+        }
+        
+        // 時間足ラベル
+        const labelCell = document.createElement('div');
+        labelCell.className = 'table-row-label';
+        labelCell.textContent = tf.key;
+        grid.appendChild(labelCell);
+        
+        // 通貨セル（5通貨、ソート済み）
+        if (displaySettings.showCurrencies) {
+          // 通貨セルをまとめるためのコンテナ（5列分）
+          currencies.forEach((item, index) => {
+            const cell = document.createElement('div');
+            cell.className = 'table-cell ' + getStrengthClass(item.score);
+            
+            const percentage = item.percentage || 0;
+            const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
+            const scoreText = item.score >= 0 ? `+${String(item.score).padStart(3, '0')}` : `-${String(Math.abs(item.score)).padStart(3, '0')}`;
+            
+            cell.textContent = `${item.currency} ${percentText}% [${scoreText}]`;
+            grid.appendChild(cell);
+          });
+        }
+        
+        // 推奨ペアセル（1行表示）
+        if (displaySettings.showRecommended) {
+          const pairCell = document.createElement('div');
+          pairCell.className = 'table-recommended';
+        
+        recommendedPairs.forEach(pairInfo => {
+          const pairSpan = document.createElement('span');
+          pairSpan.className = 'recommended-pair';
+          
+          const pairName = document.createElement('span');
+          pairName.style.fontWeight = 'bold';
+          pairName.style.color = '#fff';
+          pairName.textContent = pairInfo.pair;
+          pairSpan.appendChild(pairName);
+          
+          const dirBadge = document.createElement('span');
+          dirBadge.className = pairInfo.direction === 'buy' ? 'buy-badge' : 'sell-badge';
+          dirBadge.textContent = pairInfo.direction === 'buy' ? '買↑' : '売↓';
+          pairSpan.appendChild(dirBadge);
+          
+          const percentage = Math.round((pairInfo.score / 700.0) * 100);
+          const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
+          
+          const scoreSpan = document.createElement('span');
+          scoreSpan.style.color = '#ffd700';
+          scoreSpan.style.fontWeight = 'bold';
+          scoreSpan.textContent = `${percentText}%[${pairInfo.score}]`;
+          pairSpan.appendChild(scoreSpan);
+          
+          pairCell.appendChild(pairSpan);
+        });
+        
+        grid.appendChild(pairCell);
+        }
+      });
+      
+      // grid-template-columnsを動的に調整
+      let columns = '50px'; // 時間列
+      if (displaySettings.showCurrencies && displaySettings.showRecommended) {
+        // 両方表示: 時間 + 通貨5列 + 推奨ペア
+        columns += ' repeat(5, 1fr) 2fr';
+      } else if (displaySettings.showCurrencies) {
+        // 通貨のみ: 時間 + 通貨5列
+        columns += ' repeat(5, 1fr)';
+      } else if (displaySettings.showRecommended) {
+        // 推奨ペアのみ: 時間 + 推奨ペア
+        columns += ' 2fr';
+      }
+      grid.style.gridTemplateColumns = columns;
+      
+      console.log('[renderStrengthData] Grid template columns:', columns);
+      
+      table.appendChild(grid);
+      container.appendChild(table);
+      
+      console.log('[renderStrengthData] Render complete. Container children:', container.children.length);
+      
+      } catch (error) {
+        console.error('[renderStrengthData] ERROR during render:', error);
+        console.error('[renderStrengthData] Stack trace:', error.stack);
+        const container = document.getElementById('strengthData');
+        if (container) {
+          container.innerHTML = '<div style="color: red; padding: 20px;">レンダリングエラー: ' + error.message + '</div>';
+        }
+      }
+    }
+
+    // データ取得
+    async function loadCurrencyStrength() {
+      try {
+        document.getElementById('loadingText').textContent = '読み込み中...';
+        
+        // キャッシュを無効化するためタイムスタンプを追加
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/currency_strength?_=${timestamp}`);
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+          console.log('[CURRENCY_STRENGTH] Data received:', result.data);
+          window.currentData = result.data; // データを保存
+          renderStrengthData(result.data);
+          
+          // 更新時刻を表示
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString('ja-JP');
+          document.getElementById('loadingText').textContent = '✓ 更新完了';
+          document.getElementById('updateTime').textContent = `最終更新: ${timeStr}`;
+          
+          setTimeout(() => {
+            document.getElementById('loadingText').textContent = '';
+          }, 2000);
+        } else {
+          document.getElementById('loadingText').textContent = '❌ エラー: ' + result.msg;
+        }
+      } catch (e) {
+        console.error('[CURRENCY_STRENGTH] Error loading currency strength:', e);
+        document.getElementById('loadingText').textContent = '❌ 通信エラー';
+      }
+    }
+
+    // Socket.IO接続とリアルタイム更新
+    const socket = io();
+    
+    socket.on('connect', () => {
+      console.log('[SOCKET.IO] ✓ Connected to server');
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('[SOCKET.IO] ✗ Disconnected from server');
+    });
+    
+    // Webhook受信時の通貨強弱更新
+    socket.on('currency_strength_update', (payload) => {
+      console.log('[SOCKET.IO] Currency strength update received:', payload);
+      
+      if (payload.status === 'success' && payload.data) {
+        window.currentData = payload.data;
+        renderStrengthData(payload.data);
+        
+        // 更新時刻を表示
+        const updateTime = new Date(payload.timestamp);
+        const timeStr = updateTime.toLocaleTimeString('ja-JP');
+        document.getElementById('loadingText').textContent = '✓ 更新完了';
+        document.getElementById('updateTime').textContent = `最終更新: ${timeStr}`;
+        
+        setTimeout(() => {
+          document.getElementById('loadingText').textContent = '';
+        }, 2000);
+      }
+    });
+    
+    // 初期化処理
+    async function initCurrencyStrength() {
+      console.log('[CURRENCY_STRENGTH] Initializing...');
+      
+      // 電子音ファイルリストを取得
+      await populateChimeFiles();
+      
+      // 保存された設定を読み込み
+      loadSettings();
+      
+      // 保存ボタンのイベントリスナーを追加
+      const saveBtn = document.getElementById('saveSettings');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', saveSettings);
+        console.log('[INIT] 保存ボタンのイベントリスナーを追加');
+      }
+      
+      // ズームセレクトのイベントリスナーを追加
+      const zoomSelect = document.getElementById('zoomLevel');
+      if (zoomSelect) {
+        zoomSelect.addEventListener('change', (e) => {
+          applyZoom(e.target.value);
+        });
+        console.log('[INIT] ズームセレクトのイベントリスナーを追加');
+      }
+      
+      // 初回データ読み込み（その後はSocket.IOで自動更新）
+      loadCurrencyStrength();
+      
+      console.log('[INIT] 初期化完了 - 以降はWebhook受信時に自動更新されます');
+    }
+    
+    // 初回読み込み
+    initCurrencyStrength();
+  </script>
+</body>
+</html>

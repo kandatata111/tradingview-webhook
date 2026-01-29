@@ -10,6 +10,18 @@ import traceback
 # バックアップデータ定数をインポート
 from backup_constants import HOURLY_DATA_BACKUP, FOUR_HOURLY_DATA_BACKUP
 
+# ビジネスロジック関数をインポート
+from ichimoku_utils import (
+    calculate_trend, is_fx_market_open, _get_nth_weekday,
+    _evaluate_rule_match, _find_cloud_field, _parse_time_to_ms,
+    _normalize_actual, _compare_values,
+    calculate_trend_strength, get_distance_level, get_multi_cloud_bonus,
+    apply_decay_correction
+)
+
+# トレンド強度計算v2.0（パターン検出機能付き）をインポート
+from trend_strength_calculator_v2 import calculate_trend_strength_v2
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # サーバー起動時刻を記録（ウォームアップ期間の判定用）
@@ -106,7 +118,7 @@ def upload_note_image():
             with open(filepath, 'wb') as f:
                 f.write(image_bytes)
             file_size = len(image_bytes)
-            print(f'[NOTE] ✓ Image saved: {filename} ({file_size} bytes)')
+            print(f'[NOTE] [OK] Image saved: {filename} ({file_size} bytes)')
         else:
             print(f'[NOTE] Image already exists: {filename}')
         
@@ -415,9 +427,9 @@ def restore_missing_data():
         conn.close()
         
         if total_restored > 0:
-            print(f"[INIT] ✓ Restored {total_restored} records from backup (D/4H/1H)")
+            print(f"[INIT] [OK] Restored {total_restored} records from backup (D/4H/1H)")
         else:
-            print(f"[INIT] ✓ All data present (D: {daily_count}, 4H: {four_hourly_count}, 1H: {hourly_count})")
+            print(f"[INIT] [OK] All data present (D: {daily_count}, 4H: {four_hourly_count}, 1H: {hourly_count})")
             
     except Exception as e:
         print(f"[INIT ERROR] Failed to restore data: {e}")
@@ -557,122 +569,6 @@ def init_db():
     else:
         print('[INFO] No notes data file found, will be created on first save')
 
-def calculate_trend(cloud_data, config):
-    """
-    トレンドを判定する
-    
-    Args:
-        cloud_data: 各時間足の雲データ（dict）
-                   - gc: True/False
-                   - angle: 雲角度（度）
-                   - thickness: 雲厚み（Pips）
-                   - dauten: "up"/"down"
-        config: トレンド判定設定（dict）
-                - use_angle: True/False
-                - angle_threshold: 閾値（度）
-                - use_thickness: True/False
-                - thickness_threshold: 閾値（Pips）
-                - use_dauten: True/False
-    
-    Returns:
-        str: "↗上昇", "↘下降", "レンジ"
-    """
-    if not cloud_data or not config:
-        return "レンジ"
-    
-    conditions = []  # 各条件の方向を記録（1=上昇, -1=下降）
-    
-    # 雲角度チェック
-    if config.get('use_angle', False):
-        angle = cloud_data.get('angle', 0)
-        threshold = config.get('angle_threshold', 20)
-        if abs(angle) >= threshold:
-            # 角度の符号で方向判定（正=上昇、負=下降）
-            direction = 1 if angle > 0 else -1
-            conditions.append(direction)
-        else:
-            return "レンジ"  # 閾値未達
-    
-    # 雲厚みチェック
-    if config.get('use_thickness', False):
-        thickness = cloud_data.get('thickness', 0)
-        threshold = config.get('thickness_threshold', 5)
-        gc = cloud_data.get('gc', False)
-        if abs(thickness) >= threshold:
-            # GC/DCで方向判定（GC=上昇、DC=下降）
-            direction = 1 if gc else -1
-            conditions.append(direction)
-        else:
-            return "レンジ"  # 閾値未達
-    
-    # ダウ転チェック
-    if config.get('use_dauten', False):
-        dauten = cloud_data.get('dauten', '')
-        if dauten == 'up':
-            conditions.append(1)
-        elif dauten == 'down':
-            conditions.append(-1)
-        else:
-            return "レンジ"  # ダウ転なし
-    
-    # 有効な条件がない場合
-    if not conditions:
-        return "レンジ"
-    
-    # 全ての条件が同じ方向か確認
-    if all(c == 1 for c in conditions):
-        return "↗上昇"
-    elif all(c == -1 for c in conditions):
-        return "↘下降"
-    else:
-        return "レンジ"  # 方向不一致
-
-def is_fx_market_open():
-    """
-    FX市場の営業時間を判定（データ受信ベース）
-    最後のJSON受信から1時間以内なら営業中と判定
-    """
-    try:
-        # 最後の受信時刻を取得
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute('SELECT last_receive_time FROM market_status WHERE id = 1')
-        row = c.fetchone()
-        conn.close()
-        
-        if not row or not row[0]:
-            return False  # 未受信
-        
-        # 時刻をパース
-        last_time = datetime.fromisoformat(row[0])
-        utc_now = datetime.now(pytz.UTC)
-        
-        # 1時間以内受信で営業中
-        time_diff = (utc_now - last_time).total_seconds()
-        return time_diff <= 3600  # 1時間 = 3600秒
-        
-    except Exception as e:
-        print(f'[ERROR] is_fx_market_open check failed: {e}')
-        return False  # エラー時は休場
-
-
-def _get_nth_weekday(year, month, weekday, n):
-    """
-    指定された年月の第n番目の曜日を取得
-    weekday: 0=月, 1=火, ..., 6=日
-    n: 第n番目
-    """
-    first_day = datetime(year, month, 1)
-    first_weekday = first_day.weekday()
-
-    # 第1日曜日までの日数
-    days_to_first = (weekday - first_weekday) % 7
-
-    # 第n日曜日
-    target_date = 1 + days_to_first + (n - 1) * 7
-
-    return target_date
-
 @app.route('/Alarm/<path:filename>')
 def serve_alarm_file(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'Alarm'), filename)
@@ -788,7 +684,354 @@ def timer_showcase():
     response.headers['Expires'] = '0'
     return response
 
+@app.route('/currency_strength_window')
+def currency_strength_window():
+    """通貨強弱専用ウィンドウ"""
+    response = make_response(render_template('currency_strength_final.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/debug_currency_strength')
+def debug_currency_strength():
+    """通貨強弱デバッグページ"""
+    import os
+    debug_file = os.path.join(BASE_DIR, '..', 'test_browser_debug.html')
+    with open(debug_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+    response = make_response(content)
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
+
+@app.route('/test_simple')
+def test_simple():
+    """シンプルテストページ"""
+    response = make_response(render_template('test_simple.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
+
+def calculate_currency_strength_data():
+    """通貨強弱データを計算する（内部関数）"""
+    jst = pytz.timezone('Asia/Tokyo')
+    current_time = datetime.now(jst).strftime('%Y-%m-%d %H:%M:%S')
+    print(f'[CURRENCY_STRENGTH] Calculating at {current_time}')
+    
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # 全通貨ペアと全時間足のトレンドデータを取得
+    c.execute('SELECT symbol, tf, row_order, clouds_json FROM states')
+    rows = c.fetchall()
+    conn.close()
+    
+    print(f'[CURRENCY_STRENGTH] Fetched {len(rows)} rows from database')
+    
+    # 通貨ペアの定義（実在するペアのみ）
+    # 左の通貨が強い=上昇、右の通貨が強い=下降
+    PAIR_DEFINITIONS = {
+        'USDJPY': ('USD', 'JPY'),
+        'EURUSD': ('EUR', 'USD'),
+        'GBPUSD': ('GBP', 'USD'),
+        'AUDUSD': ('AUD', 'USD'),
+        'EURJPY': ('EUR', 'JPY'),
+        'GBPJPY': ('GBP', 'JPY'),
+        'AUDJPY': ('AUD', 'JPY'),
+        'EURGBP': ('EUR', 'GBP'),
+        'EURAUD': ('EUR', 'AUD'),
+        'GBPAUD': ('GBP', 'AUD')
+    }
+    
+    # 時間足ごとの通貨強弱を計算
+    timeframes = ['5m', '15m', '1H', '4H', 'D']
+    # データベースの実際の値とマッピング
+    tf_map = {
+        '5m': ['5'],
+        '15m': ['15', '15M'],
+        '1H': ['60', '1H'],
+        '4H': ['240', '4H'],
+        'D': ['D', '1440']
+    }
+    
+    result = {}
+    
+    for tf_display in timeframes:
+        tf_variants = tf_map[tf_display]
+        currency_scores = {}  # 通貨ごとのスコア合計
+        currency_breakdown = {}  # 通貨ごとの内訳（デバッグ用）
+        
+        for symbol, tf, row_order, clouds_json in rows:
+            if tf not in tf_variants:
+                continue
+            
+            if symbol not in PAIR_DEFINITIONS:
+                continue
+            
+            base_currency, quote_currency = PAIR_DEFINITIONS[symbol]
+            
+            # トレンド強度を計算
+            if not row_order or not clouds_json:
+                continue
+            
+            try:
+                clouds = json.loads(clouds_json) if clouds_json else []
+                
+                # state_dataを構築
+                state_data = {
+                    'clouds': clouds,
+                    'row_order': row_order,
+                    'clouds_json': clouds_json
+                }
+                
+                trend_result = calculate_trend_strength_v2(
+                    tf=tf,
+                    state_data=state_data,
+                    all_states=None
+                )
+                
+                score = trend_result.get('score', 0)
+                direction = trend_result.get('direction', 'range')
+                strength = trend_result.get('strength', '横')
+                
+                # デバッグログ：計算されたスコアを出力
+                print(f'[CURRENCY_STRENGTH] {symbol} tf={tf} (表示:{tf_display}): direction={direction}, score={score}, strength={strength}, row_order={row_order}')
+                
+                # レンジはスキップ
+                if direction == 'range' or score == 0:
+                    continue
+                
+                # 方向に応じてスコアを配分
+                if direction == 'up':
+                    # 上昇 = 左の通貨が強い
+                    currency_scores[base_currency] = currency_scores.get(base_currency, 0) + score
+                    currency_scores[quote_currency] = currency_scores.get(quote_currency, 0) - score
+                    
+                    # 内訳を記録
+                    if base_currency not in currency_breakdown:
+                        currency_breakdown[base_currency] = []
+                    currency_breakdown[base_currency].append(f'{symbol} 上昇{score}点 (+{score})')
+                    
+                    if quote_currency not in currency_breakdown:
+                        currency_breakdown[quote_currency] = []
+                    currency_breakdown[quote_currency].append(f'{symbol} 上昇{score}点 (-{score})')
+                    
+                elif direction == 'down':
+                    # 下降 = 右の通貨が強い
+                    currency_scores[base_currency] = currency_scores.get(base_currency, 0) - score
+                    currency_scores[quote_currency] = currency_scores.get(quote_currency, 0) + score
+                    
+                    # 内訳を記録
+                    if base_currency not in currency_breakdown:
+                        currency_breakdown[base_currency] = []
+                    currency_breakdown[base_currency].append(f'{symbol} 下降{score}点 (-{score})')
+                    
+                    if quote_currency not in currency_breakdown:
+                        currency_breakdown[quote_currency] = []
+                    currency_breakdown[quote_currency].append(f'{symbol} 下降{score}点 (+{score})')
+            
+            except Exception as e:
+                print(f'[CURRENCY_STRENGTH] Error calculating {symbol} {tf}: {e}')
+                continue
+        
+        # スコアでソート（降順）
+        sorted_currencies = sorted(currency_scores.items(), key=lambda x: x[1])
+        
+        # 内訳をログ出力
+        print(f'\n[CURRENCY_STRENGTH] ===== {tf_display} =====')
+        for currency, score in sorted_currencies:
+            breakdown = currency_breakdown.get(currency, [])
+            print(f'{currency} 合計: {int(score)}点')
+            for item in breakdown:
+                print(f'  - {item}')
+        
+        # %表示を追加（±400点=±100%）
+        currencies_with_percent = []
+        for currency, score in sorted_currencies:
+            percentage = int((score / 400.0) * 100)
+            currencies_with_percent.append({
+                'currency': currency,
+                'score': int(score),
+                'percentage': percentage
+            })
+        
+        result[tf_display] = {
+            'currencies': currencies_with_percent,
+            'raw_scores': currency_scores,
+            'breakdown': currency_breakdown
+        }
+    
+    # 平均を計算
+    avg_scores = {}
+    for tf_display in timeframes:
+        if tf_display not in result:
+            continue
+        for item in result[tf_display]['currencies']:
+            currency = item['currency']
+            score = item['score']
+            avg_scores[currency] = avg_scores.get(currency, 0) + score
+    
+    # 平均を時間足数で割る
+    num_tfs = len([tf for tf in timeframes if tf in result])
+    if num_tfs > 0:
+        for currency in avg_scores:
+            avg_scores[currency] = avg_scores[currency] / num_tfs
+    
+    sorted_avg = sorted(avg_scores.items(), key=lambda x: x[1])
+    
+    # 平均にも%表示を追加
+    avg_with_percent = []
+    for currency, score in sorted_avg:
+        percentage = int((score / 400.0) * 100)
+        avg_with_percent.append({
+            'currency': currency,
+            'score': int(score),
+            'percentage': percentage
+        })
+    
+    result['Av'] = {
+        'currencies': avg_with_percent,
+        'raw_scores': avg_scores
+    }
+    
+    return result
+
+@app.route('/api/currency_strength', methods=['GET'])
+def api_currency_strength():
+    """通貨強弱を計算して返す（APIエンドポイント）"""
+    try:
+        data = calculate_currency_strength_data()
+        return jsonify({
+            'status': 'success',
+            'data': data
+        }), 200
+        
+    except Exception as e:
+        print(f'[ERROR][api/currency_strength] {e}')
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/generate_notification_sound', methods=['POST'])
+def generate_notification_sound():
+    """
+    VOICEVOX APIを使用して日本語音声を生成し、オプションで電子音を前に追加する
+    リクエスト: {
+      "voice_actress": "nanami" or "keita",
+      "message": "通知メッセージテキスト",
+      "electronic_sound": "buzzer" or "bell" or "notification" or null
+    }
+    レスポンス: 音声ファイルのBase64データまたはURL
+    """
+    try:
+        data = request.json
+        voice_actress = data.get('voice_actress', 'nanami')  # デフォルト: 七海
+        message = data.get('message', '')
+        electronic_sound = data.get('electronic_sound', None)
+        
+        if not message:
+            return jsonify({'status': 'error', 'msg': 'メッセージが空です'}), 400
+        
+        # VOICEVOX Speaker IDのマッピング
+        speaker_map = {
+            'nanami': 1,    # 七海（女性）
+            'keita': 2      # 圭太（男性）- 実際のIDは確認が必要
+        }
+        
+        speaker_id = speaker_map.get(voice_actress, 1)
+        
+        # VOICEVOX APIエンドポイント
+        voicevox_url = 'http://127.0.0.1:50021'  # ローカルVOICEVOX
+        
+        try:
+            # 音声合成クエリを作成
+            query_response = requests.post(
+                f'{voicevox_url}/audio_query',
+                params={'text': message, 'speaker': speaker_id},
+                timeout=10
+            )
+            
+            if query_response.status_code != 200:
+                # VOICEVOX が起動していない場合は、サイレント モード
+                print(f'[WARNING] VOICEVOX not available. Returning silent placeholder.')
+                response, status_code = _generate_silent_audio()
+                return response, status_code
+            
+            query_data = query_response.json()
+            
+            # 音声を合成
+            synthesis_response = requests.post(
+                f'{voicevox_url}/synthesis',
+                params={'speaker': speaker_id},
+                json=query_data,
+                timeout=10
+            )
+            
+            if synthesis_response.status_code != 200:
+                print(f'[ERROR] VOICEVOX synthesis failed: {synthesis_response.status_code}')
+                response, status_code = _generate_silent_audio()
+                return response, status_code
+            
+            # 音声バイナリデータ
+            audio_data = synthesis_response.content
+            
+            # 電子音がある場合は前に追加（将来実装）
+            if electronic_sound:
+                audio_data = _prepend_electronic_sound(electronic_sound, audio_data)
+            
+            # Base64エンコード
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            
+            # Data URLとして返す
+            data_url = f'data:audio/wav;base64,{audio_base64}'
+            print(f'[INFO] Notification sound generated: {len(audio_base64)} bytes (Base64)')
+            return jsonify({'status': 'success', 'audio': data_url}), 200
+            
+        except requests.exceptions.ConnectionError:
+            print(f'[WARNING] VOICEVOX connection failed. Returning silent audio.')
+            response, status_code = _generate_silent_audio()
+            return response, status_code
+        
+    except Exception as e:
+        print(f'[ERROR][generate_notification_sound] {e}')
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+def _generate_silent_audio():
+    """
+    無音のWAV ファイル（1秒間）を生成してBase64で返す
+    """
+    import io
+    import wave
+    
+    # 無音WAVを生成（1秒間、16kHz、モノラル）
+    sample_rate = 16000
+    duration = 1
+    num_samples = sample_rate * duration
+    
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, 'wb') as wav_file:
+        wav_file.setnchannels(1)  # モノラル
+        wav_file.setsampwidth(2)  # 16ビット
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(b'\x00\x00' * num_samples)
+    
+    audio_data = wav_buffer.getvalue()
+    audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+    data_url = f'data:audio/wav;base64,{audio_base64}'
+    
+    print(f'[INFO] Silent audio generated: {len(audio_base64)} bytes (Base64)')
+    return jsonify({'status': 'success', 'audio': data_url}), 200
+
+def _prepend_electronic_sound(sound_type, audio_data):
+    """
+    電子音を音声の前に追加（将来実装）
+    現在は音声データをそのまま返す
+    """
+    # TODO: 電子音合成実装
+    return audio_data
+
 @app.route('/timer_preview/<int:design_num>')
+
 def timer_preview(design_num):
     """タイマーデザインプレビュー"""
     design_names = {
@@ -908,12 +1151,100 @@ def webhook():
                 fd = os.open(DB_PATH, os.O_RDONLY)
                 os.fsync(fd)
                 os.close(fd)
-                print(f'[DB_SYNC] ✓ Forced disk sync for {symbol_val}/{tf_val}')
+                print(f'[DB_SYNC] [OK] Forced disk sync for {symbol_val}/{tf_val}')
             except Exception as e:
                 print(f'[DB_SYNC] ⚠ Sync failed: {e}')
             
             saved_at = datetime.now(jst).isoformat()
             print(f'[OK] Saved immediately: {symbol_val}/{tf_val} at {saved_at}')
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{saved_at} - [CHECKPOINT 1] Before trend calculation block\n')
+                f.flush()
+            
+            # トレンド強度計算v2（パターン検出含む）を実行
+            try:
+                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                    f.write(f'{saved_at} - [TREND_CALC] Calculating trend for {symbol_val}/{tf_val}...\n')
+                    f.flush()
+                print(f'[TREND_CALC] Calculating trend for {symbol_val}/{tf_val}...')
+                # tf_valを正規化
+                tf_normalized = tf_val
+                if tf_val == '5':
+                    tf_normalized = '5m'
+                elif tf_val == '15':
+                    tf_normalized = '15m'
+                elif tf_val in ('1', '60'):
+                    tf_normalized = '1H'
+                elif tf_val in ('4', '240'):
+                    tf_normalized = '4H'
+                
+                # DBから同じ通貨ペアの全タイムフレームデータを取得
+                conn_trend = sqlite3.connect(DB_PATH)
+                c_trend = conn_trend.cursor()
+                c_trend.execute('SELECT * FROM states WHERE symbol = ?', (symbol_val,))
+                rows = c_trend.fetchall()
+                cols = [d[0] for d in c_trend.description] if c_trend.description else []
+                conn_trend.close()
+                
+                # all_states構築: {tf_normalized: {clouds: [...]}, ...}
+                all_states = {}
+                for row in rows:
+                    row_dict = dict(zip(cols, row))
+                    row_tf = row_dict.get('tf', '')
+                    # tfを正規化
+                    row_tf_norm = row_tf
+                    if row_tf == '5':
+                        row_tf_norm = '5m'
+                    elif row_tf == '15':
+                        row_tf_norm = '15m'
+                    elif row_tf in ('1', '60'):
+                        row_tf_norm = '1H'
+                    elif row_tf in ('4', '240'):
+                        row_tf_norm = '4H'
+                    
+                    clouds_json = row_dict.get('clouds_json', '[]')
+                    row_order = row_dict.get('row_order', '')
+                    try:
+                        clouds = json.loads(clouds_json)
+                        all_states[row_tf_norm] = {
+                            'clouds': clouds,
+                            'clouds_json': clouds_json,
+                            'row_order': row_order
+                        }
+                    except:
+                        pass
+                
+                # state_dataは現在のタイムフレームデータ
+                state_data = all_states.get(tf_normalized, {
+                    'clouds': data.get('clouds', []),
+                    'row_order': data.get('row_order', '')
+                })
+                
+                # トレンド強度計算v2を実行
+                trend_result = calculate_trend_strength_v2(tf_normalized, state_data, all_states)
+                result_msg = f'[TREND_CALC] {symbol_val}/{tf_normalized}: {trend_result["strength"]} ({trend_result["score"]}点)'
+                print(result_msg)
+                # 詳細情報も出力
+                if trend_result.get('details'):
+                    print(f'[TREND_DETAILS] {symbol_val}/{tf_normalized}: {trend_result["details"]}')
+                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                    f.write(f'{saved_at} - {result_msg}\n')
+                    if trend_result.get('details'):
+                        f.write(f'{saved_at} - [TREND_DETAILS] {json.dumps(trend_result["details"], ensure_ascii=False)}\n')
+                    f.flush()
+            except Exception as trend_err:
+                error_msg = f'[ERROR] Trend calculation failed: {trend_err}'
+                print(error_msg)
+                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                    f.write(f'{saved_at} - {error_msg}\n')
+                    f.flush()
+                import traceback
+                traceback.print_exc()
+            
+            # トレンド計算完了マーカー
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{saved_at} - [TREND_CALC_BLOCK] Trend calculation block completed\n')
+                f.flush()
             
             # 全てのタイムフレーム（5, 15, 60, 240）でルール評価と発火を実行
             try:
@@ -934,6 +1265,18 @@ def webhook():
             
             # Socket.IOで即時更新通知（全クライアントに配信）
             socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
+            
+            # 通貨強弱データを計算してemit
+            try:
+                currency_data = calculate_currency_strength_data()
+                socketio.emit('currency_strength_update', {
+                    'status': 'success',
+                    'data': currency_data,
+                    'timestamp': datetime.now(jst).isoformat()
+                })
+                print(f'[CURRENCY_STRENGTH] Emitted update via SocketIO')
+            except Exception as e:
+                print(f'[ERROR] Failed to emit currency strength: {e}')
             
             # 市場ステータス更新通知
             market_open = is_fx_market_open()
@@ -1031,6 +1374,42 @@ def current_states():
         gbpjpy_tfs = [dict(zip(cols, r)).get('tf') for r in rows if dict(zip(cols, r)).get('symbol') == 'GBPJPY']
         print(f'[DEBUG] GBPJPY timeframes in DB: {gbpjpy_tfs}')
         
+        # まず全データを辞書化し、シンボルごとにグループ化
+        all_data = []
+        for r in rows:
+            d = dict(zip(cols, r))
+            d['clouds'] = json.loads(d.get('clouds_json', '[]'))
+            d['meta'] = json.loads(d.get('meta_json', '{}'))
+            all_data.append(d)
+        
+        # シンボルごとにall_statesを構築
+        symbol_groups = {}
+        for d in all_data:
+            symbol = d.get('symbol')
+            if symbol not in symbol_groups:
+                symbol_groups[symbol] = {}
+            tf = d.get('tf')
+            # tf を正規化（'5' -> '5m', '15' -> '15m', '1'/'60' -> '1H', '4'/'240' -> '4H'）
+            if tf in ('5', '15', '1', '60', '4', '240'):
+                if tf == '5':
+                    tf_normalized = '5m'
+                elif tf == '15':
+                    tf_normalized = '15m'
+                elif tf in ('1', '60'):
+                    tf_normalized = '1H'
+                elif tf in ('4', '240'):
+                    tf_normalized = '4H'
+                else:
+                    tf_normalized = tf
+            else:
+                tf_normalized = tf
+            symbol_groups[symbol][tf_normalized] = {
+                'clouds': d['clouds'],
+                'clouds_json': d.get('clouds_json', '[]'),
+                'row_order': d.get('row_order', ''),
+                'time': d.get('time')
+            }
+        
         states = []
         for r in rows:
             d = dict(zip(cols, r))
@@ -1042,6 +1421,48 @@ def current_states():
             d['daytrade'] = {'status': d.get('daytrade_status', ''), 'bos': d.get('daytrade_bos', ''), 'time': d.get('daytrade_time', '')}
             d['swing'] = {'status': d.get('swing_status', ''), 'bos': d.get('swing_bos', ''), 'time': d.get('swing_time', '')}
             clouds_count = len(d['clouds']) if d['clouds'] else 0
+            
+            # ★ トレンド強度を計算（v2ロジック）
+            symbol = d.get('symbol')
+            tf = d.get('tf')
+            # tf を正規化（'5' -> '5m', '15' -> '15m', '1'/'60' -> '1H', '4'/'240' -> '4H'）
+            if tf in ('5', '15', '1', '60', '4', '240'):
+                if tf == '5':
+                    tf_normalized = '5m'
+                elif tf == '15':
+                    tf_normalized = '15m'
+                elif tf in ('1', '60'):
+                    tf_normalized = '1H'
+                elif tf in ('4', '240'):
+                    tf_normalized = '4H'
+                else:
+                    tf_normalized = tf
+            else:
+                tf_normalized = tf
+            
+            # ★ 返すデータに正規化済み tf も含める（HTMLでのマッチング用）
+            d['tf_normalized'] = tf_normalized
+            
+            all_states = symbol_groups.get(symbol, {})
+            state_data = all_states.get(tf_normalized, {
+                'clouds': d['clouds'],
+                'row_order': d.get('row_order', '')
+            })
+            
+            try:
+                trend_result = calculate_trend_strength_v2(tf_normalized, state_data, all_states)
+                d['trend_strength'] = trend_result['strength']  # 横/弱/中/強/極
+                d['trend_score'] = trend_result['score']  # 0-100点
+                d['trend_direction'] = trend_result['direction']  # 'up', 'down', 'range'
+                d['trend_breakdown'] = trend_result.get('breakdown', {})  # 詳細内訳
+                print(f'[TREND] {symbol}/{tf}(→{tf_normalized}): {trend_result["strength"]} ({trend_result["score"]}点) {trend_result["direction"]}')
+            except Exception as trend_err:
+                print(f'[ERROR] Trend calculation failed for {symbol}/{tf}: {trend_err}')
+                import traceback
+                traceback.print_exc()
+                d['trend_score'] = 0
+                d['trend_breakdown'] = {}
+            
             print(f'[INFO] State: {d.get("symbol")}/{d.get("tf")} (clouds={clouds_count})')
             states.append(d)
         
@@ -1376,361 +1797,6 @@ def test_single_rule(rule_id):
     except Exception as e:
         print(f'[ERROR][test_single_rule] {e}')
         return jsonify({'status': 'error', 'msg': str(e)}), 500
-
-
-def _evaluate_rule_match(rule, cloud_data):
-    """ルールが現在のデータにマッチするか評価（簡易版）
-    
-    本番の _evaluate_rules_with_db_state と同じロジックを使用
-    """
-    try:
-        direction = None
-        all_matched = True
-        condition_directions = []
-        
-        # 条件をチェック
-        conditions = rule.get('conditions', [])
-        if conditions:
-            for cond in conditions:
-                tf_label = cond.get('timeframe') or cond.get('label')
-                field = cond.get('field')
-                value = cond.get('value')
-                
-                tf_data = cloud_data.get(tf_label, {})
-                found_value = tf_data.get(field)
-                
-                condition_met = False
-                
-                # 存在チェック（valueが空の場合）
-                if value is None or value == '':
-                    if field == 'gc':
-                        condition_met = found_value is not None
-                    elif field == 'dauten':
-                        condition_met = found_value in ['up', 'down']
-                    elif field == 'bos_count':
-                        try:
-                            bos_num = int(found_value) if found_value else 0
-                            condition_met = bos_num > 0
-                        except:
-                            condition_met = False
-                    else:
-                        condition_met = found_value is not None and found_value != ''
-                else:
-                    condition_met = found_value == value
-                
-                if not condition_met:
-                    all_matched = False
-                    break
-                
-                # 各フィールドから方向を判定
-                cond_direction = None
-                if field == 'dauten':
-                    if found_value == 'up':
-                        cond_direction = 'up'
-                    elif found_value == 'down':
-                        cond_direction = 'down'
-                elif field == 'gc':
-                    if found_value is True:
-                        cond_direction = 'up'
-                    elif found_value is False:
-                        cond_direction = 'down'
-                elif field == 'bos_count':
-                    # bos_countの方向はdautenから取得
-                    dauten_for_bos = tf_data.get('dauten')
-                    if dauten_for_bos == 'up':
-                        cond_direction = 'up'
-                    elif dauten_for_bos == 'down':
-                        cond_direction = 'down'
-                
-                condition_directions.append(cond_direction)
-        
-        if not all_matched:
-            return None
-        
-        # 複数条件の場合、方向の整合性をチェック
-        if len(condition_directions) > 1:
-            valid_directions = [d for d in condition_directions if d is not None]
-            if len(valid_directions) > 1 and len(set(valid_directions)) > 1:
-                # 方向が一致しない
-                return None
-        
-        # 雲整列条件をチェック（cloud_orderを使用）
-        cloud_align = rule.get('cloudAlign', {})
-        
-        # alignment_is_active の判定（本番側と同じロジック）
-        alignment_is_active = False
-        tfs_check = cloud_align.get('timeframes') or cloud_align.get('tfs', [])
-        if cloud_align.get('allTimeframes') or (tfs_check and len(tfs_check) > 0):
-            alignment_is_active = True
-        
-        alignment_direction = None
-        
-        if alignment_is_active and all_matched:
-            timeframes = tfs_check if tfs_check else ['5m', '15m', '1H', '4H']
-            if cloud_align.get('allTimeframes') and not tfs_check:
-                timeframes = ['5m', '15m', '1H', '4H']
-            
-            # cloud_dataから cloud_order を取得（5mのデータに含まれている場合がある）
-            # または別途DBから取得する必要がある
-            # ここではcloud_dataに含まれない場合があるので、引数で受け取った情報を使う
-            # cloud_dataは各TFのデータを含む辞書なので、別途cloud_orderが必要
-            
-            # cloud_orderは呼び出し元で渡される必要があるが、
-            # 現在の実装では渡されていないので、Noneの場合は不一致とする
-            cloud_order = cloud_data.get('__cloud_order__')
-            
-            if cloud_order:
-                # cloud_order は '5m,15m,1H,4H,価格' のような文字列
-                cloud_order_list = [x.strip() for x in cloud_order.split(',')]
-                
-                # 「価格」を除外してTFのみ抽出
-                cloud_order_tfs = [x for x in cloud_order_list if x in ['5m', '15m', '1H', '4H']]
-                
-                # 選択されたTFのみを抽出（順序を保持）
-                selected_order = [x for x in cloud_order_tfs if x in timeframes]
-                
-                # 期待する昇順と降順
-                expected_asc = timeframes  # ['5m', '15m', '1H', '4H']
-                expected_desc = list(reversed(timeframes))  # ['4H', '1H', '15m', '5m']
-                
-                # 整列判定
-                is_aligned = (selected_order == expected_asc or selected_order == expected_desc)
-                
-                if is_aligned:
-                    # 整列方向を判定
-                    if selected_order == expected_asc:
-                        alignment_direction = 'up'
-                    else:
-                        alignment_direction = 'down'
-                    direction = alignment_direction
-                else:
-                    return None
-            else:
-                # cloud_orderがない場合は不一致
-                return None
-        else:
-            # 雲整列条件がない場合、条件から方向を判定
-            valid_directions = [d for d in condition_directions if d is not None]
-            if valid_directions:
-                direction = valid_directions[0]
-        
-        return direction
-    except Exception as e:
-        print(f'[_evaluate_rule_match] Error: {e}')
-        import traceback
-        traceback.print_exc()
-        return None
-
-
-def _find_cloud_field(state, label, field):
-    # state expected to have 'clouds' array
-    try:
-        clouds = state.get('clouds', [])
-        # helper: normalize label to minutes if possible
-        def _tf_to_minutes(s):
-            try:
-                if s is None:
-                    return None
-                ss = str(s).strip().lower()
-                if ss.isdigit():
-                    return int(ss)
-                # endswith m (minutes)
-                if ss.endswith('m'):
-                    return int(ss[:-1])
-                # endswith h (hours)
-                if ss.endswith('h'):
-                    return int(ss[:-1]) * 60
-                # contains 'min'
-                if 'min' in ss:
-                    num = ''.join([c for c in ss if c.isdigit()])
-                    return int(num) if num else None
-                # fallback: try to parse digits
-                digits = ''.join([c for c in ss if c.isdigit()])
-                if digits:
-                    return int(digits)
-            except Exception:
-                return None
-            return None
-
-        req_min = _tf_to_minutes(label)
-        for c in clouds:
-            c_label = c.get('label')
-            # exact match first
-            if str(c_label) == str(label):
-                val = c.get(field)
-                # Special handling: if field is 'gc' and not present in cloud object,
-                # default to False (DC) to match frontend display behavior
-                if field == 'gc' and val is None and field not in c:
-                    return False  # Default to False/DC when gc field is missing
-                return val
-            # try normalized minutes match
-            try:
-                cmin = _tf_to_minutes(c_label)
-                if req_min is not None and cmin is not None and req_min == cmin:
-                    val = c.get(field)
-                    if field == 'gc' and val is None and field not in c:
-                        return False  # Default to False/DC when gc field is missing
-                    return val
-            except Exception:
-                pass
-    except Exception:
-        pass
-    return None
-
-
-def _parse_time_to_ms(val):
-    # Accept integer ms, numeric string, or YY/MM/DD/HH:MM string
-    try:
-        if val is None:
-            return None
-        if isinstance(val, (int, float)):
-            return int(val)
-        s = str(val).strip()
-        if s.isdigit():
-            return int(s)
-        # try YY/MM/DD/HH:MM like '25/10/31/21:35'
-        parts = s.split('/')
-        if len(parts) >= 4:
-            yy = int(parts[0]); mm = int(parts[1]); dd = int(parts[2]); timepart = parts[3]
-            hh, mi = 0, 0
-            if ':' in timepart:
-                hp = timepart.split(':'); hh = int(hp[0]); mi = int(hp[1])
-            else:
-                hh = int(timepart)
-            from datetime import datetime
-            year = 2000 + yy if yy < 100 else yy
-            dt = datetime(year, mm, dd, hh, mi)
-            return int(dt.timestamp() * 1000)
-    except Exception:
-        return None
-    return None
-
-
-def _normalize_actual(field, val):
-    """Normalize actual field values to Python types for comparison.
-    - gc -> string ('GC' for true, 'DC' for false) to match display
-    - dauten -> string ('up'/'down', or '▲'/'▼' variants)
-    - bos_count -> keep as-is (string like "BOS-2" or number)
-    - numeric fields -> float
-    - otherwise return as-is
-    """
-    try:
-        if val is None:
-            return None
-        
-        # gc: normalize boolean to display string (GC/DC)
-        if field in ('gc',):
-            if isinstance(val, bool):
-                return 'GC' if val else 'DC'
-            s = str(val).strip().lower()
-            if s in ('true','1','yes','y','gc','▲gc'):
-                return 'GC'
-            if s in ('false','0','no','n','dc','▼dc'):
-                return 'DC'
-            # fallback: treat non-empty as GC
-            return 'GC' if s else 'DC'
-
-        # dauten: normalize to lowercase string or symbol variant
-        if field in ('dauten',):
-            s = str(val).strip().lower()
-            # accept ▲/▼ variants and normalize to consistent display terms
-            if '▲' in s or 'up' in s or s == '上' or s == '上昇':
-                return '上昇'
-            if '▼' in s or 'down' in s or s == '下' or s == '下降':
-                return '下降'
-            return s
-
-        # bos_count: keep as-is (can be string like "BOS-2" or numeric)
-        if field in ('bos_count',):
-            # Return as-is for string comparison
-            return val
-
-        if field in ('distance_from_prev','distance_from_price','angle','thickness'):
-            try:
-                return float(val)
-            except Exception:
-                return val
-
-        # default: return original
-        return val
-    except Exception:
-        return val
-
-
-def _compare_values(a, op, b):
-    """Compare values with operator. Handles numeric, boolean, and string comparisons.
-    For gc field, both a and b should be normalized strings ('GC'/'DC').
-    """
-    try:
-        if a is None:
-            return False
-        
-        # Coerce b into a sensible Python type
-        if isinstance(b, str):
-            b_lower = b.strip().lower()
-            # Check for boolean-like strings
-            if b_lower in ('true','false'):
-                b_val = (b_lower == 'true')
-            # Check for gc display values
-            elif b_lower in ('gc','▲gc','ゴールデンクロス','golden','goldencross'):
-                b_val = 'GC'
-            elif b_lower in ('dc','▼dc','デッドクロス','dead','deadcross'):
-                b_val = 'DC'
-            # Check for dauten display values
-            elif b_lower in ('up','▲','▲dow','上','上昇','upward'):
-                b_val = '上昇'
-            elif b_lower in ('down','▼','▼dow','下','下降','downward'):
-                b_val = '下降'
-            else:
-                # Try numeric
-                try:
-                    b_val = float(b)
-                except Exception:
-                    b_val = b
-        else:
-            b_val = b
-
-        # Coerce a based on b_val type
-        if isinstance(b_val, (int, float)):
-            try:
-                a_val = float(a)
-            except Exception:
-                return False
-        elif isinstance(b_val, bool):
-            try:
-                if isinstance(a, bool):
-                    a_val = a
-                elif isinstance(a, (int, float)):
-                    a_val = bool(a)
-                else:
-                    sa = str(a).strip().lower()
-                    a_val = sa in ('true','1','yes','y')
-            except Exception:
-                a_val = False
-        else:
-            # String comparison (case-insensitive)
-            if isinstance(a, str):
-                a_val = a.strip().upper()
-                if isinstance(b_val, str):
-                    b_val = b_val.strip().upper()
-            else:
-                a_val = a
-
-        if op == '==':
-            return a_val == b_val
-        if op == '!=':
-            return a_val != b_val
-        if op == '>':
-            return a_val > b_val
-        if op == '<':
-            return a_val < b_val
-        if op == '>=':
-            return a_val >= b_val
-        if op == '<=':
-            return a_val <= b_val
-    except Exception:
-        return False
-    return False
 
 
 @app.route('/rules/test', methods=['GET', 'POST'])
@@ -3188,7 +3254,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 # ===== 発火処理 =====
                 if should_fire:
-                    wlog(f'[RULE] ✓ FIRING Rule: {rule_name}')
+                    wlog(f'[RULE] [OK] FIRING Rule: {rule_name}')
                     
                     # 状態スナップショットに__conditions_matched__フラグを追加
                     state_snapshot = {
@@ -3330,8 +3396,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         'direction': direction,
                         'voice_settings': voice_settings
                     })
-                    wlog(f'[FIRE] ✓ Notification fired for rule "{rule_name}" direction={direction}')
-                    wlog(f'[FIRE] ✓ Added to fired_notifications list (count={len(fired_notifications)})')
+                    wlog(f'[FIRE] [OK] Notification fired for rule "{rule_name}" direction={direction}')
+                    wlog(f'[FIRE] [OK] Added to fired_notifications list (count={len(fired_notifications)})')
                 else:
                     # 発火しない場合もログ出力
                     wlog(f'[RULE] Rule "{rule_name}" not firing')
@@ -3465,7 +3531,7 @@ def _evaluate_rules_with_timeframe_data(data, symbol, tf_val):
                 
                 # ルールが一致した場合は通知を発火
                 if all_matched:
-                    print(f'[FIRE] ✓ Rule MATCHED: {rule_name}')
+                    print(f'[FIRE] [OK] Rule MATCHED: {rule_name}')
                     
                     # Get last fired state for this rule/tf
                     conn_check = sqlite3.connect(DB_PATH)
@@ -3529,7 +3595,7 @@ def _evaluate_rules_with_timeframe_data(data, symbol, tf_val):
                                 'symbol': symbol,
                                 'tf': tf_val
                             })
-                            print(f'[FIRE] ✓ Notification fired for rule "{rule_name}"')
+                            print(f'[FIRE] [OK] Notification fired for rule "{rule_name}"')
                         except Exception as e:
                             print(f'[FIRE] Error recording fire history: {e}')
                     
@@ -4089,7 +4155,7 @@ if __name__ == '__main__':
     
     try:
         print('[DEBUG] Calling socketio.run...')
-        socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True, use_reloader=False)
+        socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True, use_reloader=False)
         print('[DEBUG] socketio.run completed')
     except Exception as e:
         error_msg = f'[CRITICAL ERROR] Server crashed: {str(e)}'
