@@ -1042,7 +1042,9 @@
         if (displaySettings.showCurrencies) {
           const headerCurrencies = document.createElement('div');
           headerCurrencies.className = 'table-header-currencies';
-          headerCurrencies.textContent = '弱 ← 中 → 強';
+          headerCurrencies.style.textAlign = 'center';
+          headerCurrencies.style.letterSpacing = '0.05em';
+          headerCurrencies.textContent = '弱　　◀　　◀　　◀　　◀　　中　　▶　　▶　　▶　　▶　　強';
           grid.appendChild(headerCurrencies);
         }
         

@@ -955,18 +955,26 @@ def detect_and_record_extreme_changes(currency_data):
         previous = previous_extreme_currencies.get(timeframe)
         
         if previous is None:
-            # 初回は記録のみ
+            # 初回：初期状態をDBに記録（サーバー再起動時の履歴保持のため）
+            try:
+                c.execute('''INSERT INTO change_history 
+                             (timeframe, weakest, strongest, timestamp, created_at) 
+                             VALUES (?, ?, ?, ?, ?)''',
+                          (timeframe, weakest, strongest, current_time, datetime.now(jst).isoformat()))
+                conn.commit()
+                print(f'[CHANGE_HISTORY] Initial state recorded for {timeframe}: {weakest}⇔{strongest}')
+                
+            except Exception as e:
+                print(f'[ERROR] Failed to record initial state for {timeframe}: {e}')
+            
+            # メモリにも保存
             previous_extreme_currencies[timeframe] = {
                 'weakest': weakest,
                 'strongest': strongest
             }
-            print(f'[CHANGE_HISTORY] Initial state for {timeframe}: weakest={weakest}, strongest={strongest}')
         else:
             # 変更があった場合のみ記録
-            changed = False
             if previous['weakest'] != weakest or previous['strongest'] != strongest:
-                changed = True
-                
                 # DBに記録
                 try:
                     c.execute('''INSERT INTO change_history 
@@ -976,11 +984,11 @@ def detect_and_record_extreme_changes(currency_data):
                     conn.commit()
                     print(f'[CHANGE_HISTORY] Recorded change for {timeframe}: {weakest}⇔{strongest}')
                     
-                    # 各時間足ごとに最大5件を維持（古い履歴を削除）
+                    # 各時間足ごとに最大100件を維持（古い履歴を削除）
                     c.execute('''SELECT id FROM change_history 
                                  WHERE timeframe = ? 
                                  ORDER BY created_at DESC 
-                                 LIMIT -1 OFFSET 5''', (timeframe,))
+                                 LIMIT -1 OFFSET 100''', (timeframe,))
                     old_ids = [row[0] for row in c.fetchall()]
                     if old_ids:
                         placeholders = ','.join(['?'] * len(old_ids))
