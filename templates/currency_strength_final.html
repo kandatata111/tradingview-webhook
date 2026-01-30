@@ -178,7 +178,66 @@
     .strong { background: #388e3c; color: #fff; }
     .very-strong { background: #1976d2; color: #fff; }
 
-    /* アコーディオン */
+    /* タブスタイル */
+    .tab-container {
+      background: #1a1a1a;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    
+    .tab-headers {
+      display: flex;
+      gap: 4px;
+      background: #2a2a2a;
+      padding: 8px;
+      border-radius: 8px 8px 0 0;
+      border-bottom: 2px solid #444;
+    }
+    
+    .tab-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      cursor: pointer;
+      background: #333;
+      border-radius: 6px 6px 0 0;
+      font-size: 15px;
+      font-weight: 500;
+      color: #999;
+      transition: all 0.2s;
+      border: none;
+      border-bottom: 3px solid transparent;
+    }
+    
+    .tab-header:hover {
+      background: #3a3a3a;
+      color: #ccc;
+    }
+    
+    .tab-header.active {
+      background: #2d68f8;
+      color: #fff;
+      border-bottom-color: #2d68f8;
+    }
+    
+    .tab-icon {
+      font-size: 18px;
+    }
+    
+    .tab-content {
+      display: none;
+      padding: 0;
+      background: #1e1e1e;
+      border-radius: 0 0 8px 8px;
+    }
+    
+    .tab-content.active {
+      display: block;
+      padding: 20px;
+    }
+
+    /* アコーディオン（旧スタイル - 未使用） */
     .accordion {
       display: flex;
       flex-direction: column;
@@ -368,34 +427,38 @@
     </div>
 
     <!-- 設定項目 -->
-    <div class="accordion" id="settingsContainer" style="transform-origin: top left; transition: transform 0.2s ease;">
+    <div class="tab-container" id="settingsContainer" style="transform-origin: top left; transition: transform 0.2s ease;">
+      <!-- タブヘッダー -->
+      <div class="tab-headers">
+        <button class="tab-header" data-tab="history">
+          <span class="tab-icon">📜</span>
+          <span>最強・最弱変更履歴</span>
+        </button>
+        <button class="tab-header" data-tab="display">
+          <span class="tab-icon">📊</span>
+          <span>表示設定</span>
+        </button>
+        <button class="tab-header" data-tab="voice">
+          <span class="tab-icon">🔊</span>
+          <span>音声通知設定</span>
+        </button>
+        <button class="tab-header" data-tab="save">
+          <span class="tab-icon">💾</span>
+          <span>設定保存</span>
+        </button>
+      </div>
+
+      <!-- タブコンテンツ -->
       <!-- 最強・最弱変更履歴 -->
-      <div class="accordion-item">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <div class="accordion-title">
-            <span class="accordion-icon">📜</span>
-            <span>最強・最弱変更履歴</span>
-          </div>
-          <span class="accordion-arrow">▼</span>
-        </div>
-        <div class="accordion-content">
-          <div id="changeHistory" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
-            <!-- JavaScriptで動的に生成 -->
-          </div>
+      <div class="tab-content" data-tab-content="history">
+        <div id="changeHistory" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+          <!-- JavaScriptで動的に生成 -->
         </div>
       </div>
 
       <!-- 表示設定 -->
-      <div class="accordion-item">
-        <div class="accordion-header active" onclick="toggleAccordion(this)">
-          <div class="accordion-title">
-            <span class="accordion-icon">📊</span>
-            <span>表示設定</span>
-          </div>
-          <span class="accordion-arrow">▼</span>
-        </div>
-        <div class="accordion-content active">
-          <div class="form-section">
+      <div class="tab-content" data-tab-content="display">
+        <div class="form-section">
             <div style="display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: start;">
               <div>
                 <div class="subsection-title">表示項目</div>
@@ -456,16 +519,8 @@
       </div>
 
       <!-- 音声通知設定 -->
-      <div class="accordion-item">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <div class="accordion-title">
-            <span class="accordion-icon">🔊</span>
-            <span>音声通知設定</span>
-          </div>
-          <span class="accordion-arrow">▼</span>
-        </div>
-        <div class="accordion-content">
-          <div class="form-section">
+      <div class="tab-content" data-tab-content="voice">
+        <div class="form-section">
             <div class="form-row">
               <label style="min-width: 100px;">声優選択：</label>
               <select id="voiceActress">
@@ -508,37 +563,66 @@
       </div>
 
       <!-- 設定保存 -->
-      <div class="accordion-item">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <div class="accordion-title">
-            <span class="accordion-icon">💾</span>
-            <span>設定保存</span>
-          </div>
-          <span class="accordion-arrow">▼</span>
-        </div>
-        <div class="accordion-content">
-          <button id="saveSettings" style="width:100%;padding:12px;font-size:15px;">💾 設定を保存</button>
-          <div id="saveMessage" style="margin-top:12px;text-align:center;color:#28a745;display:none;font-weight:bold;">✓ 設定を保存しました</div>
-        </div>
+      <div class="tab-content" data-tab-content="save">
+        <button id="saveSettings" style="width:100%;padding:12px;font-size:15px;">💾 設定を保存</button>
+        <div id="saveMessage" style="margin-top:12px;text-align:center;color:#28a745;display:none;font-weight:bold;">✓ 設定を保存しました</div>
       </div>
     </div>
   </div>
 
   <script>
-    // アコーディオンのトグル（複数同時に開ける）
-    function toggleAccordion(header) {
-      const content = header.nextElementSibling;
-      const isActive = header.classList.contains('active');
+    // タブ切り替え機能
+    function switchTab(tabName) {
+      console.log('[TAB] switchTab called with:', tabName);
       
-      // クリックされたアコーディオンのみをトグル
-      if (isActive) {
+      // 全てのタブヘッダーとコンテンツから active を削除
+      document.querySelectorAll('.tab-header').forEach(header => {
         header.classList.remove('active');
+      });
+      document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
+      });
+      
+      // クリックされたタブをアクティブに
+      if (tabName) {
+        const header = document.querySelector(`.tab-header[data-tab="${tabName}"]`);
+        const content = document.querySelector(`.tab-content[data-tab-content="${tabName}"]`);
+        
+        if (header && content) {
+          console.log('[TAB] Activating tab:', tabName);
+          header.classList.add('active');
+          content.classList.add('active');
+        } else {
+          console.log('[TAB] Tab not found:', tabName);
+        }
       } else {
-        header.classList.add('active');
-        content.classList.add('active');
+        console.log('[TAB] All tabs closed');
       }
     }
+    
+    // タブヘッダークリックイベント
+    document.addEventListener('DOMContentLoaded', () => {
+      // 初期化：全てのタブを閉じる
+      console.log('[TAB] Initializing tabs - closing all');
+      switchTab(null);
+      
+      // タブクリックイベントを設定
+      document.querySelectorAll('.tab-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const tabName = header.getAttribute('data-tab');
+          const isActive = header.classList.contains('active');
+          
+          console.log('[TAB] Clicked:', tabName, 'isActive:', isActive);
+          
+          // 既にアクティブなタブをクリックしたら閉じる
+          if (isActive) {
+            switchTab(null); // 全て閉じる
+          } else {
+            switchTab(tabName);
+          }
+        });
+      });
+    });
 
     // 設定の保存キー
     const STORAGE_KEY_VOICE_SETTINGS = 'currencyStrengthVoiceSettings';
@@ -578,7 +662,7 @@
           
           html += `
             <div style="background: #222; padding: 12px; border-radius: 6px; border-left: 3px solid #2d68f8;">
-              <div style="color: #06b7f9; font-weight: bold; margin-bottom: 8px;">${tf.label}</div>
+              <div style="color: #06b7f9; font-weight: bold; margin-bottom: 8px;">${tf.label}　弱⇔強</div>
               <div style="font-size: 12px; font-family: 'Consolas', monospace;">
           `;
           
@@ -586,7 +670,11 @@
             html += `<div style="color: #666;">変更履歴なし</div>`;
           } else {
             records.forEach(record => {
-              html += `<div style="margin-bottom: 4px;">${record.timestamp}　${record.weakest}⇔${record.strongest}</div>`;
+              const weakestPercent = record.weakest_percent !== undefined ? record.weakest_percent : 0;
+              const strongestPercent = record.strongest_percent !== undefined ? record.strongest_percent : 0;
+              const weakestSign = weakestPercent >= 0 ? '+' : '';
+              const strongestSign = strongestPercent >= 0 ? '+' : '';
+              html += `<div style="margin-bottom: 4px;">${record.timestamp}　${record.weakest}${weakestSign}${weakestPercent}%⇔${record.strongest}${strongestSign}${strongestPercent}%</div>`;
             });
           }
           

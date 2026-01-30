@@ -562,12 +562,30 @@ def init_db():
         timeframe TEXT NOT NULL,
         weakest TEXT NOT NULL,
         strongest TEXT NOT NULL,
+        weakest_percent INTEGER DEFAULT 0,
+        strongest_percent INTEGER DEFAULT 0,
         timestamp TEXT NOT NULL,
         created_at TEXT NOT NULL
     )''')
     # timeframe でインデックス作成（検索高速化）
     c.execute('''CREATE INDEX IF NOT EXISTS idx_change_history_timeframe 
                  ON change_history(timeframe, created_at DESC)''')
+    
+    # 既存のテーブルに新しいカラムを追加（存在しない場合のみ）
+    try:
+        c.execute("ALTER TABLE change_history ADD COLUMN weakest_percent INTEGER DEFAULT 0")
+        print('[OK] Added weakest_percent column to change_history table')
+    except sqlite3.OperationalError as e:
+        if 'duplicate column name' not in str(e).lower():
+            print(f'[INFO] Column weakest_percent may already exist: {e}')
+    
+    try:
+        c.execute("ALTER TABLE change_history ADD COLUMN strongest_percent INTEGER DEFAULT 0")
+        print('[OK] Added strongest_percent column to change_history table')
+    except sqlite3.OperationalError as e:
+        if 'duplicate column name' not in str(e).lower():
+            print(f'[INFO] Column strongest_percent may already exist: {e}')
+    
     conn.commit()
     conn.close()
     print('[OK] Change history table ensured')
@@ -956,6 +974,8 @@ def detect_and_record_extreme_changes(currency_data):
                 currencies = data['currencies']
                 weakest = currencies[0]['currency']  # 最初（最弱）
                 strongest = currencies[-1]['currency']  # 最後（最強）
+                weakest_percent = currencies[0]['percentage']  # 最弱の%
+                strongest_percent = currencies[-1]['percentage']  # 最強の%
                 
                 # 前回の値と比較
                 previous = previous_extreme_currencies.get(timeframe)
@@ -964,11 +984,11 @@ def detect_and_record_extreme_changes(currency_data):
                     # 初回：初期状態をDBに記録（サーバー再起動時の履歴保持のため）
                     try:
                         c.execute('''INSERT INTO change_history 
-                                     (timeframe, weakest, strongest, timestamp, created_at) 
-                                     VALUES (?, ?, ?, ?, ?)''',
-                                  (timeframe, weakest, strongest, current_time, datetime.now(jst).isoformat()))
+                                     (timeframe, weakest, strongest, weakest_percent, strongest_percent, timestamp, created_at) 
+                                     VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                                  (timeframe, weakest, strongest, weakest_percent, strongest_percent, current_time, datetime.now(jst).isoformat()))
                         conn.commit()
-                        print(f'[CHANGE_HISTORY] Initial state recorded for {timeframe}: {weakest}⇔{strongest}')
+                        print(f'[CHANGE_HISTORY] Initial state recorded for {timeframe}: {weakest}{weakest_percent:+d}%⇔{strongest}{strongest_percent:+d}%')
                         
                     except Exception as e:
                         print(f'[ERROR] Failed to record initial state for {timeframe}: {e}')
@@ -984,11 +1004,11 @@ def detect_and_record_extreme_changes(currency_data):
                         # DBに記録
                         try:
                             c.execute('''INSERT INTO change_history 
-                                         (timeframe, weakest, strongest, timestamp, created_at) 
-                                         VALUES (?, ?, ?, ?, ?)''',
-                                      (timeframe, weakest, strongest, current_time, datetime.now(jst).isoformat()))
+                                         (timeframe, weakest, strongest, weakest_percent, strongest_percent, timestamp, created_at) 
+                                         VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                                      (timeframe, weakest, strongest, weakest_percent, strongest_percent, current_time, datetime.now(jst).isoformat()))
                             conn.commit()
-                            print(f'[CHANGE_HISTORY] Recorded change for {timeframe}: {weakest}⇔{strongest}')
+                            print(f'[CHANGE_HISTORY] Recorded change for {timeframe}: {weakest}{weakest_percent:+d}%⇔{strongest}{strongest_percent:+d}%')
                             
                             # 各時間足ごとに最大100件を維持（古い履歴を削除）
                             c.execute('''SELECT id FROM change_history 
@@ -1052,22 +1072,37 @@ def api_change_history():
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
+        # テーブルのカラムを確認
+        c.execute("PRAGMA table_info(change_history)")
+        columns = [col[1] for col in c.fetchall()]
+        has_percent = 'weakest_percent' in columns and 'strongest_percent' in columns
+        
         result = {}
         
         if timeframe:
             # 特定の時間足のみ取得
-            c.execute('''SELECT timeframe, weakest, strongest, timestamp, created_at 
-                         FROM change_history 
-                         WHERE timeframe = ? 
-                         ORDER BY created_at DESC 
-                         LIMIT ?''', (timeframe, limit))
+            if has_percent:
+                c.execute('''SELECT timeframe, weakest, strongest, weakest_percent, strongest_percent, timestamp, created_at 
+                             FROM change_history 
+                             WHERE timeframe = ? 
+                             ORDER BY created_at DESC 
+                             LIMIT ?''', (timeframe, limit))
+            else:
+                c.execute('''SELECT timeframe, weakest, strongest, timestamp, created_at 
+                             FROM change_history 
+                             WHERE timeframe = ? 
+                             ORDER BY created_at DESC 
+                             LIMIT ?''', (timeframe, limit))
+            
             rows = c.fetchall()
             result[timeframe] = [
                 {
-                    'timestamp': row[3],
+                    'timestamp': row[5] if has_percent else row[3],
                     'weakest': row[1],
                     'strongest': row[2],
-                    'created_at': row[4]
+                    'weakest_percent': row[3] if has_percent else 0,
+                    'strongest_percent': row[4] if has_percent else 0,
+                    'created_at': row[6] if has_percent else row[4]
                 }
                 for row in rows
             ]
@@ -1075,18 +1110,28 @@ def api_change_history():
             # 全ての時間足を取得
             timeframes = ['15m', '1H', '4H', 'D', 'Av']
             for tf in timeframes:
-                c.execute('''SELECT timeframe, weakest, strongest, timestamp, created_at 
-                             FROM change_history 
-                             WHERE timeframe = ? 
-                             ORDER BY created_at DESC 
-                             LIMIT ?''', (tf, limit))
+                if has_percent:
+                    c.execute('''SELECT timeframe, weakest, strongest, weakest_percent, strongest_percent, timestamp, created_at 
+                                 FROM change_history 
+                                 WHERE timeframe = ? 
+                                 ORDER BY created_at DESC 
+                                 LIMIT ?''', (tf, limit))
+                else:
+                    c.execute('''SELECT timeframe, weakest, strongest, timestamp, created_at 
+                                 FROM change_history 
+                                 WHERE timeframe = ? 
+                                 ORDER BY created_at DESC 
+                                 LIMIT ?''', (tf, limit))
+                
                 rows = c.fetchall()
                 result[tf] = [
                     {
-                        'timestamp': row[3],
+                        'timestamp': row[5] if has_percent else row[3],
                         'weakest': row[1],
                         'strongest': row[2],
-                        'created_at': row[4]
+                        'weakest_percent': row[3] if has_percent else 0,
+                        'strongest_percent': row[4] if has_percent else 0,
+                        'created_at': row[6] if has_percent else row[4]
                     }
                     for row in rows
                 ]
