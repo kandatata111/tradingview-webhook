@@ -1010,11 +1010,11 @@ def detect_and_record_extreme_changes(currency_data):
                             conn.commit()
                             print(f'[CHANGE_HISTORY] Recorded change for {timeframe}: {weakest}{weakest_percent:+d}%⇔{strongest}{strongest_percent:+d}%')
                             
-                            # 各時間足ごとに最大100件を維持（古い履歴を削除）
+                            # 各時間足ごとに最大1000件を維持（古い履歴を削除）
                             c.execute('''SELECT id FROM change_history 
                                          WHERE timeframe = ? 
                                          ORDER BY created_at DESC 
-                                         LIMIT -1 OFFSET 100''', (timeframe,))
+                                         LIMIT -1 OFFSET 1000''', (timeframe,))
                             old_ids = [row[0] for row in c.fetchall()]
                             if old_ids:
                                 placeholders = ','.join(['?'] * len(old_ids))
@@ -2792,9 +2792,18 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
             pass
     
     try:
-        global FIRST_RECEIVE_FLAGS
+        global FIRST_RECEIVE_FLAGS, SERVER_START_TIME
         jst = pytz.timezone('Asia/Tokyo')
         wlog(f'[EVALUATE] Starting rule evaluation for {symbol}/{tf_val}')
+        
+        # サーバー起動後のデータのみ評価（起動前のデータはスキップ）
+        if SERVER_START_TIME is not None:
+            webhook_time_ms = data.get('time', 0)
+            if webhook_time_ms > 0:
+                webhook_time = datetime.fromtimestamp(webhook_time_ms / 1000, tz=pytz.UTC)
+                if webhook_time < SERVER_START_TIME:
+                    wlog(f'[STARTUP_CHECK] Data from before server startup ({webhook_time.isoformat()} < {SERVER_START_TIME.isoformat()}), skipping evaluation')
+                    return
         
         # 受信タイムフレームのラベルを取得
         tf_label_map = {'5': '5m', '15': '15m', '60': '1H', '240': '4H'}
@@ -3369,9 +3378,40 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     wlog(f'[RULE] Skipping rule evaluation for first receive (no history)')
                     continue  # 次のルールへ
                 elif is_first_receive and last_state is not None:
-                    # 初回受信だが過去の履歴がある場合は通常評価を継続
-                    # （新しいダウ転などの変化を検出するため）
-                    wlog(f'[RULE] First receive but history exists, evaluating normally (may fire if changed)')
+                    # 初回受信だが過去の履歴がある場合
+                    # サーバー再起動直後のケース：履歴が最近（例：1時間以内）の場合は発火をスキップ
+                    # 古い履歴（例：4H足で8時間以上前）の場合のみ通常評価
+                    last_fired_at_str = last_state.get('__fired_at__')
+                    skip_fire = False
+                    if last_fired_at_str:
+                        try:
+                            last_fired_at = datetime.fromisoformat(last_fired_at_str.replace('Z', '+00:00'))
+                            jst = pytz.timezone('Asia/Tokyo')
+                            now = datetime.now(jst)
+                            if last_fired_at.tzinfo is None:
+                                last_fired_at = jst.localize(last_fired_at)
+                            time_since_last_fire = now - last_fired_at
+                            
+                            # 時間足に応じて猶予期間を設定
+                            grace_period_hours = 2  # デフォルト2時間
+                            if '4H' in str(conditions):
+                                grace_period_hours = 6  # 4H足は6時間
+                            elif '1H' in str(conditions):
+                                grace_period_hours = 3  # 1H足は3時間
+                            
+                            if time_since_last_fire.total_seconds() < grace_period_hours * 3600:
+                                skip_fire = True
+                                wlog(f'[RULE] First receive but last fire was recent ({time_since_last_fire.total_seconds() / 3600:.1f}h ago), skipping to avoid duplicate')
+                        except Exception as e:
+                            wlog(f'[RULE] Error checking last fire time: {e}')
+                    
+                    if skip_fire:
+                        # 最近発火済みの場合はスキップ
+                        wlog(f'[RULE] Skipping evaluation for first receive (recent history)')
+                        continue  # 次のルールへ
+                    else:
+                        # 古い履歴の場合は通常評価を継続
+                        wlog(f'[RULE] First receive but history is old, evaluating normally (may fire if changed)')
                 
                 if all_matched:
                     # 条件を満たしている場合、前回の状態をチェック

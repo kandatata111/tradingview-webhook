@@ -386,6 +386,21 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .rule-count-btn:hover {
   background: rgba(102, 126, 234, 0.4);
 }
+.fire-history-limit-select {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border: 1px solid #667eea;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+.fire-history-limit-select:hover {
+  background: rgba(102, 126, 234, 0.4);
+}
 .currency-fire-history-list {
   flex: 1;
   overflow-y: auto;
@@ -471,6 +486,18 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 .light-mode .rule-count-btn:hover {
   background: rgba(0,0,0,0.08);
+}
+.light-mode .fire-history-limit-select {
+  background: rgba(0,0,0,0.05);
+  color: #111;
+  border-color: rgba(0,0,0,0.6);
+}
+.light-mode .fire-history-limit-select:hover {
+  background: rgba(0,0,0,0.08);
+}
+.light-mode .fire-history-limit-select option {
+  background: rgba(0,0,0,0.3);
+  color: #fff;
 }
 .light-mode .fire-item {
   background: rgba(0, 0, 0, 0.08);
@@ -606,6 +633,18 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 .dark-mode .rule-count-btn:hover {
   background: rgba(255,255,255,0.06);
+}
+.dark-mode .fire-history-limit-select {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.9);
+}
+.dark-mode .fire-history-limit-select:hover {
+  background: rgba(255,255,255,0.06);
+}
+.dark-mode .fire-history-limit-select option {
+  background: rgba(50, 50, 50, 0.9);
+  color: #fff;
 }
 
 /* Light mode adjustments */
@@ -5372,10 +5411,33 @@ async function load() {
         sortBtn.title = '履歴の並べ替え（降順/昇順）';
         sortBtn.addEventListener('click', () => toggleSortOrder(symbol));
         
-        const clearBtn = document.createElement('button');
-        clearBtn.textContent = 'クリア';
-        clearBtn.dataset.symbol = symbol;
-        clearBtn.addEventListener('click', () => clearFireHistory(symbol));
+        // 件数選択プルダウン（クリアボタンから変更）
+        const limitSelect = document.createElement('select');
+        limitSelect.id = 'fire-history-limit-' + symbol;
+        limitSelect.dataset.symbol = symbol;
+        limitSelect.title = '表示する発火履歴の件数を選択';
+        limitSelect.className = 'fire-history-limit-select';  // CSSクラスを指定
+        
+        const options = [
+          { value: '10', label: '10件' },
+          { value: '50', label: '50件' },
+          { value: '100', label: '100件' },
+          { value: '500', label: '500件' },
+          { value: '1000', label: '全て' }
+        ];
+        
+        options.forEach(opt => {
+          const optionElem = document.createElement('option');
+          optionElem.value = opt.value;
+          optionElem.textContent = opt.label;
+          if (opt.value === '50') optionElem.selected = true;  // デフォルトは50件
+          limitSelect.appendChild(optionElem);
+        });
+        
+        limitSelect.addEventListener('change', (e) => {
+          const limit = parseInt(e.target.value);
+          updateFireHistoryDisplay(symbol, limit);
+        });
         
         // ルールカウントボタンを追加
         const ruleCountBtn = document.createElement('button');
@@ -5386,7 +5448,7 @@ async function load() {
         ruleCountBtn.addEventListener('click', () => showRuleDropdown(ruleCountBtn, symbol));
         
         buttonsDiv.appendChild(sortBtn);
-        buttonsDiv.appendChild(clearBtn);
+        buttonsDiv.appendChild(limitSelect);
         buttonsDiv.appendChild(ruleCountBtn);
         
         headerDiv.appendChild(titleH3);
@@ -6774,6 +6836,28 @@ function toggleSortOrder(symbol) {
   
   console.log(`[SORT] ${symbol} fire history sorted: ${newSortDesc ? 'descending' : 'ascending'}`);
 }
+
+// 発火履歴の表示件数を更新する関数
+function updateFireHistoryDisplay(symbol, limit) {
+  const listEl = document.querySelector(`.currency-fire-history-list[data-symbol="${symbol}"]`);
+  if (!listEl) return;
+  
+  // 全てのfire-itemを取得
+  const items = Array.from(listEl.querySelectorAll('.fire-item'));
+  
+  // 現在のソート状態を考慮して、表示件数までの項目のみを表示
+  const displayItems = items.slice(0, limit);
+  const hideItems = items.slice(limit);
+  
+  // 表示項目をshow
+  displayItems.forEach(item => item.style.display = '');
+  
+  // 非表示項目をhide
+  hideItems.forEach(item => item.style.display = 'none');
+  
+  console.log(`[DISPLAY] ${symbol} fire history limit changed to ${limit}, showing ${displayItems.length} items`);
+}
+
 
 // 日付時刻文字列をDateオブジェクトに変換するヘルパー関数
 function parseDateTimeString(dateTimeStr) {
