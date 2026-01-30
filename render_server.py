@@ -1440,10 +1440,12 @@ def webhook():
             
             # 全てのタイムフレーム（5, 15, 60, 240）でルール評価と発火を実行
             try:
+                print(f'[DEBUG] RULE_EVAL_START for {symbol_val}/{tf_val}')
                 with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
                     f.write(f'{saved_at} - RULE_EVAL_START for {symbol_val}/{tf_val}\n')
                     f.flush()
                 evaluate_and_fire_rules(data, symbol_val, tf_val)
+                print(f'[DEBUG] RULE_EVAL_END for {symbol_val}/{tf_val}')
                 with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
                     f.write(f'{saved_at} - RULE_EVAL_END for {symbol_val}/{tf_val}\n')
                     f.flush()
@@ -1454,6 +1456,8 @@ def webhook():
                     import traceback
                     f.write(traceback.format_exc())
                     f.flush()
+            
+            print(f'[DEBUG] After rule evaluation, before emit for {symbol_val}/{tf_val}')
             
             # Socket.IOで即時更新通知（全クライアントに配信）
             print(f'[DEBUG] About to emit update_table for {symbol_val}/{tf_val}')
