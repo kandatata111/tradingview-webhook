@@ -1044,7 +1044,8 @@
           headerCurrencies.className = 'table-header-currencies';
           headerCurrencies.style.textAlign = 'center';
           headerCurrencies.style.letterSpacing = '0.05em';
-          headerCurrencies.textContent = '弱　　◀　　◀　　◀　　◀　　中　　▶　　▶　　▶　　▶　　強';
+          headerCurrencies.style.gridColumn = 'span 5'; // 5列分をカバー
+          headerCurrencies.textContent = '弱　　　◀　　　◀　　　◀　　　◀　　　中　　　▶　　　▶　　　▶　　　▶　　　強';
           grid.appendChild(headerCurrencies);
         }
         
@@ -1127,18 +1128,30 @@
         
         // 通貨セル（5通貨、ソート済み）
         if (displaySettings.showCurrencies) {
-          // 通貨セルをまとめるためのコンテナ（5列分）
-          currencies.forEach((item, index) => {
+          // 5通貨を保証（データが不足していても5セル作成）
+          const currencyCount = 5;
+          for (let i = 0; i < currencyCount; i++) {
             const cell = document.createElement('div');
-            cell.className = 'table-cell ' + getStrengthClass(item.score);
             
-            const percentage = item.percentage || 0;
-            const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
-            const scoreText = item.score >= 0 ? `+${String(item.score).padStart(3, '0')}` : `-${String(Math.abs(item.score)).padStart(3, '0')}`;
+            if (i < currencies.length) {
+              // データがある場合
+              const item = currencies[i];
+              cell.className = 'table-cell ' + getStrengthClass(item.score);
+              
+              const percentage = item.percentage || 0;
+              const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
+              const scoreText = item.score >= 0 ? `+${String(item.score).padStart(3, '0')}` : `-${String(Math.abs(item.score)).padStart(3, '0')}`;
+              
+              cell.textContent = `${item.currency} ${percentText}% [${scoreText}]`;
+            } else {
+              // データがない場合（空セル）
+              cell.className = 'table-cell';
+              cell.textContent = '-';
+              cell.style.opacity = '0.3';
+            }
             
-            cell.textContent = `${item.currency} ${percentText}% [${scoreText}]`;
             grid.appendChild(cell);
-          });
+          }
         }
         
         // 推奨ペアセル（1行表示）

@@ -938,74 +938,91 @@ def detect_and_record_extreme_changes(currency_data):
     """通貨強弱の最弱・最強の変更を検出してDBに記録"""
     global previous_extreme_currencies
     jst = pytz.timezone('Asia/Tokyo')
-    current_time = datetime.now(jst).strftime('%y/%m/%d/%H:%M')
     
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
-    for timeframe, data in currency_data.items():
-        if 'currencies' not in data or len(data['currencies']) == 0:
-            continue
+    try:
+        current_time = datetime.now(jst).strftime('%y/%m/%d/%H:%M')
         
-        currencies = data['currencies']
-        weakest = currencies[0]['currency']  # 最初（最弱）
-        strongest = currencies[-1]['currency']  # 最後（最強）
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
         
-        # 前回の値と比較
-        previous = previous_extreme_currencies.get(timeframe)
-        
-        if previous is None:
-            # 初回：初期状態をDBに記録（サーバー再起動時の履歴保持のため）
+        for timeframe, data in currency_data.items():
             try:
-                c.execute('''INSERT INTO change_history 
-                             (timeframe, weakest, strongest, timestamp, created_at) 
-                             VALUES (?, ?, ?, ?, ?)''',
-                          (timeframe, weakest, strongest, current_time, datetime.now(jst).isoformat()))
-                conn.commit()
-                print(f'[CHANGE_HISTORY] Initial state recorded for {timeframe}: {weakest}⇔{strongest}')
+                if 'currencies' not in data or len(data['currencies']) == 0:
+                    continue
                 
-            except Exception as e:
-                print(f'[ERROR] Failed to record initial state for {timeframe}: {e}')
-            
-            # メモリにも保存
-            previous_extreme_currencies[timeframe] = {
-                'weakest': weakest,
-                'strongest': strongest
-            }
-        else:
-            # 変更があった場合のみ記録
-            if previous['weakest'] != weakest or previous['strongest'] != strongest:
-                # DBに記録
-                try:
-                    c.execute('''INSERT INTO change_history 
-                                 (timeframe, weakest, strongest, timestamp, created_at) 
-                                 VALUES (?, ?, ?, ?, ?)''',
-                              (timeframe, weakest, strongest, current_time, datetime.now(jst).isoformat()))
-                    conn.commit()
-                    print(f'[CHANGE_HISTORY] Recorded change for {timeframe}: {weakest}⇔{strongest}')
-                    
-                    # 各時間足ごとに最大100件を維持（古い履歴を削除）
-                    c.execute('''SELECT id FROM change_history 
-                                 WHERE timeframe = ? 
-                                 ORDER BY created_at DESC 
-                                 LIMIT -1 OFFSET 100''', (timeframe,))
-                    old_ids = [row[0] for row in c.fetchall()]
-                    if old_ids:
-                        placeholders = ','.join(['?'] * len(old_ids))
-                        c.execute(f'DELETE FROM change_history WHERE id IN ({placeholders})', old_ids)
+                currencies = data['currencies']
+                weakest = currencies[0]['currency']  # 最初（最弱）
+                strongest = currencies[-1]['currency']  # 最後（最強）
+                
+                # 前回の値と比較
+                previous = previous_extreme_currencies.get(timeframe)
+                
+                if previous is None:
+                    # 初回：初期状態をDBに記録（サーバー再起動時の履歴保持のため）
+                    try:
+                        c.execute('''INSERT INTO change_history 
+                                     (timeframe, weakest, strongest, timestamp, created_at) 
+                                     VALUES (?, ?, ?, ?, ?)''',
+                                  (timeframe, weakest, strongest, current_time, datetime.now(jst).isoformat()))
                         conn.commit()
-                        print(f'[CHANGE_HISTORY] Deleted {len(old_ids)} old records for {timeframe}')
+                        print(f'[CHANGE_HISTORY] Initial state recorded for {timeframe}: {weakest}⇔{strongest}')
+                        
+                    except Exception as e:
+                        print(f'[ERROR] Failed to record initial state for {timeframe}: {e}')
                     
-                except Exception as e:
-                    print(f'[ERROR] Failed to record change history for {timeframe}: {e}')
-                
-                # グローバル変数を更新
-                previous_extreme_currencies[timeframe] = {
-                    'weakest': weakest,
-                    'strongest': strongest
-                }
-    
-    conn.close()
+                    # メモリにも保存
+                    previous_extreme_currencies[timeframe] = {
+                        'weakest': weakest,
+                        'strongest': strongest
+                    }
+                else:
+                    # 変更があった場合のみ記録
+                    if previous['weakest'] != weakest or previous['strongest'] != strongest:
+                        # DBに記録
+                        try:
+                            c.execute('''INSERT INTO change_history 
+                                         (timeframe, weakest, strongest, timestamp, created_at) 
+                                         VALUES (?, ?, ?, ?, ?)''',
+                                      (timeframe, weakest, strongest, current_time, datetime.now(jst).isoformat()))
+                            conn.commit()
+                            print(f'[CHANGE_HISTORY] Recorded change for {timeframe}: {weakest}⇔{strongest}')
+                            
+                            # 各時間足ごとに最大100件を維持（古い履歴を削除）
+                            c.execute('''SELECT id FROM change_history 
+                                         WHERE timeframe = ? 
+                                         ORDER BY created_at DESC 
+                                         LIMIT -1 OFFSET 100''', (timeframe,))
+                            old_ids = [row[0] for row in c.fetchall()]
+                            if old_ids:
+                                placeholders = ','.join(['?'] * len(old_ids))
+                                c.execute(f'DELETE FROM change_history WHERE id IN ({placeholders})', old_ids)
+                                conn.commit()
+                                print(f'[CHANGE_HISTORY] Deleted {len(old_ids)} old records for {timeframe}')
+                            
+                        except Exception as e:
+                            print(f'[ERROR] Failed to record change history for {timeframe}: {e}')
+                        
+                        # グローバル変数を更新
+                        previous_extreme_currencies[timeframe] = {
+                            'weakest': weakest,
+                            'strongest': strongest
+                        }
+            except Exception as tf_error:
+                print(f'[ERROR] Error processing timeframe {timeframe}: {tf_error}')
+                continue
+        
+        conn.close()
+        
+    except Exception as e:
+        print(f'[CRITICAL ERROR] detect_and_record_extreme_changes failed: {e}')
+        import traceback
+        traceback.print_exc()
+        try:
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - [CRITICAL] detect_and_record_extreme_changes: {e}\n')
+                f.write(traceback.format_exc())
+        except:
+            pass
 
 @app.route('/api/currency_strength', methods=['GET'])
 def api_currency_strength():
@@ -1442,8 +1459,16 @@ def webhook():
             try:
                 currency_data = calculate_currency_strength_data()
                 
-                # 変更を検出してDBに記録
-                detect_and_record_extreme_changes(currency_data)
+                # 変更を検出してDBに記録（エラーが発生してもWebhook処理を継続）
+                try:
+                    detect_and_record_extreme_changes(currency_data)
+                except Exception as history_error:
+                    print(f'[ERROR] Change history recording failed (continuing): {history_error}')
+                    import traceback
+                    traceback.print_exc()
+                    with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                        f.write(f'{datetime.now(jst).isoformat()} - [HISTORY_ERROR] {history_error}\n')
+                        f.write(traceback.format_exc())
                 
                 socketio.emit('currency_strength_update', {
                     'status': 'success',
@@ -1453,6 +1478,8 @@ def webhook():
                 print(f'[CURRENCY_STRENGTH] Emitted update via SocketIO')
             except Exception as e:
                 print(f'[ERROR] Failed to emit currency strength: {e}')
+                import traceback
+                traceback.print_exc()
             
             # 市場ステータス更新通知
             market_open = is_fx_market_open()
