@@ -1236,9 +1236,16 @@
           window.currentData = result.data; // データを保存
           renderStrengthData(result.data);
           
-          // 更新時刻を表示
-          const now = new Date();
-          const timeStr = now.toLocaleTimeString('ja-JP');
+          // 更新時刻を表示（サーバーから返された時刻を使用）
+          let timeStr;
+          if (result.data.last_updated) {
+            // サーバーから返された時刻を使用（形式: 2026-01-30 09:00:41）
+            timeStr = result.data.last_updated;
+          } else {
+            // フォールバック：現在時刻を使用
+            const now = new Date();
+            timeStr = now.toLocaleTimeString('ja-JP');
+          }
           document.getElementById('loadingText').textContent = '✓ 更新完了';
           document.getElementById('updateTime').textContent = `最終更新: ${timeStr}`;
           
@@ -1276,9 +1283,20 @@
         // 変更履歴を更新（サーバーから取得）
         renderChangeHistory();
         
-        // 更新時刻を表示
-        const updateTime = new Date(payload.timestamp);
-        const timeStr = updateTime.toLocaleTimeString('ja-JP');
+        // 更新時刻を表示（サーバーから返された時刻を使用）
+        let timeStr;
+        if (payload.data.last_updated) {
+          // サーバーから返された時刻を使用
+          timeStr = payload.data.last_updated;
+        } else if (payload.timestamp) {
+          // フォールバック：payload.timestampを使用
+          const updateTime = new Date(payload.timestamp);
+          timeStr = updateTime.toLocaleTimeString('ja-JP');
+        } else {
+          // フォールバック：現在時刻
+          const now = new Date();
+          timeStr = now.toLocaleTimeString('ja-JP');
+        }
         document.getElementById('loadingText').textContent = '✓ 更新完了';
         document.getElementById('updateTime').textContent = `最終更新: ${timeStr}`;
         

@@ -932,6 +932,9 @@ def calculate_currency_strength_data():
         'raw_scores': avg_scores
     }
     
+    # 更新時刻を追加
+    result['last_updated'] = current_time
+    
     return result
 
 def detect_and_record_extreme_changes(currency_data):
@@ -1453,7 +1456,9 @@ def webhook():
                     f.flush()
             
             # Socket.IOで即時更新通知（全クライアントに配信）
+            print(f'[DEBUG] About to emit update_table for {symbol_val}/{tf_val}')
             socketio.emit('update_table', {'message': 'New data received', 'symbol': symbol_val, 'tf': tf_val})
+            print(f'[DEBUG] update_table emitted successfully for {symbol_val}/{tf_val}')
             
             # 通貨強弱データを計算してemit
             try:
