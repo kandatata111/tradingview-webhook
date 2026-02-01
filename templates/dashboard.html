@@ -8113,7 +8113,21 @@ async function loadBackupSummary() {
           html += `<td style="padding:8px;color:#c0c0c0;">${tf}</td>`;
           html += `<td style="padding:8px;text-align:right;color:#4ade80;font-weight:500;">${info.count}</td>`;
           // 受信日時を YY/MM/DD/HH:mm 形式に変換
-          const dateStr = info.newest.replace(/\d{2}(\d{2})(\d{2})(\d{2})_(\d{2})(\d{2})\d{2}/, '$1/$2/$3/$4:$5');
+          // 新形式: 20260130_223000_15m_... または旧形式: 20260131_064500_...
+          // _no_time ファイルの場合は "no_time" と表示
+          let dateStr = 'no_time';
+          if (info.newest && !info.newest.includes('no_time')) {
+            // YYYYMMDD_HHMMSS パターン対応（両形式共通）
+            const match = info.newest.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})/);
+            if (match) {
+              const yy = match[1].slice(-2);  // 最後の2文字
+              const mm = match[2];
+              const dd = match[3];
+              const hh = match[4];
+              const mi = match[5];
+              dateStr = `${yy}/${mm}/${dd}/${hh}:${mi}`;
+            }
+          }
           html += `<td style="padding:8px;color:#c0c0c0;font-size:0.85em;">${dateStr}</td>`;
           html += '</tr>';
         }

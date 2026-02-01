@@ -2927,8 +2927,9 @@ def api_backup_list():
                 tf = tf_folder.name
                 json_files = list(tf_folder.glob('*.json'))
                 
-                # no_time.jsonファイルを除外（バックアップ時刻ではなく実際の受信時刻のみ）
-                timestamped_files = [f for f in json_files if not f.name.endswith('_no_time.json')]
+                # _no_time ファイルを除外（実際のタイムスタンプ付きファイルのみ）
+                # パターン: 20260201_no_time_15m.json, 20260201_no_time_15m_1.json など
+                timestamped_files = [f for f in json_files if '_no_time' not in f.name]
                 
                 count = len(json_files)
                 
@@ -2938,11 +2939,19 @@ def api_backup_list():
                     
                     oldest = min(files_for_range, key=lambda f: f.name)
                     newest = max(files_for_range, key=lambda f: f.name)
-                    # ファイル名から YYYYMMDD_HHMMSS 部分を抽出（最初の15文字）
+                    
+                    # ファイル名から YYYYMMDD_HHMMSS 部分を抽出
+                    # 新形式: 20260130_223000_15m_1769779800000.json
+                    # 旧形式: 20260131_064500_1769809500000.json
+                    # どちらも最初の15文字で YYYYMMDD_HHMMSS を取得
+                    def extract_datetime_str(filename):
+                        # 最初の4+2+2+1+2+2 = 15 文字
+                        return filename[:15]
+                    
                     summary[symbol][tf] = {
                         'count': count,
-                        'oldest': oldest.name[:15] if len(oldest.name) >= 15 else oldest.name[:8],
-                        'newest': newest.name[:15] if len(newest.name) >= 15 else newest.name[:8]
+                        'oldest': extract_datetime_str(oldest.name),
+                        'newest': extract_datetime_str(newest.name)
                     }
         
         return jsonify({
@@ -3053,14 +3062,17 @@ def api_backup_recovery():
                             skipped_count += 1
                             continue
                 
-                # ファイル名から受信時刻を抽出（例: 20260131_064500_1769809500000.json）
+                # ファイル名から受信時刻を抽出
+                # 対応形式: 
+                # - 旧形式: 20260131_064500_1769809500000.json
+                # - 新形式: 20260131_064500_15m_1769809500000.json
                 filename = os.path.basename(file_path)
                 received_at_str = None
                 if '_' in filename:
                     parts = filename.replace('.json', '').split('_')
                     if len(parts) >= 2:
                         try:
-                            # YYYYMMDD_HHMMSS 形式
+                            # YYYYMMDD_HHMMSS 形式を抽出
                             date_str = parts[0]  # 20260131
                             time_str = parts[1]  # 064500
                             if len(date_str) == 8 and len(time_str) == 6:
