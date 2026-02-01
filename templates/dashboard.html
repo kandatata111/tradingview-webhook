@@ -1011,6 +1011,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <span>通貨強弱</span>
       <span class="menu-status" id="statusCurrencyStrength"></span>
     </button>
+    <button class="side-menu-item" id="menuBackupRecovery">
+      <span class="menu-icon">💾</span>
+      <span>バックアップ復旧</span>
+      <span class="menu-status" id="statusBackupRecovery"></span>
+    </button>
   </div>
 </div>
 
@@ -1362,6 +1367,10 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   <div class="data-timestamp-menu-row">
     <span class="data-timestamp-menu-label">最終更新:</span>
     <span class="data-timestamp-menu-value" id="menuTimestamp">-</span>
+  </div>
+  <div class="data-timestamp-menu-row">
+    <span class="data-timestamp-menu-label">JSON受信時刻:</span>
+    <span class="data-timestamp-menu-value" id="menuReceivedAt">-</span>
   </div>
   <div class="data-timestamp-menu-row">
     <span class="data-timestamp-menu-label">経過時間:</span>
@@ -7748,7 +7757,31 @@ setTimeout(showAudioEnableOverlay, 500);
       });
       
       document.getElementById('menuTimestamp').textContent = timestampStr;
-      document.getElementById('menuElapsed').textContent = getRelativeTime(state.timestamp);
+      
+      // JSON受信時刻を表示
+      if (state.received_at) {
+        const receivedAt = new Date(state.received_at);
+        const receivedAtStr = receivedAt.toLocaleString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+        document.getElementById('menuReceivedAt').textContent = receivedAtStr;
+      } else {
+        document.getElementById('menuReceivedAt').textContent = '不明';
+      }
+      
+      // 経過時間をreceived_atベースで計算
+      if (state.received_at) {
+        document.getElementById('menuElapsed').textContent = getRelativeTime(state.received_at);
+      } else {
+        document.getElementById('menuElapsed').textContent = getRelativeTime(state.timestamp);
+      }
       
       // 警告表示の判定
       const isStale = isStaleData(symbol, tf, state.timestamp);
@@ -7828,5 +7861,335 @@ setTimeout(showAudioEnableOverlay, 500);
   console.log('[CONTEXT_MENU] Context menu initialized');
 })();
 </script>
+
+<!-- バックアップ復旧モーダル -->
+<div class="modal-overlay" id="backupRecoveryModal" style="display:none;">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="backupRecoveryTitle" style="min-width:650px;max-width:800px;width:700px;height:700px;max-height:90vh;display:flex;flex-direction:column;resize:both;overflow:hidden;position:relative;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;cursor:move;" id="backupRecoveryHeader">
+      <h3 id="backupRecoveryTitle" style="margin:0;">💾 バックアップ復旧</h3>
+      <button onclick="closeBackupRecoveryModal()" id="closeBackupRecovery" style="background:#333;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;">閉じる</button>
+    </div>
+    
+    <div style="margin-bottom:16px;padding:12px;background:#2a2a2a;border-radius:6px;border-left:3px solid #3b82f6;">
+      <p style="margin:0;font-size:0.9em;color:#e0e0e0;">
+        Gmail から受信した TradingView JSON データをローカルに保存し、<br>
+        データ欠損時に復旧できます。
+      </p>
+    </div>
+    
+    <div style="flex:1;overflow-y:auto;padding-right:4px;">
+    
+    <!-- Gmail 取得セクション -->
+    <div class="section-header" data-section="gmailFetch" style="margin-top:0;">📧 Gmail から取得</div>
+    <div class="section-body" data-section-body="gmailFetch" style="margin-bottom:16px;">
+      <div class="row" style="display:flex;gap:8px;align-items:center;">
+        <button id="btnFetchBackup" onclick="fetchBackupFromGmail()" 
+                style="flex:1;padding:10px 16px;background:#333;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:500;">
+          📥 手動取得開始
+        </button>
+        <span id="fetchStatus" style="color:#e0e0e0;font-size:0.85em;"></span>
+      </div>
+      <div id="fetchProgress" style="margin-top:8px;padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:4px;font-size:0.85em;display:none;color:#e0e0e0;"></div>
+    </div>
+    
+    <!-- バックアップサマリー -->
+    <div class="section-header" data-section="backupStatus">📊 バックアップ状況</div>
+    <div class="section-body" data-section-body="backupStatus" style="margin-bottom:16px;">
+      <div class="row">
+        <button onclick="loadBackupSummary()" 
+                style="padding:8px 12px;background:#333;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">
+          🔄 更新
+        </button>
+      </div>
+      <div id="backupSummary" style="margin-top:12px;max-height:300px;overflow-y:auto;font-size:0.85em;background:#2a2a2a;padding:8px;border-radius:4px;"></div>
+    </div>
+    
+    <!-- 復旧セクション -->
+    <div class="section-header" data-section="dataRecovery">🔄 データ復旧</div>
+    <div class="section-body" data-section-body="dataRecovery">
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <!-- 通貨選択 -->
+        <div>
+          <label style="display:block;margin-bottom:4px;font-size:0.85em;">通貨ペア</label>
+          <select id="recoverySymbol" style="width:100%;padding:8px;background:#1a1a1a;color:#ddd;border:1px solid #333;border-radius:4px;">
+            <option value="all">全て</option>
+            <option value="USDJPY">USDJPY</option>
+            <option value="EURUSD">EURUSD</option>
+            <option value="GBPUSD">GBPUSD</option>
+            <option value="AUDUSD">AUDUSD</option>
+            <option value="EURJPY">EURJPY</option>
+            <option value="GBPJPY">GBPJPY</option>
+            <option value="AUDJPY">AUDJPY</option>
+            <option value="EURGBP">EURGBP</option>
+            <option value="EURAUD">EURAUD</option>
+            <option value="GBPAUD">GBPAUD</option>
+          </select>
+        </div>
+        
+        <!-- 時間足選択 -->
+        <div>
+          <label style="display:block;margin-bottom:4px;font-size:0.85em;">時間足</label>
+          <select id="recoveryTf" style="width:100%;padding:8px;background:#1a1a1a;color:#ddd;border:1px solid #333;border-radius:4px;">
+            <option value="all">全て</option>
+            <option value="5m">5分足</option>
+            <option value="15m">15分足</option>
+            <option value="1H">1時間足</option>
+            <option value="4H">4時間足</option>
+            <option value="D">日足</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- 日付選択 -->
+      <div style="margin-bottom:12px;">
+        <label style="display:block;margin-bottom:4px;font-size:0.85em;">日付（YYYYMMDD形式）</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="recoveryDate" placeholder="20260131 or all" 
+                 style="flex:1;padding:8px;background:#1a1a1a;color:#ddd;border:1px solid #333;border-radius:4px;">
+          <button onclick="document.getElementById('recoveryDate').value='all'" 
+                  style="padding:8px 12px;background:#333;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">
+            全期間
+          </button>
+        </div>
+      </div>
+      
+      <!-- 復旧モード -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-size:0.85em;">復旧モード</label>
+        <div style="display:flex;gap:16px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">
+            <input type="radio" name="recoveryMode" value="merge" checked>
+            <span>マージ（新しいデータのみ）</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">
+            <input type="radio" name="recoveryMode" value="replace">
+            <span>置換（強制上書き）</span>
+          </label>
+        </div>
+      </div>
+      
+      <!-- 復旧ボタン -->
+      <button id="btnStartRecovery" onclick="startRecovery()" 
+              style="width:100%;padding:12px;background:#333;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:1em;">
+        ✅ 復旧開始
+      </button>
+      
+      <div id="recoveryStatus" style="margin-top:12px;padding:10px;background:#2a2a2a;border:1px solid #444;border-radius:4px;font-size:0.85em;display:none;color:#e0e0e0;"></div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// バックアップ復旧モーダル制御
+function openBackupRecoveryModal() {
+  document.getElementById('backupRecoveryModal').style.display = 'flex';
+  loadBackupSummary();
+}
+
+function closeBackupRecoveryModal() {
+  document.getElementById('backupRecoveryModal').style.display = 'none';
+}
+
+// バックアップ復旧モーダルをドラッグ可能にする
+(function() {
+  let isDragging = false;
+  let currentX, currentY, initialX, initialY;
+  const modal = document.querySelector('#backupRecoveryModal .modal');
+  const header = document.getElementById('backupRecoveryHeader');
+  
+  header.addEventListener('mousedown', dragStart);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', dragEnd);
+  
+  function dragStart(e) {
+    if (e.target.tagName === 'BUTTON') return;
+    initialX = e.clientX - (modal.offsetLeft || 0);
+    initialY = e.clientY - (modal.offsetTop || 0);
+    isDragging = true;
+    modal.style.position = 'fixed';
+  }
+  
+  function drag(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    currentX = e.clientX - initialX;
+    currentY = e.clientY - initialY;
+    modal.style.left = currentX + 'px';
+    modal.style.top = currentY + 'px';
+    modal.style.transform = 'none';
+  }
+  
+  function dragEnd() {
+    isDragging = false;
+  }
+})();
+
+// メニューアイテムにイベントリスナー追加
+document.getElementById('menuBackupRecovery').addEventListener('click', function() {
+  openBackupRecoveryModal();
+  document.getElementById('sideMenu').classList.remove('active');
+  document.getElementById('sideMenuOverlay').classList.remove('active');
+});
+
+// Gmail から手動取得
+async function fetchBackupFromGmail() {
+  const btn = document.getElementById('btnFetchBackup');
+  const status = document.getElementById('fetchStatus');
+  const progress = document.getElementById('fetchProgress');
+  
+  btn.disabled = true;
+  btn.textContent = '⏳ 取得中...';
+  status.textContent = '';
+  progress.style.display = 'block';
+  progress.innerHTML = '<div style="color:#60a5fa;">Gmail API に接続しています...</div>';
+  
+  try {
+    const response = await fetch('/api/backup/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === 'success') {
+      progress.innerHTML = '<div style="color:#4ade80;">✅ ' + data.message + '</div>' +
+                          '<pre style="margin-top:8px;white-space:pre-wrap;color:#94a3b8;">' + 
+                          (data.output || '') + '</pre>';
+      status.textContent = '✅ 完了';
+      status.style.color = '#4ade80';
+      
+      // サマリーを更新
+      setTimeout(() => loadBackupSummary(), 1000);
+    } else {
+      progress.innerHTML = '<div style="color:#ef4444;">❌ エラー: ' + data.msg + '</div>';
+      status.textContent = '❌ 失敗';
+      status.style.color = '#ef4444';
+    }
+  } catch (error) {
+    progress.innerHTML = '<div style="color:#ef4444;">❌ エラー: ' + error.message + '</div>';
+    status.textContent = '❌ 失敗';
+    status.style.color = '#ef4444';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📥 手動取得開始';
+  }
+}
+
+// バックアップサマリーを読み込み
+async function loadBackupSummary() {
+  const summaryDiv = document.getElementById('backupSummary');
+  summaryDiv.innerHTML = '<div style="color:#94a3b8;">読み込み中...</div>';
+  
+  try {
+    const response = await fetch('/api/backup/list');
+    const data = await response.json();
+    
+    if (data.status === 'success') {
+      if (data.symbols.length === 0) {
+        summaryDiv.innerHTML = '<div style="color:#94a3b8;padding:8px;">バックアップファイルがありません</div>';
+        return;
+      }
+      
+      let html = '<table style="width:100%;font-size:0.85em;border-collapse:collapse;background:#1a1a1a;">';
+      html += '<thead><tr style="border-bottom:2px solid #444;background:#252525;">';
+      html += '<th style="padding:8px;text-align:left;color:#ffffff;font-weight:600;">通貨</th>';
+      html += '<th style="padding:8px;text-align:left;color:#ffffff;font-weight:600;">TF</th>';
+      html += '<th style="padding:8px;text-align:right;color:#ffffff;font-weight:600;">件数</th>';
+      html += '<th style="padding:8px;text-align:left;color:#ffffff;font-weight:600;">受信日時</th>';
+      html += '</tr></thead><tbody>';
+      
+      for (const symbol of data.symbols) {
+        const tfs = data.summary[symbol];
+        let first = true;
+        for (const tf in tfs) {
+          const info = tfs[tf];
+          html += '<tr style="border-bottom:1px solid #333;background:#1e1e1e;">';
+          if (first) {
+            html += `<td style="padding:8px;font-weight:600;color:#e0e0e0;" rowspan="${Object.keys(tfs).length}">${symbol}</td>`;
+            first = false;
+          }
+          html += `<td style="padding:8px;color:#c0c0c0;">${tf}</td>`;
+          html += `<td style="padding:8px;text-align:right;color:#4ade80;font-weight:500;">${info.count}</td>`;
+          // 受信日時を YY/MM/DD/HH:mm 形式に変換
+          const dateStr = info.newest.replace(/\d{2}(\d{2})(\d{2})(\d{2})_(\d{2})(\d{2})\d{2}/, '$1/$2/$3/$4:$5');
+          html += `<td style="padding:8px;color:#c0c0c0;font-size:0.85em;">${dateStr}</td>`;
+          html += '</tr>';
+        }
+      }
+      
+      html += '</tbody></table>';
+      summaryDiv.innerHTML = html;
+    } else {
+      summaryDiv.innerHTML = '<div style="color:#ef4444;">エラー: ' + data.msg + '</div>';
+    }
+  } catch (error) {
+    summaryDiv.innerHTML = '<div style="color:#ef4444;">エラー: ' + error.message + '</div>';
+  }
+}
+
+// 復旧開始
+async function startRecovery() {
+  const symbol = document.getElementById('recoverySymbol').value;
+  const tf = document.getElementById('recoveryTf').value;
+  const date = document.getElementById('recoveryDate').value.trim() || 'all';
+  const mode = document.querySelector('input[name="recoveryMode"]:checked').value;
+  
+  const btn = document.getElementById('btnStartRecovery');
+  const status = document.getElementById('recoveryStatus');
+  
+  if (!confirm(`以下の条件でデータを復旧します。よろしいですか？\n\n通貨: ${symbol}\n時間足: ${tf}\n日付: ${date}\nモード: ${mode === 'merge' ? 'マージ' : '置換'}`)) {
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.textContent = '⏳ 復旧中...';
+  status.style.display = 'block';
+  status.innerHTML = '<div style="color:#60a5fa;">復旧処理を実行しています...</div>';
+  
+  try {
+    const response = await fetch('/api/backup/recovery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, tf, date, mode })
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === 'success' || data.status === 'warning') {
+      status.innerHTML = `
+        <div style="color:#4ade80;font-weight:500;">✅ 復旧完了</div>
+        <div style="margin-top:4px;color:#94a3b8;">
+          復旧: ${data.recovered} 件<br>
+          スキップ: ${data.skipped} 件<br>
+          エラー: ${data.errors} 件
+        </div>
+      `;
+      
+      // 表を再読み込み
+      setTimeout(() => {
+        fetchAllStates();
+      }, 500);
+    } else {
+      status.innerHTML = '<div style="color:#ef4444;">❌ エラー: ' + data.msg + '</div>';
+    }
+  } catch (error) {
+    status.innerHTML = '<div style="color:#ef4444;">❌ エラー: ' + error.message + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ 復旧開始';
+  }
+}
+
+// SocketIO: 復旧完了通知
+if (typeof socket !== 'undefined') {
+  socket.on('backup_recovery_complete', function(data) {
+    console.log('[BACKUP_RECOVERY] Recovery completed:', data);
+    showNotification(`バックアップ復旧完了: ${data.recovered}件`, 'success');
+  });
+}
+</script>
+
 </body>
 </html>

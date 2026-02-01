@@ -598,6 +598,15 @@ def init_db():
         PRIMARY KEY (symbol, tf)
     )''')
     conn.commit()
+    
+    # Add received_at column if it doesn't exist (for JSON received timestamp)
+    try:
+        c.execute('ALTER TABLE states ADD COLUMN received_at TEXT')
+        conn.commit()
+        print('[OK] received_at column added to states table')
+    except Exception:
+        pass  # Column already exists
+    
     conn.close()
     print('[OK] DB initialized')
 
@@ -1475,15 +1484,16 @@ def webhook():
         try:
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
+            received_timestamp = datetime.now(jst).isoformat()
             c.execute('''INSERT OR REPLACE INTO states (
                         symbol, tf, timestamp, price, time,
                         state_flag, state_word,
                         daytrade_status, daytrade_bos, daytrade_time,
                         swing_status, swing_bos, swing_time,
-                        row_order, cloud_order, clouds_json, meta_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                        row_order, cloud_order, clouds_json, meta_json, received_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (symbol_val, tf_val,
-                     datetime.now(jst).isoformat(), float(data.get('price', 0)),
+                     received_timestamp, float(data.get('price', 0)),
                      data.get('time', 0),
                      data.get('state', {}).get('flag', ''),
                      data.get('state', {}).get('word', ''),
@@ -1496,7 +1506,8 @@ def webhook():
                      ','.join(data.get('row_order', [])),
                      ','.join(data.get('cloud_order', [])),
                      json.dumps(data.get('clouds', []), ensure_ascii=False),
-                     json.dumps(data.get('meta', {}), ensure_ascii=False)))
+                     json.dumps(data.get('meta', {}), ensure_ascii=False),
+                     received_timestamp))
             conn.commit()
             # WALモード有効時の即時書き込み確保
             try:
@@ -2836,6 +2847,292 @@ def api_notifications():
         # Return latest 50 notifications
         return jsonify({'status': 'success', 'notifications': notifications[-50:]}), 200
     except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/backup/fetch', methods=['POST'])
+def api_backup_fetch():
+    """Gmail から手動でバックアップを取得"""
+    try:
+        import subprocess
+        script_path = os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py')
+        
+        if not os.path.exists(script_path):
+            return jsonify({'status': 'error', 'msg': 'backup_recovery.py not found'}), 404
+        
+        # Python 環境のパスを取得
+        python_exe = 'python'
+        
+        # バックグラウンドで実行
+        result = subprocess.run(
+            [python_exe, script_path, '--fetch', '--max', '200'],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        
+        if result.returncode == 0:
+            # 成功・スキップ・エラー数を抽出（簡易実装）
+            output = result.stdout
+            return jsonify({
+                'status': 'success',
+                'message': 'Backup fetch completed',
+                'output': output
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'msg': f'Fetch failed: {result.stderr}',
+                'output': result.stdout
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'msg': 'Timeout: Gmail fetch took too long'}), 500
+    except Exception as e:
+        print(f'[ERROR] Backup fetch failed: {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/backup/list', methods=['GET'])
+def api_backup_list():
+    """バックアップファイル一覧を取得"""
+    try:
+        backup_dir = r'C:\Users\kanda\Desktop\TradingViewBackup_JSON'
+        
+        if not os.path.exists(backup_dir):
+            return jsonify({
+                'status': 'success',
+                'symbols': [],
+                'summary': {}
+            }), 200
+        
+        from pathlib import Path
+        backup_path = Path(backup_dir)
+        
+        symbols = []
+        summary = {}
+        
+        for symbol_folder in sorted(backup_path.iterdir()):
+            if not symbol_folder.is_dir():
+                continue
+            
+            symbol = symbol_folder.name
+            symbols.append(symbol)
+            summary[symbol] = {}
+            
+            for tf_folder in sorted(symbol_folder.iterdir()):
+                if not tf_folder.is_dir():
+                    continue
+                
+                tf = tf_folder.name
+                json_files = list(tf_folder.glob('*.json'))
+                
+                # no_time.jsonファイルを除外（バックアップ時刻ではなく実際の受信時刻のみ）
+                timestamped_files = [f for f in json_files if not f.name.endswith('_no_time.json')]
+                
+                count = len(json_files)
+                
+                if count > 0:
+                    # タイムスタンプ付きファイルがあればそれを使用、なければ全ファイルから選択
+                    files_for_range = timestamped_files if timestamped_files else json_files
+                    
+                    oldest = min(files_for_range, key=lambda f: f.name)
+                    newest = max(files_for_range, key=lambda f: f.name)
+                    # ファイル名から YYYYMMDD_HHMMSS 部分を抽出（最初の15文字）
+                    summary[symbol][tf] = {
+                        'count': count,
+                        'oldest': oldest.name[:15] if len(oldest.name) >= 15 else oldest.name[:8],
+                        'newest': newest.name[:15] if len(newest.name) >= 15 else newest.name[:8]
+                    }
+        
+        return jsonify({
+            'status': 'success',
+            'symbols': symbols,
+            'summary': summary
+        }), 200
+        
+    except Exception as e:
+        print(f'[ERROR] Backup list failed: {e}')
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/backup/recovery', methods=['POST'])
+def api_backup_recovery():
+    """
+    バックアップから DB にデータを復旧
+    リクエスト: {
+        "symbol": "EURJPY" or "all",
+        "tf": "15m" or "all",
+        "date": "20260131" or "all",
+        "mode": "merge" or "replace"
+    }
+    """
+    try:
+        req = request.json
+        symbol = req.get('symbol', 'all')
+        tf = req.get('tf', 'all')
+        date = req.get('date', 'all')
+        mode = req.get('mode', 'merge')
+        
+        backup_dir = r'C:\Users\kanda\Desktop\TradingViewBackup_JSON'
+        
+        if not os.path.exists(backup_dir):
+            return jsonify({'status': 'error', 'msg': 'Backup directory not found'}), 404
+        
+        from pathlib import Path
+        backup_path = Path(backup_dir)
+        
+        # ファイルを検索
+        files = []
+        
+        # 通貨フォルダを走査
+        if symbol != 'all':
+            symbol_folders = [backup_path / symbol]
+        else:
+            symbol_folders = [f for f in backup_path.iterdir() if f.is_dir()]
+        
+        for symbol_folder in symbol_folders:
+            if not symbol_folder.exists():
+                continue
+            
+            # 時間足フォルダを走査
+            if tf != 'all':
+                tf_folders = [symbol_folder / tf]
+            else:
+                tf_folders = [f for f in symbol_folder.iterdir() if f.is_dir()]
+            
+            for tf_folder in tf_folders:
+                if not tf_folder.exists():
+                    continue
+                
+                # JSON ファイルを取得
+                for json_file in tf_folder.glob('*.json'):
+                    # 日付フィルタ
+                    if date != 'all':
+                        if not json_file.name.startswith(date):
+                            continue
+                    
+                    files.append(json_file)
+        
+        if not files:
+            return jsonify({
+                'status': 'warning',
+                'msg': 'No backup files found matching criteria',
+                'recovered': 0
+            }), 200
+        
+        # DB に復旧
+        jst = pytz.timezone('Asia/Tokyo')
+        recovered_count = 0
+        skipped_count = 0
+        error_count = 0
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        for file_path in files:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                symbol_val = data.get('symbol', 'UNKNOWN')
+                tf_val = data.get('tf', '5')
+                
+                # mode が "merge" の場合、既存データがあればスキップ
+                if mode == 'merge':
+                    c.execute('SELECT COUNT(*) FROM states WHERE symbol = ? AND tf = ?', 
+                             (symbol_val, tf_val))
+                    count = c.fetchone()[0]
+                    if count > 0:
+                        # time を比較して新しい方を保持
+                        c.execute('SELECT time FROM states WHERE symbol = ? AND tf = ?',
+                                 (symbol_val, tf_val))
+                        db_time = c.fetchone()[0]
+                        backup_time = data.get('time', 0)
+                        
+                        if db_time >= backup_time:
+                            skipped_count += 1
+                            continue
+                
+                # ファイル名から受信時刻を抽出（例: 20260131_064500_1769809500000.json）
+                filename = os.path.basename(file_path)
+                received_at_str = None
+                if '_' in filename:
+                    parts = filename.replace('.json', '').split('_')
+                    if len(parts) >= 2:
+                        try:
+                            # YYYYMMDD_HHMMSS 形式
+                            date_str = parts[0]  # 20260131
+                            time_str = parts[1]  # 064500
+                            if len(date_str) == 8 and len(time_str) == 6:
+                                from datetime import datetime
+                                dt = datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S")
+                                dt = jst.localize(dt)
+                                received_at_str = dt.isoformat()
+                        except:
+                            pass
+                
+                if not received_at_str:
+                    received_at_str = datetime.now(jst).isoformat()
+                
+                # DB に保存
+                c.execute('''INSERT OR REPLACE INTO states (
+                            symbol, tf, timestamp, price, time,
+                            state_flag, state_word,
+                            daytrade_status, daytrade_bos, daytrade_time,
+                            swing_status, swing_bos, swing_time,
+                            row_order, cloud_order, clouds_json, meta_json, received_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                        (symbol_val, tf_val,
+                         datetime.now(jst).isoformat(), float(data.get('price', 0)),
+                         data.get('time', 0),
+                         data.get('state', {}).get('flag', ''),
+                         data.get('state', {}).get('word', ''),
+                         data.get('daytrade', {}).get('status', ''),
+                         data.get('daytrade', {}).get('bos', ''),
+                         data.get('daytrade', {}).get('time', ''),
+                         data.get('swing', {}).get('status', ''),
+                         data.get('swing', {}).get('bos', ''),
+                         data.get('swing', {}).get('time', ''),
+                         ','.join(data.get('row_order', [])),
+                         ','.join(data.get('cloud_order', [])),
+                         json.dumps(data.get('clouds', []), ensure_ascii=False),
+                         json.dumps(data.get('meta', {}), ensure_ascii=False),
+                         received_at_str))
+                
+                recovered_count += 1
+                
+            except Exception as e:
+                print(f'[ERROR] Failed to recover {file_path}: {e}')
+                error_count += 1
+                continue
+        
+        conn.commit()
+        conn.close()
+        
+        # Socket.IO で通知
+        socketio.emit('backup_recovery_complete', {
+            'recovered': recovered_count,
+            'skipped': skipped_count,
+            'errors': error_count,
+            'symbol': symbol,
+            'tf': tf,
+            'date': date
+        })
+        
+        # テーブル更新通知
+        socketio.emit('update_table', {'message': 'Backup recovery completed'})
+        
+        return jsonify({
+            'status': 'success',
+            'recovered': recovered_count,
+            'skipped': skipped_count,
+            'errors': error_count
+        }), 200
+        
+    except Exception as e:
+        print(f'[ERROR] Backup recovery failed: {e}')
+        import traceback
+        traceback.print_exc()
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 @app.route('/api/clear_notifications', methods=['POST'])
