@@ -440,6 +440,128 @@ def restore_missing_data():
         import traceback
         traceback.print_exc()
 
+def save_dynamic_backup(symbol, tf, data):
+    """
+    Webhook受信時に最新データをJSONファイルに保存（動的バックアップ）
+    日足・4H・1H足のデータを保存し、サーバー再起動時に復元できるようにする
+    """
+    try:
+        backup_path = os.path.join(BASE_DIR, 'dynamic_backup.json')
+        
+        # 既存のバックアップを読み込み
+        backup_data = {}
+        if os.path.exists(backup_path):
+            try:
+                with open(backup_path, 'r', encoding='utf-8') as f:
+                    backup_data = json.load(f)
+            except:
+                backup_data = {}
+        
+        # キーは "symbol_tf" の形式
+        key = f"{symbol}_{tf}"
+        
+        # データを保存（timestampを追加）
+        backup_data[key] = {
+            'symbol': symbol,
+            'tf': tf,
+            'data': data,
+            'saved_at': datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()
+        }
+        
+        # ファイルに書き込み
+        with open(backup_path, 'w', encoding='utf-8') as f:
+            json.dump(backup_data, f, ensure_ascii=False, indent=2)
+        
+        print(f'[BACKUP] Saved {symbol}/{tf} to dynamic backup')
+        
+    except Exception as e:
+        print(f'[BACKUP ERROR] Failed to save {symbol}/{tf}: {e}')
+
+def restore_from_dynamic_backup():
+    """
+    サーバー起動時に動的バックアップから最新データを復元
+    """
+    try:
+        backup_path = os.path.join(BASE_DIR, 'dynamic_backup.json')
+        
+        if not os.path.exists(backup_path):
+            print('[INIT] No dynamic backup file found - starting fresh')
+            return
+        
+        with open(backup_path, 'r', encoding='utf-8') as f:
+            backup_data = json.load(f)
+        
+        if not backup_data:
+            print('[INIT] Dynamic backup file is empty')
+            return
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        jst = pytz.timezone('Asia/Tokyo')
+        
+        restored_count = 0
+        
+        for key, backup_item in backup_data.items():
+            symbol = backup_item.get('symbol')
+            tf = backup_item.get('tf')
+            data = backup_item.get('data')
+            saved_at = backup_item.get('saved_at')
+            
+            if not symbol or not tf or not data:
+                continue
+            
+            # データベースに既存のレコードがあるか確認
+            c.execute("SELECT timestamp FROM states WHERE symbol=? AND tf=?", (symbol, tf))
+            existing = c.fetchone()
+            
+            # 既存レコードがない、またはバックアップの方が新しい場合は復元
+            should_restore = False
+            if not existing:
+                should_restore = True
+                print(f"[INIT] Restoring {symbol}/{tf} from backup (no existing data)")
+            elif saved_at and existing[0] < saved_at:
+                should_restore = True
+                print(f"[INIT] Restoring {symbol}/{tf} from backup (backup is newer)")
+            
+            if should_restore:
+                timestamp = datetime.now(jst).isoformat()
+                daytrade = data.get('daytrade', {})
+                
+                c.execute('''
+                    INSERT OR REPLACE INTO states (
+                        symbol, tf, timestamp, price, time, state_flag, state_word,
+                        daytrade_status, daytrade_bos, daytrade_time,
+                        swing_status, swing_bos, swing_time,
+                        row_order, cloud_order, clouds_json, meta_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    symbol, tf, timestamp, data.get('price', 0), data.get('time', 0),
+                    data.get('state', {}).get('flag', ''),
+                    data.get('state', {}).get('word', ''),
+                    daytrade.get('status', ''), daytrade.get('bos', ''), daytrade.get('time', ''),
+                    data.get('swing', {}).get('status', ''),
+                    data.get('swing', {}).get('bos', ''),
+                    data.get('swing', {}).get('time', ''),
+                    ','.join(data.get('row_order', [])),
+                    ','.join(data.get('cloud_order', [])),
+                    json.dumps(data.get('clouds', []), ensure_ascii=False),
+                    json.dumps(data.get('meta', {}), ensure_ascii=False)
+                ))
+                restored_count += 1
+        
+        conn.commit()
+        conn.close()
+        
+        if restored_count > 0:
+            print(f'[INIT] [OK] Restored {restored_count} records from dynamic backup')
+        else:
+            print(f'[INIT] All data is up to date (checked {len(backup_data)} backup entries)')
+    
+    except Exception as e:
+        print(f'[INIT ERROR] Failed to restore from dynamic backup: {e}')
+        import traceback
+        traceback.print_exc()
+
 def init_db():
     global SERVER_START_TIME, FIRST_RECEIVE_FLAGS
     SERVER_START_TIME = datetime.now(pytz.UTC)
@@ -593,8 +715,8 @@ def init_db():
     # 古いデータのクリーンアップ（最新データのみ保持）
     cleanup_old_data()
     
-    # D/4H/1H足データの自動復元 (Render Free tier の ephemeral storage 対策)
-    restore_missing_data()
+    # 動的バックアップからの復元（最新データを使用）
+    restore_from_dynamic_backup()
     
     # ノートデータファイルの確認
     notes_path = os.path.join(BASE_DIR, 'notes_data.json')
@@ -1394,6 +1516,11 @@ def webhook():
             
             saved_at = datetime.now(jst).isoformat()
             print(f'[OK] Saved immediately: {symbol_val}/{tf_val} at {saved_at}')
+            
+            # 動的バックアップに保存（日足・4H・1H足のみ）
+            if tf_val in ['D', '240', '60']:
+                save_dynamic_backup(symbol_val, tf_val, data)
+            
             with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
                 f.write(f'{saved_at} - [CHECKPOINT 1] Before trend calculation block\n')
                 f.flush()
@@ -2760,6 +2887,130 @@ def api_clear_fire_history():
         print(f'[ERROR][api/clear_fire_history] {e}')
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
+@app.route('/api/fire_history')
+def api_get_fire_history():
+    """Get fire history from database"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # Check if direction column exists
+        c.execute("PRAGMA table_info(fire_history)")
+        columns = [row[1] for row in c.fetchall()]
+        has_direction_column = 'direction' in columns
+        
+        # Get fire history ordered by most recent first
+        if has_direction_column:
+            c.execute('''SELECT rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot, direction 
+                         FROM fire_history 
+                         ORDER BY fired_at DESC 
+                         LIMIT 1000''')
+        else:
+            c.execute('''SELECT rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot 
+                         FROM fire_history 
+                         ORDER BY fired_at DESC 
+                         LIMIT 1000''')
+        
+        rows = c.fetchall()
+        conn.close()
+        
+        histories = []
+        for row in rows:
+            if has_direction_column:
+                rule_id, symbol, tf, fired_at, conditions_json, state_json, direction = row
+            else:
+                rule_id, symbol, tf, fired_at, conditions_json, state_json = row
+                direction = None
+            
+            # Get rule name from rules table
+            conn_rule = sqlite3.connect(DB_PATH)
+            c_rule = conn_rule.cursor()
+            c_rule.execute('SELECT name FROM rules WHERE id = ?', (rule_id,))
+            rule_row = c_rule.fetchone()
+            conn_rule.close()
+            
+            rule_name = rule_row[0] if rule_row else '不明'
+            
+            # directionがNoneの場合のフォールバック（旧データ用）
+            if not direction:
+                try:
+                    conditions = json.loads(conditions_json) if conditions_json else []
+                    state_snapshot = json.loads(state_json) if state_json else {}
+                    
+                    # Determine direction from state snapshot or conditions
+                    if state_snapshot:
+                        # 優先順位: dauten > gc > bos_count
+                        # Check for dauten fields in snapshot
+                        for key, value in state_snapshot.items():
+                            if 'dauten' in key.lower() and value:
+                                if value == 'up':
+                                    direction = '上昇'
+                                    print(f'[FIRE_HISTORY] Found direction from dauten in snapshot: {direction} (rule={rule_name}, symbol={symbol})')
+                                    break
+                                elif value == 'down':
+                                    direction = '下降'
+                                    print(f'[FIRE_HISTORY] Found direction from dauten in snapshot: {direction} (rule={rule_name}, symbol={symbol})')
+                                    break
+                        
+                        # If not found, check gc fields
+                        if not direction:
+                            for key, value in state_snapshot.items():
+                                if 'gc' in key.lower() and value is not None:
+                                    if value is True or value == 'true' or value == True:
+                                        direction = '上昇'
+                                        print(f'[FIRE_HISTORY] Found direction from gc in snapshot: {direction} (rule={rule_name}, symbol={symbol})')
+                                        break
+                                    elif value is False or value == 'false' or value == False:
+                                        direction = '下降'
+                                        print(f'[FIRE_HISTORY] Found direction from gc in snapshot: {direction} (rule={rule_name}, symbol={symbol})')
+                                        break
+                    
+                    # If still not found, check conditions
+                    if not direction and conditions:
+                        for cond in conditions:
+                            # 文字列の場合はスキップ（旧データ形式）
+                            if isinstance(cond, str):
+                                continue
+                            if not isinstance(cond, dict):
+                                continue
+                            
+                            field = cond.get('field', '').lower()
+                            if 'dauten' in field or 'gc' in field:
+                                expected = cond.get('expected')
+                                if expected == 'up' or expected == 'true' or expected is True:
+                                    direction = '上昇'
+                                    print(f'[FIRE_HISTORY] Found direction from conditions: {direction} (rule={rule_name}, symbol={symbol})')
+                                    break
+                                elif expected == 'down' or expected == 'false' or expected is False:
+                                    direction = '下降'
+                                    print(f'[FIRE_HISTORY] Found direction from conditions: {direction} (rule={rule_name}, symbol={symbol})')
+                                    break
+                    
+                    if not direction:
+                        print(f'[FIRE_HISTORY] No direction found for rule={rule_name}, symbol={symbol}, conditions={len(conditions) if conditions else 0}, snapshot_keys={list(state_snapshot.keys()) if state_snapshot else []}')
+                        
+                except Exception as e:
+                    print(f'[ERROR] Error parsing fire history conditions: {e}')
+                    import traceback
+                    traceback.print_exc()
+            
+            histories.append({
+                'rule_id': rule_id,
+                'rule_name': rule_name,
+                'symbol': symbol,
+                'tf': tf,
+                'timestamp': fired_at,
+                'direction': direction
+            })
+        
+        print(f'[API/FIRE_HISTORY] Retrieved {len(histories)} fire history records')
+        return jsonify({'status': 'success', 'histories': histories}), 200
+    except Exception as e:
+        print(f'[ERROR][api/fire_history] {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 @app.route('/api/webhook_logs')
 def api_webhook_logs():
     try:
@@ -2943,21 +3194,17 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     wlog(f'[ERROR] Failed to parse {tf_label} clouds_json: {e}')
         
         # 3. webhook から受け取ったデータで上書き（最新データ優先）
-        # ただし、dauten と bos_count は各TFのDBレコードから取得した値を維持
-        # （表の視覚的内容と一致させるため）
+        # 主体時間足（5m/15m/1H）のWebhookには全TFの最新雲情報が含まれている
+        # そのため、Webhookデータを優先的に使用（表の実際の表示内容と一致）
         if all_clouds:
             for tf_label, cloud in all_clouds.items():
                 if tf_label in tf_cloud_data:
-                    # 最新のwebhookデータで上書き（dauten, bos_count は除く）
-                    for key, value in cloud.items():
-                        # dauten と bos_count は DB の値を維持（表の視覚的内容）
-                        if key in ['dauten', 'bos_count', 'dauten_start_time', 'dauten_start_time_str']:
-                            continue
-                        tf_cloud_data[tf_label][key] = value
-                    wlog(f'[WEBHOOK] Updated {tf_label} with webhook data (dauten/bos excluded): gc={cloud.get("gc")}')
+                    # Webhookの最新データで全て上書き（dautenも含む）
+                    tf_cloud_data[tf_label].update(cloud)
+                    wlog(f'[WEBHOOK] Updated {tf_label} with webhook data: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}, elapsed_str={cloud.get("elapsed_str")}')
                 else:
                     tf_cloud_data[tf_label] = cloud.copy()
-                    wlog(f'[WEBHOOK] Added {tf_label} from webhook: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+                    wlog(f'[WEBHOOK] Added {tf_label} from webhook: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}, elapsed_str={cloud.get("elapsed_str")}')
         
         wlog(f'[DEBUG] tf_cloud_data final keys: {list(tf_cloud_data.keys())}')
         for tf_label, data in tf_cloud_data.items():
@@ -3593,25 +3840,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         state_snapshot[f'{tf_label}.{field}'] = normalized_value
                         wlog(f'[RULE] Saving to snapshot: {tf_label}.{field} = {raw_value} → {normalized_value}')
                     
-                    # 発火履歴を保存
-                    fired_at = datetime.now(jst).isoformat()
-                    try:
-                        conn_fire = sqlite3.connect(DB_PATH)
-                        c_fire = conn_fire.cursor()
-                        
-                        c_fire.execute('''INSERT INTO fire_history 
-                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
-                                         VALUES (?, ?, ?, ?, ?, ?)''',
-                                      (rule_id, symbol, '', fired_at, 
-                                       json.dumps(conditions, ensure_ascii=False), 
-                                       json.dumps(state_snapshot, ensure_ascii=False)))
-                        
-                        conn_fire.commit()
-                        conn_fire.close()
-                    except Exception as e:
-                        wlog(f'[RULE] Error saving fire history: {e}')
-                    
-                    # 方向を判定
+                    # 方向を判定（発火履歴保存前に判定）
                     direction = None
                     
                     # Alignment ルールの場合は alignment_direction を優先
@@ -3654,6 +3883,25 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 direction = '下降'
                     
                     wlog(f'[RULE] Final direction for "{rule_name}": {direction}')
+                    
+                    # 発火履歴を保存（directionを含む）
+                    fired_at = datetime.now(jst).isoformat()
+                    try:
+                        conn_fire = sqlite3.connect(DB_PATH)
+                        c_fire = conn_fire.cursor()
+                        
+                        c_fire.execute('''INSERT INTO fire_history 
+                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot, direction)
+                                         VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                                      (rule_id, symbol, '', fired_at, 
+                                       json.dumps(conditions, ensure_ascii=False), 
+                                       json.dumps(state_snapshot, ensure_ascii=False),
+                                       direction))
+                        
+                        conn_fire.commit()
+                        conn_fire.close()
+                    except Exception as e:
+                        wlog(f'[RULE] Error saving fire history: {e}')
                     
                     # メッセージを構築（方向別メッセージを含む）
                     common_message = voice_settings.get('message', '')
@@ -3879,10 +4127,18 @@ def _evaluate_rules_with_timeframe_data(data, symbol, tf_val):
                                 'gc': tf_cloud.get('gc')
                             }, ensure_ascii=False)
                             
+                            # 方向を判定
+                            direction = None
+                            dauten_value = tf_cloud.get('dauten')
+                            if dauten_value == 'up':
+                                direction = '上昇'
+                            elif dauten_value == 'down':
+                                direction = '下降'
+                            
                             c_fire.execute('''INSERT INTO fire_history 
-                                             (rule_id, symbol, tf, fired_at, last_state_snapshot)
-                                             VALUES (?, ?, ?, ?, ?)''',
-                                          (rule_id, symbol, tf_val, datetime.now(jst).isoformat(), current_state_snapshot))
+                                             (rule_id, symbol, tf, fired_at, last_state_snapshot, direction)
+                                             VALUES (?, ?, ?, ?, ?, ?)''',
+                                          (rule_id, symbol, tf_val, datetime.now(jst).isoformat(), current_state_snapshot, direction))
                             conn_fire.commit()
                             conn_fire.close()
                             
@@ -4268,11 +4524,12 @@ def _evaluate_rules_with_state(base_state):
                     try:
                         conn_hist = sqlite3.connect(DB_PATH)
                         c_hist = conn_hist.cursor()
-                        c_hist.execute('''INSERT INTO fire_history (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
-                                         VALUES (?, ?, ?, ?, ?, ?)''',
+                        c_hist.execute('''INSERT INTO fire_history (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot, direction)
+                                         VALUES (?, ?, ?, ?, ?, ?, ?)''',
                                       (rule_id, symbol, tf, datetime.now(jst).isoformat(), 
                                        json.dumps(rule.get('conditions', []), ensure_ascii=False),
-                                       json.dumps(current_state, ensure_ascii=False)))
+                                       json.dumps(current_state, ensure_ascii=False),
+                                       direction))
                         conn_hist.commit()
                         conn_hist.close()
                     except Exception as e:

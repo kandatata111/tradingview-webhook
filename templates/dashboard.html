@@ -5419,6 +5419,7 @@ async function load() {
         limitSelect.className = 'fire-history-limit-select';  // CSSクラスを指定
         
         const options = [
+          { value: '5', label: '5件' },
           { value: '10', label: '10件' },
           { value: '50', label: '50件' },
           { value: '100', label: '100件' },
@@ -5483,6 +5484,9 @@ async function load() {
         applyColumnVisibility();
         applyRowVisibility();
       } catch (e) { /* ignore */ }
+      
+      // 発火履歴をデータベースから復元
+      setTimeout(loadFireHistoryFromDB, 50);
       
       // 高さ同期を実行
       setTimeout(syncAllFireHistoryHeights, 100);
@@ -5569,8 +5573,18 @@ function renderCurrencyTable(symbol, allStates, container) {
     }
   });
   
-  // 更新時刻を計算（JST）
-  const updateTime = baseState.timestamp ? new Date(baseState.timestamp).toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', hour12: false}).split(' ')[1] : 'N/A';
+  // 更新時刻を計算（JST）YY/MM/DD/HH:mm:ss形式
+  let updateTime = 'N/A';
+  if (baseState.timestamp) {
+    const dt = new Date(baseState.timestamp);
+    const year = String(dt.getFullYear()).slice(-2);
+    const month = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    const hours = String(dt.getHours()).padStart(2, '0');
+    const minutes = String(dt.getMinutes()).padStart(2, '0');
+    const seconds = String(dt.getSeconds()).padStart(2, '0');
+    updateTime = `${year}/${month}/${day}/${hours}:${minutes}:${seconds}`;
+  }
   
   // 各時間足から完全データを抽出してマージ
   const mergedClouds = [];
@@ -6548,6 +6562,95 @@ function addNotificationToHistory(notification) {
   syncAllFireHistoryHeights();
   
   console.log('[ADD_TO_HISTORY] Added notification to history for', symbol);
+}
+
+async function loadFireHistoryFromDB() {
+  console.log('[FIRE_HISTORY] Loading fire history from database...');
+  try {
+    const res = await fetch('/api/fire_history');
+    if (!res.ok) {
+      console.log('[FIRE_HISTORY] Failed to fetch:', res.status);
+      return;
+    }
+    
+    const data = await res.json();
+    if (data.status !== 'success') {
+      console.log('[FIRE_HISTORY] API error:', data.msg);
+      return;
+    }
+    
+    const histories = data.histories || [];
+    console.log(`[FIRE_HISTORY] Retrieved ${histories.length} history records`);
+    
+    // 通貨ごとにグループ化
+    const historyBySymbol = {};
+    histories.forEach(h => {
+      if (!historyBySymbol[h.symbol]) {
+        historyBySymbol[h.symbol] = [];
+      }
+      historyBySymbol[h.symbol].push(h);
+    });
+    
+    // 各通貨の履歴を表示（最大50件）
+    Object.keys(historyBySymbol).forEach(symbol => {
+      const listEl = document.querySelector(`.currency-fire-history-list[data-symbol="${symbol}"]`);
+      if (!listEl) {
+        console.log('[FIRE_HISTORY] List element not found for symbol:', symbol);
+        return;
+      }
+      
+      // 既に履歴がある場合（existingHistoriesから復元済み）はスキップ
+      const hasExistingHistory = listEl.children.length > 0 && !listEl.innerHTML.includes('履歴なし');
+      if (hasExistingHistory) {
+        console.log(`[FIRE_HISTORY] Skipping ${symbol} - already has history`);
+        return;
+      }
+      
+      // 履歴をクリア（「履歴なし」メッセージを削除）
+      listEl.innerHTML = '';
+      
+      const symbolHistories = historyBySymbol[symbol].slice(0, 50);
+      symbolHistories.forEach(h => {
+        // Format timestamp: YY/MM/DD HH:mm
+        const dt = new Date(h.timestamp);
+        const year = String(dt.getFullYear()).slice(-2);
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        const hour = String(dt.getHours()).padStart(2, '0');
+        const minute = String(dt.getMinutes()).padStart(2, '0');
+        const timeStr = year + '/' + month + '/' + day + ' ' + hour + ':' + minute;
+        
+        // 発火アイテムを作成
+        const fireItem = document.createElement('div');
+        fireItem.className = 'fire-item';
+        fireItem.innerHTML = '<span class="fire-time">' + timeStr + '</span>';
+        if (h.direction) {
+          const directionClass = h.direction === '上昇' ? 'direction-up' : 'direction-down';
+          fireItem.innerHTML += '<span class="fire-direction ' + directionClass + '">' + h.direction + '</span>';
+        }
+        fireItem.innerHTML += '<span class="fire-name">' + (h.rule_name || '不明') + '</span>';
+        
+        listEl.appendChild(fireItem);
+      });
+      
+      console.log(`[FIRE_HISTORY] Loaded ${symbolHistories.length} histories for ${symbol}`);
+    });
+    
+    // プルダウンのデフォルト件数を適用
+    document.querySelectorAll('.fire-history-limit-select').forEach(select => {
+      const symbol = select.dataset.symbol;
+      const limit = parseInt(select.value);
+      updateFireHistoryDisplay(symbol, limit);
+    });
+    
+    // フォントサイズとレイアウトを適用
+    const savedSize = localStorage.getItem('tv_font_size') || '14';
+    applyFontSize(savedSize);
+    syncAllFireHistoryHeights();
+    
+  } catch (e) {
+    console.log('[FIRE_HISTORY] Error loading fire history:', e);
+  }
 }
 
 async function checkNotifications() {
