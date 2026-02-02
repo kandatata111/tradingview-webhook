@@ -1,3 +1,7 @@
+# Gmail API認証ファイル（機密情報）
+credentials.json
+token.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

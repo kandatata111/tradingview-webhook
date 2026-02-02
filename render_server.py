@@ -2,10 +2,12 @@
 import os, sqlite3, json, base64, hashlib
 from datetime import datetime
 import threading
+import time
 import pytz
 import requests
 from flask_socketio import SocketIO, emit
 import traceback
+import subprocess
 
 # バックアップデータ定数をインポート
 from backup_constants import HOURLY_DATA_BACKUP, FOUR_HOURLY_DATA_BACKUP
@@ -2854,13 +2856,29 @@ def api_backup_fetch():
     """Gmail から手動でバックアップを取得"""
     try:
         import subprocess
-        script_path = os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py')
+        # 複数のパスを試す：
+        # 1. 同じディレクトリ (Render用)
+        # 2. 親ディレクトリ (ローカル用)
+        # 3. カレントディレクトリ
+        script_paths = [
+            os.path.join(BASE_DIR, 'backup_recovery.py'),  # TradingViewWebhook/
+            os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py'),  # PythonData/
+            os.path.join(os.getcwd(), 'backup_recovery.py')  # カレント
+        ]
         
-        if not os.path.exists(script_path):
-            return jsonify({'status': 'error', 'msg': 'backup_recovery.py not found'}), 404
+        script_path = None
+        for path in script_paths:
+            if os.path.exists(path):
+                script_path = path
+                break
         
-        # Python 環境のパスを取得
-        python_exe = 'python'
+        if not script_path:
+            searched_paths = ', '.join(script_paths)
+            return jsonify({'status': 'error', 'msg': f'backup_recovery.py not found (searched: {searched_paths})'}), 404
+        
+        # Python 環境のパスを取得（仮想環境を優先）
+        import sys
+        python_exe = sys.executable  # 現在実行中のPythonパスを使用
         
         # バックグラウンドで実行
         result = subprocess.run(
@@ -3035,6 +3053,10 @@ def api_backup_recovery():
         skipped_count = 0
         error_count = 0
         
+        # ログ出力
+        print(f'[BACKUP RECOVERY] Found {len(files)} files to process')
+        print(f'[BACKUP RECOVERY] Mode: {mode}, Symbol: {symbol}, TF: {tf}, Date: {date}')
+        
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
@@ -3045,6 +3067,18 @@ def api_backup_recovery():
                 
                 symbol_val = data.get('symbol', 'UNKNOWN')
                 tf_val = data.get('tf', '5')
+                
+                # シグナルファイル（sgとcountのみ）をスキップ
+                if 'sg' in data and 'time' not in data:
+                    print(f'[BACKUP RECOVERY] Skipping signal file: {file_path.name}')
+                    skipped_count += 1
+                    continue
+                
+                # timeフィールドが無いファイルをスキップ
+                if 'time' not in data or data.get('time', 0) == 0:
+                    print(f'[BACKUP RECOVERY] Skipping file without time: {file_path.name}')
+                    skipped_count += 1
+                    continue
                 
                 # mode が "merge" の場合、既存データがあればスキップ
                 if mode == 'merge':
@@ -3059,8 +3093,11 @@ def api_backup_recovery():
                         backup_time = data.get('time', 0)
                         
                         if db_time >= backup_time:
+                            print(f'[BACKUP RECOVERY] Skipping {symbol_val}/{tf_val}: DB has newer data (DB:{db_time} >= Backup:{backup_time})')
                             skipped_count += 1
                             continue
+                        else:
+                            print(f'[BACKUP RECOVERY] Updating {symbol_val}/{tf_val}: Backup has newer data (DB:{db_time} < Backup:{backup_time})')
                 
                 # ファイル名から受信時刻を抽出
                 # 対応形式: 
@@ -3112,6 +3149,7 @@ def api_backup_recovery():
                          received_at_str))
                 
                 recovered_count += 1
+                print(f'[BACKUP RECOVERY] Recovered {symbol_val}/{tf_val} from {file_path.name} (time={data.get("time", 0)}, received_at={received_at_str})')
                 
             except Exception as e:
                 print(f'[ERROR] Failed to recover {file_path}: {e}')
@@ -3120,6 +3158,8 @@ def api_backup_recovery():
         
         conn.commit()
         conn.close()
+        
+        print(f'[BACKUP RECOVERY] Summary: Recovered={recovered_count}, Skipped={skipped_count}, Errors={error_count}')
         
         # Socket.IO で通知
         socketio.emit('backup_recovery_complete', {
@@ -5012,6 +5052,68 @@ if __name__ == '__main__':
             f.write(f'{"="*80}\n')
     except:
         pass
+    
+    # バックアップ自動取得スレッドを起動
+    def auto_backup_fetch_loop():
+        """30分ごとにGmailからバックアップを自動取得"""
+        jst = pytz.timezone('Asia/Tokyo')
+        while True:
+            try:
+                time.sleep(1800)  # 30分待機
+                
+                print(f'[AUTO BACKUP] Starting automatic backup fetch at {datetime.now(jst).strftime("%Y-%m-%d %H:%M:%S")}')
+                
+                # backup_recovery.pyのパスを探す
+                script_paths = [
+                    os.path.join(BASE_DIR, 'backup_recovery.py'),
+                    os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py'),
+                    os.path.join(os.getcwd(), 'backup_recovery.py')
+                ]
+                
+                script_path = None
+                for path in script_paths:
+                    if os.path.exists(path):
+                        script_path = path
+                        break
+                
+                if not script_path:
+                    print(f'[AUTO BACKUP ERROR] backup_recovery.py not found')
+                    continue
+                
+                # 現在実行中のPythonを使用（仮想環境を維持）
+                import sys
+                python_exe = sys.executable
+                
+                # 実行
+                result = subprocess.run(
+                    [python_exe, script_path, '--fetch', '--max', '50'],
+                    capture_output=True,
+                    text=True,
+                    timeout=120
+                )
+                
+                if result.returncode == 0:
+                    # 成功数を抽出
+                    output = result.stdout
+                    if '[SUMMARY]' in output:
+                        summary_line = [line for line in output.split('\n') if '[SUMMARY]' in line]
+                        if summary_line:
+                            print(f'[AUTO BACKUP] {summary_line[0]}')
+                    else:
+                        print(f'[AUTO BACKUP] Completed successfully')
+                else:
+                    print(f'[AUTO BACKUP ERROR] {result.stderr}')
+                    
+            except subprocess.TimeoutExpired:
+                print(f'[AUTO BACKUP ERROR] Timeout after 120 seconds')
+            except Exception as e:
+                print(f'[AUTO BACKUP ERROR] {str(e)}')
+                traceback.print_exc()
+    
+    # バックグラウンドスレッドを起動
+    backup_thread = threading.Thread(target=auto_backup_fetch_loop, daemon=True)
+    backup_thread.start()
+    print(f'[AUTO BACKUP] Background thread started (30min interval)')
     
     print(f'[START] Starting server on port {port} at {datetime.now(jst).isoformat()}')
     print('[DEBUG] About to call socketio.run...')
