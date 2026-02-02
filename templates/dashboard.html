@@ -8063,12 +8063,12 @@ async function fetchBackupFromGmail() {
       // サマリーを更新
       setTimeout(() => loadBackupSummary(), 1000);
     } else {
-      progress.innerHTML = '<div style="color:#ef4444;">❌ エラー: ' + data.msg + '</div>';
+      progress.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー: ' + data.msg + '</div>';
       status.textContent = '❌ 失敗';
       status.style.color = '#ef4444';
     }
   } catch (error) {
-    progress.innerHTML = '<div style="color:#ef4444;">❌ エラー: ' + error.message + '</div>';
+    progress.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー: ' + error.message + '</div>';
     status.textContent = '❌ 失敗';
     status.style.color = '#ef4444';
   } finally {
@@ -8088,7 +8088,7 @@ async function loadBackupSummary() {
     
     if (data.status === 'success') {
       if (data.symbols.length === 0) {
-        summaryDiv.innerHTML = '<div style="color:#94a3b8;padding:8px;">バックアップファイルがありません</div>';
+        summaryDiv.innerHTML = '<div style="color:#d1d5db;padding:8px;">バックアップファイルがありません</div>';;
         return;
       }
       
@@ -8136,10 +8136,10 @@ async function loadBackupSummary() {
       html += '</tbody></table>';
       summaryDiv.innerHTML = html;
     } else {
-      summaryDiv.innerHTML = '<div style="color:#ef4444;">エラー: ' + data.msg + '</div>';
+      summaryDiv.innerHTML = '<div style="color:#ff5555;font-weight:600;">エラー: ' + data.msg + '</div>';
     }
   } catch (error) {
-    summaryDiv.innerHTML = '<div style="color:#ef4444;">エラー: ' + error.message + '</div>';
+    summaryDiv.innerHTML = '<div style="color:#ff5555;font-weight:600;">エラー: ' + error.message + '</div>';
   }
 }
 
@@ -8186,10 +8186,10 @@ async function startRecovery() {
         fetchAllStates();
       }, 500);
     } else {
-      status.innerHTML = '<div style="color:#ef4444;">❌ エラー: ' + data.msg + '</div>';
+      status.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー: ' + data.msg + '</div>';
     }
   } catch (error) {
-    status.innerHTML = '<div style="color:#ef4444;">❌ エラー: ' + error.message + '</div>';
+    status.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー: ' + error.message + '</div>';
   } finally {
     btn.disabled = false;
     btn.textContent = '✅ 復旧開始';

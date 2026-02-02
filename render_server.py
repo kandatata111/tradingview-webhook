@@ -2854,10 +2854,25 @@ def api_backup_fetch():
     """Gmail から手動でバックアップを取得"""
     try:
         import subprocess
-        script_path = os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py')
+        # 複数のパスを試す：
+        # 1. 同じディレクトリ (Render用)
+        # 2. 親ディレクトリ (ローカル用)
+        # 3. カレントディレクトリ
+        script_paths = [
+            os.path.join(BASE_DIR, 'backup_recovery.py'),  # TradingViewWebhook/
+            os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py'),  # PythonData/
+            os.path.join(os.getcwd(), 'backup_recovery.py')  # カレント
+        ]
         
-        if not os.path.exists(script_path):
-            return jsonify({'status': 'error', 'msg': 'backup_recovery.py not found'}), 404
+        script_path = None
+        for path in script_paths:
+            if os.path.exists(path):
+                script_path = path
+                break
+        
+        if not script_path:
+            searched_paths = ', '.join(script_paths)
+            return jsonify({'status': 'error', 'msg': f'backup_recovery.py not found (searched: {searched_paths})'}), 404
         
         # Python 環境のパスを取得
         python_exe = 'python'
