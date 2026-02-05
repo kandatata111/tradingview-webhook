@@ -216,16 +216,20 @@ def fetch_from_gmail(max_results=500, mark_as_read=False):
             with open(token_path, 'w') as token:
                 token.write(creds.to_json())
         
-        # Gmail API サービス構築
-        service = build('gmail', 'v1', credentials=creds)
+        # Gmail API サービス構築(タイムアウト付き)
+        service = build('gmail', 'v1', credentials=creds, static_discovery=False)
         
         # TradingView からのメールを検索（既読・未読問わず）
         query = 'from:noreply@tradingview.com'
-        results = service.users().messages().list(
-            userId='me',
-            q=query,
-            maxResults=max_results
-        ).execute()
+        try:
+            results = service.users().messages().list(
+                userId='me',
+                q=query,
+                maxResults=max_results
+            ).execute(num_retries=2)  # リトライを追加
+        except Exception as e:
+            print(f'[ERROR] Failed to list messages: {str(e)}')
+            return (0, 0, 1)
         
         messages = results.get('messages', [])
         
@@ -247,7 +251,7 @@ def fetch_from_gmail(max_results=500, mark_as_read=False):
                     userId='me',
                     id=msg['id'],
                     format='full'
-                ).execute()
+                ).execute(num_retries=2)  # リトライを追加
                 
                 # メール本文を取得
                 payload = message['payload']
@@ -271,14 +275,18 @@ def fetch_from_gmail(max_results=500, mark_as_read=False):
                             elif part_body.get('attachmentId'):
                                 if mime_type == 'text/plain':
                                     attachment_id = part_body['attachmentId']
-                                    attachment = service.users().messages().attachments().get(
-                                        userId='me',
-                                        messageId=msg_id,
-                                        id=attachment_id
-                                    ).execute()
-                                    data = attachment.get('data', '')
-                                    if data:
-                                        return base64.urlsafe_b64decode(data).decode('utf-8')
+                                    try:
+                                        attachment = service.users().messages().attachments().get(
+                                            userId='me',
+                                            messageId=msg_id,
+                                            id=attachment_id
+                                        ).execute(num_retries=2)
+                                        data = attachment.get('data', '')
+                                        if data:
+                                            return base64.urlsafe_b64decode(data).decode('utf-8')
+                                    except Exception as e:
+                                        print(f'[WARNING] Failed to get attachment: {str(e)}')
+                                        pass
                         
                         # plain text がない場合は HTML を取得
                         for part in p['parts']:
@@ -291,14 +299,18 @@ def fetch_from_gmail(max_results=500, mark_as_read=False):
                             elif part_body.get('attachmentId'):
                                 if mime_type == 'text/html':
                                     attachment_id = part_body['attachmentId']
-                                    attachment = service.users().messages().attachments().get(
-                                        userId='me',
-                                        messageId=msg_id,
-                                        id=attachment_id
-                                    ).execute()
-                                    data = attachment.get('data', '')
-                                    if data:
-                                        return base64.urlsafe_b64decode(data).decode('utf-8')
+                                    try:
+                                        attachment = service.users().messages().attachments().get(
+                                            userId='me',
+                                            messageId=msg_id,
+                                            id=attachment_id
+                                        ).execute(num_retries=2)
+                                        data = attachment.get('data', '')
+                                        if data:
+                                            return base64.urlsafe_b64decode(data).decode('utf-8')
+                                    except Exception as e:
+                                        print(f'[WARNING] Failed to get HTML attachment: {str(e)}')
+                                        pass
                         
                         # さらに nested parts をチェック
                         for part in p['parts']:
@@ -313,14 +325,18 @@ def fetch_from_gmail(max_results=500, mark_as_read=False):
                             return base64.urlsafe_b64decode(part_body['data']).decode('utf-8')
                         elif part_body.get('attachmentId'):
                             attachment_id = part_body['attachmentId']
-                            attachment = service.users().messages().attachments().get(
-                                userId='me',
-                                messageId=msg_id,
-                                id=attachment_id
-                            ).execute()
-                            data = attachment.get('data', '')
-                            if data:
-                                return base64.urlsafe_b64decode(data).decode('utf-8')
+                            try:
+                                attachment = service.users().messages().attachments().get(
+                                    userId='me',
+                                    messageId=msg_id,
+                                    id=attachment_id
+                                ).execute(num_retries=2)
+                                data = attachment.get('data', '')
+                                if data:
+                                    return base64.urlsafe_b64decode(data).decode('utf-8')
+                            except Exception as e:
+                                print(f'[WARNING] Failed to get single attachment: {str(e)}')
+                                pass
                     return None
                 
                 body = get_body_from_payload(payload, msg['id']) or ''
@@ -349,11 +365,15 @@ def fetch_from_gmail(max_results=500, mark_as_read=False):
                     
                     # 既読マークを付ける
                     if mark_as_read:
-                        service.users().messages().modify(
-                            userId='me',
-                            id=msg['id'],
-                            body={'removeLabelIds': ['UNREAD']}
-                        ).execute()
+                        try:
+                            service.users().messages().modify(
+                                userId='me',
+                                id=msg['id'],
+                                body={'removeLabelIds': ['UNREAD']}
+                            ).execute(num_retries=2)
+                        except Exception as e:
+                            print(f'[WARNING] Failed to mark message as read: {str(e)}')
+                            pass
                 else:
                     print(f'[SKIP] No JSON found in message {msg["id"]}')
                     skip_count += 1

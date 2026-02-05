@@ -831,7 +831,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 #external-site-window .window-controls select,
 #external-site-window .window-controls input {
-  background: rgba(128,128,128,0.5);
+  background: #9c9c9c;
   color: #f5f7ff;
   border: 1px solid rgba(255,255,255,0.3);
   border-radius: 4px;
@@ -1071,16 +1071,18 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="1" checked> ダウ転</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="2" checked> 突破数</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="3" checked> 雲交差</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="4" checked> 各雲間</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="5" checked> 価格間</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="4" checked> PO</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="5" checked> 各雲間</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="6" checked> 価格間</label>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="6" checked> 雲角度</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="7" checked> 雲厚み</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="8" checked> ダウ時間</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="9" checked> 交差時間</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="10" checked> 時間差</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="11" checked> トレンド</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="7" checked> 雲角度</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="8" checked> 雲厚み</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="9" checked> ダウ時間</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="10" checked> 交差時間</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="11" checked> 時間差</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="12" checked> PO時間</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="13" checked> トレンド</label>
       </div>
     </div>
     
@@ -2172,7 +2174,7 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
                 const rawName = d.cond || (d.label ? `${d.label}.${d.field}` : JSON.stringify(d));
                 const fieldMap = {
                   'alignment':'雲整列', '雲整列':'雲整列',
-                  'dauten':'ダウ転換', 'gc':'雲交差', 'bos_count':'突破数', 'daytrade_bos':'突破数',
+                  'dauten':'ダウ転換', 'gc':'雲交差', 'bos_count':'突破数', 'daytrade_bos':'突破数', 'po':'PO',
                   'distance_from_prev':'各雲間', 'distance_from_price':'価格間',
                   'angle':'雲角度', 'thickness':'雲厚み', 'transfer_time_diff':'転換時間差',
                   'presence_check':'存在確認', 'direction_consistency':'方向一貫性'
@@ -4184,7 +4186,7 @@ function applyColumnVisibility() {
   const savedCols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   
   // 列ごとに表示/非表示を適用
-  for (let colIndex = 1; colIndex <= 11; colIndex++) {
+  for (let colIndex = 1; colIndex <= 13; colIndex++) {
     const visible = savedCols[colIndex.toString()] !== false; // デフォルトtrue
     const selector = `table th:nth-child(${colIndex + 1}), table td:nth-child(${colIndex + 1})`;
     document.querySelectorAll(selector).forEach(el => {
@@ -5687,13 +5689,19 @@ function renderCurrencyTable(symbol, allStates, container) {
       }
       
       // cloudオブジェクトには既に各時間足のダウ転情報（dauten, dauten_start_time_str）が含まれている
-      // 主体時間足の場合のみBOSカウントをdaytradeから取得、上位足はcloudオブジェクトの情報をそのまま使用
+      // 主体時間足と上位足の両方からBOSカウント（daytrade.bos）を取得
       if (tf === baseTimeframe && baseState.daytrade) {
-        // 主体時間足の場合のみdaytradeからBOSカウントを取得
+        // 主体時間足の場合はdaytradeからBOSカウントを取得
         cloud.bos_count = baseState.daytrade.bos || '-';
-        console.log(`[DATA] TF=${tf} - Applied baseState.daytrade bos: ${cloud.bos_count}`);
+        console.log(`[DATA] TF=${tf} (base) - Applied baseState.daytrade bos: ${cloud.bos_count}`);
+      } else if (upperStates[tf] && upperStates[tf].daytrade) {
+        // 上位足の場合もdaytradeからBOSカウントを取得
+        cloud.bos_count = upperStates[tf].daytrade.bos || '-';
+        console.log(`[DATA] TF=${tf} (upper) - Applied upperStates[${tf}].daytrade bos: ${cloud.bos_count}`);
+      } else {
+        // フォールバック
+        cloud.bos_count = cloud.bos_count || '-';
       }
-      // 上位足の場合、cloudオブジェクトに既に含まれているdauten情報をそのまま使用（追加処理不要）
       
       console.log(`[DATA] TF=${tf} - Final cloud data - dauten:${cloud.dauten}, bos:${cloud.bos_count || '-'}, time:${cloud.dauten_start_time_str || '-'}`);
       
@@ -5737,13 +5745,13 @@ function renderCurrencyTable(symbol, allStates, container) {
   
   console.log('[RENDER] orderedRows count:', orderedRows.length);
   
-  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="12" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
-  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">トレンド</th></tr>';
+  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="14" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
+  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th></tr>';
 
   orderedRows.forEach(row => {
     if (row.type === 'price') {
       html += '<tr class="price-row"><td class="tf-label">価格</td>';
-      html += '<td colspan="11"></td></tr>';
+      html += '<td colspan="13"></td></tr>';
     } else {
       const c = row;
       html += '<tr>';
@@ -5826,6 +5834,28 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + gcText + '</td>';
       else html += '<td>' + gcText + '</td>';
 
+      // PO（パーフェクトオーダー）表示 - 独立した色設定
+      let poText = '-';
+      let poBgColor = '';
+      if (c.po) {
+        poText = c.po;
+        if (c.po === '✕') {
+          // ✕の場合は背景色グレー
+          poBgColor = '#9c9c9c';
+        } else if (c.po === '▲PO') {
+          // ▲POの場合は青
+          poBgColor = '#2962ff';
+        } else if (c.po === '▼PO') {
+          // ▼POの場合は赤
+          poBgColor = '#f23645';
+        }
+      }
+      if (poBgColor) {
+        html += '<td style="background:' + poBgColor + '; color:#fff">' + poText + '</td>';
+      } else {
+        html += '<td>' + poText + '</td>';
+      }
+
       if (prevColor) html += '<td style="background:' + prevColor + '; color:#fff">' + (prev !== null ? prev.toFixed(1) : '-') + '</td>';
       else html += '<td>' + (prev !== null ? prev.toFixed(1) : '-') + '</td>';
 
@@ -5857,12 +5887,24 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (timeDiffResult.sameDirection) {
         timeDiffBg = dautenColor || '';
       } else {
-        timeDiffBg = 'rgba(128,128,128,0.5)';
+        timeDiffBg = '#9c9c9c';
       }
       if (timeDiffBg) {
         html += '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
       } else {
         html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
+      }
+
+      // PO時間（ダウ時間と同じロジック）- 時間差の後に移動
+      const poTimeFormatted = formatElapsedTime(c.po_fire_time_str || '-', timeFormat);
+      if (poBgColor && poBgColor !== '#9c9c9c') {
+        // PO = "✕"でない場合はPOの色を適用
+        html += '<td style="background:' + poBgColor + '; color:#fff">' + poTimeFormatted + '</td>';
+      } else if (poBgColor === '#9c9c9c') {
+        // PO = "✕"の場合はグレー背景
+        html += '<td style="background:' + poBgColor + '; color:#fff">' + poTimeFormatted + '</td>';
+      } else {
+        html += '<td>' + poTimeFormatted + '</td>';
       }
       
       console.log(`[BEFORE_TREND] ${symbol}/${c.label}: About to calculate trend strength`);
@@ -6496,7 +6538,7 @@ function validateAlignmentForSave(){
 function createConditionRow(c) {
   const div = document.createElement('div'); div.className = 'cond-row'; div.style.display='flex'; div.style.gap='6px'; div.style.alignItems='center';
   const tf = document.createElement('select'); tf.className='cond-tf'; tf.style.padding='6px'; tf.style.borderRadius='6px'; tf.style.background='rgba(15,27,65,0.7)'; tf.style.color='inherit'; tf.style.border='1px solid rgba(255,255,255,0.12)'; tf.innerHTML = '<option value="5m">5m</option><option value="15m">15m</option><option value="1H">1H</option><option value="4H">4H</option>';
-  const field = document.createElement('select'); field.className='cond-field'; field.style.padding='6px'; field.style.borderRadius='6px'; field.style.background='rgba(15,27,65,0.7)'; field.style.color='inherit'; field.style.border='1px solid rgba(255,255,255,0.12)'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="bos_count">突破数</option><option value="gc">雲交差</option><option value="distance_from_prev">各雲間</option><option value="distance_from_price">価格間</option><option value="angle">雲角度</option><option value="thickness">雲厚み</option><option value="transfer_time_diff">転換時間差</option>';
+  const field = document.createElement('select'); field.className='cond-field'; field.style.padding='6px'; field.style.borderRadius='6px'; field.style.background='rgba(15,27,65,0.7)'; field.style.color='inherit'; field.style.border='1px solid rgba(255,255,255,0.12)'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="bos_count">突破数</option><option value="gc">雲交差</option><option value="po">PO</option><option value="distance_from_prev">各雲間</option><option value="distance_from_price">価格間</option><option value="angle">雲角度</option><option value="thickness">雲厚み</option><option value="transfer_time_diff">転換時間差</option>';
   const val = document.createElement('input'); val.className='cond-value'; val.placeholder='値'; val.style.padding='6px'; val.style.borderRadius='6px'; val.style.border='1px solid rgba(255,255,255,0.08)'; val.style.background='transparent'; val.style.color='inherit'; val.style.width='60px';
   const rem = document.createElement('button'); rem.className='removeCond'; rem.textContent='削除'; rem.style.padding='6px 12px';
   rem.addEventListener('click', () => div.remove());

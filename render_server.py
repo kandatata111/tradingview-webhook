@@ -446,6 +446,7 @@ def save_dynamic_backup(symbol, tf, data):
     """
     Webhook受信時に最新データをJSONファイルに保存（動的バックアップ）
     日足・4H・1H足のデータを保存し、サーバー再起動時に復元できるようにする
+    sent_timeをバックアップキーとして使用
     """
     try:
         backup_path = os.path.join(BASE_DIR, 'dynamic_backup.json')
@@ -459,13 +460,20 @@ def save_dynamic_backup(symbol, tf, data):
             except:
                 backup_data = {}
         
-        # キーは "symbol_tf" の形式
-        key = f"{symbol}_{tf}"
+        # sent_timeがあればそれを使用、なければタイムスタンプを生成
+        sent_time = data.get('sent_time', '')
+        if not sent_time:
+            jst = pytz.timezone('Asia/Tokyo')
+            sent_time = datetime.now(jst).strftime('%y/%m/%d/%H:%M')
         
-        # データを保存（timestampを追加）
+        # キーは "symbol_tf_sent_time" の形式（バックアップデータの一意性を確保）
+        key = f"{symbol}_{tf}_{sent_time}"
+        
+        # データを保存（sent_timeを追加）
         backup_data[key] = {
             'symbol': symbol,
             'tf': tf,
+            'sent_time': sent_time,
             'data': data,
             'saved_at': datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()
         }
@@ -474,7 +482,7 @@ def save_dynamic_backup(symbol, tf, data):
         with open(backup_path, 'w', encoding='utf-8') as f:
             json.dump(backup_data, f, ensure_ascii=False, indent=2)
         
-        print(f'[BACKUP] Saved {symbol}/{tf} to dynamic backup')
+        print(f'[BACKUP] Saved {symbol}/{tf} (sent_time: {sent_time}) to dynamic backup')
         
     except Exception as e:
         print(f'[BACKUP ERROR] Failed to save {symbol}/{tf}: {e}')
@@ -606,6 +614,14 @@ def init_db():
         c.execute('ALTER TABLE states ADD COLUMN received_at TEXT')
         conn.commit()
         print('[OK] received_at column added to states table')
+    except Exception:
+        pass  # Column already exists
+    
+    # Add sent_time column if it doesn't exist (for JSON sent_time field)
+    try:
+        c.execute('ALTER TABLE states ADD COLUMN sent_time TEXT')
+        conn.commit()
+        print('[OK] sent_time column added to states table')
     except Exception:
         pass  # Column already exists
     
@@ -1455,16 +1471,17 @@ def webhook():
         received_at = datetime.now(jst).isoformat()
         symbol_val = data.get("symbol", "UNKNOWN")
         tf_val = data.get("tf", "5")
-        print(f'[WEBHOOK RECEIVED] {received_at} - {symbol_val}/{tf_val}')
+        sent_time_val = data.get("sent_time", "")  # JSONの送信時間を取得
+        print(f'[WEBHOOK RECEIVED] {received_at} - {symbol_val}/{tf_val} (Sent: {sent_time_val})')
         
         # ログをファイルに保存
         try:
-            log_entry = f'{received_at} - {symbol_val}/{tf_val} - {json.dumps(data, ensure_ascii=False)}\n'
+            log_entry = f'{received_at} - {symbol_val}/{tf_val} (Sent: {sent_time_val}) - {json.dumps(data, ensure_ascii=False)}\n'
             with open(os.path.join(BASE_DIR, 'webhook_log.txt'), 'a', encoding='utf-8') as f:
                 f.write(log_entry)
             # 同時にエラーログにも記録（トラッキング用）
             with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{received_at} - OK: {symbol_val}/{tf_val}\n')
+                f.write(f'{received_at} - OK: {symbol_val}/{tf_val} (Sent: {sent_time_val})\n')
         except Exception as e:
             error_msg = f'[LOG ERROR] Failed to write logs: {str(e)}'
             print(error_msg)
@@ -1492,8 +1509,8 @@ def webhook():
                         state_flag, state_word,
                         daytrade_status, daytrade_bos, daytrade_time,
                         swing_status, swing_bos, swing_time,
-                        row_order, cloud_order, clouds_json, meta_json, received_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                        row_order, cloud_order, clouds_json, meta_json, received_at, sent_time
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (symbol_val, tf_val,
                      received_timestamp, float(data.get('price', 0)),
                      data.get('time', 0),
@@ -1509,7 +1526,8 @@ def webhook():
                      ','.join(data.get('cloud_order', [])),
                      json.dumps(data.get('clouds', []), ensure_ascii=False),
                      json.dumps(data.get('meta', {}), ensure_ascii=False),
-                     received_timestamp))
+                     received_timestamp,
+                     sent_time_val))
             conn.commit()
             # WALモード有効時の即時書き込み確保
             try:
@@ -2884,10 +2902,10 @@ def api_backup_fetch():
         
         # バックグラウンドで実行
         result = subprocess.run(
-            [python_exe, script_path, '--fetch', '--max', '500'],
+            [python_exe, script_path, '--fetch', '--max', '100'],
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=300  # 5分に拡大（Gmail APIの遅延対応）
         )
         
         if result.returncode == 0:
@@ -2906,7 +2924,7 @@ def api_backup_fetch():
             }), 500
             
     except subprocess.TimeoutExpired:
-        return jsonify({'status': 'error', 'msg': 'Timeout: Gmail fetch took too long'}), 500
+        return jsonify({'status': 'error', 'msg': 'Timeout: Gmail fetch took too long (processing may still continue in background)'}), 504
     except Exception as e:
         print(f'[ERROR] Backup fetch failed: {e}')
         import traceback
@@ -5088,10 +5106,10 @@ if __name__ == '__main__':
                 
                 # 実行
                 result = subprocess.run(
-                    [python_exe, script_path, '--fetch', '--max', '500'],
+                    [python_exe, script_path, '--fetch', '--max', '100'],
                     capture_output=True,
                     text=True,
-                    timeout=120
+                    timeout=300  # 5分に拡大（Gmail API遅延対応）
                 )
                 
                 if result.returncode == 0:
@@ -5107,7 +5125,7 @@ if __name__ == '__main__':
                     print(f'[AUTO BACKUP ERROR] {result.stderr}')
                     
             except subprocess.TimeoutExpired:
-                print(f'[AUTO BACKUP ERROR] Timeout after 120 seconds')
+                print(f'[AUTO BACKUP ERROR] Timeout after 300 seconds')
             except Exception as e:
                 print(f'[AUTO BACKUP ERROR] {str(e)}')
                 traceback.print_exc()
