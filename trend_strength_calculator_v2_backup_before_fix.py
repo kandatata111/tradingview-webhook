@@ -113,8 +113,8 @@ def calculate_trend_strength_v2(tf, state_data, all_states=None):
         angle = cloud.get('angle', 0)  # 符号付き
         thickness = abs(cloud.get('thickness', 0))
         distance_from_price = abs(cloud.get('distance_from_prev', 0))  # 価格と雲中心MAの距離
-        dauten = cloud.get('dauten', None)  # '▲Dow' or '▼Dow' or '-'
-        gc = cloud.get('gc', None)  # '▲GC' or '▼DC'
+        dauten = cloud.get('dauten', None)  # 'up' or 'down'
+        gc = cloud.get('gc', None)  # True=GC, False=DC
         row_order = state_data.get('row_order', '')
         
         # ============================================================
@@ -432,18 +432,18 @@ def _evaluate_cloud_cross_deduction(gc, trend_direction, deduction_rules):
     雲交差による減点を計算
     
     Args:
-        gc: '▲GC' or '▼DC'
+        gc: True=GC, False=DC
         trend_direction: トレンド方向（'up', 'down', 'range'）
         deduction_rules: 時間足レベルに応じた減点ルール
     
     Returns:
         int: 減点値（負の数）
     """
-    if trend_direction == 'range' or gc is None or gc == '-':
+    if trend_direction == 'range' or gc is None:
         return 0
     
-    # GC=上昇、DC=下降（文字列で判定）
-    is_gc = (gc == '▲GC')
+    # GC=上昇、DC=下降
+    is_gc = (gc == True)
     
     # トレンド方向と雲交差が逆の場合、減点
     if (trend_direction == 'up' and not is_gc) or \
@@ -458,21 +458,18 @@ def _evaluate_dauten_deduction(dauten, trend_direction, deduction_rules):
     ダウ転換による減点を計算
     
     Args:
-        dauten: '▲Dow' or '▼Dow' or '-'
+        dauten: 'up' or 'down'
         trend_direction: トレンド方向（'up', 'down', 'range'）
         deduction_rules: 時間足レベルに応じた減点ルール
     
     Returns:
         int: 減点値（負の数）
     """
-    if trend_direction == 'range' or dauten is None or dauten == '-':
+    if trend_direction == 'range' or dauten is None:
         return 0
     
-    # 文字列形式のダウ転換を判定（'▲Dow'='up', '▼Dow'='down'）
-    dauten_direction = 'up' if dauten == '▲Dow' else 'down' if dauten == '▼Dow' else None
-    
     # トレンド方向とダウ転換が逆の場合、減点
-    if dauten_direction and dauten_direction != trend_direction:
+    if dauten != trend_direction:
         return deduction_rules['dauten_opposite']
     
     return 0
@@ -506,8 +503,8 @@ if __name__ == '__main__':
             'angle': 35.0,
             'thickness': 60.0,
             'distance_from_prev': 80.0,
-            'dauten': '▲Dow',
-            'gc': '▲GC',
+            'dauten': 'up',
+            'gc': True,
         }],
         'row_order': 'price,15m,1H,4H'
     }

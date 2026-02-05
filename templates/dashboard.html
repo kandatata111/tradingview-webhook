@@ -5180,7 +5180,7 @@ function calculateTrendWithConfig(cloud, config) {
     if (cloud.thickness !== null && cloud.thickness !== undefined) {
       const absThickness = Math.abs(cloud.thickness);
       if (absThickness >= config.thickness_threshold) {
-        thicknessUp = cloud.gc === true; // GC = 上昇, DC = 下降
+        thicknessUp = cloud.gc === '▲GC'; // GC = 上昇, DC = 下降
       } else {
         // 閾値を満たしていない場合はレンジ確定
         return 'レンジ';
@@ -5193,8 +5193,8 @@ function calculateTrendWithConfig(cloud, config) {
   
   // ダウ転チェック
   if (config.use_dauten) {
-    if (cloud.dauten) {
-      dautenUp = cloud.dauten === 'up';
+    if (cloud.dauten && cloud.dauten !== '-') {
+      dautenUp = cloud.dauten === '▲Dow';
     } else {
       // データがない場合はレンジ
       return 'レンジ';
@@ -5221,15 +5221,15 @@ function calculateTrendWithConfig(cloud, config) {
 
 function calculateTransferTimeDiff(cloud) {
   const dautenTimeStr = cloud.dauten_start_time_str;
-  const crossTimeStr = cloud.elapsed_str;
+  const crossTimeStr = cloud.cross_start_time_str; // elapsed_strではなくcross_start_time_strを使用
   if (!dautenTimeStr || !crossTimeStr || dautenTimeStr === '-' || crossTimeStr === '-') return { diff: null, sameDirection: false };
   
-  const dautenDir = cloud.dauten; // 'up' or 'down'
-  const crossDir = cloud.gc; // true or false
+  const dautenDir = cloud.dauten; // '▲Dow' or '▼Dow'
+  const crossDir = cloud.gc; // '▲GC' or '▼DC'
   
-  // 同方向チェック: dauten 'up' matches gc true (GC), dauten 'down' matches gc false (DC)
-  const dautenUp = dautenDir === 'up';
-  const crossUp = crossDir === true;
+  // 同方向チェック: dauten '▲Dow' matches gc '▲GC', dauten '▼Dow' matches gc '▼DC'
+  const dautenUp = dautenDir === '▲Dow';
+  const crossUp = crossDir === '▲GC';
   const sameDirection = dautenUp === crossUp;
   
   if (!sameDirection) return { diff: null, sameDirection: false };
@@ -5602,18 +5602,28 @@ function renderCurrencyTable(symbol, allStates, container) {
   const displayTfs = [baseTimeframe, ...config.upper];
   console.log(`[RENDER] ${symbol} - displayTfs:`, displayTfs, 'config.upper:', config.upper);
   
-  // 各時間足の表示ラベルを取得
-  const getTfLabel = (tf) => {
-    if (tf === '5') return '5m';
-    if (tf === '15') return '15m';
-    if (tf === '60') return '1H';
-    if (tf === '240') return '4H';
-    return tf; // D, W, Mはそのまま
+  // JSON形式のラベル（数値）を表示用ラベル（文字列）に変換
+  const getTfDisplayLabel = (jsonLabel) => {
+    if (jsonLabel === '5') return '5m';
+    if (jsonLabel === '15') return '15m';
+    if (jsonLabel === '60') return '1H';
+    if (jsonLabel === '240') return '4H';
+    return jsonLabel; // D, W, Mはそのまま
+  };
+  
+  // 表示用ラベルをJSON形式（数値）に変換
+  const getTfJsonLabel = (displayLabel) => {
+    if (displayLabel === '5m') return '5';
+    if (displayLabel === '15m') return '15';
+    if (displayLabel === '1H') return '60';
+    if (displayLabel === '4H') return '240';
+    return displayLabel; // D, W, Mはそのまま
   };
   
   displayTfs.forEach(tf => {
-    const label = getTfLabel(tf);
-    console.log(`[LOOP] ${symbol} TF=${tf} (label=${label})`);
+    // JSON形式のラベル（"15", "60"など）を使用
+    const jsonLabel = tf;
+    console.log(`[LOOP] ${symbol} TF=${tf} (jsonLabel=${jsonLabel})`);
     
     // 各時間足のデータを取得
     // 重要: 上位足のデータは常にbaseState.cloudsからのみ取得する
@@ -5627,86 +5637,65 @@ function renderCurrencyTable(symbol, allStates, container) {
       cloudData = baseState.clouds;
     } else {
       // 上位足は常にbaseState.cloudsからのみ取得
-      console.log(`[DATA] TF=${tf} - Searching in baseState.clouds for label ${label}`);
+      console.log(`[DATA] TF=${tf} - Searching in baseState.clouds for label ${jsonLabel}`);
       cloudData = baseState.clouds;
       if (cloudData && cloudData.length > 0) {
-        const cloudObj = cloudData.find(c => c.label === label);
+        const cloudObj = cloudData.find(c => c.label === jsonLabel);
         if (cloudObj) {
           // clouds配列から該当labelデータを見つけた
           sourceState = { ...baseState, clouds: [cloudObj] };
           console.log(`[DATA] TF=${tf} - Found in baseState.clouds:`, cloudObj);
         } else {
           // データが無い場合は警告のみ（フォールバックしない）
-          console.warn(`[DATA] TF=${tf} - Label ${label} not found in baseState.clouds - データ欠損`);
+          console.warn(`[DATA] TF=${tf} - Label ${jsonLabel} not found in baseState.clouds - データ欠損`);
         }
       }
     }
     
-    console.log(`[DATA] TF=${tf}, Label=${label}, State:`, sourceState);
+    console.log(`[DATA] TF=${tf}, Label=${jsonLabel}, State:`, sourceState);
     
     if (sourceState && sourceState.clouds && sourceState.clouds.length > 0) {
       console.log(`[DATA] TF=${tf} has ${sourceState.clouds.length} clouds:`, sourceState.clouds);
       
       // clouds配列から該当labelのデータを探す（雲情報用）
-      let cloud = sourceState.clouds.find(c => c.label === label);
+      // 重要：各時間足のダウ転情報は、その時間足自身のチャートから送信されたclouds配列に含まれている
+      // 例：label=60のダウ転情報は、upperStates[60].cloudsのlabel=60の雲に含まれる
+      let cloud = null;
+      
+      if (tf === baseTimeframe) {
+        // 主体時間足の場合はbaseState.cloudsから取得
+        cloud = sourceState.clouds.find(c => c.label === jsonLabel);
+      } else {
+        // 上位足の場合は、その時間足自身のclouds配列から取得（ダウ転情報が正しく含まれている）
+        if (upperStates[tf] && upperStates[tf].clouds) {
+          cloud = upperStates[tf].clouds.find(c => c.label === jsonLabel);
+          console.log(`[DATA] TF=${tf} - Searching in upperStates[${tf}].clouds for label ${jsonLabel}:`, cloud);
+        }
+        // 見つからない場合はbaseState.cloudsから取得（フォールバック）
+        if (!cloud) {
+          cloud = sourceState.clouds.find(c => c.label === jsonLabel);
+        }
+      }
       
       // なければ1番目の要素を使用（labelは上書き）
       if (!cloud) {
-        console.log(`[DATA] TF=${tf} - Label ${label} not found in clouds, using first element`);
-        cloud = { ...sourceState.clouds[0], label: label };
+        console.log(`[DATA] TF=${tf} - Label ${jsonLabel} not found in clouds, using first element`);
+        cloud = { ...sourceState.clouds[0], label: jsonLabel };
       } else {
-        console.log(`[DATA] TF=${tf} - Found cloud with label ${label}:`, cloud);
+        console.log(`[DATA] TF=${tf} - Found cloud with label ${jsonLabel}:`, cloud);
         cloud = { ...cloud };
       }
       
-      // ダウ情報（ダウ転、突破数、ダウ時間）は各時間足の独立したdaytradeからのみ取得
-      // 取得できない場合はデータ欠損として扱う（フォールバックしない）
-      let dautenSource = null;
-      console.log(`[DAUTEN_LOGIC] TF=${tf}, baseTimeframe=${baseTimeframe}, check: tf===baseTimeframe = ${tf === baseTimeframe}`);
-      if (tf === baseTimeframe) {
-        // 主体時間足の場合
-        dautenSource = baseState.daytrade;
-        console.log(`[DATA] TF=${tf} - Using baseState.daytrade:`, dautenSource);
-      } else {
-        console.log(`[DAUTEN_LOGIC] TF=${tf} - Not baseTimeframe, checking upperStates[${tf}]...`, {
-          exists: !!upperStates[tf],
-          has_daytrade: !!upperStates[tf]?.daytrade
-        });
-        if (upperStates[tf] && upperStates[tf].daytrade) {
-          // 上位足の独立したdaytradeを使用
-          dautenSource = upperStates[tf].daytrade;
-          console.log(`[DATA] TF=${tf} - Using upperStates[${tf}].daytrade:`, dautenSource);
-        } else {
-          // 独立したdaytradeが無い場合はデータ欠損として扱う
-          console.warn(`[DATA] TF=${tf} - No independent daytrade found - ダウ情報欠損`);
-          cloud.dauten = null;
-          cloud.bos_count = null;
-          cloud.dauten_start_time_str = null;
-        }
+      // cloudオブジェクトには既に各時間足のダウ転情報（dauten, dauten_start_time_str）が含まれている
+      // 主体時間足の場合のみBOSカウントをdaytradeから取得、上位足はcloudオブジェクトの情報をそのまま使用
+      if (tf === baseTimeframe && baseState.daytrade) {
+        // 主体時間足の場合のみdaytradeからBOSカウントを取得
+        cloud.bos_count = baseState.daytrade.bos || '-';
+        console.log(`[DATA] TF=${tf} - Applied baseState.daytrade bos: ${cloud.bos_count}`);
       }
+      // 上位足の場合、cloudオブジェクトに既に含まれているdauten情報をそのまま使用（追加処理不要）
       
-      // dautenSourceがある場合のみダウ情報を設定
-      if (dautenSource) {
-        cloud.bos_count = dautenSource.bos || '-';
-        
-        // daytrade.statusを'up'/'down'に変換（"上昇ダウ" → 'up', "下降ダウ" → 'down'）
-        if (dautenSource.status) {
-          const statusStr = dautenSource.status;
-          if (statusStr.includes('上昇')) {
-            cloud.dauten = 'up';
-          } else if (statusStr.includes('下降')) {
-            cloud.dauten = 'down';
-          } else {
-            console.warn(`[DATA] Unknown daytrade.status: ${statusStr}`);
-            cloud.dauten = null;
-          }
-        } else {
-          cloud.dauten = null;
-        }
-        
-        cloud.dauten_start_time_str = dautenSource.time || '-';
-        console.log(`[DATA] TF=${tf} - Applied daytrade - dauten:${cloud.dauten}, bos:${cloud.bos_count}, time:${cloud.dauten_start_time_str}`);
-      }
+      console.log(`[DATA] TF=${tf} - Final cloud data - dauten:${cloud.dauten}, bos:${cloud.bos_count || '-'}, time:${cloud.dauten_start_time_str || '-'}`);
       
       mergedClouds.push(cloud);
       console.log(`[DATA] TF=${tf} - Merged cloud - dauten:${cloud.dauten}, angle:${cloud.angle}, dist_prev:${cloud.distance_from_prev}, dist_price:${cloud.distance_from_price}`);
@@ -5735,14 +5724,13 @@ function renderCurrencyTable(symbol, allStates, container) {
     if (label === 'price') {
       orderedRows.push({ type: 'price', price: baseState.price });
     } else {
-      // labelを変換（'15' → '15m', '60' → '1H', など）
-      const displayLabel = getTfLabel(label);
-      const cloud = mergedClouds.find(c => c.label === displayLabel);
+      // labelは既にJSON形式（"15", "60"など）なので、そのまま検索
+      const cloud = mergedClouds.find(c => c.label === label);
       if (cloud) {
         orderedRows.push({ type: 'cloud', ...cloud });
-        console.log('[RENDER] Added cloud for', label, '→', displayLabel, ':', cloud);
+        console.log('[RENDER] Added cloud for', label, ':', cloud);
       } else {
-        console.warn('[RENDER] Cloud not found for', label, '→', displayLabel);
+        console.warn('[RENDER] Cloud not found for', label);
       }
     }
   });
@@ -5760,28 +5748,43 @@ function renderCurrencyTable(symbol, allStates, container) {
       const c = row;
       html += '<tr>';
       
+      // JSON形式のラベルを表示用に変換
+      const displayLabel = getTfDisplayLabel(c.label);
+      
       let tfBgColor = '';
-      if (c.label === '5m') tfBgColor = '#a9e88c';
-      else if (c.label === '15m') tfBgColor = '#fbd0b2';
-      else if (c.label === '1H') tfBgColor = '#8dc7fc';
-      else if (c.label === '4H') tfBgColor = '#fa8dfe';
-      else if (c.label === 'D') tfBgColor = '#dccb9c';
-      else if (c.label === 'W') tfBgColor = '#d99ee6';
-      else if (c.label === 'M') tfBgColor = '#c0c0c0';
+      if (displayLabel === '5m') tfBgColor = '#a9e88c';
+      else if (displayLabel === '15m') tfBgColor = '#fbd0b2';
+      else if (displayLabel === '1H') tfBgColor = '#8dc7fc';
+      else if (displayLabel === '4H') tfBgColor = '#fa8dfe';
+      else if (displayLabel === 'D') tfBgColor = '#dccb9c';
+      else if (displayLabel === 'W') tfBgColor = '#d99ee6';
+      else if (displayLabel === 'M') tfBgColor = '#c0c0c0';
       
       if (tfBgColor) {
-        html += '<td class="tf-label" style="background:' + tfBgColor + '; color:#000">' + c.label + '</td>';
+        html += '<td class="tf-label" style="background:' + tfBgColor + '; color:#000">' + displayLabel + '</td>';
       } else {
-        html += '<td class="tf-label col-cloud-label">' + c.label + '</td>';
+        html += '<td class="tf-label col-cloud-label">' + displayLabel + '</td>';
       }
 
       let dautenColor = '';
-      if (c.dauten === 'up') dautenColor = '#2962ff';
-      else if (c.dauten === 'down') dautenColor = '#f23645';
+      let dautenText = '-';
+      if (c.dauten === '▲Dow' || c.dauten === 'up') {
+        dautenColor = '#2962ff';
+        dautenText = '▲Dow';
+      } else if (c.dauten === '▼Dow' || c.dauten === 'down') {
+        dautenColor = '#f23645';
+        dautenText = '▼Dow';
+      }
 
       let gcColor = '';
-      if (c.gc === true) gcColor = '#2962ff';
-      else if (c.gc === false) gcColor = '#f23645';
+      let gcText = '-';
+      if (c.gc === '▲GC') {
+        gcColor = '#2962ff';
+        gcText = '▲GC';
+      } else if (c.gc === '▼DC') {
+        gcColor = '#f23645';
+        gcText = '▼DC';
+      }
 
       let bosVal = c.bos_count;
 
@@ -5799,8 +5802,8 @@ function renderCurrencyTable(symbol, allStates, container) {
       const th = toNum(c.thickness);
       const thColor = (th !== null ? (th > 0 ? '#2962ff' : (th < 0 ? '#f23645' : '')) : '');
 
-      if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
-      else html += '<td>' + (c.dauten === 'up' ? '▲Dow' : (c.dauten === 'down' ? '▼Dow' : '-')) + '</td>';
+      if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + dautenText + '</td>';
+      else html += '<td>' + dautenText + '</td>';
 
       // bosValはdaytrade.bosから来るので既に"BOS-1"形式の文字列、または数値の可能性あり
       let displayBos = '-';
@@ -5820,8 +5823,8 @@ function renderCurrencyTable(symbol, allStates, container) {
         html += '<td>' + displayBos + '</td>';
       }
 
-      if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + (c.gc ? '▲GC' : '▼DC') + '</td>';
-      else html += '<td>' + (c.gc ? '▲GC' : '▼DC') + '</td>';
+      if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + gcText + '</td>';
+      else html += '<td>' + gcText + '</td>';
 
       if (prevColor) html += '<td style="background:' + prevColor + '; color:#fff">' + (prev !== null ? prev.toFixed(1) : '-') + '</td>';
       else html += '<td>' + (prev !== null ? prev.toFixed(1) : '-') + '</td>';
@@ -5841,10 +5844,12 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + dautenTimeFormatted + '</td>';
       else html += '<td>' + dautenTimeFormatted + '</td>';
 
-      const elapsedTimeFormatted = formatElapsedTime(c.elapsed_str || '-', timeFormat);
-      if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + elapsedTimeFormatted + '</td>';
-      else html += '<td>' + elapsedTimeFormatted + '</td>';
+      const crossTimeFormatted = formatElapsedTime(c.cross_start_time_str || '-', timeFormat);
+      if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + crossTimeFormatted + '</td>';
+      else html += '<td>' + crossTimeFormatted + '</td>';
 
+      console.log(`[BEFORE_TIMEDIFF] ${symbol}/${c.label}: About to calculate time difference`);
+      
       const timeDiffResult = calculateTransferTimeDiff(c);
       const timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
       let timeDiffBg = '';
@@ -5859,6 +5864,8 @@ function renderCurrencyTable(symbol, allStates, container) {
       } else {
         html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
       }
+      
+      console.log(`[BEFORE_TREND] ${symbol}/${c.label}: About to calculate trend strength`);
       
       // ★ トレンド強度判定（v2ロジック）- サーバーから受け取ったデータを使用
       // c.label（各TFの雲データ）に対応するstateを探す
@@ -5881,28 +5888,40 @@ function renderCurrencyTable(symbol, allStates, container) {
         tfState = allStates.find(s => s.symbol === symbol && tfVariants.includes(s.tf));
       }
       
+      // デバッグ：tfStateの存在を確認
+      console.log(`[DEBUG] ${symbol}/${c.label}: tfState found=${!!tfState}, allStates.length=${allStates.length}`);
+      if (tfState) {
+        console.log(`[DEBUG] ${symbol}/${c.label}: tfState.trend_direction=${tfState.trend_direction}, tfState.trend_score=${tfState.trend_score}, tfState.trend_percentage=${tfState.trend_percentage}`);
+      }
+      
       let trendScore = 0;
       let trendColor = '#9c9c9c'; // デフォルト: グレー（レンジ）
       let trendDisplay = '00% □□□□';
       
       // 方向を判定（trend_direction: 'up'=上昇, 'down'=下降, 'range'=レンジ）
-      const direction = tfState && tfState.trend_direction ? tfState.trend_direction : null;
+      const direction = tfState && tfState.trend_direction ? tfState.trend_direction : 'range';
       
-      if (tfState && tfState.trend_strength && direction && direction !== 'range') {
-        trendScore = tfState.trend_score || 0;
-        
-        // 方向に応じた背景色を設定
-        trendColor = (direction === 'up') ? '#06b7f9' : '#ff57ea'; // 上昇:青, 下降:ピンク
-        
-        // パーセント計算（0-100%）
-        const percentage = Math.min(100, Math.max(0, trendScore));
-        const percentStr = String(percentage).padStart(2, '0');
-        
-        // ゲージバー: 4個の四角で表現（各25%刻み）
-        // 0-25%: □□□□
-        // 26-50%: ■□□□
-        // 51-75%: ■■□□
-        // 76-100%: ■■■□ または ■■■■
+      // トレンドスコアを取得
+      trendScore = tfState && tfState.trend_score ? tfState.trend_score : 0;
+      const percentage = tfState && tfState.trend_percentage !== undefined ? tfState.trend_percentage : Math.min(100, Math.max(0, trendScore));
+      const percentStr = String(percentage).padStart(2, '0');
+      
+      // デバッグログ
+      console.log(`[TREND] ${symbol}/${c.label}: direction=${direction}, score=${trendScore}, percentage=${percentage}`);
+      
+      // 方向に応じた背景色を設定（方向が優先、スコアは二次的）
+      // レンジ判定: スコア0-19点、または direction='range'
+      if (direction === 'up') {
+        trendColor = '#06b7f9'; // 上昇: 青
+      } else if (direction === 'down') {
+        trendColor = '#ff57ea'; // 下降: ピンク
+      } else {
+        trendColor = '#9c9c9c'; // レンジ: グレー
+      }
+      
+      // ゲージバー: 4個の四角で表現（各25%刻み）
+      if (direction !== 'range') {
+        // トレンドがある場合
         const gaugeCount = Math.round(percentage / 25);
         const fullBars = '■'.repeat(gaugeCount);
         const emptyBars = '□'.repeat(4 - gaugeCount);
@@ -5910,18 +5929,43 @@ function renderCurrencyTable(symbol, allStates, container) {
         
         trendDisplay = percentStr + '% ' + gaugeBar;
       } else {
-        // 横トレンド（direction='range' または directionなし）
-        trendScore = tfState && tfState.trend_score ? tfState.trend_score : 0;
-        trendColor = '#9c9c9c'; // グレー（0-19点がレンジ判定）
-        
-        const percentage = Math.min(100, Math.max(0, trendScore));
-        const percentStr = String(percentage).padStart(2, '0');
-        
+        // レンジの場合
         trendDisplay = percentStr + '% □□□□'; // すべてくり抜き
       }
       
+      // Tooltip用のスコアリングルール情報
+      const tooltipText = `
+【スコアリングルール v5.0】
+
+基本スコア: 100点（3TF揃った状態）
+
+減点ルール表（各時間足ごと）:
+┌─────────────────┬───────┬───────┬───────┬─────────┐
+│ 項目             │ 短期  │ 中期  │ 長期  │ 超長期  │
+├─────────────────┼───────┼───────┼───────┼─────────┤
+│角度弱さ(20°以下)│ -10点 │ -15点 │ -20点 │ -20点   │
+│角度逆方向(30°以下)│ -20点│ -30点 │ -40点 │ -40点   │
+│角度逆方向(30°以上)│ -30点│ -45点 │ -60点 │ -60点   │
+│厚さ不足(≤5Pips)  │ -10点 │ -15点 │ -20点 │ -20点   │
+│雲交差逆方向      │ -10点 │ -15点 │ -20点 │ -20点   │
+│ダウ逆方向        │ -10点 │ -10点 │ -10点 │ -10点   │
+└─────────────────┴───────┴───────┴───────┴─────────┘
+
+特別ルール:
+超長期が70Pips以上価格と距離を確保できていれば、
+超長期に関する全ての減点なし
+
+判定閾値:
+80-100点: 強いトレンド
+60-79点:  トレンド
+40-59点:  弱いトレンド
+20-39点:  非常に弱いトレンド
+0-19点:   レンジ/無効
+`;
+      
       // トレンド強度を表示（パーセント + ゲージバー）
-      html += '<td style="background:' + trendColor + '; color:#fff; font-weight:bold; font-size:0.95em; font-family: monospace; letter-spacing: 0.1em;">' + 
+      html += '<td style="background:' + trendColor + '; color:#fff; font-weight:bold; font-size:0.95em; font-family: monospace; letter-spacing: 0.1em; cursor:help;" ' +
+              'title="' + tooltipText.replace(/"/g, '&quot;').replace(/\n/g, '&#10;') + '">' + 
               trendDisplay +
               '</td></tr>';
     }

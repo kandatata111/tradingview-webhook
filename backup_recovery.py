@@ -47,9 +47,10 @@ def extract_json_from_email_body(body):
     # デバッグ: 本文の一部を表示
     print(f'[DEBUG] Body length: {len(body_decoded)} chars')
     if len(body_decoded) > 0:
-        # 最初の500文字を表示
+        # 最初の500文字を表示（ASCII形式で安全に）
         preview = body_decoded[:500].replace('\n', '\\n').replace('\r', '\\r')
-        print(f'[DEBUG] Body preview: {preview}')
+        safe_preview = preview.encode('ascii', 'backslashreplace').decode('ascii')
+        print(f'[DEBUG] Body preview: {safe_preview}')
     
     # {"symbol" から始まる JSON を探す
     pos = body_decoded.find('{"symbol"')
@@ -86,7 +87,9 @@ def extract_json_from_email_body(body):
                 depth -= 1
                 if depth == 0:
                     json_str = body_decoded[pos:i+1]
-                    print(f'[DEBUG] Extracted JSON string (length={len(json_str)}): {json_str[:200]}...')
+                    # Unicode文字をASCII形式でエンコードして安全に表示
+                    safe_preview = json_str[:200].encode('ascii', 'backslashreplace').decode('ascii')
+                    print(f'[DEBUG] Extracted JSON string (length={len(json_str)}): {safe_preview}...')
                     try:
                         data = json.loads(json_str)
                         if 'symbol' in data and 'tf' in data:
@@ -102,19 +105,24 @@ def extract_json_from_email_body(body):
     print('[DEBUG] Failed to extract valid JSON')
     return None
 
-def save_json_to_file(json_data):
+def save_json_to_file(json_data, email_received_time=None):
     """
     JSON データをローカルファイルに保存
     フォルダ構造: TradingViewBackup_JSON/SYMBOL/TF/YYYYMMDD_HHMMSS_time.json
+    
+    Args:
+        json_data: JSONデータ
+        email_received_time: メール受信日時（ミリ秒単位タイムスタンプ）
     """
     try:
         symbol = json_data.get('symbol', 'UNKNOWN')
         tf = json_data.get('tf', '5')
-        time_ms = json_data.get('time', 0)
+        # Pine Scriptから送信された send_time を優先、なければ time フィールドを使用
+        time_ms = json_data.get('send_time', json_data.get('time', 0))
         
         # デバッグ: D, W, M, Yの場合はログ出力
         if tf in ('D', 'W', 'M', 'Y'):
-            print(f'[DEBUG] Processing {symbol} {tf}: has clouds={("clouds" in json_data)}, time={time_ms}')
+            print(f'[DEBUG] Processing {symbol} {tf}: has clouds={("clouds" in json_data)}, send_time={json_data.get("send_time", "N/A")}, time={json_data.get("time", "N/A")}, time_ms={time_ms}')
         
         # 時間足を正規化（15m, 1H, 4H, D, W, M, Y）
         tf_normalized = tf
@@ -130,12 +138,19 @@ def save_json_to_file(json_data):
             tf_normalized = tf  # D, W, M, Y はそのまま
         
         # タイムスタンプからファイル名を生成（YYYYMMDD_HHMMSS_TF_timestamp形式）
-        if time_ms:
+        # 優先順位: 1. email_received_time, 2. time_ms, 3. 現在時刻
+        if email_received_time and email_received_time > 0:
+            dt = datetime.fromtimestamp(email_received_time / 1000, tz=JST)
+            filename = dt.strftime('%Y%m%d_%H%M%S') + f'_{tf_normalized}_{email_received_time}.json'
+            print(f'[INFO] Using email_received_time: {email_received_time} -> {filename}')
+        elif time_ms and time_ms > 0:
             dt = datetime.fromtimestamp(time_ms / 1000, tz=JST)
             filename = dt.strftime('%Y%m%d_%H%M%S') + f'_{tf_normalized}_{time_ms}.json'
+            print(f'[INFO] Using time_ms: {time_ms} -> {filename}')
         else:
-            # time がない場合は現在時刻
-            filename = datetime.now(JST).strftime('%Y%m%d_%H%M%S') + f'_{tf_normalized}_no_time.json'
+            now_ms = int(datetime.now(JST).timestamp() * 1000)
+            filename = datetime.now(JST).strftime('%Y%m%d_%H%M%S') + f'_{tf_normalized}_{now_ms}.json'
+            print(f'[WARNING] No valid timestamp. email_received_time={email_received_time}, time_ms={time_ms}, using now: {now_ms}')
         
         # フォルダ作成
         folder_path = Path(BACKUP_DIR) / symbol / tf_normalized
@@ -156,10 +171,11 @@ def save_json_to_file(json_data):
         return True
         
     except Exception as e:
-        print(f'[ERROR] Failed to save JSON: {e}')
+        error_msg = str(e).encode('ascii', 'backslashreplace').decode('ascii')
+        print(f'[ERROR] Failed to save JSON: {error_msg}')
         return False
 
-def fetch_from_gmail(max_results=100, mark_as_read=False):
+def fetch_from_gmail(max_results=500, mark_as_read=False):
     """
     Gmail から TradingView メールを取得して保存
     
@@ -314,12 +330,18 @@ def fetch_from_gmail(max_results=100, mark_as_read=False):
                     skip_count += 1
                     continue
                 
+                print(f'[DEBUG] Body extracted, length={len(body)} chars')
+                
                 # JSON を抽出
                 json_data = extract_json_from_email_body(body)
                 
                 if json_data:
-                    # ファイルに保存
-                    saved = save_json_to_file(json_data)
+                    # メールの受信日時を取得（internalDateはミリ秒単位のタイムスタンプ）
+                    email_time_ms = int(message.get('internalDate', 0))
+                    print(f'[DEBUG] Email ID={msg["id"]}, internalDate={message.get("internalDate")}, email_time_ms={email_time_ms}')
+                    
+                    # ファイルに保存（メール受信日時を渡す）
+                    saved = save_json_to_file(json_data, email_received_time=email_time_ms)
                     if saved:
                         success_count += 1
                     else:
@@ -337,7 +359,9 @@ def fetch_from_gmail(max_results=100, mark_as_read=False):
                     skip_count += 1
                     
             except Exception as e:
-                print(f'[ERROR] Failed to process message {msg["id"]}: {e}')
+                # Unicode文字を含むエラーメッセージを安全に出力
+                error_msg = str(e).encode('ascii', 'backslashreplace').decode('ascii')
+                print(f'[ERROR] Failed to process message {msg["id"]}: {error_msg}')
                 error_count += 1
                 continue
         
@@ -345,7 +369,8 @@ def fetch_from_gmail(max_results=100, mark_as_read=False):
         return (success_count, skip_count, error_count)
         
     except Exception as e:
-        print(f'[CRITICAL ERROR] Gmail API failed: {e}')
+        error_msg = str(e).encode('ascii', 'backslashreplace').decode('ascii')
+        print(f'[CRITICAL ERROR] Gmail API failed: {error_msg}')
         import traceback
         traceback.print_exc()
         return (0, 0, 1)

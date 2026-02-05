@@ -1034,10 +1034,10 @@ def calculate_currency_strength_data():
             for item in breakdown:
                 print(f'  - {item}')
         
-        # %表示を追加（±400点=±100%）
+        # %表示を追加（±100点=±100%）
         currencies_with_percent = []
         for currency, score in sorted_currencies:
-            percentage = int((score / 400.0) * 100)
+            percentage = int((score / 100.0) * 100)
             currencies_with_percent.append({
                 'currency': currency,
                 'score': int(score),
@@ -1851,6 +1851,7 @@ def current_states():
                 d['trend_strength'] = trend_result['strength']  # 横/弱/中/強/極
                 d['trend_score'] = trend_result['score']  # 0-100点
                 d['trend_direction'] = trend_result['direction']  # 'up', 'down', 'range'
+                d['trend_percentage'] = int((trend_result['score'] / 100.0) * 100)  # パーセント表示（0-100%）
                 d['trend_breakdown'] = trend_result.get('breakdown', {})  # 詳細内訳
                 print(f'[TREND] {symbol}/{tf}(→{tf_normalized}): {trend_result["strength"]} ({trend_result["score"]}点) {trend_result["direction"]}')
             except Exception as trend_err:
@@ -1858,6 +1859,7 @@ def current_states():
                 import traceback
                 traceback.print_exc()
                 d['trend_score'] = 0
+                d['trend_percentage'] = 0
                 d['trend_breakdown'] = {}
             
             print(f'[INFO] State: {d.get("symbol")}/{d.get("tf")} (clouds={clouds_count})')
@@ -2882,7 +2884,7 @@ def api_backup_fetch():
         
         # バックグラウンドで実行
         result = subprocess.run(
-            [python_exe, script_path, '--fetch', '--max', '200'],
+            [python_exe, script_path, '--fetch', '--max', '500'],
             capture_output=True,
             text=True,
             timeout=120
@@ -5086,7 +5088,7 @@ if __name__ == '__main__':
                 
                 # 実行
                 result = subprocess.run(
-                    [python_exe, script_path, '--fetch', '--max', '50'],
+                    [python_exe, script_path, '--fetch', '--max', '500'],
                     capture_output=True,
                     text=True,
                     timeout=120
