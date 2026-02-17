@@ -254,7 +254,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 .gauge-cell { width: 150px; min-width: 150px; max-width: 150px; }
 .gauge-wrapper { position: relative; height: 10px; border: 1px solid rgba(255,255,255,0.9); border-radius: 3px; overflow: hidden; padding: 2px; }
 .gauge-fill { position: absolute; top: 2px; left: 2px; bottom: 2px; background: rgba(255,255,255,0.98); border-radius: 2px; transition: width 0.3s ease; }
-.gauge-sep { position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; background: repeating-linear-gradient(to right, transparent 0%, transparent calc(20% - 0.5px), rgba(0,0,0,0.15) calc(20% - 0.5px), rgba(0,0,0,0.15) calc(20% + 0.5px)); pointer-events: none; }
+.gauge-sep { position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; pointer-events: none; }
 
 /* ドラッグ&ドロップ用のスタイル */
 .currency-cell {
@@ -6067,10 +6067,11 @@ function renderCurrencyTable(symbol, allStates, container) {
       }
       const segCount = Math.floor(gaugePercentage / 20); // 0..5
       const gaugeTitle = '強度: ' + gaugePercentage + '% (' + segCount + '/5)';
+      const sepBg = 'repeating-linear-gradient(to right, transparent 0%, transparent calc(20% - 0.5px), ' + cellBg + ' calc(20% - 0.5px), ' + cellBg + ' calc(20% + 0.5px))';
       const gaugeHtml = '<td class="gauge-cell" style="background:' + cellBg + '; padding:2px;">' +
                           '<div class="gauge-wrapper" role="img" aria-label="' + gaugeTitle + '" title="' + gaugeTitle + '">' +
                             '<div class="gauge-fill" style="width:' + gaugePercentage + '%"></div>' +
-                            '<div class="gauge-sep"></div>' +
+                            '<div class="gauge-sep" style="background:' + sepBg + '"></div>' +
                           '</div>' +
                         '</td></tr>';
       console.log(`[HTML_RENDER] ${symbol}/${c.label}: trendColor=${cellBg}, direction=${direction}, trendDisplay=${cellContent}`);
