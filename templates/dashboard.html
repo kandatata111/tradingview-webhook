@@ -6042,6 +6042,7 @@ function renderCurrencyTable(symbol, allStates, container) {
       // 受信した cloud.trend があればその表記（例: ▼080%-PX）を優先表示する
       let cellContent = '';
       let cellBg = trendColor;
+      let gaugePercentage = percentage; // ゲージ用の％（デフォルトはtfState.trend_percentage）
       if (c.trend) {
         // 受信済みのラベル文字列をそのまま表示
         const labelStr = String(c.trend);
@@ -6050,6 +6051,11 @@ function renderCurrencyTable(symbol, allStates, container) {
         else if (labelStr.startsWith('▼')) cellBg = '#ff57ea';
         else cellBg = '#9c9c9c';
         cellContent = labelStr;
+        // c.trendから％を抽出してゲージに使用（例: "▼074%-XX" → 74）
+        const matchPercent = labelStr.match(/(\d{1,3})%/);
+        if (matchPercent) {
+          gaugePercentage = parseInt(matchPercent[1], 10);
+        }
       } else {
         cellContent = trendDisplay;
       }
@@ -6058,12 +6064,12 @@ function renderCurrencyTable(symbol, allStates, container) {
               'title="' + tooltipText.replace(/"/g, '&quot;').replace(/\n/g, '&#10;') + '">' + 
               cellContent +
               '</td>';
-      // 強度ゲージ（C2: スムーズ + 5分割目盛）
-      const segCount = Math.floor(percentage / 20); // 0..5
-      const gaugeTitle = '強度: ' + percentage + '% (' + segCount + '/5)';
+      // 強度ゲージ（C2: スムーズ + 5分割目盛）— トレンド列と同じ％を使用
+      const segCount = Math.floor(gaugePercentage / 20); // 0..5
+      const gaugeTitle = '強度: ' + gaugePercentage + '% (' + segCount + '/5)';
       const gaugeHtml = '<td class="gauge-cell" style="background:' + cellBg + '; padding:6px 8px;">' +
                           '<div class="gauge-wrapper" role="img" aria-label="' + gaugeTitle + '" title="' + gaugeTitle + '">' +
-                            '<div class="gauge-fill" style="width:' + percentage + '%"></div>' +
+                            '<div class="gauge-fill" style="width:' + gaugePercentage + '%"></div>' +
                             '<div class="gauge-sep"></div>' +
                           '</div>' +
                         '</td></tr>';
