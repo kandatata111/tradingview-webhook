@@ -5741,13 +5741,14 @@ function renderCurrencyTable(symbol, allStates, container) {
     if (label === 'price') {
       orderedRows.push({ type: 'price', price: baseState.price });
     } else {
-      // labelは既にJSON形式（"15", "60"など）なので、そのまま検索
-      const cloud = mergedClouds.find(c => c.label === label);
+      // labelを数値コードに変換してから検索
+      const jsonLabel = getTfJsonLabel(label);
+      const cloud = mergedClouds.find(c => c.label === jsonLabel);
       if (cloud) {
         orderedRows.push({ type: 'cloud', ...cloud });
-        console.log('[RENDER] Added cloud for', label, ':', cloud);
+        console.log('[RENDER] Added cloud for', label, '(json:', jsonLabel, '):', cloud);
       } else {
-        console.warn('[RENDER] Cloud not found for', label);
+        console.warn('[RENDER] Cloud not found for', label, '(json:', jsonLabel, ')');
       }
     }
   });

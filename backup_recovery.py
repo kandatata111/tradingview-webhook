@@ -124,16 +124,16 @@ def save_json_to_file(json_data, email_received_time=None):
         if tf in ('D', 'W', 'M', 'Y'):
             print(f'[DEBUG] Processing {symbol} {tf}: has clouds={("clouds" in json_data)}, send_time={json_data.get("send_time", "N/A")}, time={json_data.get("time", "N/A")}, time_ms={time_ms}')
         
-        # 時間足を正規化（15m, 1H, 4H, D, W, M, Y）
+        # 時間足を正規化（JSON表現は数値コードに統一）
         tf_normalized = tf
-        if tf == '5':
-            tf_normalized = '5m'
-        elif tf == '15':
-            tf_normalized = '15m'
-        elif tf in ('1', '60'):
-            tf_normalized = '1H'
-        elif tf in ('4', '240'):
-            tf_normalized = '4H'
+        if tf in ('5','5m','5M'):
+            tf_normalized = '5'
+        elif tf in ('15','15m','15M'):
+            tf_normalized = '15'
+        elif tf in ('1','60','1H','1h'):
+            tf_normalized = '60'
+        elif tf in ('4','240','4H','4h'):
+            tf_normalized = '240'
         elif tf in ('D', 'W', 'M', 'Y'):
             tf_normalized = tf  # D, W, M, Y はそのまま
         

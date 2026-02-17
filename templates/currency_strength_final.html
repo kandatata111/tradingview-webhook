@@ -514,6 +514,33 @@
                 平均
               </label>
             </div>
+
+            <!-- 正規化 / クリップ設定 -->
+            <div style="margin-top:16px;border-top:1px dashed #333;padding-top:12px;">
+              <div class="subsection-title">正規化 / クリップ設定</div>
+              <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+                <div style="display:flex;flex-direction:column;gap:6px;min-width:220px;">
+                  <label>通貨強弱正規化 (理論Max: 400)</label>
+                  <div style="display:flex;gap:8px;align-items:center;">
+                    <input id="currencyNormBase" type="number" min="1" max="400" value="350" style="width:100px;padding:6px;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;">
+                    <small style="color:#94a3b8;">(表示基準 — 通貨の生スコアをこの値で割って%算出)</small>
+                  </div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:6px;min-width:220px;">
+                  <label>推奨ペア正規化 (理論Max: 800)</label>
+                  <div style="display:flex;gap:8px;align-items:center;">
+                    <input id="pairNormBase" type="number" min="1" max="800" value="700" style="width:100px;padding:6px;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;">
+                    <small style="color:#94a3b8;">(pair_score をこの値で割って%算出)</small>
+                  </div>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:8px;min-width:320px;">
+                  <input type="checkbox" id="clipEnabled" checked>
+                  <label style="font-size:0.95em;">生スコアが&nbsp;<input id="clipThreshold" type="number" min="1" max="400" value="350" style="width:80px;padding:6px;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;display:inline-block;margin-left:6px;"> を超える場合は <strong>100%</strong> でクリップ（表示上）</label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -627,6 +654,7 @@
     // 設定の保存キー
     const STORAGE_KEY_VOICE_SETTINGS = 'currencyStrengthVoiceSettings';
     const STORAGE_KEY_ZOOM = 'currencyStrengthZoom';
+    const STORAGE_KEY_DISPLAY_SETTINGS = 'currencyStrengthDisplaySettings';
     
     // 変更履歴を表示（サーバーから取得）
     async function renderChangeHistory() {
@@ -706,6 +734,22 @@
         };
         localStorage.setItem(STORAGE_KEY_VOICE_SETTINGS, JSON.stringify(settings));
         
+        // 表示設定（persist displaySettings subset）
+        const displayPrefs = {
+          showCurrencies: displaySettings.showCurrencies,
+          showRecommended: displaySettings.showRecommended,
+          show15m: displaySettings.show15m,
+          show1H: displaySettings.show1H,
+          show4H: displaySettings.show4H,
+          showD: displaySettings.showD,
+          showAv: displaySettings.showAv,
+          currencyNormalizationBase: displaySettings.currencyNormalizationBase,
+          pairNormalizationBase: displaySettings.pairNormalizationBase,
+          clipEnabled: displaySettings.clipEnabled,
+          clipThreshold: displaySettings.clipThreshold
+        };
+        localStorage.setItem(STORAGE_KEY_DISPLAY_SETTINGS, JSON.stringify(displayPrefs));
+
         // ズーム設定を保存
         const zoomLevel = document.getElementById('zoomLevel').value;
         localStorage.setItem(STORAGE_KEY_ZOOM, zoomLevel);
@@ -717,7 +761,7 @@
           saveMsg.style.display = 'none';
         }, 2000);
         
-        console.log('[SAVE] 設定を保存しました:', settings, 'zoom:', zoomLevel);
+        console.log('[SAVE] 設定を保存しました:', settings, 'displayPrefs:', displayPrefs, 'zoom:', zoomLevel);
       } catch (e) {
         console.error('[SAVE] 設定の保存に失敗:', e);
         alert('設定の保存に失敗しました');
@@ -756,6 +800,43 @@
               voiceNotificationSettings.customMessages[tf] = settings.customMessages[tf];
             }
           });
+        }
+
+        // 表示設定を読み込み
+        try {
+          const savedDisplay = localStorage.getItem(STORAGE_KEY_DISPLAY_SETTINGS);
+          if (savedDisplay) {
+            const dsp = JSON.parse(savedDisplay);
+            console.log('[LOAD] 表示設定を読み込み:', dsp);
+
+            // チェックボックス類
+            ['showCurrencies','showRecommended','show15m','show1H','show4H','showD','showAv'].forEach(id => {
+              if (dsp[id] !== undefined) {
+                document.getElementById(id).checked = dsp[id];
+                displaySettings[id] = dsp[id];
+              }
+            });
+
+            // 正規化／クリップ
+            if (dsp.currencyNormalizationBase) {
+              document.getElementById('currencyNormBase').value = dsp.currencyNormalizationBase;
+              displaySettings.currencyNormalizationBase = dsp.currencyNormalizationBase;
+            }
+            if (dsp.pairNormalizationBase) {
+              document.getElementById('pairNormBase').value = dsp.pairNormalizationBase;
+              displaySettings.pairNormalizationBase = dsp.pairNormalizationBase;
+            }
+            if (dsp.clipEnabled !== undefined) {
+              document.getElementById('clipEnabled').checked = dsp.clipEnabled;
+              displaySettings.clipEnabled = dsp.clipEnabled;
+            }
+            if (dsp.clipThreshold) {
+              document.getElementById('clipThreshold').value = dsp.clipThreshold;
+              displaySettings.clipThreshold = dsp.clipThreshold;
+            }
+          }
+        } catch (e) {
+          console.warn('[LOAD] 表示設定の復元に失敗:', e);
         }
         
         // ズーム設定を読み込み
@@ -881,7 +962,17 @@
       show1H: true,
       show4H: true,
       showD: true,
-      showAv: true
+      showAv: true,
+      // 正規化／表示スケール（UIから変更可能）
+      // 通貨は理論Max=400（デフォルト表示基準=350）
+      currencyNormalizationBase: 350,
+      currencyMaxTheoretical: 400,
+      // 推奨ペアは理論Max=800（UIデフォルト=700）
+      pairNormalizationBase: 700,
+      pairMaxTheoretical: 800,
+      // 生スコアが clipThreshold を超えたら 100% でクリップ（表示上）
+      clipEnabled: true,
+      clipThreshold: 350
     };
     
     // 音声通知設定
@@ -1226,10 +1317,20 @@
               const item = currencies[i];
               cell.className = 'table-cell ' + getStrengthClass(item.score);
               
-              const percentage = item.percentage || 0;
+              // raw score を使ってクライアント側で % を計算（displaySettings に従う）
+              const rawScore = item.score || 0;
+              let percentage = 0;
+              const denom = (displaySettings.currencyNormalizationBase && displaySettings.currencyNormalizationBase > 0) ? displaySettings.currencyNormalizationBase : 350;
+              percentage = Math.round((rawScore / denom) * 100);
+
+              // クリップ（表示上）: 生スコアが閾値を超えたら ±100% にする
+              if (displaySettings.clipEnabled && Math.abs(rawScore) > (displaySettings.clipThreshold || 350)) {
+                percentage = rawScore >= 0 ? 100 : -100;
+              }
+
               const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
-              const scoreText = item.score >= 0 ? `+${String(item.score).padStart(3, '0')}` : `-${String(Math.abs(item.score)).padStart(3, '0')}`;
-              
+              const scoreText = rawScore >= 0 ? `+${String(rawScore).padStart(3, '0')}` : `-${String(Math.abs(rawScore)).padStart(3, '0')}`;
+
               cell.textContent = `${item.currency} ${percentText}% [${scoreText}]`;
             } else {
               // データがない場合（空セル）
@@ -1262,7 +1363,10 @@
           dirBadge.textContent = pairInfo.direction === 'buy' ? '買↑' : '売↓';
           pairSpan.appendChild(dirBadge);
           
-          const percentage = Math.round((pairInfo.score / 700.0) * 100);
+          // pair % は displaySettings.pairNormalizationBase を使用
+          const pairDenom = (displaySettings.pairNormalizationBase && displaySettings.pairNormalizationBase > 0) ? displaySettings.pairNormalizationBase : 700;
+          let percentage = Math.round((pairInfo.score / pairDenom) * 100);
+          percentage = Math.max(-100, Math.min(100, percentage)); // 表示上はクリップ
           const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
           
           const scoreSpan = document.createElement('span');
@@ -1422,6 +1526,42 @@
         });
         console.log('[INIT] ズームセレクトのイベントリスナーを追加');
       }
+
+      // 表示設定: 正規化 / クリップ入力のイベントリスナーを追加
+      const currencyNormInput = document.getElementById('currencyNormBase');
+      const pairNormInput = document.getElementById('pairNormBase');
+      const clipCheckbox = document.getElementById('clipEnabled');
+      const clipThresholdInput = document.getElementById('clipThreshold');
+
+      if (currencyNormInput) {
+        currencyNormInput.addEventListener('change', (e) => {
+          const v = Number(e.target.value) || displaySettings.currencyNormalizationBase;
+          displaySettings.currencyNormalizationBase = Math.max(1, Math.min(displaySettings.currencyMaxTheoretical, v));
+          if (window.currentData) renderStrengthData(window.currentData);
+        });
+      }
+      if (pairNormInput) {
+        pairNormInput.addEventListener('change', (e) => {
+          const v = Number(e.target.value) || displaySettings.pairNormalizationBase;
+          displaySettings.pairNormalizationBase = Math.max(1, Math.min(displaySettings.pairMaxTheoretical, v));
+          if (window.currentData) renderStrengthData(window.currentData);
+        });
+      }
+      if (clipCheckbox) {
+        clipCheckbox.addEventListener('change', (e) => {
+          displaySettings.clipEnabled = !!e.target.checked;
+          if (window.currentData) renderStrengthData(window.currentData);
+        });
+      }
+      if (clipThresholdInput) {
+        clipThresholdInput.addEventListener('change', (e) => {
+          const v = Number(e.target.value) || displaySettings.clipThreshold;
+          displaySettings.clipThreshold = Math.max(1, Math.min(displaySettings.currencyMaxTheoretical, v));
+          if (window.currentData) renderStrengthData(window.currentData);
+        });
+      }
+
+      console.log('[INIT] 表示設定用イベントリスナを追加');
       
       // 初回データ読み込み（その後はSocket.IOで自動更新）
       loadCurrencyStrength();
