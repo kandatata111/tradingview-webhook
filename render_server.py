@@ -45,6 +45,10 @@ with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as
     _f.write(f'====== BASE_DIR: {BASE_DIR} ======\n\n')
 
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.jinja_env.auto_reload = True
+app.jinja_env.cache = {}
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Render Diskの永続ストレージパスを環境変数から取得（未設定の場合はローカルパス）

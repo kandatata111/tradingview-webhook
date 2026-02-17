@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>強度ゲージ プレビュー（案B）</title>
+  <style>
+    body{font-family: "Yu Gothic","Meiryo",sans-serif;background:#0f1724;color:#e6eef8;padding:24px}
+    .wrap{max-width:760px;margin:0 auto}
+    h1{font-size:18px;margin:0 0 8px}
+    p.note{color:#9aa6bf;margin:6px 0 18px;font-size:13px}
+    .sample{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.02)}
+    .pct{width:56px;text-align:right;color:#9aa6bf;font-size:13px}
+    .preview-cell{width:150px;padding:6px;border-radius:6px;box-sizing:border-box}
+
+    /* --- 案B: 白枠 + 内側パディング --- */
+    .gauge-wrapper { padding:3px; border-radius:4px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.95); box-sizing:border-box; }
+    .gauge-frame { position:relative;height:16px;border-radius:3px;background: rgba(255,255,255,0.05); overflow:hidden }
+    .gauge-fill { position:absolute; left:0; top:0; bottom:0; background:#fff; width:0%; transition: width 260ms ease; border-radius:3px 0 0 3px }
+    .gauge-sep { position:absolute; left:0; right:0; top:0; bottom:0; pointer-events:none; background-image: linear-gradient(to right, rgba(0,0,0,0.06) 0, rgba(0,0,0,0.06) 1px, transparent 1px); background-size: calc(100% / 5) 100%; opacity: 0.08 }
+
+    .label-small{color:#a8b6cc;font-size:13px;width:70px}
+    .foot{margin-top:18px;color:#97a7bf;font-size:13px}
+    .row-legend{display:flex;gap:12px;align-items:center;margin:10px 0 14px}
+    .legend-swatch{width:18px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>強度ゲージ プレビュー — 案B（白枠＋内パディング）</h1>
+    <p class="note">セル背景はトレンド色、セル内は白い枠（インセット）＋内側余白。ゲージは白塗り。セル自体は「ゲージのみ」を想定しています（数値はツールチップで表示）。</p>
+
+    <div class="row-legend">
+      <div style="display:flex;gap:8px;align-items:center"><div class="legend-swatch" style="background:#06b7f9"></div><div style="color:#9aa6bf">上昇</div></div>
+      <div style="display:flex;gap:8px;align-items:center"><div class="legend-swatch" style="background:#ff57ea"></div><div style="color:#9aa6bf">下降</div></div>
+      <div style="display:flex;gap:8px;align-items:center"><div class="legend-swatch" style="background:#9c9c9c"></div><div style="color:#9aa6bf">レンジ</div></div>
+    </div>
+
+    <!-- Samples: 0,25,45,60,80,100 -->
+
+    <div class="sample">
+      <div class="pct">0%</div>
+      <div class="preview-cell" style="background:#9c9c9c">
+        <div class="gauge-wrapper" title="強度: 0% (0/5)">
+          <div class="gauge-frame"><div class="gauge-fill" style="width:0%"></div><div class="gauge-sep"></div></div>
+        </div>
+      </div>
+      <div class="label-small">レンジ（0%）</div>
+    </div>
+
+    <div class="sample">
+      <div class="pct">25%</div>
+      <div class="preview-cell" style="background:#06b7f9">
+        <div class="gauge-wrapper" title="強度: 25% (1/5)">
+          <div class="gauge-frame"><div class="gauge-fill" style="width:25%"></div><div class="gauge-sep"></div></div>
+        </div>
+      </div>
+      <div class="label-small">上昇（25%）</div>
+    </div>
+
+    <div class="sample">
+      <div class="pct">45%</div>
+      <div class="preview-cell" style="background:#ff57ea">
+        <div class="gauge-wrapper" title="強度: 45% (2/5)">
+          <div class="gauge-frame"><div class="gauge-fill" style="width:45%"></div><div class="gauge-sep"></div></div>
+        </div>
+      </div>
+      <div class="label-small">下降（45%）</div>
+    </div>
+
+    <div class="sample">
+      <div class="pct">60%</div>
+      <div class="preview-cell" style="background:#06b7f9">
+        <div class="gauge-wrapper" title="強度: 60% (3/5)">
+          <div class="gauge-frame"><div class="gauge-fill" style="width:60%"></div><div class="gauge-sep"></div></div>
+        </div>
+      </div>
+      <div class="label-small">上昇（60%）</div>
+    </div>
+
+    <div class="sample">
+      <div class="pct">80%</div>
+      <div class="preview-cell" style="background:#06b7f9">
+        <div class="gauge-wrapper" title="強度: 80% (4/5)">
+          <div class="gauge-frame"><div class="gauge-fill" style="width:80%"></div><div class="gauge-sep"></div></div>
+        </div>
+      </div>
+      <div class="label-small">上昇（80%）</div>
+    </div>
+
+    <div class="sample">
+      <div class="pct">100%</div>
+      <div class="preview-cell" style="background:#06b7f9">
+        <div class="gauge-wrapper" title="強度: 100% (5/5)">
+          <div class="gauge-frame"><div class="gauge-fill" style="width:100%"></div><div class="gauge-sep"></div></div>
+        </div>
+      </div>
+      <div class="label-small">満点（100%）</div>
+    </div>
+
+    <p class="foot">注: このページはプレビュー専用です。実際のダッシュボード UI は変更していません。</p>
+  </div>
+</body>
+</html>
