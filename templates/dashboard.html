@@ -237,9 +237,13 @@ th { font-family: Arial; background: #667eea; color: white; }
 .cell-black { background: #000 !important; color: #fff !important; }
 .col-cloud-label { color: #000 !important; }
   /* 強度ゲージ用スタイル */
-  .gauge-wrapper { position: relative; width: 100%; height: 16px; border-radius: 6px; overflow: hidden; box-sizing: border-box; }
-  .gauge-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,0.98); width: 0%; transition: width 0.25s ease; }
-  .gauge-sep { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; background-image: linear-gradient(to right, rgba(255,255,255,0.14) 0, rgba(255,255,255,0.14) 1px, transparent 1px); background-size: calc(100% / 5) 100%; opacity: 0.18; border-radius: 6px; }
+  .gauge-wrapper { position: relative; width: 100%; height: 16px; border-radius: 3px; overflow: hidden; box-sizing: border-box; }
+  .gauge-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,0.98); width: 0%; transition: width 0.25s ease; border-radius: 3px 0 0 3px; }
+  .gauge-sep { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; background-image: linear-gradient(to right, rgba(255,255,255,0.14) 0, rgba(255,255,255,0.14) 1px, transparent 1px); background-size: calc(100% / 5) 100%; opacity: 0.18; border-radius: 3px; }
+
+  /* 強度ゲージ列を固定幅にする（150px） */
+  table th:nth-child(15), table td:nth-child(15) { min-width:150px; width:150px; }
+  td.gauge-cell .gauge-wrapper { min-width:130px; max-width:100%; }
 .price-row td:first-child { background: #fff !important; color: #000 !important; font-weight: bold; }
 /* ヘッダーは現状のまま維持し、データ部(td)のみフォントを一段階細くする */
 table th { font-weight: bold; font-size: 1.1em; }
