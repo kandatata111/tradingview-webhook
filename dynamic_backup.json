@@ -335,5 +335,551 @@
       "price": 1.69114
     },
     "saved_at": "2026-02-05T14:35:47.405390+09:00"
+  },
+  "AUDJPY_60_26/02/06/11:30": {
+    "symbol": "AUDJPY",
+    "tf": "60",
+    "sent_time": "26/02/06/11:30",
+    "data": {
+      "symbol": "AUDJPY",
+      "sent_time": "26/02/06/11:30",
+      "daytrade": {
+        "bos": "BOS-2"
+      },
+      "po": {
+        "status": "▼PO",
+        "fire_time_str": "26/02/06/06:00"
+      },
+      "clouds": [
+        {
+          "label": "15",
+          "gc": "▲GC",
+          "thickness": 1.7185782556,
+          "angle": 29.550763038,
+          "distance_from_price": 26.7057108722,
+          "distance_from_prev": 26.7057108722,
+          "cross_start_time_str": "26/02/06/11:15",
+          "dauten": "▼Dow",
+          "dauten_start_time_str": "26/02/05/11:00",
+          "po": "▼PO",
+          "po_fire_time_str": "26/02/06/06:00"
+        },
+        {
+          "label": "60",
+          "gc": "▼DC",
+          "thickness": 38.2896051709,
+          "angle": -33.6762611456,
+          "distance_from_price": -11.3814474146,
+          "distance_from_prev": -38.0871582867,
+          "cross_start_time_str": "26/02/05/21:45",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "240",
+          "gc": "▼DC",
+          "thickness": 7.0000537149,
+          "angle": -29.4544541232,
+          "distance_from_price": -36.7702856425,
+          "distance_from_prev": -25.3888382279,
+          "cross_start_time_str": "26/02/06/09:45",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "D",
+          "gc": "▲GC",
+          "thickness": 116.6115440967,
+          "angle": 20.2708545625,
+          "distance_from_price": 111.6090717016,
+          "distance_from_prev": 148.3793573441,
+          "cross_start_time_str": "25/10/23/20:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        }
+      ],
+      "price": 108.886,
+      "tf": "60",
+      "row_order": [
+        "4H",
+        "1H",
+        "price",
+        "D",
+        "W"
+      ],
+      "meta": {
+        "trend_direction": "up",
+        "trend_score": 75,
+        "trend_strength": "トレンド",
+        "trend_breakdown": {
+          "angle": 0,
+          "thickness": -15,
+          "cloud_cross": 0,
+          "dauten": -10
+        }
+      }
+    },
+    "saved_at": "2026-02-06T14:33:34.365126+09:00"
+  },
+  "AUDJPY_240_26/02/06/11:30": {
+    "symbol": "AUDJPY",
+    "tf": "240",
+    "sent_time": "26/02/06/11:30",
+    "data": {
+      "symbol": "AUDJPY",
+      "sent_time": "26/02/06/11:30",
+      "daytrade": {
+        "bos": "BOS-2"
+      },
+      "po": {
+        "status": "▼PO",
+        "fire_time_str": "26/02/06/06:00"
+      },
+      "clouds": [
+        {
+          "label": "15",
+          "gc": "▲GC",
+          "thickness": 1.7185782556,
+          "angle": 29.550763038,
+          "distance_from_price": 26.7057108722,
+          "distance_from_prev": 26.7057108722,
+          "cross_start_time_str": "26/02/06/11:15",
+          "dauten": "▼Dow",
+          "dauten_start_time_str": "26/02/05/11:00",
+          "po": "▼PO",
+          "po_fire_time_str": "26/02/06/06:00"
+        },
+        {
+          "label": "60",
+          "gc": "▼DC",
+          "thickness": 38.2896051709,
+          "angle": -33.6762611456,
+          "distance_from_price": -11.3814474146,
+          "distance_from_prev": -38.0871582867,
+          "cross_start_time_str": "26/02/05/21:45",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "240",
+          "gc": "▼DC",
+          "thickness": 7.0000537149,
+          "angle": -29.4544541232,
+          "distance_from_price": -36.7702856425,
+          "distance_from_prev": -25.3888382279,
+          "cross_start_time_str": "26/02/06/09:45",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "D",
+          "gc": "▲GC",
+          "thickness": 116.6115440967,
+          "angle": 20.2708545625,
+          "distance_from_price": 111.6090717016,
+          "distance_from_prev": 148.3793573441,
+          "cross_start_time_str": "25/10/23/20:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        }
+      ],
+      "price": 108.886,
+      "tf": "240",
+      "row_order": [
+        "4H",
+        "price",
+        "D",
+        "W",
+        "M"
+      ],
+      "meta": {
+        "trend_direction": "up",
+        "trend_score": 80,
+        "trend_strength": "強いトレンド",
+        "trend_breakdown": {
+          "angle": 0,
+          "thickness": -10,
+          "cloud_cross": 0,
+          "dauten": -10
+        }
+      }
+    },
+    "saved_at": "2026-02-06T14:33:37.483402+09:00"
+  },
+  "AUDJPY_D_26/02/06/11:30": {
+    "symbol": "AUDJPY",
+    "tf": "D",
+    "sent_time": "26/02/06/11:30",
+    "data": {
+      "symbol": "AUDJPY",
+      "sent_time": "26/02/06/11:30",
+      "daytrade": {
+        "bos": "BOS-2"
+      },
+      "po": {
+        "status": "▼PO",
+        "fire_time_str": "26/02/06/06:00"
+      },
+      "clouds": [
+        {
+          "label": "15",
+          "gc": "▲GC",
+          "thickness": 1.7185782556,
+          "angle": 29.550763038,
+          "distance_from_price": 26.7057108722,
+          "distance_from_prev": 26.7057108722,
+          "cross_start_time_str": "26/02/06/11:15",
+          "dauten": "▼Dow",
+          "dauten_start_time_str": "26/02/05/11:00",
+          "po": "▼PO",
+          "po_fire_time_str": "26/02/06/06:00"
+        },
+        {
+          "label": "60",
+          "gc": "▼DC",
+          "thickness": 38.2896051709,
+          "angle": -33.6762611456,
+          "distance_from_price": -11.3814474146,
+          "distance_from_prev": -38.0871582867,
+          "cross_start_time_str": "26/02/05/21:45",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "240",
+          "gc": "▼DC",
+          "thickness": 7.0000537149,
+          "angle": -29.4544541232,
+          "distance_from_price": -36.7702856425,
+          "distance_from_prev": -25.3888382279,
+          "cross_start_time_str": "26/02/06/09:45",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "D",
+          "gc": "▲GC",
+          "thickness": 116.6115440967,
+          "angle": 20.2708545625,
+          "distance_from_price": 111.6090717016,
+          "distance_from_prev": 148.3793573441,
+          "cross_start_time_str": "25/10/23/20:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        }
+      ],
+      "price": 108.886,
+      "tf": "D",
+      "row_order": [
+        "price",
+        "D",
+        "W",
+        "M",
+        "Y"
+      ],
+      "meta": {
+        "trend_direction": "up",
+        "trend_score": 80,
+        "trend_strength": "強いトレンド",
+        "trend_breakdown": {
+          "angle": 0,
+          "thickness": -10,
+          "cloud_cross": 0,
+          "dauten": -10
+        }
+      }
+    },
+    "saved_at": "2026-02-06T14:33:40.643391+09:00"
+  },
+  "AUDJPY_D_26/02/06/07:00": {
+    "symbol": "AUDJPY",
+    "tf": "D",
+    "sent_time": "26/02/06/07:00",
+    "data": {
+      "symbol": "AUDJPY",
+      "tf": "D",
+      "sent_time": "26/02/06/07:00",
+      "daytrade": {
+        "bos": "BOS-6"
+      },
+      "po": {
+        "status": "▲PO",
+        "fire_time_str": "25/10/23/06:00"
+      },
+      "row_order": [
+        "price",
+        "D",
+        "W",
+        "M",
+        "Y"
+      ],
+      "clouds": [
+        {
+          "label": "D",
+          "gc": "▲GC",
+          "thickness": 111.8646069502,
+          "angle": 35.8886512579,
+          "distance_from_price": 100.4926965249,
+          "distance_from_prev": 100.4926965249,
+          "cross_start_time_str": "25/10/22/06:00",
+          "dauten": "▲Dow",
+          "dauten_start_time_str": "25/09/03/06:00",
+          "po": "▲PO",
+          "po_fire_time_str": "25/10/23/06:00"
+        },
+        {
+          "label": "W",
+          "gc": "▲GC",
+          "thickness": 337.6744168032,
+          "angle": 35.8273689683,
+          "distance_from_price": 484.7967915984,
+          "distance_from_prev": 484.7967915984,
+          "cross_start_time_str": "25/06/23/06:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "M",
+          "gc": "▲GC",
+          "thickness": 300.3318799142,
+          "angle": 35.5344398621,
+          "distance_from_price": 950.1000600429,
+          "distance_from_prev": 950.1000600429,
+          "cross_start_time_str": "25/12/08/07:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "Y",
+          "gc": "▲GC",
+          "thickness": 438.4623745563,
+          "angle": 33.4690685991,
+          "distance_from_price": 2004.3171148052,
+          "distance_from_prev": 2004.3171148052,
+          "cross_start_time_str": "23/11/07/07:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        }
+      ],
+      "price": 108.793,
+      "meta": {
+        "trend_direction": "up",
+        "trend_score": 100,
+        "trend_strength": "強いトレンド",
+        "trend_breakdown": {
+          "angle": 0,
+          "thickness": 0,
+          "cloud_cross": 0,
+          "dauten": 0
+        }
+      }
+    },
+    "saved_at": "2026-02-06T15:03:47.672196+09:00"
+  },
+  "AUDJPY_240_26/02/06/11:00": {
+    "symbol": "AUDJPY",
+    "tf": "240",
+    "sent_time": "26/02/06/11:00",
+    "data": {
+      "symbol": "AUDJPY",
+      "tf": "240",
+      "sent_time": "26/02/06/11:00",
+      "daytrade": {
+        "bos": "-"
+      },
+      "po": {
+        "status": "▲PO",
+        "fire_time_str": "25/11/10/07:00"
+      },
+      "row_order": [
+        "4H",
+        "price",
+        "D",
+        "W",
+        "M"
+      ],
+      "clouds": [
+        {
+          "label": "240",
+          "gc": "▼DC",
+          "thickness": 12.1761666266,
+          "angle": -30.6029098278,
+          "distance_from_price": -59.8519166867,
+          "distance_from_prev": -59.8519166867,
+          "cross_start_time_str": "26/02/06/07:00",
+          "dauten": "▲Dow",
+          "dauten_start_time_str": "26/02/03/11:00",
+          "po": "▲PO",
+          "po_fire_time_str": "25/11/10/07:00"
+        },
+        {
+          "label": "D",
+          "gc": "▲GC",
+          "thickness": 116.0995496796,
+          "angle": 35.2775018553,
+          "distance_from_price": 86.6677251602,
+          "distance_from_prev": 86.6677251602,
+          "cross_start_time_str": "25/10/23/18:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "W",
+          "gc": "▲GC",
+          "thickness": 336.5963189766,
+          "angle": 34.9824927292,
+          "distance_from_price": 472.6913405118,
+          "distance_from_prev": 472.6913405118,
+          "cross_start_time_str": "25/06/24/02:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "M",
+          "gc": "▲GC",
+          "thickness": 299.3199756007,
+          "angle": 33.3292114997,
+          "distance_from_price": 937.3585121997,
+          "distance_from_prev": 937.3585121997,
+          "cross_start_time_str": "25/12/08/23:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        }
+      ],
+      "price": 108.638,
+      "meta": {
+        "trend_direction": "down",
+        "trend_score": 90,
+        "trend_strength": "強いトレンド",
+        "trend_breakdown": {
+          "angle": 0,
+          "thickness": 0,
+          "cloud_cross": 0,
+          "dauten": -10
+        }
+      }
+    },
+    "saved_at": "2026-02-06T15:03:50.817813+09:00"
+  },
+  "AUDJPY_60_26/02/06/14:00": {
+    "symbol": "AUDJPY",
+    "tf": "60",
+    "sent_time": "26/02/06/14:00",
+    "data": {
+      "symbol": "AUDJPY",
+      "tf": "60",
+      "sent_time": "26/02/06/14:00",
+      "daytrade": {
+        "bos": "BOS-1"
+      },
+      "po": {
+        "status": "✕",
+        "fire_time_str": "26/02/06/05:00"
+      },
+      "row_order": [
+        "4H",
+        "1H",
+        "price",
+        "D",
+        "W"
+      ],
+      "clouds": [
+        {
+          "label": "60",
+          "gc": "▼DC",
+          "thickness": 28.5532444649,
+          "angle": -35.3935302539,
+          "distance_from_price": -17.1933777676,
+          "distance_from_prev": -17.1933777676,
+          "cross_start_time_str": "26/02/05/21:00",
+          "dauten": "▼Dow",
+          "dauten_start_time_str": "26/02/06/00:00",
+          "po": "✕",
+          "po_fire_time_str": "26/02/06/05:00"
+        },
+        {
+          "label": "240",
+          "gc": "▼DC",
+          "thickness": 15.9484830063,
+          "angle": -34.0295492974,
+          "distance_from_price": -47.0795084969,
+          "distance_from_prev": -29.8861307294,
+          "cross_start_time_str": "26/02/06/09:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "D",
+          "gc": "▲GC",
+          "thickness": 115.3700397468,
+          "angle": 31.5439654816,
+          "distance_from_price": 97.6222717933,
+          "distance_from_prev": 144.7017802902,
+          "cross_start_time_str": "25/10/23/19:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        },
+        {
+          "label": "W",
+          "gc": "▲GC",
+          "thickness": 336.7648598318,
+          "angle": 31.5635775537,
+          "distance_from_price": 483.8244450841,
+          "distance_from_prev": 386.2021732909,
+          "cross_start_time_str": "25/06/24/05:00",
+          "dauten": "-",
+          "dauten_start_time_str": "",
+          "po": "-",
+          "po_fire_time_str": ""
+        }
+      ],
+      "price": 108.758,
+      "meta": {
+        "trend_direction": "down",
+        "trend_score": 100,
+        "trend_strength": "強いトレンド",
+        "trend_breakdown": {
+          "angle": 0,
+          "thickness": 0,
+          "cloud_cross": 0,
+          "dauten": 0
+        }
+      }
+    },
+    "saved_at": "2026-02-06T15:03:53.955182+09:00"
   }
 }

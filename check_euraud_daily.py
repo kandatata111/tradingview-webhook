@@ -2,9 +2,11 @@ from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 import json
 import base64
+import os
 
 # 認証
-creds = Credentials.from_authorized_user_file('token.json')
+token_path = os.path.join(os.path.dirname(__file__), 'token.json')
+creds = Credentials.from_authorized_user_file(token_path)
 service = build('gmail', 'v1', credentials=creds)
 
 # EURAUD日足メールを直接取得

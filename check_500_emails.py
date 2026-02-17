@@ -1,8 +1,10 @@
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
+import os
 
 # 認証
-creds = Credentials.from_authorized_user_file('token.json')
+token_path = os.path.join(os.path.dirname(__file__), 'token.json')
+creds = Credentials.from_authorized_user_file(token_path)
 service = build('gmail', 'v1', credentials=creds)
 
 target_msg_id = '19c2aac6124003e4'  # EURAUD 日足

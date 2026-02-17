@@ -8,6 +8,7 @@ import requests
 from flask_socketio import SocketIO, emit
 import traceback
 import subprocess
+import re
 
 # バックアップデータ定数をインポート
 from backup_constants import HOURLY_DATA_BACKUP, FOUR_HOURLY_DATA_BACKUP
@@ -624,6 +625,42 @@ def init_db():
         print('[OK] sent_time column added to states table')
     except Exception:
         pass  # Column already exists
+    
+    # Add trend-related columns if they don't exist
+    try:
+        c.execute('ALTER TABLE states ADD COLUMN trend_direction TEXT')
+        conn.commit()
+        print('[OK] trend_direction column added to states table')
+    except Exception:
+        pass
+    
+    try:
+        c.execute('ALTER TABLE states ADD COLUMN trend_score INTEGER')
+        conn.commit()
+        print('[OK] trend_score column added to states table')
+    except Exception:
+        pass
+    
+    try:
+        c.execute('ALTER TABLE states ADD COLUMN trend_percentage INTEGER')
+        conn.commit()
+        print('[OK] trend_percentage column added to states table')
+    except Exception:
+        pass
+    
+    try:
+        c.execute('ALTER TABLE states ADD COLUMN trend_strength TEXT')
+        conn.commit()
+        print('[OK] trend_strength column added to states table')
+    except Exception:
+        pass
+    
+    try:
+        c.execute('ALTER TABLE states ADD COLUMN trend_breakdown_json TEXT')
+        conn.commit()
+        print('[OK] trend_breakdown_json column added to states table')
+    except Exception:
+        pass
     
     conn.close()
     print('[OK] DB initialized')
@@ -1441,6 +1478,32 @@ def timer_preview(design_num):
     response.headers['Expires'] = '0'
     return response
 
+def _normalize_row_order(row_order_list):
+    """
+    row_order の時間足を正規化
+    数値コード（60, 15, 240, 5）を文字列表記（1H, 15m, 4H, 5m）に変換
+    
+    例: ['60', '15', '240', 'price', 'D'] → ['1H', '15m', '4H', 'price', 'D']
+    """
+    if not row_order_list:
+        return []
+    
+    tf_map = {
+        '5': '5m',
+        '15': '15m',
+        '60': '1H',
+        '240': '4H',
+        '1440': 'D',
+        '10080': 'W',
+        '43200': 'M',
+    }
+    
+    normalized = []
+    for item in row_order_list:
+        normalized.append(tf_map.get(item, item))
+    
+    return normalized
+
 @app.route('/webhook', methods=['POST', 'OPTIONS'])
 def webhook():
     # OPTIONSリクエストに対応（CORS プリフライト）
@@ -1465,6 +1528,10 @@ def webhook():
         
         # FX休場時は更新を無視（データ受信ベースなので常に保存）
         # 受信したら営業中と判定するため、チェックを削除
+        
+        # row_order を正規化（数値コード → 文字列表記）
+        if 'row_order' in data and isinstance(data['row_order'], list):
+            data['row_order'] = _normalize_row_order(data['row_order'])
         
         # 受信タイムスタンプをログ（JST）
         jst = pytz.timezone('Asia/Tokyo')
@@ -1498,6 +1565,75 @@ def webhook():
                 delay_seconds = float(settings.get('update_delay_seconds', 10.0))
         except Exception as e:
             print(f'[WARNING] Failed to load settings: {e}')
+        
+        # ============================================================
+        # スコア計算を実行（DB保存前）
+        # ============================================================
+        with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+            f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Starting trend calculation for {symbol_val}/{tf_val}\n')
+            f.flush()
+        
+        try:
+            tf_for_calc = tf_val
+            # tf を正規化（'5' -> '5m', '15' -> '15m', '60' -> '1H', '240' -> '4H'）
+            tf_map_norm = {'5': '5m', '15': '15m', '60': '1H', '240': '4H', 'D': 'D', 'W': 'W', 'M': 'M', 'Y': 'Y'}
+            tf_for_calc = tf_map_norm.get(tf_val, tf_val)
+            
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] tf_for_calc={tf_for_calc}\n')
+                f.flush()
+            
+            # row_order を文字列に変換（calculate_trend_strength_v2 が string を期待）
+            row_order_for_calc = data.get('row_order', [])
+            if isinstance(row_order_for_calc, list):
+                row_order_for_calc = ','.join(row_order_for_calc)
+            
+            # データコピーを作成して calculate_trend_strength_v2 に渡す
+            calc_data = dict(data)
+            calc_data['row_order'] = row_order_for_calc
+            
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] row_order_for_calc={row_order_for_calc}\n')
+                f.flush()
+            
+            # スコア計算を実行
+            trend_result = calculate_trend_strength_v2(tf_for_calc, calc_data, None)
+            
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Calculation result: direction={trend_result.get("direction")}, score={trend_result.get("score")}\n')
+                f.flush()
+            
+            # 計算結果を meta に追加
+            meta = data.get('meta', {})
+            if isinstance(meta, dict):
+                meta['trend_direction'] = trend_result.get('direction', 'range')
+                meta['trend_score'] = trend_result.get('score', 0)
+                meta['trend_strength'] = trend_result.get('strength', 'レンジ')
+                meta['trend_breakdown'] = trend_result.get('breakdown', {})
+                data['meta'] = meta
+                
+                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                    f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Meta updated: {symbol_val}/{tf_val}\n')
+                    f.flush()
+            
+        except Exception as e:
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            tb_msg = traceback.format_exc()
+            
+            # log に記録
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND_ERROR] {symbol_val}/{tf_val}: {error_msg}\n')
+                f.write(f'{tb_msg}\n')
+                f.flush()
+            
+            # meta に exception 情報を入れる
+            meta = data.get('meta', {})
+            if isinstance(meta, dict):
+                meta['trend_direction'] = 'range'
+                meta['trend_score'] = 0
+                meta['trend_strength'] = 'レンジ'
+                meta['exception_msg'] = error_msg
+                data['meta'] = meta
         
         # 遅延処理を削除して即時保存
         try:
@@ -1627,6 +1763,31 @@ def webhook():
                     if trend_result.get('details'):
                         f.write(f'{saved_at} - [TREND_DETAILS] {json.dumps(trend_result["details"], ensure_ascii=False)}\n')
                     f.flush()
+                
+                # トレンド計算結果をデータベースに保存
+                try:
+                    conn_trend = sqlite3.connect(DB_PATH)
+                    c_trend = conn_trend.cursor()
+                    c_trend.execute('''UPDATE states SET 
+                        trend_direction = ?,
+                        trend_score = ?,
+                        trend_percentage = ?,
+                        trend_strength = ?,
+                        trend_breakdown_json = ?
+                        WHERE symbol = ? AND tf = ?''',
+                        (trend_result.get('direction', 'range'),
+                         trend_result.get('score', 0),
+                         int((trend_result.get('score', 0) / 100.0) * 100),
+                         trend_result.get('strength', ''),
+                         json.dumps(trend_result.get('breakdown', {}), ensure_ascii=False),
+                         symbol_val,
+                         tf_val))
+                    conn_trend.commit()
+                    conn_trend.close()
+                    print(f'[OK] Trend results saved to DB: {symbol_val}/{tf_val}')
+                except Exception as db_err:
+                    print(f'[WARNING] Failed to save trend results to DB: {db_err}')
+                    
             except Exception as trend_err:
                 error_msg = f'[ERROR] Trend calculation failed: {trend_err}'
                 print(error_msg)
@@ -1865,13 +2026,51 @@ def current_states():
             })
             
             try:
-                trend_result = calculate_trend_strength_v2(tf_normalized, state_data, all_states)
-                d['trend_strength'] = trend_result['strength']  # 横/弱/中/強/極
-                d['trend_score'] = trend_result['score']  # 0-100点
-                d['trend_direction'] = trend_result['direction']  # 'up', 'down', 'range'
-                d['trend_percentage'] = int((trend_result['score'] / 100.0) * 100)  # パーセント表示（0-100%）
-                d['trend_breakdown'] = trend_result.get('breakdown', {})  # 詳細内訳
-                print(f'[TREND] {symbol}/{tf}(→{tf_normalized}): {trend_result["strength"]} ({trend_result["score"]}点) {trend_result["direction"]}')
+                # まずDBから保存済みトレンド値を読み込む
+                db_trend_direction = d.get('trend_direction')
+                db_trend_score = d.get('trend_score')
+                db_trend_percentage = d.get('trend_percentage')
+                
+                # DBに値がある場合はそれを使用（再計算を避ける）
+                if db_trend_direction and db_trend_score is not None:
+                    d['trend_direction'] = db_trend_direction
+                    d['trend_score'] = db_trend_score
+                    d['trend_percentage'] = db_trend_percentage
+                    d['trend_strength'] = d.get('trend_strength', '')
+                    d['trend_breakdown'] = json.loads(d.get('trend_breakdown_json', '{}')) if d.get('trend_breakdown_json') else {}
+                    print(f'[TREND] {symbol}/{tf}(→{tf_normalized}): Loaded from DB - score={db_trend_score}, direction={db_trend_direction}')
+                else:
+                    # DBに値がない場合は計算して保存
+                    trend_result = calculate_trend_strength_v2(tf_normalized, state_data, all_states)
+                    d['trend_strength'] = trend_result['strength']  # 横/弱/中/強/極
+                    d['trend_score'] = trend_result['score']  # 0-100点
+                    d['trend_direction'] = trend_result['direction']  # 'up', 'down', 'range'
+                    d['trend_percentage'] = int((trend_result['score'] / 100.0) * 100)  # パーセント表示（0-100%）
+                    d['trend_breakdown'] = trend_result.get('breakdown', {})  # 詳細内訳
+                    print(f'[TREND] {symbol}/{tf}(→{tf_normalized}): Calculated - {trend_result["strength"]} ({trend_result["score"]}点) {trend_result["direction"]}')
+                    
+                    # 計算結果をDBに保存
+                    try:
+                        conn_save = sqlite3.connect(DB_PATH)
+                        c_save = conn_save.cursor()
+                        c_save.execute('''UPDATE states SET 
+                            trend_direction = ?,
+                            trend_score = ?,
+                            trend_percentage = ?,
+                            trend_strength = ?,
+                            trend_breakdown_json = ?
+                            WHERE symbol = ? AND tf = ?''',
+                            (d['trend_direction'],
+                             d['trend_score'],
+                             d['trend_percentage'],
+                             d['trend_strength'],
+                             json.dumps(d['trend_breakdown'], ensure_ascii=False),
+                             symbol,
+                             tf))
+                        conn_save.commit()
+                        conn_save.close()
+                    except Exception as save_err:
+                        print(f'[WARNING] Failed to save trend to DB: {save_err}')
             except Exception as trend_err:
                 print(f'[ERROR] Trend calculation failed for {symbol}/{tf}: {trend_err}')
                 import traceback
@@ -1888,6 +2087,10 @@ def current_states():
             states.sort(key=lambda x: (ordered_symbols.index(x['symbol']) 
                                       if x['symbol'] in ordered_symbols 
                                       else len(ordered_symbols)))
+        
+        # レスポンス前にログ出力（最初の3つの state で trend 値を確認）
+        for i, s in enumerate(states[:3]):
+            print(f'[RESPONSE] State {i}: {s.get("symbol")}/{s.get("tf")} trend_direction={s.get("trend_direction")}, trend_score={s.get("trend_score")}')
         
         response = jsonify({'status': 'success', 'states': states})
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -2917,6 +3120,17 @@ def api_backup_fetch():
                 'output': output
             }), 200
         else:
+            stderr = (result.stderr or '').lower()
+            # 明確な原因が OAuth トークン切れ／取り消しのときは再認証を促す
+            if 'invalid_grant' in stderr or 'token has been expired' in stderr or 'token has been revoked' in stderr:
+                return jsonify({
+                    'status': 'reauth_required',
+                    'msg': 'Gmail OAuth token expired or revoked. Please re-authorize the Gmail access for the backup tool.',
+                    'how_to': "Run `python backup_recovery.py --fetch` in the PythonData folder and follow the OAuth prompt (this will recreate token.json). After that, retry '手動取得'.",
+                    'stderr': result.stderr,
+                    'output': result.stdout
+                }), 401
+
             return jsonify({
                 'status': 'error',
                 'msg': f'Fetch failed: {result.stderr}',
@@ -2930,6 +3144,46 @@ def api_backup_fetch():
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/backup/token_status', methods=['GET'])
+def api_backup_token_status():
+    """token.json の状態を返す（canonical path のみを参照）"""
+    try:
+        token_path = os.path.join(BASE_DIR, 'token.json')
+        if not os.path.exists(token_path):
+            return jsonify({'status': 'not_found', 'msg': 'token.json not found', 'path': token_path}), 200
+
+        info = {'path': token_path}
+        info['mtime'] = os.path.getmtime(token_path)
+        info['size'] = os.path.getsize(token_path)
+
+        try:
+            with open(token_path, 'r', encoding='utf-8') as f:
+                token_json = json.load(f)
+            info['has_refresh_token'] = 'refresh_token' in token_json and bool(token_json.get('refresh_token'))
+            info['expiry'] = token_json.get('expiry') or token_json.get('_expiry') or token_json.get('expires_at')
+        except Exception:
+            info['has_refresh_token'] = False
+            info['expiry'] = None
+
+        return jsonify({'status': 'ok', 'token_info': info}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/api/backup/clear_token', methods=['POST'])
+def api_backup_clear_token():
+    """token.json を削除（再認証の準備用） — canonical path のみを削除"""
+    try:
+        token_path = os.path.join(BASE_DIR, 'token.json')
+        removed = []
+        if os.path.exists(token_path):
+            os.remove(token_path)
+            removed.append(token_path)
+        return jsonify({'status': 'ok', 'removed': removed}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 
 @app.route('/api/backup/list', methods=['GET'])
 def api_backup_list():
@@ -3094,11 +3348,62 @@ def api_backup_recovery():
                     skipped_count += 1
                     continue
                 
-                # timeフィールドが無いファイルをスキップ
+                # timeフィールドが無いファイルは、JSON内の sent_time → ファイル名 → ファイル名先頭 の順で補完して復旧を試みる
                 if 'time' not in data or data.get('time', 0) == 0:
-                    print(f'[BACKUP RECOVERY] Skipping file without time: {file_path.name}')
-                    skipped_count += 1
-                    continue
+                    ms = None
+
+                    # 1) JSON 内に sent_time (例: "26/02/17/07:00") があれば優先して使用
+                    sent_time_str = data.get('sent_time') or data.get('sentTime') or ''
+                    if sent_time_str:
+                        try:
+                            # 受け取りやすいフォーマットをいくつか試す
+                            from datetime import datetime
+                            s = sent_time_str.strip()
+                            # 例: 26/02/17/07:00  または 2026/02/17 07:00
+                            parsed = None
+                            for fmt in ('%y/%m/%d/%H:%M', '%Y/%m/%d %H:%M', '%y/%m/%d %H:%M', '%Y/%m/%d/%H:%M', '%y-%m-%d %H:%M'):
+                                try:
+                                    parsed = datetime.strptime(s, fmt)
+                                    break
+                                except Exception:
+                                    parsed = None
+                            if parsed:
+                                parsed = jst.localize(parsed)
+                                ms = int(parsed.timestamp() * 1000)
+                                data['time'] = ms
+                                print(f"[BACKUP RECOVERY] No time in JSON -> using sent_time field: {ms} ({sent_time_str})")
+                        except Exception:
+                            ms = None
+
+                    # 2) 末尾にミリ秒タイムスタンプがあれば使用（例: ..._1771279264000.json）
+                    if not ms:
+                        m = re.search(r'_(\d{13,})\.json$', file_path.name)
+                        if m:
+                            try:
+                                ms = int(m.group(1))
+                                data['time'] = ms
+                                print(f"[BACKUP RECOVERY] No time in JSON -> using timestamp from filename suffix: {ms} ({file_path.name})")
+                            except:
+                                ms = None
+
+                    # 3) 末尾のミリ秒がなければ、ファイル名先頭の YYYYMMDD_HHMMSS を使用
+                    if not ms:
+                        parts = file_path.stem.split('_')
+                        if len(parts) >= 2 and len(parts[0]) == 8 and len(parts[1]) == 6:
+                            try:
+                                from datetime import datetime
+                                dt = datetime.strptime(parts[0] + parts[1], '%Y%m%d%H%M%S')
+                                dt = jst.localize(dt)
+                                ms = int(dt.timestamp() * 1000)
+                                data['time'] = ms
+                                print(f"[BACKUP RECOVERY] No time in JSON -> using timestamp from filename head: {ms} ({file_path.name})")
+                            except:
+                                ms = None
+
+                    if not ms:
+                        print(f'[BACKUP RECOVERY] Skipping file without time: {file_path.name}')
+                        skipped_count += 1
+                        continue
                 
                 # mode が "merge" の場合、既存データがあればスキップ
                 if mode == 'merge':

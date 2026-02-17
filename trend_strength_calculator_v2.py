@@ -20,6 +20,15 @@ print(f"[IMPORT] trend_strength_calculator_v2.py {VERSION} loaded")
 # 【設定】減点方式の配点マスター v5.0
 # ============================================================
 DEDUCTION_CONFIG = {
+    # =============== 基本スコアテンプレート（時間足レベルごと） ===============
+    # ユーザーが指定した基本スコア値
+    'base_scores': {
+        'short_term': 80,         # 短期（15m）
+        'mid_term': 85,           # 中期（1H）
+        'long_term': 80,          # 長期（4H）
+        'ultra_long_term': 85,    # 超長期（D/W/M/Y）※日足デフォルト
+    },
+    
     # =============== 減点ルール表（各時間足ごと） ===============
     'short_term': {  # 短期（15m）
         'angle_weak_same_direction': -10,      # 角度弱さ（20°以下同方向）
@@ -48,7 +57,7 @@ DEDUCTION_CONFIG = {
         'dauten_opposite': -10,
     },
     
-    'ultra_long_term': {  # 超長期（D/W/Y）
+    'ultra_long_term': {  # 超長期（D/W/M/Y）
         'angle_weak_same_direction': -20,
         'angle_opposite_30_or_less': -40,
         'angle_opposite_30_plus': -60,
@@ -118,21 +127,48 @@ def calculate_trend_strength_v2(tf, state_data, all_states=None):
         row_order = state_data.get('row_order', '')
         
         # ============================================================
-        # ステップ 2: 3TF判定とトレンド方向の決定
+        # ステップ 2: 3TF判定
         # ============================================================
-        is_3tf, trend_direction = _check_3tf_alignment(row_order, all_states)
+        is_3tf = _check_3tf_alignment(row_order, all_states)
         
         # ============================================================
-        # ステップ 3: 基本スコア100点からスタート
+        # ステップ 2B: 基本的なトレンド方向をGC/DCから判定
         # ============================================================
-        score = 100
-        deduction_breakdown = {}
+        # GC=上昇=up, DC=下降=down として判定
+        # gc は True/False or '▲GC'/'▼DC' という形式で来ることがある
+        gc_str = str(gc) if gc else ''
+        if 'True' in gc_str or 'GC' in gc_str:
+            # GC（上昇交差）
+            trend_direction = 'up'
+        elif 'False' not in gc_str and 'DC' in gc_str:
+            # DC（下降交差）
+            trend_direction = 'down'
+        elif gc is True:
+            # gc=True の場合は GC（上昇交差）
+            trend_direction = 'up'
+        elif gc is False:
+            # gc=False の場合は DC（下降交差）
+            trend_direction = 'down'
+        else:
+            # GC/DCがない場合は angle から判定
+            if angle > 0:
+                trend_direction = 'up'
+            elif angle < 0:
+                trend_direction = 'down'
+            else:
+                trend_direction = 'range'
         
         # ============================================================
-        # ステップ 4: 時間足レベル判定（row_orderから動的に判定）
+        # ステップ 3: 時間足レベル判定（row_orderから動的に判定）
         # ============================================================
         tf_level = _determine_tf_level(tf, row_order)
         deduction_rules = DEDUCTION_CONFIG[tf_level]
+        
+        # ============================================================
+        # ステップ 4: 基本スコアをテンプレートから取得
+        # ============================================================
+        score = DEDUCTION_CONFIG['base_scores'].get(tf_level, 80)  # デフォルト80点
+        deduction_breakdown = {}
         
         print(f"[CALC] tf={tf}, row_order={row_order}, tf_level={tf_level}, direction={trend_direction}")
         
@@ -179,8 +215,8 @@ def calculate_trend_strength_v2(tf, state_data, all_states=None):
         if tf_level == 'ultra_long_term' and is_3tf:
             ultra_long_distance_threshold = DEDUCTION_CONFIG['special_rule']['ultra_long_distance_threshold']
             if distance_from_price >= ultra_long_distance_threshold:
-                # 超長期の全減点を免除
-                score = 100  # 超長期の減点をすべてリセット
+                # 超長期の全減点を免除 → 基本スコアに戻す
+                score = DEDUCTION_CONFIG['base_scores']['ultra_long_term']
                 deduction_breakdown = {
                     'special_rule_applied': '超長期70Pips以上 - 全減点免除'
                 }
@@ -208,12 +244,19 @@ def calculate_trend_strength_v2(tf, state_data, all_states=None):
             strength = "レンジ"
         
         # ============================================================
-        # ステップ 12: 結果を返す
+        # ステップ 12: スコア < 20 の場合、direction を 'range' に修正
+        # ============================================================
+        final_direction = trend_direction
+        if final_score < 20:
+            final_direction = 'range'
+        
+        # ============================================================
+        # ステップ 13: 結果を返す
         # ============================================================
         return {
             'strength': strength,
             'score': final_score,
-            'direction': trend_direction,
+            'direction': final_direction,
             'breakdown': deduction_breakdown,
             'details': {
                 'angle': round(angle, 1),
@@ -250,71 +293,33 @@ def _return_range(reason=''):
 
 def _determine_tf_level(tf, row_order):
     """
-    row_orderから時間足レベルを動的に判定
+    対象時間足のレベルを判定
     
-    例：
-    - row_order='15m,1H,4H,D,price' → 15mが短期、1Hが中期、4Hが長期、Dが超長期
-    - row_order='D,W,M,Y,price' → Dが短期、Wが中期、Mが長期、Yが超長期
+    方式：tf パラメータから直接判定
+    - 短期（5m, 15m, '5', '15'）
+    - 中期（1H/60分, '60'）
+    - 長期（4H/240分, '240'）
+    - 超長期（D, W, M, Y）
     
     Args:
-        tf: 対象時間足（'5', '15', '60', '240', 'D', 'W', 'M', 'Y'）
-        row_order: 'D,W,M,Y,price' のような順序文字列
+        tf: 対象時間足（'5', '15', '60', '240', 'D', 'W', 'M', 'Y' または '5m', '15m', '1H', '4H' など）
+        row_order: row_order文字列（情報用、直接的には使用しない）
     
     Returns:
         str: 'short_term', 'mid_term', 'long_term', 'ultra_long_term'
     """
-    if not row_order:
-        # デフォルト判定
-        if tf in ['5', '15']:
-            return 'short_term'
-        elif tf == '60':
-            return 'mid_term'
-        elif tf == '240':
-            return 'long_term'
-        else:
-            return 'ultra_long_term'
+    # tf の値をクリーンアップ（例：'15m' -> '15'）
+    tf_normalized = tf.replace('m', '').replace('H', '0')
     
-    # row_orderをリストに変換
-    order_list = [x.strip() for x in row_order.split(',')]
-    
-    # priceを除外してMA（雲）のみの配列を取得
-    clouds_only = [x for x in order_list if x != 'price']
-    
-    if len(clouds_only) < 1:
+    # tf の値から時間足レベルを直接判定
+    if tf in ['5', '15', '5m', '15m']:
         return 'short_term'
-    
-    # tf_normalized形式（'5m', '15m', '1H', '4H', 'D', 'W', 'M', 'Y'）に変換
-    tf_map = {
-        '5': '5m',
-        '15': '15m',
-        '60': '1H',
-        '240': '4H',
-        'D': 'D',
-        'W': 'W',
-        'M': 'M',
-        'Y': 'Y',
-    }
-    tf_normalized = tf_map.get(tf, tf)
-    
-    # clouds_only内でtf_normalizedが何番目か
-    try:
-        position = clouds_only.index(tf_normalized)
-    except ValueError:
-        # 見つからない場合はデフォルト判定
-        return 'short_term'
-    
-    # 位置に応じてレベルを判定
-    # 0番目（最初）= 短期
-    # 1番目 = 中期
-    # 2番目 = 長期
-    # 3番目以降 = 超長期
-    if position == 0:
-        return 'short_term'
-    elif position == 1:
+    elif tf in ['60', '1H', '1h'] or tf_normalized == '60':
         return 'mid_term'
-    elif position == 2:
+    elif tf in ['240', '4H', '4h'] or tf_normalized == '240':
         return 'long_term'
     else:
+        # D, W, M, Y など
         return 'ultra_long_term'
 
 
@@ -322,74 +327,55 @@ def _check_3tf_alignment(row_order, all_states):
     """
     3TFが揃っているかを判定
     
-    3TFの定義：短期MA > 中期MA > 長期MA（上昇）または 短期MA < 中期MA < 長期MA（下降）
+    3TFの定義：短期(15m) / 中期(1H) / 長期(4H) の3つが揃うこと
+    超長期(D/W/M/Y)や5m との組み合わせは対象外
+    
     row_orderのMAの並びで判定
+    - 上昇トレンド: price,15m,1H,4H → priceが最初（価格が雲より上）
+    - 下降トレンド: 4H,1H,15m,price → priceが最後（価格が雲より下）
     
     Returns:
-        (is_3tf, trend_direction)
-        - is_3tf: bool（3TF揃っているか）
-        - trend_direction: 'up', 'down', 'range'
+        bool: 短期/中期/長期が揃っているか
     """
     if not row_order:
-        return False, 'range'
+        return False
     
     # row_orderをリストに変換
     order_list = [x.strip() for x in row_order.split(',')]
     
-    # priceを除外してMA（雲）のみの配列を取得
-    clouds_only = [x for x in order_list if x != 'price']
+    # 必須の3つの時間足が揃っているかチェック
+    # 短期(15m), 中期(1H), 長期(4H) がすべて含まれているか確認
+    required_tfs = {'15m', '1H', '4H'}
+    clouds_in_order = [x for x in order_list if x != 'price']
     
-    if len(clouds_only) < 3:
-        return False, 'range'
+    # row_order に含まれる時間足
+    tfs_in_order = set(clouds_in_order)
     
-    # 各雲の階層インデックスを取得
-    cloud_indices = []
-    for cloud in clouds_only:
-        try:
-            idx = TF_HIERARCHY.index(cloud)
-            cloud_indices.append((cloud, idx))
-        except ValueError:
-            continue
+    # 3つの必須時間足がすべて含まれているか
+    if not required_tfs.issubset(tfs_in_order):
+        return False
     
-    if len(cloud_indices) < 3:
-        return False, 'range'
+    # 必須3つの時間足のインデックスを取得
+    tf_indices = {}
+    for i, tf in enumerate(clouds_in_order):
+        if tf in required_tfs:
+            tf_indices[tf] = i
     
-    # 連続する3つの雲が階層順序に沿っているかチェック
-    # row_orderは雲と価格の位置関係を表す：
-    # - 上昇トレンド: price,短期,中期,長期 → priceが最初（価格が雲より上）
-    # - 下降トレンド: 長期,中期,短期,price → priceが最後（価格が雲より下）
+    # 短期(15m) < 中期(1H) < 長期(4H) の順序で並んでいるかチェック
+    short_idx = tf_indices.get('15m')
+    mid_idx = tf_indices.get('1H')
+    long_idx = tf_indices.get('4H')
     
-    # priceの位置を確認
-    if 'price' not in order_list:
-        return False, 'range'
+    # 通常の昇順（短期→中期→長期）
+    if short_idx < mid_idx < long_idx:
+        return True
     
-    price_index = order_list.index('price')
+    # 逆順（長期→中期→短期）
+    if short_idx > mid_idx > long_idx:
+        return True
     
-    # 連続する3つの雲が階層順序に沿っているかチェック
-    for i in range(len(cloud_indices) - 2):
-        three_clouds = cloud_indices[i:i+3]
-        indices = [idx for _, idx in three_clouds]
-        
-        # 短期→中期→長期の順序で並んでいるか
-        if indices[0] < indices[1] < indices[2]:
-            # priceが雲より上（最初）なら上昇トレンド
-            if price_index == 0:
-                return True, 'up'
-            # priceが雲より下（最後）なら下降トレンド
-            else:
-                return True, 'down'
-        
-        # 長期→中期→短期の順序で並んでいるか
-        if indices[0] > indices[1] > indices[2]:
-            # priceが雲より上（最初）なら上昇トレンド
-            if price_index == 0:
-                return True, 'up'
-            # priceが雲より下（最後）なら下降トレンド
-            else:
-                return True, 'down'
-    
-    # 3TF揃わず
-    return False, 'range'
+    # 3つが揃わず
+    return False
 
 
 def _evaluate_angle_deduction(angle, trend_direction, deduction_rules):
@@ -404,10 +390,15 @@ def _evaluate_angle_deduction(angle, trend_direction, deduction_rules):
     Returns:
         int: 減点値（負の数）
     """
-    if trend_direction == 'range':
-        return 0
-    
     abs_angle = abs(angle)
+    
+    if trend_direction == 'range':
+        # レンジの場合も角度の安定性で評価
+        # 角度が弱い（≤20°）なら減点（range品質評価として）
+        if abs_angle <= 20:
+            return deduction_rules['angle_weak_same_direction']
+        else:
+            return 0  # 角度が十分安定していれば減点なし
     
     # トレンド方向と角度の符号が一致するか
     is_same_direction = (trend_direction == 'up' and angle > 0) or \
@@ -439,13 +430,17 @@ def _evaluate_cloud_cross_deduction(gc, trend_direction, deduction_rules):
     Returns:
         int: 減点値（負の数）
     """
-    if trend_direction == 'range' or gc is None or gc == '-':
-        return 0
+    if gc is None or gc == '-':
+        # 雲交差がない場合は常に減点
+        return deduction_rules['cloud_cross_opposite']
     
-    # GC=上昇、DC=下降（文字列で判定）
-    is_gc = (gc == '▲GC')
+    if trend_direction == 'range':
+        # レンジの場合、雲交差がなければそれは「不安定」と見做し減点
+        # ただし gc が存在しているなら、その方向がレンジに対して適切かは判定しない
+        return 0  # gc が存在していればレンジでも品質として OK
     
     # トレンド方向と雲交差が逆の場合、減点
+    is_gc = (gc == '▲GC')
     if (trend_direction == 'up' and not is_gc) or \
        (trend_direction == 'down' and is_gc):
         return deduction_rules['cloud_cross_opposite']
@@ -465,8 +460,14 @@ def _evaluate_dauten_deduction(dauten, trend_direction, deduction_rules):
     Returns:
         int: 減点値（負の数）
     """
-    if trend_direction == 'range' or dauten is None or dauten == '-':
-        return 0
+    if dauten is None or dauten == '-':
+        # ダウ転換がない場合は常に減点
+        return deduction_rules['dauten_opposite']
+    
+    if trend_direction == 'range':
+        # レンジの場合、ダウ転換がなければそれは「不安定」と見做し減点
+        # ただし dauten が存在しているなら、その方向がレンジに対して適切かは判定しない
+        return 0  # dauten が存在していればレンジでも品質として OK
     
     # 文字列形式のダウ転換を判定（'▲Dow'='up', '▼Dow'='down'）
     dauten_direction = 'up' if dauten == '▲Dow' else 'down' if dauten == '▼Dow' else None
