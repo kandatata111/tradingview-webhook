@@ -1083,6 +1083,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="11" checked> 時間差</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="12" checked> PO時間</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="13" checked> トレンド</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="14" checked> 強度ゲージ</label>
       </div>
     </div>
     
@@ -4186,7 +4187,7 @@ function applyColumnVisibility() {
   const savedCols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   
   // 列ごとに表示/非表示を適用
-  for (let colIndex = 1; colIndex <= 13; colIndex++) {
+  for (let colIndex = 1; colIndex <= 14; colIndex++) {
     const visible = savedCols[colIndex.toString()] !== false; // デフォルトtrue
     const selector = `table th:nth-child(${colIndex + 1}), table td:nth-child(${colIndex + 1})`;
     document.querySelectorAll(selector).forEach(el => {
@@ -5755,13 +5756,13 @@ function renderCurrencyTable(symbol, allStates, container) {
   
   console.log('[RENDER] orderedRows count:', orderedRows.length);
   
-  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="14" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
-  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th></tr>';
+  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="15" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>'; 
+  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th><th class="header-black">強度ゲージ</th></tr>'; 
 
   orderedRows.forEach(row => {
     if (row.type === 'price') {
       html += '<tr class="price-row"><td class="tf-label">価格</td>';
-      html += '<td colspan="13"></td></tr>';
+      html += '<td colspan="14"></td></tr>';
     } else {
       const c = row;
       html += '<tr>';
@@ -6052,10 +6053,24 @@ function renderCurrencyTable(symbol, allStates, container) {
       const htmlFragment = '<td style="background:' + cellBg + '; color:#fff; font-weight:bold; font-size:0.95em; font-family: monospace; letter-spacing: 0.1em; cursor:help;" ' +
               'title="' + tooltipText.replace(/"/g, '&quot;').replace(/\n/g, '&#10;') + '">' + 
               cellContent +
-              '</td></tr>';
+              '</td>';
+      // --- Minimal gauge (案A): inset white border; use c.trend% when present else percentage ---
+      let gaugePercentage = percentage;
+      if (c.trend) {
+        const m = String(c.trend).match(/(\d{1,3})%/);
+        if (m) gaugePercentage = parseInt(m[1], 10);
+      }
+      const segCount = Math.floor(gaugePercentage / 20); // 0..5
+      const gaugeTitle = '強度: ' + gaugePercentage + '% (' + segCount + '/5)';
+      const gaugeHtml = '<td class="gauge-cell" style="background:' + cellBg + '; padding:4px 6px;">' +
+                          '<div class="gauge-wrapper" role="img" aria-label="' + gaugeTitle + '" title="' + gaugeTitle + '">' +
+                            '<div class="gauge-fill" style="width:' + gaugePercentage + '%"></div>' +
+                            '<div class="gauge-sep"></div>' +
+                          '</div>' +
+                        '</td></tr>';
       console.log(`[HTML_RENDER] ${symbol}/${c.label}: trendColor=${cellBg}, direction=${direction}, trendDisplay=${cellContent}`);
       console.log(`[HTML_FRAGMENT] ${symbol}/${c.label}: Fragment=${htmlFragment.substring(0, 80)}`);
-      html += htmlFragment;
+      html += htmlFragment + gaugeHtml;
     }
   });
 
