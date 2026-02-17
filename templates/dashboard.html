@@ -6009,35 +6009,7 @@ function renderCurrencyTable(symbol, allStates, container) {
         trendDisplay = percentStr + '% □□□□'; // すべてくり抜き
       }
       
-      // Tooltip用のスコアリングルール情報
-      const tooltipText = `
-【スコアリングルール v5.0】
-
-基本スコア: 100点（3TF揃った状態）
-
-減点ルール表（各時間足ごと）:
-┌─────────────────┬───────┬───────┬───────┬─────────┐
-│ 項目             │ 短期  │ 中期  │ 長期  │ 超長期  │
-├─────────────────┼───────┼───────┼───────┼─────────┤
-│角度弱さ(20°以下)│ -10点 │ -15点 │ -20点 │ -20点   │
-│角度逆方向(30°以下)│ -20点│ -30点 │ -40点 │ -40点   │
-│角度逆方向(30°以上)│ -30点│ -45点 │ -60点 │ -60点   │
-│厚さ不足(≤5Pips)  │ -10点 │ -15点 │ -20点 │ -20点   │
-│雲交差逆方向      │ -10点 │ -15点 │ -20点 │ -20点   │
-│ダウ逆方向        │ -10点 │ -10点 │ -10点 │ -10点   │
-└─────────────────┴───────┴───────┴───────┴─────────┘
-
-特別ルール:
-超長期が70Pips以上価格と距離を確保できていれば、
-超長期に関する全ての減点なし
-
-判定閾値:
-80-100点: 強いトレンド
-60-79点:  トレンド
-40-59点:  弱いトレンド
-20-39点:  非常に弱いトレンド
-0-19点:   レンジ/無効
-`;
+      // （スコアリング詳細のポップアップを削除）
       
       // トレンド強度を表示（優先: TradingViewからの文字列 -> 既存の数値表示）
       // 受信した cloud.trend があればその表記（例: ▼080%-PX）を優先表示する
@@ -6055,8 +6027,7 @@ function renderCurrencyTable(symbol, allStates, container) {
         cellContent = trendDisplay;
       }
 
-      const htmlFragment = '<td style="background:' + cellBg + '; color:#fff; font-weight:bold; font-size:0.95em; font-family: monospace; letter-spacing: 0.1em; cursor:help;" ' +
-              'title="' + tooltipText.replace(/"/g, '&quot;').replace(/\n/g, '&#10;') + '">' + 
+      const htmlFragment = '<td style="background:' + cellBg + '; color:#fff; font-weight:bold; font-size:0.95em; font-family: monospace; letter-spacing: 0.1em;">' +
               cellContent +
               '</td>';
       // --- Minimal gauge (案A): inset white border; use c.trend% when present else percentage ---
