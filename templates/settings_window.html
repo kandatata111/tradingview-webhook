@@ -435,6 +435,16 @@
           <option value="240">4時間足主体（日足/週足/年足）</option>
         </select>
       </div>
+      <div class="row">
+        <label style="min-width:auto;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="fixRowOrderToggle"> 行の並びを固定（上から D → 4H → 1H → 15m）
+        </label>
+      </div>
+      <div class="row">
+        <label style="min-width:auto;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="showFireHistoryToggle" checked> 発火履歴ウィンドウを表示
+        </label>
+      </div>
     </div>
   </div>
   
@@ -876,6 +886,16 @@ function loadSettingsFromLocalStorage() {
   if (baseTimeframeSelect) {
     baseTimeframeSelect.value = baseTimeframe;
   }
+
+  // 行並びモード（ユーザー単位）: 'auto' | 'fixed'（デフォルト auto）
+  const rowOrderMode = localStorage.getItem('tv_row_order_mode') || 'auto';
+  const fixToggle = document.getElementById('fixRowOrderToggle');
+  if (fixToggle) fixToggle.checked = (rowOrderMode === 'fixed');
+
+  // 発火履歴ウィンドウ表示（ユーザー単位, デフォルト true）
+  const showFireHistory = localStorage.getItem('tv_show_fire_history') !== 'false';
+  const showFireHistoryToggle = document.getElementById('showFireHistoryToggle');
+  if (showFireHistoryToggle) showFireHistoryToggle.checked = showFireHistory;
   
   // 列の表示
   const cols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
@@ -1612,6 +1632,26 @@ function setupEventHandlers() {
     baseTimeframeSelect.addEventListener('change', (e) => {
       localStorage.setItem('tv_base_timeframe', e.target.value);
       notifyParent('base_timeframe_changed', { timeframe: e.target.value });
+    });
+  }
+
+  // 行並び固定トグル
+  const fixRowOrderToggle = document.getElementById('fixRowOrderToggle');
+  if (fixRowOrderToggle) {
+    fixRowOrderToggle.addEventListener('change', (e) => {
+      const mode = e.target.checked ? 'fixed' : 'auto';
+      localStorage.setItem('tv_row_order_mode', mode);
+      notifyParent('row_order_mode_changed', { mode });
+    });
+  }
+
+  // 発火履歴ウィンドウ表示トグル
+  const showFireHistoryToggle = document.getElementById('showFireHistoryToggle');
+  if (showFireHistoryToggle) {
+    showFireHistoryToggle.addEventListener('change', (e) => {
+      const show = !!e.target.checked;
+      localStorage.setItem('tv_show_fire_history', show.toString());
+      notifyParent('fire_history_visibility_changed', { show });
     });
   }
   

@@ -4262,6 +4262,33 @@ function applyCurrencyFilter() {
   });
 }
 
+// 発火履歴ウィンドウの表示/非表示を適用（localStorage: tv_show_fire_history）
+function applyFireHistoryVisibility() {
+  const show = localStorage.getItem('tv_show_fire_history') !== 'false'; // デフォルト true
+  document.querySelectorAll('.currency-fire-history').forEach(el => {
+    if (show) {
+      el.classList.remove('hidden');
+      el.style.display = '';
+    } else {
+      el.classList.add('hidden');
+      el.style.display = 'none';
+    }
+  });
+
+  // 表示に戻したとき、リストが空ならDBからロード
+  if (show) {
+    try {
+      const anyList = document.querySelector('.currency-fire-history-list');
+      if (!anyList || anyList.children.length === 0) {
+        if (typeof loadFireHistoryFromDB === 'function') loadFireHistoryFromDB();
+      }
+    } catch (e) { console.warn('[FIRE_HISTORY] reload check failed', e); }
+  }
+
+  // 高さ同期を再実行
+  try { syncAllFireHistoryHeights(); } catch(e) {}
+}
+
 function updateCurrencyFilter(availableCurrencies) {
   const container = document.getElementById('currencyFilterContainer');
   const savedCurrencies = JSON.parse(localStorage.getItem('tv_currencies') || '{}');
@@ -4349,6 +4376,7 @@ function loadSettings() {
   applyFontSize(savedSize);
   applyColumnVisibility();
   applyRowVisibility();
+  applyFireHistoryVisibility();
   
   // ノートフォントサイズの設定を読み込み
   const savedNoteFontSize = localStorage.getItem('tv_note_font_size') || '15';
@@ -4816,6 +4844,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             break;
           case 'rows_changed':
             applyRowVisibility();
+            await load();
+            break;
+          case 'fire_history_visibility_changed':
+            applyFireHistoryVisibility();
+            break;
+          case 'row_order_mode_changed':
+            // ユーザーが表示順モードを切替えた → localStorage を参照して再描画
+            console.log('[DASHBOARD] row_order_mode_changed received:', data);
             await load();
             break;
           case 'voice_volume_changed':
@@ -5727,16 +5763,54 @@ function renderCurrencyTable(symbol, allStates, container) {
     }
   });
   
-  // 行順序を決定：TradingViewからのrow_orderを優先、なければconfig.displayOrderを使用
-  let rowOrder;
-  if (baseState.row_order && Array.isArray(baseState.row_order) && baseState.row_order.length > 0) {
-    // TradingViewから送られてくる動的な row_order（価格位置による整列）
-    rowOrder = baseState.row_order;
-    console.log('[RENDER] Using dynamic row_order from TradingView:', rowOrder);
-  } else {
-    // フォールバック：固定順序
-    rowOrder = config.displayOrder;
-    console.log('[RENDER] Using fallback displayOrder:', rowOrder);
+  // 行順序を決定：まずソース順（TradingViewのrow_orderまたはconfig.displayOrder）を取得
+  const sourceOrder = (baseState.row_order && Array.isArray(baseState.row_order) && baseState.row_order.length > 0) ? baseState.row_order : config.displayOrder;
+  let rowOrder = Array.isArray(sourceOrder) ? [...sourceOrder] : [];
+
+  // ユーザー設定で固定表示モードが有効なら優先適用（ユーザー単位、localStorage）
+  // 注意: TradingView の row_order 要素は '4H' / '240' / '1H' / '60' / '15m' / '15' など混在するため
+  // 正規化して照合する（表示ラベルは元のまま保持して返す）
+  function _normalizeTfKey(x) {
+    if (x === null || x === undefined) return x;
+    const s = String(x).trim();
+    if (s === 'price') return 'price';
+    const low = s.toLowerCase();
+    if (low === '5' || low === '5m') return '5';
+    if (low === '15' || low === '15m') return '15';
+    if (low === '60' || low === '1h') return '60';
+    if (low === '240' || low === '4h') return '240';
+    if (low === 'd' || low === '1d') return 'D';
+    if (low === 'w' || low === '1w') return 'W';
+    if (low === 'm' || low === '1m') return 'M';
+    const m = s.match(/(\d+)/);
+    if (m) return m[1];
+    return s;
+  }
+
+  try {
+    const rowOrderMode = localStorage.getItem('tv_row_order_mode') || 'auto';
+    if (rowOrderMode === 'fixed') {
+      const fixedPriority = ['D','240','60','15','5','price']; // 優先的にこの順序で揃える
+      const normSource = Array.isArray(sourceOrder) ? sourceOrder.map(orig => ({ orig, key: _normalizeTfKey(orig) })) : [];
+      const usedIdx = new Set();
+      const orderedFixed = [];
+
+      fixedPriority.forEach(fp => {
+        const idx = normSource.findIndex(item => item.key === fp);
+        if (idx !== -1 && !usedIdx.has(idx)) {
+          orderedFixed.push(normSource[idx].orig);
+          usedIdx.add(idx);
+        }
+      });
+
+      const remaining = normSource.filter((_, i) => !usedIdx.has(i)).map(item => item.orig);
+      rowOrder = orderedFixed.concat(remaining);
+      console.log('[RENDER] Fixed row order mode applied (normalized):', rowOrder);
+    } else {
+      console.log('[RENDER] Using dynamic/fallback row order:', rowOrder);
+    }
+  } catch (e) {
+    console.warn('[RENDER] row order mode read failed, falling back to sourceOrder', e);
   }
   const orderedRows = [];
   
