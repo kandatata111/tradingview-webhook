@@ -236,6 +236,10 @@ th { font-family: Arial; background: #667eea; color: white; }
 .header-black { background: #000 !important; color: #fff !important; }
 .cell-black { background: #000 !important; color: #fff !important; }
 .col-cloud-label { color: #000 !important; }
+  /* 強度ゲージ用スタイル */
+  .gauge-wrapper { position: relative; width: 100%; height: 16px; border-radius: 6px; overflow: hidden; box-sizing: border-box; }
+  .gauge-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,0.98); width: 0%; transition: width 0.25s ease; }
+  .gauge-sep { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; background-image: linear-gradient(to right, rgba(255,255,255,0.14) 0, rgba(255,255,255,0.14) 1px, transparent 1px); background-size: calc(100% / 5) 100%; opacity: 0.18; border-radius: 6px; }
 .price-row td:first-child { background: #fff !important; color: #000 !important; font-weight: bold; }
 /* ヘッダーは現状のまま維持し、データ部(td)のみフォントを一段階細くする */
 table th { font-weight: bold; font-size: 1.1em; }
@@ -1083,6 +1087,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="11" checked> 時間差</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="12" checked> PO時間</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="13" checked> トレンド</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="14" checked> 強度ゲージ</label> 
       </div>
     </div>
     
@@ -4186,7 +4191,7 @@ function applyColumnVisibility() {
   const savedCols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   
   // 列ごとに表示/非表示を適用
-  for (let colIndex = 1; colIndex <= 13; colIndex++) {
+  for (let colIndex = 1; colIndex <= 14; colIndex++) {
     const visible = savedCols[colIndex.toString()] !== false; // デフォルトtrue
     const selector = `table th:nth-child(${colIndex + 1}), table td:nth-child(${colIndex + 1})`;
     document.querySelectorAll(selector).forEach(el => {
@@ -5755,13 +5760,13 @@ function renderCurrencyTable(symbol, allStates, container) {
   
   console.log('[RENDER] orderedRows count:', orderedRows.length);
   
-  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="14" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>';
-  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th></tr>';
+  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="15" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>'; 
+  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th><th class="header-black">強度ゲージ</th></tr>'; 
 
   orderedRows.forEach(row => {
     if (row.type === 'price') {
       html += '<tr class="price-row"><td class="tf-label">価格</td>';
-      html += '<td colspan="13"></td></tr>';
+      html += '<td colspan="14"></td></tr>';
     } else {
       const c = row;
       html += '<tr>';
@@ -6049,13 +6054,22 @@ function renderCurrencyTable(symbol, allStates, container) {
         cellContent = trendDisplay;
       }
 
-      const htmlFragment = '<td style="background:' + cellBg + '; color:#fff; font-weight:bold; font-size:0.95em; font-family: monospace; letter-spacing: 0.1em; cursor:help;" ' +
+      const htmlFragment = '<td style="background:' + cellBg + '; color:#fff; font-weight:bold; font-size:0.95em; font-family: monospace; letter-spacing: 0.1em; cursor:help; padding:6px 8px;" ' +
               'title="' + tooltipText.replace(/"/g, '&quot;').replace(/\n/g, '&#10;') + '">' + 
               cellContent +
-              '</td></tr>';
+              '</td>';
+      // 強度ゲージ（C2: スムーズ + 5分割目盛）
+      const segCount = Math.floor(percentage / 20); // 0..5
+      const gaugeTitle = '強度: ' + percentage + '% (' + segCount + '/5)';
+      const gaugeHtml = '<td class="gauge-cell" style="background:' + cellBg + '; padding:6px 8px;">' +
+                          '<div class="gauge-wrapper" role="img" aria-label="' + gaugeTitle + '" title="' + gaugeTitle + '">' +
+                            '<div class="gauge-fill" style="width:' + percentage + '%"></div>' +
+                            '<div class="gauge-sep"></div>' +
+                          '</div>' +
+                        '</td></tr>';
       console.log(`[HTML_RENDER] ${symbol}/${c.label}: trendColor=${cellBg}, direction=${direction}, trendDisplay=${cellContent}`);
       console.log(`[HTML_FRAGMENT] ${symbol}/${c.label}: Fragment=${htmlFragment.substring(0, 80)}`);
-      html += htmlFragment;
+      html += htmlFragment + gaugeHtml; 
     }
   });
 
