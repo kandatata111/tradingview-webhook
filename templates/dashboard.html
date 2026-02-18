@@ -8301,9 +8301,9 @@ setTimeout(showAudioEnableOverlay, 500);
     
     <div style="flex:1;overflow-y:auto;padding-right:4px;">
     
-    <!-- Gmail 取得セクション (非表示: 上級機能) -->
-    <div class="section-header" data-section="gmailFetch" style="margin-top:0;display:none;">📧 Gmail から取得</div>
-    <div class="section-body" data-section-body="gmailFetch" style="margin-bottom:16px;display:none;">
+    <!-- Gmail 取得セクション -->
+    <div class="section-header" data-section="gmailFetch" style="margin-top:0;">📧 Gmail から取得</div>
+    <div class="section-body" data-section-body="gmailFetch" style="margin-bottom:16px;">
       <div class="row" style="display:flex;gap:8px;align-items:center;">
         <div style="flex:1;display:flex;gap:8px;">
           <button id="btnFetchBackup" onclick="fetchBackupFromGmail()" 
@@ -8320,9 +8320,9 @@ setTimeout(showAudioEnableOverlay, 500);
       <div id="fetchProgress" style="margin-top:8px;padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:4px;font-size:0.85em;display:none;color:#e0e0e0;"></div>
     </div>
     
-    <!-- バックアップサマリー (非表示: 上級機能) -->
-    <div class="section-header" data-section="backupStatus" style="display:none;">📊 バックアップ状況</div>
-    <div class="section-body" data-section-body="backupStatus" style="margin-bottom:16px;display:none;">
+    <!-- バックアップサマリー -->
+    <div class="section-header" data-section="backupStatus">📊 バックアップ状況</div>
+    <div class="section-body" data-section-body="backupStatus" style="margin-bottom:16px;">
       <div class="row">
         <button onclick="loadBackupSummary()" 
                 style="padding:8px 12px;background:#333;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">
