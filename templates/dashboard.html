@@ -228,6 +228,8 @@ table { font-family: 'Yu Gothic', 'Meiryo', sans-serif !important; width: auto; 
 th, td { padding: 4px; border: 1px solid #ddd; text-align: center; white-space: nowrap; width: auto; }
 th { font-family: Arial; background: #667eea; color: white; }
 .tf-label { font-family: 'Yu Gothic', 'Meiryo', sans-serif !important; font-weight: 600; font-size: 1.1em; color: #667eea; }
+/* 欠損または古いデータを示す警告アイコン（視認性向上：サイズ +10%） */
+.tf-stale { color: #000000; font-weight: 900; margin-left: 8px; font-size: 1.05em; vertical-align: middle; cursor: help; text-shadow: 0 0 2px rgba(0,0,0,0.25); -webkit-font-smoothing: antialiased; }
 .up { color: #2962ff; font-weight: bold; }
 .down { color: #ef4444; font-weight: bold; }
 .loading { text-align: left; padding: 50px; }
@@ -928,7 +930,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 
 .data-timestamp-warning::before {
-  content: '⚠';
+  content: '!';
   font-size: 1.2em;
   color: #ef4444;
 }
@@ -1100,7 +1102,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   <div class="row">
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
         <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="5m" checked> 5m</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="15m" checked> 15m</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="15m" checked> 15</label>
         <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="1H" checked> 1H</label>
         <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="4H" checked> 4H</label>
         <label style="font-size:0.9em"><input type="checkbox" class="row-toggle" data-row="D" checked> D</label>
@@ -1244,7 +1246,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
               <strong style="margin-right:6px">雲整列条件</strong>
               <label style="font-size:0.9em"><input type="checkbox" id="alignAllTf"> 全時間</label>
               <label style="font-size:0.9em"><input type="checkbox" class="align-tf" data-tf="5m"> 5m</label>
-              <label style="font-size:0.9em"><input type="checkbox" class="align-tf" data-tf="15m"> 15m</label>
+              <label style="font-size:0.9em"><input type="checkbox" class="align-tf" data-tf="15m"> 15</label>
               <label style="font-size:0.9em"><input type="checkbox" class="align-tf" data-tf="1H"> 1H</label>
               <label style="font-size:0.9em"><input type="checkbox" class="align-tf" data-tf="4H"> 4H</label>
             </div>
@@ -1265,7 +1267,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
             <div class="cond-row" style="display:flex;gap:6px;align-items:center">
               <select class="cond-tf" style="padding:6px;border-radius:6px;background:transparent;color:inherit">
                 <option value="5m">5m</option>
-                <option value="15m">15m</option>
+                <option value="15m">15</option>
                 <option value="1H">1H</option>
                 <option value="4H">4H</option>
               </select>
@@ -1857,7 +1859,7 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
   const alignMissingTooltip = document.getElementById('alignMissingTooltip');
   if (alignMissingTooltip) {
     alignMissingTooltip.addEventListener('click', () => {
-      alert(`・無視\n欠損した TF を判定から除外し、残りの TF で整列条件を評価します。データが一部欠けていても、条件を満たせば整列成立とみなします。\n例1: 5m、15m、1H、4H全てチェック、15m欠損の場合、15mを除外して5m、1H、4Hの順序が雲の順番と一致すれば成立。\n例2: 5m、15m、1H、4H全てチェック、雲が5m、15m、4H、1H、4H欠損の場合、4Hを除外して5m、15m、1Hの順序が一致して発火。\n\n・不一致\n欠損した TF があれば、即座に整列条件を不成立と判定します。データが完全でないと条件を満たさない厳格な扱いになります。\n例: 5m、15m、1H、4H全てチェック、15m欠損の場合、欠損があるため不成立。`);
+      alert(`・無視\n欠損した TF を判定から除外し、残りの TF で整列条件を評価します。データが一部欠けていても、条件を満たせば整列成立とみなします。\n例1: 5m、15、1H、4H全てチェック、15欠損の場合、15を除外して5m、1H、4Hの順序が雲の順番と一致すれば成立。\n例2: 5m、15、1H、4H全てチェック、雲が5m、15、4H、1H、4H欠損の場合、4Hを除外して5m、15、1Hの順序が一致して発火。\n\n・不一致\n欠損した TF があれば、即座に整列条件を不成立と判定します。データが完全でないと条件を満たさない厳格な扱いになります。\n例: 5m、15、1H、4H全てチェック、15欠損の場合、欠損があるため不成立。`);
     });
   }
 
@@ -4219,10 +4221,10 @@ function applyRowVisibility() {
       const text = labelCell.textContent.trim();
       let rowLabel = null;
       if (text === '価格') rowLabel = 'price';
-      else if (text === '5m') rowLabel = '5m';
-      else if (text === '15m') rowLabel = '15m';
-      else if (text === '1H') rowLabel = '1H';
-      else if (text === '4H') rowLabel = '4H';
+      else if (text === '5m' || text === '5') rowLabel = '5m';
+      else if (text === '15' || text === '15m') rowLabel = '15m';
+      else if (text === '1H' || text === '60') rowLabel = '1H';
+      else if (text === '4H' || text === '240') rowLabel = '4H';
       else if (text === 'D') rowLabel = 'D';
       else if (text === 'W') rowLabel = 'W';
       else if (text === 'M') rowLabel = 'M';
@@ -4368,6 +4370,64 @@ function debugSectionSpacing() {
       console.log(`[LAYOUT-DEBUG] gap to next = ${gap}px`);
     }
   });
+}
+
+// テーブル表示上の各時間足ラベルに "古いデータ" 警告を付与／削除する（表示のみ）
+function updateStaleLabels() {
+  try {
+    const states = window.lastFetchedStates || [];
+    console.log('[STALE] updateStaleLabels running - cached states:', states.length);
+    document.querySelectorAll('.currency-section table').forEach(table => {
+      const symbol = table.dataset.symbol;
+      if (!symbol) return;
+      Array.from(table.querySelectorAll('tr')).forEach(tr => {
+        const tfCell = tr.querySelector('.tf-label');
+        if (!tfCell || tfCell.textContent.trim() === '価格') return;
+        // 既に付与された警告マークを除去して、ラベル本体だけを扱う
+        // 優先: 表示用テキストではなく data-tf 属性を使う（表示ラベルと内部キーを分離するため）
+        const tfAttr = tfCell.dataset && tfCell.dataset.tf ? String(tfCell.dataset.tf).trim() : null;
+        // 既存の警告マーク（旧: ⚠ / 新: !）を両方除去してラベル本体だけを扱う
+        let tfText = tfAttr || tfCell.textContent.replace(/[⚠!]/g, '').trim();
+        // 一部ブラウザで NBSP が混入することがあるため除去
+        tfText = tfText.replace(/\u00A0/g, '').trim();
+
+        const tfMap = { '5m':'5','5':'5','15m':'15','15':'15','1H':'60','60':'60','4H':'240','240':'240','D':'D','W':'W','M':'M' };
+        const tf = tfMap[tfText] || tfText;
+
+        // 該当 state を取得（正規化形でマッチ）
+        const state = states.find(s => {
+          if (!s || !s.tf) return false;
+          return s.symbol === symbol && String(s.tf) === String(tf);
+        });
+
+        const existing = tfCell.querySelector('.tf-stale');
+
+        // デバッグ出力：状態の有無を明示
+        console.log('[STALE-DBG] lookup for', symbol, tfText, '-> normalized tf=', tf, 'stateFound=', !!state, state ? state.tf : null, 'ts=', state ? state.timestamp : null);
+
+        if (!state || !state.timestamp) {
+          // stateが見つからない場合は既存マークをそのまま維持（誤削除防止）
+          console.log('[STALE] no state found for', symbol, tf, '- keeping existing mark');
+          return;
+        }
+
+        const stale = (typeof isStaleData === 'function') ? isStaleData(symbol, String(tf), state.timestamp) : false;
+        console.log('[STALE-DBG] isStaleData ->', symbol, String(tf), state.timestamp, '=>', stale);
+        if (stale && !existing) {
+          const span = document.createElement('span');
+          span.className = 'tf-stale';
+          span.title = 'データが古い';
+          span.setAttribute('aria-label', 'データが古い');
+          span.textContent = '!';
+          tfCell.appendChild(span);
+          console.log('[STALE] added stale mark for', symbol, tfText, 'state.tf=', state.tf, 'timestamp=', state.timestamp);
+        } else if (!stale && existing) {
+          existing.remove();
+          console.log('[STALE] removed stale mark for', symbol, tfText);
+        }
+      });
+    });
+  } catch (e) { console.warn('[STALE] updateStaleLabels failed', e); }
 }
 
 function updateCurrencyFilter(availableCurrencies) {
@@ -4795,6 +4855,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       lastWebSocketUpdate = Date.now(); // WebSocket更新時刻を記録
       // テーブル再描画
       await load();
+      try { updateStaleLabels(); } catch(e) { /* ignore */ }
     });
     
     socket.on('current_state_update', async (data) => {
@@ -4802,6 +4863,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       lastWebSocketUpdate = Date.now(); // WebSocket更新時刻を記録
       // テーブル再描画
       await load();
+      try { updateStaleLabels(); } catch(e) { /* ignore */ }
     });
     
     // 新しい通知をリアルタイムで受信
@@ -5264,18 +5326,18 @@ function calculateTrend(cloud) {
   if (!configStr) {
     // デフォルト設定
     const defaults = {
-      '5m': { use_angle: true, angle_threshold: 15, use_thickness: true, thickness_threshold: 3, use_dauten: true },
-      '15m': { use_angle: true, angle_threshold: 20, use_thickness: true, thickness_threshold: 5, use_dauten: true },
-      '1H': { use_angle: true, angle_threshold: 25, use_thickness: true, thickness_threshold: 8, use_dauten: true },
-      '4H': { use_angle: true, angle_threshold: 30, use_thickness: true, thickness_threshold: 10, use_dauten: true }
+      '5': { use_angle: true, angle_threshold: 15, use_thickness: true, thickness_threshold: 3, use_dauten: true },
+      '15': { use_angle: true, angle_threshold: 20, use_thickness: true, thickness_threshold: 5, use_dauten: true },
+      '60': { use_angle: true, angle_threshold: 25, use_thickness: true, thickness_threshold: 8, use_dauten: true },
+      '240': { use_angle: true, angle_threshold: 30, use_thickness: true, thickness_threshold: 10, use_dauten: true }
     };
-    const config = defaults[cloud.label] || defaults['5m'];
+    const config = defaults[cloud.label] || defaults['5'];
     return calculateTrendWithConfig(cloud, config);
   }
   
   try {
     const allConfig = JSON.parse(configStr);
-    const config = allConfig[cloud.label] || allConfig['5m'];
+    const config = allConfig[cloud.label] || allConfig['5'];
     return calculateTrendWithConfig(cloud, config);
   } catch (e) {
     console.error('Failed to parse trend config:', e);
@@ -5634,6 +5696,8 @@ async function load() {
         try { enforceSectionSpacing(); } catch(e) { /* ignore */ }
         // 隣接セクション間の実測値をログ出力（デバッグ）
         try { debugSectionSpacing(); } catch(e) { /* ignore */ }
+        // テーブルの時間足ラベルに古いデータ警告を表示
+        try { updateStaleLabels(); } catch(e) { /* ignore */ }
       } catch (e) { /* ignore */ }
       
       // 発火履歴をデータベースから復元
@@ -5687,13 +5751,7 @@ function renderCurrencyTable(symbol, allStates, container) {
   };
   
   // 主体時間足のデータを取得
-  const baseTfVariants = baseTimeframe === '5' ? ['5', '5m', '5M'] :
-                         baseTimeframe === '15' ? ['15', '15m', '15M'] :
-                         baseTimeframe === '60' ? ['60', '1h', '1H'] :
-                         baseTimeframe === '240' ? ['240', '4h', '4H'] :
-                         baseTimeframe === 'D' ? ['D', '1D'] :
-                         baseTimeframe === 'W' ? ['W', '1W'] :
-                         baseTimeframe === 'M' ? ['M', '1M'] : [baseTimeframe];
+  const baseTfVariants = [baseTimeframe];
   
   const baseState = findValidState(symbol, baseTfVariants);
   
@@ -5708,13 +5766,7 @@ function renderCurrencyTable(symbol, allStates, container) {
   // 上位足のデータを取得（ダウ転、突破数、ダウ時間の補足用）
   const upperStates = {};
   config.upper.forEach(tf => {
-    const tfVariants = tf === '5' ? ['5', '5m', '5M'] :
-                       tf === '15' ? ['15', '15m', '15M'] :
-                       tf === '60' ? ['60', '1h', '1H'] :
-                       tf === '240' ? ['240', '4h', '4H'] :
-                       tf === 'D' ? ['D', '1D'] :
-                       tf === 'W' ? ['W', '1W'] :
-                       tf === 'M' ? ['M', '1M'] : [tf];
+    const tfVariants = [tf];
     const foundState = findValidState(symbol, tfVariants);
     upperStates[tf] = foundState;
     if (tf === 'D') {
@@ -5941,7 +5993,23 @@ function renderCurrencyTable(symbol, allStates, container) {
       
       // JSON形式のラベルを表示用に変換
       const displayLabel = getTfDisplayLabel(c.label);
-      
+      // 表示上は '15m' を短縮して '15' として表示する（内部キーは維持）
+      const visibleLabel = (displayLabel === '15m') ? '15' : displayLabel;
+
+      // --- stale（古いJSON）判定 ---
+      let stateForTf = null;
+      try {
+        if (baseState && (String(baseState.tf) === String(c.label) || (typeof _normalizeTfKey === 'function' && _normalizeTfKey(baseState.tf) === String(c.label)))) {
+          stateForTf = baseState;
+        } else if (upperStates && upperStates[c.label]) {
+          stateForTf = upperStates[c.label];
+        } else {
+          stateForTf = allStates.find(s => (typeof _normalizeTfKey === 'function' ? _normalizeTfKey(s.tf) : String(s.tf)) === String(c.label));
+        }
+      } catch (e) { stateForTf = null; }
+      const isStale = (stateForTf && typeof isStaleData === 'function') ? isStaleData(baseState.symbol || symbol, String(c.label), stateForTf.timestamp) : false;
+      const staleMarkHtml = isStale ? '<span class="tf-stale" title="データが古い" aria-label="データが古い">!</span>' : '';
+
       let tfBgColor = '';
       if (displayLabel === '5m') tfBgColor = '#a9e88c';
       else if (displayLabel === '15m') tfBgColor = '#fbd0b2';
@@ -5952,9 +6020,9 @@ function renderCurrencyTable(symbol, allStates, container) {
       else if (displayLabel === 'M') tfBgColor = '#c0c0c0';
       
       if (tfBgColor) {
-        html += '<td class="tf-label" style="background:' + tfBgColor + '; color:#000">' + displayLabel + '</td>';
+        html += '<td class="tf-label" data-tf="' + c.label + '" style="background:' + tfBgColor + '; color:#000">' + visibleLabel + staleMarkHtml + '</td>';
       } else {
-        html += '<td class="tf-label col-cloud-label">' + displayLabel + '</td>';
+        html += '<td class="tf-label col-cloud-label" data-tf="' + c.label + '">' + visibleLabel + staleMarkHtml + '</td>';
       }
 
       let dautenColor = '';
@@ -7148,6 +7216,7 @@ window.addEventListener('resize', () => {
     try { applyGridColumns(); } catch(e) { /* ignore if not defined yet */ }
     try { enforceSectionSpacing(); } catch(e) { /* ignore */ }
     try { debugSectionSpacing(); } catch(e) { /* ignore */ }
+    try { updateStaleLabels(); } catch(e) { /* ignore */ }
   });
 });
 
@@ -7915,7 +7984,8 @@ setTimeout(showAudioEnableOverlay, 500);
   }
   
   // バックアップデータとの比較（複数タイムフレーム対応）
-  function isStaleData(symbol, tf, timestamp) {
+  // ※ window に公開して外部スコープ（updateStaleLabels）からも参照できるようにする
+  window.isStaleData = function isStaleData(symbol, tf, timestamp) {
     if (!timestamp) return true;
     
     try {
@@ -7951,10 +8021,16 @@ setTimeout(showAudioEnableOverlay, 500);
       
       // それ以外のタイムフレーム
       const threshold = thresholds[tf];
-      if (threshold === undefined) return false;
+      if (threshold === undefined) {
+        console.log('[STALE-DBG3] tf=', tf, 'not in thresholds -> false');
+        return false;
+      }
       
       const diffMinutes = (now - updateTime) / (1000 * 60);
-      return diffMinutes >= threshold;
+      const result = diffMinutes >= threshold;
+      // ★診断ログ：差分の実際の値を出力
+      console.log('[STALE-DBG3]', symbol, tf, '| now=', now.toISOString(), '| updateTime=', updateTime.toISOString(), '| diff=', diffMinutes.toFixed(1), 'min | threshold=', threshold, '| stale=', result);
+      return result;
     } catch (e) {
       console.error('[CONTEXT_MENU] Error checking stale data:', e);
       return false;
@@ -7999,8 +8075,10 @@ setTimeout(showAudioEnableOverlay, 500);
         return; // 価格行は対象外
       }
       
+      // 表示テキストではなく data-tf を優先して取得（存在しない場合は表示ラベルを参照）
       const tfLabel = tfCell.textContent.trim();
-      
+      const tfAttr = tfCell.dataset && tfCell.dataset.tf ? String(tfCell.dataset.tf).trim() : null;
+
       // 対応するstateデータを探す
       // グローバル変数から最新のstatesデータを取得する必要がある
       const statesData = window.lastFetchedStates;
@@ -8009,25 +8087,30 @@ setTimeout(showAudioEnableOverlay, 500);
         contextMenu.classList.remove('show');
         return;
       }
-      
-      // tfLabelから実際のtf値を逆引き
+
+      // tfLabel から実際の tf 値を逆引き（data-tf があればそれを使う）
       const tfMap = {
         '5m': '5',
+        '5': '5',
         '15m': '15',
+        '15': '15',
         '1H': '60',
         '4H': '240',
         'D': 'D',
         'W': 'W',
         'M': 'M'
       };
-      
-      const tf = tfMap[tfLabel] || tfLabel;
-      
-      // 該当する state を探す
-      const state = statesData.find(s => s.symbol === symbol && s.tf === tf);
-      
+
+      const tf = tfAttr || (tfMap[tfLabel] || tfLabel);
+
+      // 該当する state を検索（正規化形で完全一致）
+      const state = statesData.find(s => {
+        if (!s || !s.tf) return false;
+        return s.symbol === symbol && String(s.tf) === String(tf);
+      });
+
       if (!state || !state.timestamp) {
-        console.warn('[CONTEXT_MENU] State not found for', symbol, tf);
+        console.warn('[CONTEXT_MENU] State not found for', symbol, tf, '(tfAttr=', tfAttr, ', tfLabel=', tfLabel, ')');
         contextMenu.classList.remove('show');
         return;
       }
@@ -8038,6 +8121,9 @@ setTimeout(showAudioEnableOverlay, 500);
       // メニュー内容を更新
       document.getElementById('menuSymbol').textContent = symbol;
       document.getElementById('menuTimeframe').textContent = tfLabel;
+
+      // 表示側の警告ラベルを最新化して同期（コンテキストメニューで警告を見るときは即時反映）
+      try { updateStaleLabels(); } catch(e) { /* ignore if not ready */ }
       
       // タイムスタンプをフォーマット（JST）
       const timestamp = new Date(state.timestamp);
@@ -8081,12 +8167,33 @@ setTimeout(showAudioEnableOverlay, 500);
       
       // 警告表示の判定
       const isStale = isStaleData(symbol, tf, state.timestamp);
+      console.log('[CONTEXT_MENU] isStale check for', symbol, tf, '=>', isStale);
       const warningDiv = document.getElementById('menuWarning');
       if (isStale) {
         warningDiv.style.display = 'flex';
       } else {
         warningDiv.style.display = 'none';
       }
+
+      // 追加: コンテキストメニューで古いと判定されたら該当行のラベルに即時で⚠を付与してUIを同期する
+      try {
+        const tfCellInRow = row.querySelector('.tf-label');
+        if (tfCellInRow) {
+          const existingMark = tfCellInRow.querySelector('.tf-stale');
+          if (isStale && !existingMark) {
+            const s = document.createElement('span');
+            s.className = 'tf-stale';
+            s.title = 'データが古い';
+            s.setAttribute('aria-label', 'データが古い');
+            s.textContent = '!';
+            tfCellInRow.appendChild(s);
+            console.log('[CONTEXT_MENU] forced stale mark applied to', symbol, tfLabel);
+          } else if (!isStale && existingMark) {
+            existingMark.remove();
+            console.log('[CONTEXT_MENU] removed forced stale mark for', symbol, tfLabel);
+          }
+        }
+      } catch (e) { console.warn('[CONTEXT_MENU] failed to sync stale mark to row', e); }
       
       // メニュー位置を設定（fixed positionなのでclientX/Yを使用）
       const menuWidth = 280;
@@ -8143,6 +8250,7 @@ setTimeout(showAudioEnableOverlay, 500);
           if (data && data.states) {
             window.lastFetchedStates = data.states;
             console.log('[CONTEXT_MENU] States data cached:', data.states.length, 'items');
+            try { updateStaleLabels(); } catch(e) { /* ignore if not available */ }
           }
         }).catch(e => {
           console.error('[CONTEXT_MENU] Error caching states:', e);

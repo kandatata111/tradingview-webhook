@@ -1,5 +1,5 @@
 ﻿from flask import Flask, request, jsonify, render_template, send_from_directory, make_response, Response
-import os, sqlite3, json, base64, hashlib
+import os, sqlite3, json, base64, hashlib, shutil
 from datetime import datetime
 import threading
 import time
@@ -309,6 +309,138 @@ DAILY_DATA_BACKUP = [
     {"symbol":"AUDJPY","tf":"D","time":1769119200000,"daytrade":{"status":"上昇ダウ","bos":"BOS-5","time":"25/09/03/06:00"},"row_order":["price","D","W","M","Y"],"cloud_order":["D","W","M","Y"],"clouds":[{"label":"D","tf":"D","gc":True,"thickness":85.3131107717,"angle":35.8977736312,"elapsed":157020,"cross_start_time":1759698000000,"elapsed_str":"25/10/06/06:00","in_cloud":False,"star":False,"distance_from_price":113.9534446141,"distance_from_prev":113.9534446141,"topPrice":106.6690311077,"bottomPrice":105.8159,"dauten":"up","bos_count":0,"dauten_start_time":1756846800000,"dauten_start_time_str":"25/09/03/06:00"}],"price":107.382}
 ]
 
+def restore_from_json_backup_folder():
+    """
+    起動時にTradingViewBackup_JSONフォルダから最新のD/240/60足データをDBに復元する。
+    DBに既存データがない場合、または JSON バックアップの方が新しい場合に上書きする。
+    """
+    import re as _re
+    from pathlib import Path as _Path
+    backup_base = r'C:\Users\kanda\Desktop\TradingViewBackup_JSON'
+    target_tfs = ['D', '240', '60']
+    
+    if not os.path.exists(backup_base):
+        print('[INIT_BACKUP] JSON backup folder not found, skipping.')
+        return
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        jst = pytz.timezone('Asia/Tokyo')
+        restored = 0
+        skipped = 0
+        
+        for symbol_dir in sorted(os.listdir(backup_base)):
+            symbol_path = os.path.join(backup_base, symbol_dir)
+            if not os.path.isdir(symbol_path):
+                continue
+            
+            for tf in target_tfs:
+                tf_path = os.path.join(symbol_path, tf)
+                if not os.path.isdir(tf_path):
+                    continue
+                
+                # 最新のJSONファイルを取得（ファイル名=タイムスタンプ順）
+                json_files = sorted([
+                    f for f in os.listdir(tf_path)
+                    if f.endswith('.json') and '_no_time' not in f
+                ])
+                if not json_files:
+                    continue
+                
+                latest_file = json_files[-1]
+                file_path = os.path.join(tf_path, latest_file)
+                
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                except Exception as e:
+                    print(f'[INIT_BACKUP] Failed to load {file_path}: {e}')
+                    continue
+                
+                symbol_val = data.get('symbol', symbol_dir)
+                tf_val = data.get('tf', tf)
+                
+                # tfを正規化
+                tf_norm_map = {'5m': '5', '15m': '15', '15M': '15', '1H': '60', '4H': '240'}
+                tf_val = tf_norm_map.get(tf_val, tf_val)
+                
+                # ファイル名からタイムスタンプを取得
+                # 形式: 20260218_070103_D_1771365663000.json
+                file_time_ms = None
+                m = _re.search(r'_(\d{13,})\.json$', latest_file)
+                if m:
+                    file_time_ms = int(m.group(1))
+                else:
+                    # ファイル名先頭のYYYYMMDD_HHMMSS
+                    parts = latest_file.replace('.json','').split('_')
+                    if len(parts) >= 2 and len(parts[0]) == 8:
+                        try:
+                            from datetime import datetime as _dt
+                            dt = _dt.strptime(parts[0] + parts[1], '%Y%m%d%H%M%S')
+                            dt = jst.localize(dt)
+                            file_time_ms = int(dt.timestamp() * 1000)
+                        except:
+                            pass
+                
+                if not file_time_ms:
+                    file_time_ms = data.get('time', 0)
+                
+                # DBの既存データと比較
+                c.execute('SELECT time, timestamp FROM states WHERE symbol=? AND tf=?', (symbol_val, tf_val))
+                existing = c.fetchone()
+                
+                should_restore = False
+                if not existing:
+                    should_restore = True
+                    reason = 'no existing data'
+                elif file_time_ms and (existing[0] is None or existing[0] == 0 or file_time_ms > existing[0]):
+                    # existing[0]==0はtimeが未設定、またはバックアップがより新しい場合に上書き
+                    should_restore = True
+                    reason = f'backup newer or db_time=0 (file:{file_time_ms}, db:{existing[0]})'
+                else:
+                    skipped += 1
+                    continue
+                
+                if should_restore:
+                    daytrade = data.get('daytrade', {})
+                    now_ts = datetime.now(jst).isoformat()
+                    c.execute('''
+                        INSERT OR REPLACE INTO states (
+                            symbol, tf, timestamp, price, time, state_flag, state_word,
+                            daytrade_status, daytrade_bos, daytrade_time,
+                            swing_status, swing_bos, swing_time,
+                            row_order, cloud_order, clouds_json, meta_json, received_at, sent_time
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        symbol_val, tf_val, now_ts,
+                        data.get('price', 0), file_time_ms,
+                        data.get('state', {}).get('flag', ''),
+                        data.get('state', {}).get('word', ''),
+                        daytrade.get('status', ''), daytrade.get('bos', ''), daytrade.get('time', ''),
+                        data.get('swing', {}).get('status', ''),
+                        data.get('swing', {}).get('bos', ''),
+                        data.get('swing', {}).get('time', ''),
+                        ','.join(data.get('row_order', [])) if isinstance(data.get('row_order'), list) else data.get('row_order', ''),
+                        ','.join(data.get('cloud_order', [])) if isinstance(data.get('cloud_order'), list) else data.get('cloud_order', ''),
+                        json.dumps(data.get('clouds', []), ensure_ascii=False),
+                        json.dumps(data.get('meta', {}), ensure_ascii=False),
+                        now_ts,
+                        data.get('sent_time', '')
+                    ))
+                    restored += 1
+                    print(f'[INIT_BACKUP] Restored {symbol_val}/{tf_val} from {latest_file} ({reason})')
+        
+        conn.commit()
+        conn.close()
+        print(f'[INIT_BACKUP] Done: {restored} restored, {skipped} skipped (DB already newer)')
+        
+    except Exception as e:
+        print(f'[INIT_BACKUP] Error: {e}')
+        import traceback
+        traceback.print_exc()
+
+
 def restore_missing_data():
     """
     起動時にD/4H/1H足データが不足している場合、バックアップから自動復元
@@ -330,27 +462,23 @@ def restore_missing_data():
         
         total_restored = 0
         
-        # D足データの復元（常に実行してバックアップデータを確実に反映）
-        print(f"[INIT] Ensuring daily data is present...")
+        # D足データの復元（DBにデータが存在しない場合のみハードコードバックアップから挿入）
+        # 注意: ハードコードDAILY_DATA_BACKUPは古いデータのため、既存DBデータは絶対に上書きしない
+        print(f"[INIT] Ensuring daily data is present (no-overwrite mode)...")
         for data in DAILY_DATA_BACKUP:
             symbol, tf = data['symbol'], data['tf']
             
             # 既存データの確認
-            c.execute("SELECT timestamp, daytrade_time FROM states WHERE symbol=? AND tf=?", (symbol, tf))
+            c.execute("SELECT timestamp FROM states WHERE symbol=? AND tf=?", (symbol, tf))
             existing = c.fetchone()
             
-            # データが存在しない、またはバックアップの方が新しい場合は更新
+            # データが存在しない場合のみ挿入（既存データは絶対に上書きしない）
             should_update = False
             if not existing:
                 should_update = True
-                print(f"[INIT]   {symbol} D: No data, inserting from backup")
+                print(f"[INIT]   {symbol} D: No data, inserting from hardcoded backup")
             else:
-                db_time = existing[1] if existing[1] else ""
-                backup_time = data.get('daytrade', {}).get('time', '')
-                # バックアップデータのダウ転時間の方が新しい、または異なる場合は更新
-                if backup_time and db_time != backup_time:
-                    should_update = True
-                    print(f"[INIT]   {symbol} D: Updating (DB: {db_time} -> Backup: {backup_time})")
+                print(f"[INIT]   {symbol} D: Already exists in DB, skipping hardcoded backup")
             
             if should_update:
                 timestamp = datetime.now(jst).isoformat()
@@ -782,6 +910,9 @@ def init_db():
     
     # 古いデータのクリーンアップ（最新データのみ保持）
     cleanup_old_data()
+    
+    # JSONバックアップフォルダから最新D/240/60足データを復元（最優先）
+    restore_from_json_backup_folder()
     
     # 動的バックアップからの復元（最新データを使用）
     restore_from_dynamic_backup()
@@ -1639,6 +1770,19 @@ def webhook():
                 meta['exception_msg'] = error_msg
                 data['meta'] = meta
         
+        # ---- tf値の正規化（旧形式→正規化形式）----
+        # TradingViewから来る古い形式を DB保存前に正規化する
+        _tf_normalize_map = {
+            '5m': '5', '5M': '5',
+            '15m': '15', '15M': '15',
+            '1H': '60', '1h': '60',
+            '4H': '240', '4h': '240',
+        }
+        tf_val_normalized = _tf_normalize_map.get(tf_val, tf_val)
+        if tf_val_normalized != tf_val:
+            print(f'[WEBHOOK] tf normalized: {tf_val} -> {tf_val_normalized} for {symbol_val}')
+            tf_val = tf_val_normalized
+        
         # 遅延処理を削除して即時保存
         try:
             conn = sqlite3.connect(DB_PATH)
@@ -2130,6 +2274,86 @@ def download_db():
         return response
     except Exception as e:
         print(f'[ERROR] Database download failed: {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/api/cleanup_old_tf_formats', methods=['POST'])
+def cleanup_old_tf_formats():
+    """古い時間足フォーマット（5m, 15m, 4H, 15M, 1H）をDBから削除するエンドポイント"""
+    print('[CLEANUP] Database cleanup request')
+    try:
+        if not os.path.exists(DB_PATH):
+            return jsonify({'status': 'error', 'msg': 'Database file not found'}), 404
+        
+        jst = pytz.timezone('Asia/Tokyo')
+        
+        # バックアップを作成
+        backup_path = os.path.join(
+            os.path.dirname(DB_PATH), 
+            f'webhook_data_backup_cleanup_{datetime.now(jst).strftime("%Y%m%d_%H%M%S")}.db'
+        )
+        try:
+            shutil.copy(DB_PATH, backup_path)
+            print(f'[CLEANUP] Backup created: {backup_path}')
+        except Exception as e:
+            print(f'[CLEANUP ERROR] Backup creation failed: {e}')
+            return jsonify({'status': 'error', 'msg': f'Backup creation failed: {str(e)}'}), 500
+        
+        # DB接続
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 削除対象の古い形式
+        old_tf_formats = ['5m', '15m', '4H', '15M', '1H']
+        
+        # 削除対象のレコード数を確認
+        tf_list = ','.join([f"'{tf}'" for tf in old_tf_formats])
+        c.execute(f"SELECT symbol, tf, COUNT(*) as cnt FROM states WHERE tf IN ({tf_list}) GROUP BY symbol, tf ORDER BY symbol, tf")
+        rows = c.fetchall()
+        
+        delete_details = {}
+        total_delete = 0
+        for row in rows:
+            symbol, tf, count = row
+            if tf not in delete_details:
+                delete_details[tf] = []
+            delete_details[tf].append({'symbol': symbol, 'count': count})
+            total_delete += count
+        
+        if total_delete == 0:
+            print('[CLEANUP] No old tf format records found')
+            conn.close()
+            return jsonify({
+                'status': 'success',
+                'deleted_count': 0,
+                'message': 'No old tf format records found',
+                'backup_path': backup_path
+            }), 200
+        
+        # 削除実行
+        print(f'[CLEANUP] Deleting {total_delete} old tf format records')
+        for tf in old_tf_formats:
+            c.execute(f"DELETE FROM states WHERE tf = ?", (tf,))
+            affected = c.rowcount
+            if affected > 0:
+                print(f'[CLEANUP] tf={tf}: {affected} records deleted')
+        
+        conn.commit()
+        conn.close()
+        
+        print(f'[CLEANUP] Cleanup completed successfully')
+        return jsonify({
+            'status': 'success',
+            'deleted_count': total_delete,
+            'details': delete_details,
+            'message': f'Successfully deleted {total_delete} old tf format records',
+            'backup_path': backup_path
+        }), 200
+        
+    except Exception as e:
+        print(f'[CLEANUP ERROR] {e}')
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'msg': str(e)}), 500
