@@ -324,12 +324,14 @@ DAILY_DATA_BACKUP = [
 
 def restore_from_json_backup_folder():
     """
-    起動時にTradingViewBackup_JSONフォルダから最新のD/240/60足データをDBに復元する。
-    DBに既存データがない場合、または JSON バックアップの方が新しい場合に上書きする。
+    [DISABLED] 起動時のTradingViewBackup_JSONフォルダからの復元は廃止。
+    RenderのSQLite DBはPersistent Diskに保存されるため、
+    再起動後もDBのデータはそのまま残る。
+    ローカル環境専用の機能であり、Renderではパスが存在しないため動作しないが、
+    側面効果防止のため廃止。
     """
-    import re as _re
-    from pathlib import Path as _Path
-    backup_base = r'C:\Users\kanda\Desktop\TradingViewBackup_JSON'
+    print('[INIT_BACKUP] restore_from_json_backup_folder: DISABLED')
+    return  # DISABLED - DB persists on Render persistent disk
     target_tfs = ['D', '240', '60']
     
     if not os.path.exists(backup_base):
@@ -455,8 +457,14 @@ def restore_from_json_backup_folder():
 
 def restore_missing_data():
     """
-    起動時にD/4H/1H足データが不足している場合、バックアップから自動復元
+    [DISABLED] ハードコードバックアップでの起動時復元は廃止。
+    RenderのSQLite DBはPersistent Diskに保存されるため、
+    再起動後もDBのデータはそのまま残る。
+    DAILY_DATA_BACKUP/FOUR_HOURLY_DATA_BACKUP/HOURLY_DATA_BACKUPを使った復元は
+    古いデータで上書きする問題の原因となるため廃止。
     """
+    print('[INIT] restore_missing_data: DISABLED')
+    return  # DISABLED - DB persists on Render persistent disk
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -975,11 +983,13 @@ def init_db():
     # 古いデータのクリーンアップ（最新データのみ保持）
     cleanup_old_data()
     
-    # JSONバックアップフォルダから最新D/240/60足データを復元（最優先・ローカル環境のみ有効）
-    restore_from_json_backup_folder()
-    
-    # 動的バックアップからの復元は廃止（DBがPersistent Diskに永続化されるため不要）
-    # restore_from_dynamic_backup()  # DISABLED
+    # ↓↓↓ 起動時の復元処理は全て廃止 ↓↓↓
+    # RenderはSQLite DBをPersistent Diskに永続保存するため、
+    # サーバー再起動後もデータはそのまま残る。
+    # 起動時に何かを復元するのは古いデータで上書きする問題の原因。
+    # restore_from_json_backup_folder()  # DISABLED
+    # restore_missing_data()             # DISABLED
+    # restore_from_dynamic_backup()      # DISABLED
     
     # ノートデータファイルの確認
     notes_path = os.path.join(BASE_DIR, 'notes_data.json')
