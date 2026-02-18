@@ -590,10 +590,12 @@ def restore_missing_data():
 
 def save_dynamic_backup(symbol, tf, data):
     """
-    Webhook受信時に最新データをJSONファイルに保存（動的バックアップ）
-    日足・4H・1H足のデータを保存し、サーバー再起動時に復元できるようにする
-    キーは symbol_tf（正規化済み）形式で常に最新データを1件だけ保持する
+    [DISABLED] dynamic_backup.jsonへの保存は廃止。
+    RenderのSQLite DBはPersistent Diskに保存されるため、
+    再起動後もDBのデータはそのまま残る。
+    このJSONバックアップは古いtf形式データの再挿入など問題の原因となるため無効化。
     """
+    return  # DISABLED
     try:
         # tfを正規化してから保存
         tf_normalized = _normalize_tf(tf)
@@ -647,11 +649,13 @@ def save_dynamic_backup(symbol, tf, data):
 
 def restore_from_dynamic_backup():
     """
-    サーバー起動時に動的バックアップから最新データを復元。
-    - tfを正規化して復元（15M→15, 1H→60, 4H→240）
-    - 同一(symbol, 正規化tf)に複数エントリある場合は最新のsaved_atのみ使用
-    - 旧形式キー（symbol_tf_sent_time）は自動的に正規化キー（symbol_tf）に変換
+    [DISABLED] dynamic_backup.jsonからの復元は廃止。
+    RenderのSQLite DBはPersistent Diskに保存されるため、
+    再起動後もDBのデータはそのまま残る。
+    このJSONバックアップは古いtf形式データの再挿入など問題の原因となるため無効化。
     """
+    print('[INIT] restore_from_dynamic_backup: DISABLED (DB persists on Render persistent disk)')
+    return  # DISABLED
     try:
         backup_path = os.path.join(BASE_DIR, 'dynamic_backup.json')
         
@@ -971,11 +975,11 @@ def init_db():
     # 古いデータのクリーンアップ（最新データのみ保持）
     cleanup_old_data()
     
-    # JSONバックアップフォルダから最新D/240/60足データを復元（最優先）
+    # JSONバックアップフォルダから最新D/240/60足データを復元（最優先・ローカル環境のみ有効）
     restore_from_json_backup_folder()
     
-    # 動的バックアップからの復元（最新データを使用）
-    restore_from_dynamic_backup()
+    # 動的バックアップからの復元は廃止（DBがPersistent Diskに永続化されるため不要）
+    # restore_from_dynamic_backup()  # DISABLED
     
     # ノートデータファイルの確認
     notes_path = os.path.join(BASE_DIR, 'notes_data.json')
@@ -1885,9 +1889,9 @@ def webhook():
             saved_at = datetime.now(jst).isoformat()
             print(f'[OK] Saved immediately: {symbol_val}/{tf_val} at {saved_at}')
             
-            # 動的バックアップに保存（日足・4H・1H足のみ）
-            if tf_val in ['D', '240', '60']:
-                save_dynamic_backup(symbol_val, tf_val, data)
+            # 動的バックアップへの保存は廃止（DBがPersistent Diskに永続化されるため不要）
+            # if tf_val in ['D', '240', '60']:
+            #     save_dynamic_backup(symbol_val, tf_val, data)  # DISABLED
             
             with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
                 f.write(f'{saved_at} - [CHECKPOINT 1] Before trend calculation block\n')
