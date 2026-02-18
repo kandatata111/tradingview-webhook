@@ -5,6 +5,8 @@ import threading
 import time
 import pytz
 import requests
+import urllib.request
+import urllib.error
 from flask_socketio import SocketIO, emit
 import traceback
 import subprocess
@@ -573,14 +575,17 @@ def init_db():
     # 古いデータのクリーンアップ（最新データのみ保持）
     cleanup_old_data()
     
-    # ↓↓↓ 起動時の復元処理は全て廃止 ↓↓↓
+    # ↓↓↓ 起動時の状態データ復元処理は全て廃止 ↓↓↓
     # RenderはSQLite DBをPersistent Diskに永続保存するため、
     # サーバー再起動後もデータはそのまま残る。
-    # 起動時に何かを復元するのは古いデータで上書きする問題の原因。
     # restore_from_json_backup_folder()  # DISABLED
     # restore_missing_data()             # DISABLED
     # restore_from_dynamic_backup()      # DISABLED
-    
+
+    # ルールバックアップJSONからの復元（DBにルールが0件のときのみ）
+    # rules_backup.jsonはgitに含まれるため、デプロイ後にルールが消えても自動復元できる
+    _restore_rules_from_backup()
+
     # ノートデータファイルの確認
     notes_path = os.path.join(BASE_DIR, 'notes_data.json')
     if os.path.exists(notes_path):
@@ -593,6 +598,89 @@ def init_db():
             print(f'[WARNING] Notes data file exists but could not be read: {e}')
     else:
         print('[INFO] No notes data file found, will be created on first save')
+
+def _restore_rules_from_backup():
+    """起動時: DBのrulesが0件のときのみ rules_backup.json から復元する（上書き防止）"""
+    try:
+        rules_backup_path = os.path.join(BASE_DIR, 'rules_backup.json')
+        if not os.path.exists(rules_backup_path):
+            print('[RULES] No rules_backup.json found, skipping restore')
+            return
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT COUNT(*) FROM rules')
+        count = c.fetchone()[0]
+        if count > 0:
+            print(f'[RULES] DB already has {count} rules, skipping restore from backup')
+            conn.close()
+            return
+        with open(rules_backup_path, 'r', encoding='utf-8') as f:
+            backup = json.load(f)
+        rules_list = backup.get('rules', [])
+        if not rules_list:
+            print('[RULES] rules_backup.json is empty, skipping')
+            conn.close()
+            return
+        jst = pytz.timezone('Asia/Tokyo')
+        now = datetime.now(jst).isoformat()
+        restored = 0
+        for rule in rules_list:
+            rid = rule.get('id')
+            if not rid:
+                continue
+            rule_data = {
+                'voice': rule.get('voice', {}),
+                'cloudAlign': rule.get('cloudAlign', {}),
+                'conditions': rule.get('conditions', [])
+            }
+            c.execute('INSERT OR REPLACE INTO rules (id,name,enabled,scope_json,rule_json,created_at,updated_at,sort_order) VALUES (?,?,?,?,?,?,?,?)',
+                (
+                    rid, rule.get('name', 'unnamed'),
+                    1 if rule.get('enabled', True) else 0,
+                    json.dumps(rule.get('scope', {}), ensure_ascii=False),
+                    json.dumps(rule_data, ensure_ascii=False),
+                    rule.get('created_at', now), rule.get('updated_at', now),
+                    rule.get('sort_order', 9999)
+                ))
+            restored += 1
+        conn.commit()
+        conn.close()
+        print(f'[RULES] Restored {restored} rules from rules_backup.json')
+    except Exception as e:
+        print(f'[RULES] Failed to restore rules from backup: {e}')
+
+
+def _save_rules_backup():
+    """ルールをrules_backup.jsonに保存（gitに含めてデプロイ後の復元に備える）"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, name, enabled, scope_json, rule_json, created_at, updated_at, sort_order FROM rules ORDER BY sort_order ASC, created_at ASC')
+        rows = c.fetchall()
+        conn.close()
+        rules_list = []
+        for r in rows:
+            rule_data = json.loads(r[4]) if r[4] else {}
+            obj = {
+                'id': r[0], 'name': r[1], 'enabled': bool(r[2]),
+                'scope': json.loads(r[3]) if r[3] else None,
+                'created_at': r[5], 'updated_at': r[6], 'sort_order': r[7]
+            }
+            obj.update(rule_data)
+            rules_list.append(obj)
+        jst = pytz.timezone('Asia/Tokyo')
+        backup = {
+            'exported_at': datetime.now(jst).isoformat(),
+            'count': len(rules_list),
+            'rules': rules_list
+        }
+        rules_backup_path = os.path.join(BASE_DIR, 'rules_backup.json')
+        with open(rules_backup_path, 'w', encoding='utf-8') as f:
+            json.dump(backup, f, ensure_ascii=False, indent=2)
+        print(f'[RULES] Saved {len(rules_list)} rules to rules_backup.json')
+    except Exception as e:
+        print(f'[RULES] Failed to save rules backup: {e}')
+
 
 @app.route('/Alarm/<path:filename>')
 def serve_alarm_file(filename):
@@ -2041,6 +2129,91 @@ def cleanup_old_tf_formats():
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 
+@app.route('/api/rules/export', methods=['GET'])
+def api_rules_export():
+    """全ルールをJSONとして返す（ダウンロード用）"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, name, enabled, scope_json, rule_json, created_at, updated_at, sort_order FROM rules ORDER BY sort_order ASC, created_at ASC')
+        rows = c.fetchall()
+        conn.close()
+        rules_list = []
+        for r in rows:
+            rule_data = json.loads(r[4]) if r[4] else {}
+            obj = {
+                'id': r[0], 'name': r[1], 'enabled': bool(r[2]),
+                'scope': json.loads(r[3]) if r[3] else None,
+                'created_at': r[5], 'updated_at': r[6], 'sort_order': r[7]
+            }
+            obj.update(rule_data)
+            rules_list.append(obj)
+        jst = pytz.timezone('Asia/Tokyo')
+        export_data = {
+            'exported_at': datetime.now(jst).isoformat(),
+            'count': len(rules_list),
+            'rules': rules_list
+        }
+        resp = make_response(json.dumps(export_data, ensure_ascii=False, indent=2))
+        resp.headers['Content-Type'] = 'application/json; charset=utf-8'
+        resp.headers['Content-Disposition'] = f'attachment; filename="rules_backup_{datetime.now(jst).strftime("%Y%m%d_%H%M%S")}.json"'
+        return resp
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/api/rules/import', methods=['POST'])
+def api_rules_import():
+    """ルールをJSONからインポート（既存ルールは merge or replace）"""
+    try:
+        payload = request.json or {}
+        mode = payload.get('mode', 'merge')   # 'merge'=既存優先 / 'replace'=全置換
+        rules_list = payload.get('rules', [])
+        if not rules_list:
+            return jsonify({'status': 'error', 'msg': 'rules が空です'}), 400
+
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        jst = pytz.timezone('Asia/Tokyo')
+        now = datetime.now(jst).isoformat()
+
+        if mode == 'replace':
+            c.execute('DELETE FROM rules')
+
+        imported = 0; skipped = 0
+        for rule in rules_list:
+            rid = rule.get('id')
+            if not rid:
+                continue
+            if mode == 'merge':
+                c.execute('SELECT id FROM rules WHERE id=?', (rid,))
+                if c.fetchone():
+                    skipped += 1
+                    continue
+            rule_data = {
+                'voice': rule.get('voice', {}),
+                'cloudAlign': rule.get('cloudAlign', {}),
+                'conditions': rule.get('conditions', [])
+            }
+            c.execute('INSERT OR REPLACE INTO rules (id,name,enabled,scope_json,rule_json,created_at,updated_at,sort_order) VALUES (?,?,?,?,?,?,?,?)',
+                (
+                    rid, rule.get('name','unnamed'),
+                    1 if rule.get('enabled', True) else 0,
+                    json.dumps(rule.get('scope', {}), ensure_ascii=False),
+                    json.dumps(rule_data, ensure_ascii=False),
+                    rule.get('created_at', now), rule.get('updated_at', now),
+                    rule.get('sort_order', 9999)
+                ))
+            imported += 1
+
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'success', 'imported': imported, 'skipped': skipped}), 200
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
 @app.route('/rules', methods=['GET', 'POST'])
 def rules():
     try:
@@ -2137,6 +2310,8 @@ def rules():
                   (rid, name, enabled, scope_json, rule_json, created_at, updated_at, sort_order))
         conn.commit()
         conn.close()
+        # ルール変更をJSONバックアップに保存（デプロイ後の自動復元に使用）
+        threading.Thread(target=_save_rules_backup, daemon=True).start()
         return jsonify({'status': 'success', 'id': rid}), 200
     except Exception as e:
         print(f'[ERROR][rules] {e}')
@@ -2161,7 +2336,7 @@ def reorder_rules():
         
         conn.commit()
         conn.close()
-        
+        threading.Thread(target=_save_rules_backup, daemon=True).start()
         return jsonify({'status': 'success'}), 200
     except Exception as e:
         print(f'[ERROR][reorder_rules] {e}')
@@ -2176,6 +2351,7 @@ def delete_rule(rule_id):
         c.execute('DELETE FROM rules WHERE id = ?', (rule_id,))
         conn.commit()
         conn.close()
+        threading.Thread(target=_save_rules_backup, daemon=True).start()
         return jsonify({'status': 'success', 'deleted': rule_id}), 200
     except Exception as e:
         print(f'[ERROR][delete_rule] {e}')
@@ -3421,6 +3597,114 @@ def api_backup_recovery():
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+@app.route('/api/backup/send_to_target', methods=['POST'])
+def api_backup_send_to_target():
+    """
+    ローカルバックアップフォルダのJSONを指定Webhookへ送信。
+    ローカルサーバー経由で呼び出すことで、Renderにアクセスできないローカルパスを参照できる。
+    リクエスト: { "symbol":"all"/"USDJPY", "tf":"all"/"D",
+                 "target":"local"/"production",
+                 "local_url":"http://localhost:5000" (localの場合),
+                 "mode":"merge"/"replace" }
+    """
+    try:
+        req = request.json or {}
+        symbol_filter = req.get('symbol', 'all')
+        tf_filter     = req.get('tf', 'all')
+        target        = req.get('target', 'production')  # 'local' or 'production'
+        local_url     = req.get('local_url', 'http://localhost:5000')
+        mode          = req.get('mode', 'merge')
+
+        PROD_URL  = 'https://tradingview-webhook-s5x1.onrender.com/webhook'
+        LOCAL_URL = local_url.rstrip('/') + '/webhook'
+        target_url = LOCAL_URL if target == 'local' else PROD_URL
+
+        backup_dir = r'C:\Users\kanda\Desktop\TradingViewBackup_JSON'
+        if not os.path.exists(backup_dir):
+            return jsonify({'status': 'error', 'msg': f'バックアップフォルダが見つかりません: {backup_dir}'}), 404
+
+        TF_MAP = {'5':'5','15':'15','60':'60','240':'240','D':'D','W':'W','M':'M'}
+
+        symbols = (
+            [symbol_filter] if symbol_filter != 'all'
+            else sorted(d for d in os.listdir(backup_dir) if os.path.isdir(os.path.join(backup_dir, d)))
+        )
+
+        sent = 0; skipped = 0; errors = 0
+        results = []
+
+        for sym in symbols:
+            sym_path = os.path.join(backup_dir, sym)
+            if not os.path.isdir(sym_path):
+                continue
+
+            tf_folders = sorted(os.listdir(sym_path))
+            for tf_folder in tf_folders:
+                tf_path = os.path.join(sym_path, tf_folder)
+                if not os.path.isdir(tf_path):
+                    continue
+                tf_norm = TF_MAP.get(tf_folder, tf_folder)
+                if tf_filter != 'all' and tf_norm != tf_filter and tf_folder != tf_filter:
+                    continue
+
+                json_files = sorted([
+                    f for f in os.listdir(tf_path)
+                    if f.endswith('.json') and '_no_time' not in f
+                ])
+                if not json_files:
+                    skipped += 1
+                    continue
+
+                latest = json_files[-1]
+                file_path = os.path.join(tf_path, latest)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as fp:
+                        data = json.load(fp)
+                except Exception as e:
+                    errors += 1
+                    results.append({'symbol': sym, 'tf': tf_folder, 'status': 'error', 'msg': str(e)})
+                    continue
+
+                if 'sg' in data and 'clouds' not in data:
+                    skipped += 1
+                    continue
+
+                # mergeモード: 送信先DBの時刻と比較（送信先がローカルの場合のみ比較可能）
+                # replace/mergeどちらもwebhookに送る（サーバー側でDBに上書き保存される）
+                try:
+                    body = json.dumps(data).encode('utf-8')
+                    req_obj = urllib.request.Request(
+                        target_url, data=body,
+                        headers={'Content-Type': 'application/json'},
+                        method='POST'
+                    )
+                    with urllib.request.urlopen(req_obj, timeout=30) as r:
+                        resp_text = r.read().decode()[:80]
+                        results.append({'symbol': sym, 'tf': tf_folder, 'file': latest,
+                                        'status': 'ok', 'resp': resp_text})
+                        sent += 1
+                        print(f'[SEND_TO_TARGET] {sym}/{tf_folder} -> {target_url} [{r.status}]')
+                except Exception as e:
+                    errors += 1
+                    results.append({'symbol': sym, 'tf': tf_folder, 'status': 'error', 'msg': str(e)})
+                    print(f'[SEND_TO_TARGET ERROR] {sym}/{tf_folder}: {e}')
+
+                import time as _time
+                _time.sleep(0.1)  # サーバー負荷軽減
+
+        socketio.emit('update_table', {'message': 'send_to_target completed'})
+        print(f'[SEND_TO_TARGET] Done: sent={sent}, skipped={skipped}, errors={errors}, target={target_url}')
+        return jsonify({
+            'status': 'success', 'target': target_url,
+            'sent': sent, 'skipped': skipped, 'errors': errors,
+            'results': results
+        }), 200
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
 
 @app.route('/api/clear_notifications', methods=['POST'])
 def api_clear_notifications():

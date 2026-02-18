@@ -8405,6 +8405,82 @@ setTimeout(showAudioEnableOverlay, 500);
       
       <div id="recoveryStatus" style="margin-top:12px;padding:10px;background:#2a2a2a;border:1px solid #444;border-radius:4px;font-size:0.85em;display:none;color:#e0e0e0;"></div>
     </div>
+
+    <!-- バックアップ→Webhook送信セクション -->
+    <div class="section-header" data-section="sendToTarget">🚀 バックアップからデータ送信</div>
+    <div class="section-body" data-section-body="sendToTarget">
+      <p style="font-size:0.82em;color:#94a3b8;margin:0 0 10px;">ローカルのTradingViewBackup_JSONフォルダから最新JSONをWebhook経由で送信します。<br>※ローカルサーバー経由でのみ動作します。</p>
+
+      <!-- 送信先選択 -->
+      <div style="margin-bottom:10px;">
+        <label style="display:block;margin-bottom:6px;font-size:0.85em;color:#94a3b8;">🎯 送信先</label>
+        <div style="display:flex;gap:16px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">
+            <input type="radio" name="sendTarget" value="production" checked>
+            <span>☁️ 本番 (Render)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">
+            <input type="radio" name="sendTarget" value="local">
+            <span>💻 ローカル (PC)</span>
+          </label>
+        </div>
+        <div id="localUrlRow" style="margin-top:8px;display:none;">
+          <input type="text" id="localServerUrl" value="http://localhost:5000"
+                 placeholder="ローカルサーバーURL"
+                 style="width:100%;padding:6px 8px;background:#1a1a1a;color:#ddd;border:1px solid #333;border-radius:4px;font-size:0.85em;box-sizing:border-box;">
+        </div>
+      </div>
+
+      <!-- 送信対象選択 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label style="display:block;margin-bottom:4px;font-size:0.85em;color:#94a3b8;">通貨ペア</label>
+          <select id="sendSymbol" style="width:100%;padding:6px;background:#1a1a1a;color:#ddd;border:1px solid #333;border-radius:4px;font-size:0.85em;">
+            <option value="all">全て</option>
+            <option value="USDJPY">USDJPY</option><option value="EURUSD">EURUSD</option>
+            <option value="GBPUSD">GBPUSD</option><option value="AUDUSD">AUDUSD</option>
+            <option value="EURJPY">EURJPY</option><option value="GBPJPY">GBPJPY</option>
+            <option value="AUDJPY">AUDJPY</option><option value="EURGBP">EURGBP</option>
+            <option value="EURAUD">EURAUD</option><option value="GBPAUD">GBPAUD</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:4px;font-size:0.85em;color:#94a3b8;">時間足</label>
+          <select id="sendTf" style="width:100%;padding:6px;background:#1a1a1a;color:#ddd;border:1px solid #333;border-radius:4px;font-size:0.85em;">
+            <option value="all">全て</option>
+            <option value="5">5分足</option><option value="15">15分足</option>
+            <option value="60">1時間足</option><option value="240">4時間足</option>
+            <option value="D">日足</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="btnSendToTarget" onclick="sendBackupToTarget()"
+              style="width:100%;padding:10px;background:#1d4ed8;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.95em;">
+        🚀 送信開始
+      </button>
+      <div id="sendTargetStatus" style="margin-top:10px;padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:4px;font-size:0.82em;display:none;color:#e0e0e0;max-height:200px;overflow-y:auto;white-space:pre-wrap;"></div>
+    </div>
+
+    <!-- ルールエクスポート/インポート -->
+    <div class="section-header" data-section="rulesBackup">📋 ルールのバックアップ</div>
+    <div class="section-body" data-section-body="rulesBackup">
+      <p style="font-size:0.82em;color:#94a3b8;margin:0 0 10px;">設定で作成したアラートルールをJSONファイルで保存・復元できます。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button onclick="exportRules()" style="padding:8px 14px;background:#059669;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">
+          📥 JSONエクスポート
+        </button>
+        <label style="padding:8px 14px;background:#7c3aed;color:white;border-radius:4px;cursor:pointer;font-size:0.85em;">
+          📤 JSONインポート
+          <input type="file" id="rulesImportFile" accept=".json" onchange="importRules(this)" style="display:none;">
+        </label>
+        <select id="rulesImportMode" style="padding:7px;background:#1a1a1a;color:#ddd;border:1px solid #444;border-radius:4px;font-size:0.85em;">
+          <option value="merge">マージ（既存優先）</option>
+          <option value="replace">全置換</option>
+        </select>
+      </div>
+      <div id="rulesImportStatus" style="margin-top:8px;font-size:0.82em;color:#94a3b8;"></div>
+    </div>
     </div>
   </div>
 </div>
@@ -8670,6 +8746,94 @@ if (typeof socket !== 'undefined') {
     console.log('[BACKUP_RECOVERY] Recovery completed:', data);
     showNotification(`バックアップ復旧完了: ${data.recovered}件`, 'success');
   });
+}
+
+// 送信先ラジオボタン: ローカルURL入力欄の表示切替
+document.querySelectorAll('input[name="sendTarget"]').forEach(el => {
+  el.addEventListener('change', function() {
+    document.getElementById('localUrlRow').style.display = this.value === 'local' ? 'block' : 'none';
+  });
+});
+
+// バックアップからWebhook送信
+async function sendBackupToTarget() {
+  const symbol = document.getElementById('sendSymbol').value;
+  const tf = document.getElementById('sendTf').value;
+  const target = document.querySelector('input[name="sendTarget"]:checked').value;
+  const local_url = document.getElementById('localServerUrl').value.trim() || 'http://localhost:5000';
+  const mode = (() => {
+    const el = document.querySelector('input[name="recoveryMode"]:checked');
+    return el ? el.value : 'merge';
+  })();
+
+  const btn = document.getElementById('btnSendToTarget');
+  const status = document.getElementById('sendTargetStatus');
+
+  if (!confirm(`バックアップデータを送信します。\n\n通貨: ${symbol}\n時間足: ${tf}\n送信先: ${target === 'production' ? '本番(Render)' : 'ローカル(' + local_url + ')'}\n\nよろしいですか？`)) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 送信中...';
+  status.style.display = 'block';
+  status.textContent = '送信処理を開始しています...';
+
+  try {
+    // ローカルサーバー経由で呼ぶ（ファイル読み取りはローカルPC側で実行）
+    const apiBase = target === 'local' ? local_url : local_url; // 常にローカルから送信
+    const response = await fetch(apiBase + '/api/backup/send_to_target', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, tf, target, local_url, mode })
+    });
+    const data = await response.json();
+    if (data.status === 'success') {
+      status.textContent = `✅ 完了: 送信 ${data.sent}件 / スキップ ${data.skipped}件 / エラー ${data.errors}件\n\n${(data.details || []).join('\n')}`;
+    } else {
+      status.textContent = `❌ エラー: ${data.msg || JSON.stringify(data)}`;
+    }
+  } catch (error) {
+    status.textContent = `❌ 接続エラー: ${error.message}\n\nローカルサーバー（http://localhost:5000）が起動しているか確認してください。`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚀 送信開始';
+  }
+}
+
+// ルールエクスポート
+function exportRules() {
+  window.open('/api/rules/export', '_blank');
+}
+
+// ルールインポート
+async function importRules(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const mode = document.getElementById('rulesImportMode').value;
+  const status = document.getElementById('rulesImportStatus');
+
+  try {
+    const text = await file.text();
+    const rules = JSON.parse(text);
+    status.textContent = '⏳ インポート中...';
+    status.style.color = '#60a5fa';
+
+    const response = await fetch('/api/rules/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode, rules: Array.isArray(rules) ? rules : rules.rules || [] })
+    });
+    const data = await response.json();
+    if (data.status === 'success') {
+      status.textContent = `✅ インポート完了: ${data.imported}件追加 / ${data.skipped}件スキップ`;
+      status.style.color = '#4ade80';
+    } else {
+      status.textContent = `❌ エラー: ${data.msg}`;
+      status.style.color = '#f87171';
+    }
+  } catch (e) {
+    status.textContent = `❌ エラー: ${e.message}`;
+    status.style.color = '#f87171';
+  }
+  input.value = '';
 }
 </script>
 
