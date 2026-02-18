@@ -295,6 +295,19 @@ def cleanup_old_data():
     except Exception as e:
         print(f'[CLEANUP ERROR] {e}')
 
+# tf正規化マップ（全箇所で共通使用）
+_TF_NORMALIZE_MAP = {
+    '5m': '5', '5M': '5',
+    '15m': '15', '15M': '15',
+    '1H': '60', '1h': '60',
+    '4H': '240', '4h': '240',
+}
+
+def _normalize_tf(tf):
+    """tf文字列を正規化する（例: 15M→15, 1H→60, 4H→240）"""
+    return _TF_NORMALIZE_MAP.get(tf, tf)
+
+
 # 日足データのバックアップ（サーバー再起動時に自動復元用）
 DAILY_DATA_BACKUP = [
     {"symbol":"GBPUSD","tf":"D","time":1769119200000,"daytrade":{"status":"上昇ダウ","bos":"BOS-1","time":"25/11/26/07:00"},"row_order":["Y","price","D","W","M"],"cloud_order":["D","W","M","Y"],"clouds":[{"label":"D","tf":"D","gc":True,"thickness":15.1526735576,"angle":35.8360348113,"elapsed":0,"cross_start_time":1769119200000,"elapsed_str":"26/01/23/07:00","in_cloud":False,"star":False,"distance_from_price":172.5436632212,"distance_from_prev":172.5436632212,"topPrice":1.3480432674,"bottomPrice":1.346528,"dauten":"up","bos_count":0,"dauten_start_time":1764108000000,"dauten_start_time_str":"25/11/26/07:00"}],"price":1.36454},
@@ -362,8 +375,7 @@ def restore_from_json_backup_folder():
                 tf_val = data.get('tf', tf)
                 
                 # tfを正規化
-                tf_norm_map = {'5m': '5', '15m': '15', '15M': '15', '1H': '60', '4H': '240'}
-                tf_val = tf_norm_map.get(tf_val, tf_val)
+                tf_val = _normalize_tf(tf_val)
                 
                 # ファイル名からタイムスタンプを取得
                 # 形式: 20260218_070103_D_1771365663000.json
@@ -575,13 +587,20 @@ def restore_missing_data():
         import traceback
         traceback.print_exc()
 
+
 def save_dynamic_backup(symbol, tf, data):
     """
     Webhook受信時に最新データをJSONファイルに保存（動的バックアップ）
     日足・4H・1H足のデータを保存し、サーバー再起動時に復元できるようにする
-    sent_timeをバックアップキーとして使用
+    キーは symbol_tf（正規化済み）形式で常に最新データを1件だけ保持する
     """
     try:
+        # tfを正規化してから保存
+        tf_normalized = _normalize_tf(tf)
+        if tf_normalized != tf:
+            print(f'[BACKUP] tf normalized: {tf} -> {tf_normalized} for {symbol}')
+            tf = tf_normalized
+
         backup_path = os.path.join(BASE_DIR, 'dynamic_backup.json')
         
         # 既存のバックアップを読み込み
@@ -593,22 +612,28 @@ def save_dynamic_backup(symbol, tf, data):
             except:
                 backup_data = {}
         
+        # キーは "symbol_tf" の形式（同一tfは常に最新1件で上書き）
+        key = f"{symbol}_{tf}"
+        
+        # 古いキー形式（symbol_tf_sent_time）が残っている場合は削除
+        old_keys = [k for k in list(backup_data.keys()) if k.startswith(f"{symbol}_{tf}_")]
+        for old_key in old_keys:
+            del backup_data[old_key]
+            print(f'[BACKUP] Removed old key format: {old_key}')
+
         # sent_timeがあればそれを使用、なければタイムスタンプを生成
+        jst = pytz.timezone('Asia/Tokyo')
         sent_time = data.get('sent_time', '')
         if not sent_time:
-            jst = pytz.timezone('Asia/Tokyo')
             sent_time = datetime.now(jst).strftime('%y/%m/%d/%H:%M')
         
-        # キーは "symbol_tf_sent_time" の形式（バックアップデータの一意性を確保）
-        key = f"{symbol}_{tf}_{sent_time}"
-        
-        # データを保存（sent_timeを追加）
+        # データを保存
         backup_data[key] = {
             'symbol': symbol,
             'tf': tf,
             'sent_time': sent_time,
             'data': data,
-            'saved_at': datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()
+            'saved_at': datetime.now(jst).isoformat()
         }
         
         # ファイルに書き込み
@@ -622,7 +647,10 @@ def save_dynamic_backup(symbol, tf, data):
 
 def restore_from_dynamic_backup():
     """
-    サーバー起動時に動的バックアップから最新データを復元
+    サーバー起動時に動的バックアップから最新データを復元。
+    - tfを正規化して復元（15M→15, 1H→60, 4H→240）
+    - 同一(symbol, 正規化tf)に複数エントリある場合は最新のsaved_atのみ使用
+    - 旧形式キー（symbol_tf_sent_time）は自動的に正規化キー（symbol_tf）に変換
     """
     try:
         backup_path = os.path.join(BASE_DIR, 'dynamic_backup.json')
@@ -638,67 +666,99 @@ def restore_from_dynamic_backup():
             print('[INIT] Dynamic backup file is empty')
             return
         
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
         jst = pytz.timezone('Asia/Tokyo')
-        
-        restored_count = 0
-        
+
+        # ---- Step1: 全エントリをtf正規化し、(symbol, normalized_tf) → 最新1件に集約 ----
+        normalized_entries = {}  # key: (symbol, normalized_tf) -> backup_item
         for key, backup_item in backup_data.items():
             symbol = backup_item.get('symbol')
-            tf = backup_item.get('tf')
+            tf_raw = backup_item.get('tf', '')
+            if not symbol or not tf_raw:
+                continue
+            tf = _normalize_tf(tf_raw)
+            if tf != tf_raw:
+                print(f'[INIT] tf normalized in backup: {tf_raw} -> {tf} for {symbol} (key={key})')
+            norm_key = (symbol, tf)
+            saved_at = backup_item.get('saved_at', '')
+            # 同一(symbol,tf)で複数ある場合は saved_at が新しいものを優先
+            if norm_key not in normalized_entries or saved_at > normalized_entries[norm_key].get('saved_at', ''):
+                entry = dict(backup_item)
+                entry['tf'] = tf  # 正規化したtfで上書き
+                normalized_entries[norm_key] = entry
+
+        # ---- Step2: クリーンアップ後のdynamic_backup.jsonを書き直す ----
+        clean_backup = {}
+        for (symbol, tf), entry in normalized_entries.items():
+            clean_backup[f'{symbol}_{tf}'] = entry
+        try:
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                json.dump(clean_backup, f, ensure_ascii=False, indent=2)
+            print(f'[INIT] dynamic_backup.json rewritten with {len(clean_backup)} normalized entries')
+        except Exception as e:
+            print(f'[INIT] Warning: failed to rewrite dynamic_backup.json: {e}')
+
+        # ---- Step3: DBに復元（正規化済みエントリのみ）----
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        restored_count = 0
+        skipped_count = 0
+
+        for (symbol, tf), backup_item in normalized_entries.items():
             data = backup_item.get('data')
-            saved_at = backup_item.get('saved_at')
+            saved_at = backup_item.get('saved_at', '')
             
-            if not symbol or not tf or not data:
+            if not data:
                 continue
             
-            # データベースに既存のレコードがあるか確認
-            c.execute("SELECT timestamp FROM states WHERE symbol=? AND tf=?", (symbol, tf))
+            # DBの既存レコードを確認
+            c.execute('SELECT timestamp FROM states WHERE symbol=? AND tf=?', (symbol, tf))
             existing = c.fetchone()
             
-            # 既存レコードがない、またはバックアップの方が新しい場合は復元
             should_restore = False
             if not existing:
                 should_restore = True
-                print(f"[INIT] Restoring {symbol}/{tf} from backup (no existing data)")
+                print(f'[INIT] Restoring {symbol}/{tf} from backup (no existing data)')
             elif saved_at and existing[0] < saved_at:
                 should_restore = True
-                print(f"[INIT] Restoring {symbol}/{tf} from backup (backup is newer)")
+                print(f'[INIT] Restoring {symbol}/{tf} from backup (backup newer: {saved_at} > {existing[0]})')
+            else:
+                skipped_count += 1
             
             if should_restore:
                 timestamp = datetime.now(jst).isoformat()
                 daytrade = data.get('daytrade', {})
+                row_order = data.get('row_order', [])
+                cloud_order = data.get('cloud_order', [])
                 
                 c.execute('''
                     INSERT OR REPLACE INTO states (
                         symbol, tf, timestamp, price, time, state_flag, state_word,
                         daytrade_status, daytrade_bos, daytrade_time,
                         swing_status, swing_bos, swing_time,
-                        row_order, cloud_order, clouds_json, meta_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        row_order, cloud_order, clouds_json, meta_json, received_at, sent_time
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    symbol, tf, timestamp, data.get('price', 0), data.get('time', 0),
+                    symbol, tf, timestamp,
+                    data.get('price', 0), data.get('time', 0),
                     data.get('state', {}).get('flag', ''),
                     data.get('state', {}).get('word', ''),
                     daytrade.get('status', ''), daytrade.get('bos', ''), daytrade.get('time', ''),
                     data.get('swing', {}).get('status', ''),
                     data.get('swing', {}).get('bos', ''),
                     data.get('swing', {}).get('time', ''),
-                    ','.join(data.get('row_order', [])),
-                    ','.join(data.get('cloud_order', [])),
+                    ','.join(row_order) if isinstance(row_order, list) else row_order,
+                    ','.join(cloud_order) if isinstance(cloud_order, list) else cloud_order,
                     json.dumps(data.get('clouds', []), ensure_ascii=False),
-                    json.dumps(data.get('meta', {}), ensure_ascii=False)
+                    json.dumps(data.get('meta', {}), ensure_ascii=False),
+                    timestamp,
+                    backup_item.get('sent_time', '')
                 ))
                 restored_count += 1
         
         conn.commit()
         conn.close()
         
-        if restored_count > 0:
-            print(f'[INIT] [OK] Restored {restored_count} records from dynamic backup')
-        else:
-            print(f'[INIT] All data is up to date (checked {len(backup_data)} backup entries)')
+        print(f'[INIT] Restore complete: {restored_count} restored, {skipped_count} skipped (DB already newer)')
     
     except Exception as e:
         print(f'[INIT ERROR] Failed to restore from dynamic backup: {e}')
@@ -1771,14 +1831,7 @@ def webhook():
                 data['meta'] = meta
         
         # ---- tf値の正規化（旧形式→正規化形式）----
-        # TradingViewから来る古い形式を DB保存前に正規化する
-        _tf_normalize_map = {
-            '5m': '5', '5M': '5',
-            '15m': '15', '15M': '15',
-            '1H': '60', '1h': '60',
-            '4H': '240', '4h': '240',
-        }
-        tf_val_normalized = _tf_normalize_map.get(tf_val, tf_val)
+        tf_val_normalized = _normalize_tf(tf_val)
         if tf_val_normalized != tf_val:
             print(f'[WEBHOOK] tf normalized: {tf_val} -> {tf_val_normalized} for {symbol_val}')
             tf_val = tf_val_normalized
@@ -2342,13 +2395,38 @@ def cleanup_old_tf_formats():
         
         conn.commit()
         conn.close()
+
+        # dynamic_backup.json も同時クリーンアップ
+        dynamic_backup_path = os.path.join(BASE_DIR, 'dynamic_backup.json')
+        backup_json_cleaned = 0
+        if os.path.exists(dynamic_backup_path):
+            try:
+                with open(dynamic_backup_path, 'r', encoding='utf-8') as f:
+                    dyn_data = json.load(f)
+                clean_dyn = {}
+                for key, item in dyn_data.items():
+                    tf_raw = item.get('tf', '')
+                    tf_norm = _normalize_tf(tf_raw)
+                    if tf_norm in old_tf_formats:
+                        backup_json_cleaned += 1
+                        print(f'[CLEANUP] dynamic_backup: removed key={key} (tf={tf_raw})')
+                        continue
+                    # キーも正規化形式に統一
+                    sym = item.get('symbol', '')
+                    item['tf'] = tf_norm
+                    clean_dyn[f'{sym}_{tf_norm}'] = item
+                with open(dynamic_backup_path, 'w', encoding='utf-8') as f:
+                    json.dump(clean_dyn, f, ensure_ascii=False, indent=2)
+                print(f'[CLEANUP] dynamic_backup.json: {backup_json_cleaned} old entries removed, {len(clean_dyn)} entries kept')
+            except Exception as e:
+                print(f'[CLEANUP] Warning: dynamic_backup.json cleanup failed: {e}')
         
         print(f'[CLEANUP] Cleanup completed successfully')
         return jsonify({
             'status': 'success',
             'deleted_count': total_delete,
             'details': delete_details,
-            'message': f'Successfully deleted {total_delete} old tf format records',
+            'message': f'Successfully deleted {total_delete} old tf format records (dynamic_backup: {backup_json_cleaned} removed)',
             'backup_path': backup_path
         }), 200
         
