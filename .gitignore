@@ -2,6 +2,19 @@
 credentials.json
 token.json
 
+# SQLiteデータベースファイル（Render Persistent Diskで管理、gitに含めない）
+*.db
+*.db.backup
+*.db-journal
+*.db-shm
+*.db-wal
+dynamic_backup.json
+
+# ログファイル（ローカル生成物）
+webhook_error.log
+webhook_log.txt
+server_output.log
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
