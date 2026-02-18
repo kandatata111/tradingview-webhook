@@ -289,6 +289,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 
 /* 発火履歴ウィンドウ */
 .main-content { display: flex; flex-direction: column; gap: 1px; align-items: flex-start; padding-left: 6px; }
+#dashboards-container { width: 100%; box-sizing: border-box; }
 #dashboard { flex: 0 0 auto; }
 #fire-history { 
   flex: 0 0 300px; 
@@ -4291,22 +4292,36 @@ function applyFireHistoryVisibility() {
 }
 
 // グリッド列数を適用（localStorage: tv_grid_columns）
-function applyGridColumns() {
+function applyGridColumns(requestedCols) {
   const container = document.getElementById('dashboards-container');
   if (!container) return;
-  let cols = parseInt(localStorage.getItem('tv_grid_columns') || '1', 10);
+
+  const stored = localStorage.getItem('tv_grid_columns');
+  let cols = (typeof requestedCols === 'number' && !isNaN(requestedCols)) ? requestedCols : parseInt(stored || '1', 10);
   if (!cols || cols < 1) cols = 1;
 
-  // 簡易レスポンシブ: 画面幅に対して最大列数を調整
+  // 簡易レスポンシブ: container の実幅に合わせて最大列数を調整
   try {
-    const maxCols = Math.max(1, Math.floor(window.innerWidth / 360));
+    const gap = 12;           // applyGridColumns と一致させる
+    const minCol = 280;       // grid の minmax に合わせる
+    let containerWidth = (container && container.clientWidth) ? container.clientWidth : window.innerWidth;
+
+    // container がまだ描画されていない場合の安全策
+    if (!containerWidth || containerWidth < minCol) containerWidth = window.innerWidth || (minCol + gap);
+
+    const maxCols = Math.max(1, Math.floor((containerWidth + gap) / (minCol + gap)));
     if (cols > maxCols) cols = maxCols;
-  } catch (e) { /* ignore */ }
+
+    console.log('[GRID] applyGridColumns — requested:', requestedCols ?? stored, '-> using cols:', cols, 'containerWidth:', containerWidth, 'maxCols:', maxCols, 'window.innerWidth:', window.innerWidth);
+  } catch (e) {
+    console.warn('[GRID] applyGridColumns error', e);
+  }
 
   container.style.display = 'grid';
   container.style.gridTemplateColumns = `repeat(${cols}, minmax(280px, 1fr))`;
   container.style.gridAutoRows = 'auto';
   container.style.gap = '12px';
+  container.style.paddingRight = '8px'; // ウインドウ右端との間隔を明示的に8pxに固定
 
   // 各セクションをグリッドアイテムとして幅いっぱいにする
   document.querySelectorAll('.currency-section').forEach(s => {
@@ -4913,8 +4928,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             await load();
             break;
           case 'grid_columns_changed':
-            console.log('[DASHBOARD] grid_columns_changed received:', data);
-            applyGridColumns();
+            console.log('[DASHBOARD] grid_columns_changed received:', data, 'localStorage:', localStorage.getItem('tv_grid_columns'));
+            // イベントで渡された columns があれば直接適用（同期性向上）
+            applyGridColumns(data && data.columns ? Number(data.columns) : undefined);
             break;
           case 'fire_history_visibility_changed':
             applyFireHistoryVisibility();
