@@ -8407,9 +8407,14 @@ setTimeout(showAudioEnableOverlay, 500);
     </div>
 
     <!-- バックアップ→Webhook送信セクション -->
-    <div class="section-header" data-section="sendToTarget">🚀 バックアップからデータ送信</div>
+    <div class="section-header" data-section="sendToTarget">
+      🚀 バックアップからデータ送信
+      <span class="tooltip" style="margin-left:8px;vertical-align:middle;">
+        <span style="color:#94a3b8;font-size:0.95em;cursor:default;">ℹ️</span>
+        <span class="tooltiptext">ローカルの TradingViewBackup_JSON フォルダから最新の JSON を読み、選択したターゲットの /webhook に送信して DB を上書きします（ローカルサーバー経由で動作）。</span>
+      </span>
+    </div>
     <div class="section-body" data-section-body="sendToTarget">
-      <p style="font-size:0.82em;color:#94a3b8;margin:0 0 10px;">ローカルのTradingViewBackup_JSONフォルダから最新JSONをWebhook経由で送信します。<br>※ローカルサーバー経由でのみ動作します。</p>
 
       <!-- 送信先選択 -->
       <div style="margin-bottom:10px;">
