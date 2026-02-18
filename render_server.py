@@ -1422,11 +1422,25 @@ def webhook():
         
         # 受信タイムスタンプをログ（JST）
         jst = pytz.timezone('Asia/Tokyo')
-        received_at = datetime.now(jst).isoformat()
         symbol_val = data.get("symbol", "UNKNOWN")
         tf_val = data.get("tf", "5")
-        sent_time_val = data.get("sent_time", "")  # JSONの送信時間を取得
-        print(f'[WEBHOOK RECEIVED] {received_at} - {symbol_val}/{tf_val} (Sent: {sent_time_val})')
+        sent_time_val = data.get("sent_time", "")  # JSONの送信時間（例: "26/02/19/00:30"）
+
+        # sent_time を received_at として使う（形式: YY/MM/DD/HH:MM）
+        received_at = datetime.now(jst).isoformat()  # デフォルト: サーバー受信時刻
+        if sent_time_val:
+            try:
+                # "26/02/19/00:30" -> 2026-02-19 00:30:00 JST
+                parts = sent_time_val.split('/')
+                if len(parts) == 4:
+                    yy, mm, dd, hhmm = parts
+                    hh, mn = hhmm.split(':')
+                    sent_dt = jst.localize(datetime(2000 + int(yy), int(mm), int(dd), int(hh), int(mn), 0))
+                    received_at = sent_dt.isoformat()
+            except Exception as _e:
+                print(f'[WARNING] Cannot parse sent_time "{sent_time_val}": {_e}')
+
+        print(f'[WEBHOOK RECEIVED] sent_time={sent_time_val} received_at={received_at} - {symbol_val}/{tf_val}')
         
         # ログをファイルに保存
         try:
@@ -1532,7 +1546,8 @@ def webhook():
         try:
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
-            received_timestamp = datetime.now(jst).isoformat()
+            received_timestamp = datetime.now(jst).isoformat()  # 最終更新（サーバー受信時刻）
+            # received_at は sent_time ベース（上で解析済み）
             c.execute('''INSERT OR REPLACE INTO states (
                         symbol, tf, timestamp, price, time,
                         state_flag, state_word,
@@ -1555,7 +1570,7 @@ def webhook():
                      ','.join(data.get('cloud_order', [])),
                      json.dumps(data.get('clouds', []), ensure_ascii=False),
                      json.dumps(data.get('meta', {}), ensure_ascii=False),
-                     received_timestamp,
+                     received_at,      # ← sent_time ベース
                      sent_time_val))
             conn.commit()
             # WALモード有効時の即時書き込み確保
@@ -3510,27 +3525,41 @@ def api_backup_recovery():
                         else:
                             print(f'[BACKUP RECOVERY] Updating {symbol_val}/{tf_val}: Backup has newer data (DB:{db_time} < Backup:{backup_time})')
                 
-                # ファイル名から受信時刻を抽出
-                # 対応形式: 
+                # received_at: JSON の sent_time を最優先、なければファイル名から抽出
+                received_at_str = None
+
+                # 1) JSON内の sent_time から取得（例: "26/02/19/00:30" = YY/MM/DD/HH:MM）
+                sent_time_str = data.get('sent_time', '')
+                if sent_time_str:
+                    try:
+                        st_parts = sent_time_str.split('/')
+                        if len(st_parts) == 4:
+                            syy, smm, sdd, shhmm = st_parts
+                            shh, smn = shhmm.split(':')
+                            sent_dt = jst.localize(datetime(2000 + int(syy), int(smm), int(sdd), int(shh), int(smn), 0))
+                            received_at_str = sent_dt.isoformat()
+                    except Exception:
+                        pass
+
+                # 2) フォールバック: ファイル名から受信時刻を抽出
+                # 対応形式:
                 # - 旧形式: 20260131_064500_1769809500000.json
                 # - 新形式: 20260131_064500_15m_1769809500000.json
-                filename = os.path.basename(file_path)
-                received_at_str = None
-                if '_' in filename:
-                    parts = filename.replace('.json', '').split('_')
-                    if len(parts) >= 2:
-                        try:
-                            # YYYYMMDD_HHMMSS 形式を抽出
-                            date_str = parts[0]  # 20260131
-                            time_str = parts[1]  # 064500
-                            if len(date_str) == 8 and len(time_str) == 6:
-                                from datetime import datetime
-                                dt = datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S")
-                                dt = jst.localize(dt)
-                                received_at_str = dt.isoformat()
-                        except:
-                            pass
-                
+                if not received_at_str:
+                    filename = os.path.basename(file_path)
+                    if '_' in filename:
+                        parts = filename.replace('.json', '').split('_')
+                        if len(parts) >= 2:
+                            try:
+                                date_str = parts[0]  # 20260131
+                                time_str = parts[1]  # 064500
+                                if len(date_str) == 8 and len(time_str) == 6:
+                                    dt = datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S")
+                                    dt = jst.localize(dt)
+                                    received_at_str = dt.isoformat()
+                            except Exception:
+                                pass
+
                 if not received_at_str:
                     received_at_str = datetime.now(jst).isoformat()
                 
@@ -3598,7 +3627,7 @@ def api_backup_recovery():
         traceback.print_exc()
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
-@app.route('/api/backup/send_to_target', methods=['POST'])
+@app.route('/api/backup/send_to_target', methods=['POST', 'OPTIONS'])
 def api_backup_send_to_target():
     """
     ローカルバックアップフォルダのJSONを指定Webhookへ送信。
@@ -3607,8 +3636,25 @@ def api_backup_send_to_target():
                  "target":"local"/"production",
                  "local_url":"http://localhost:5000" (localの場合),
                  "mode":"merge"/"replace" }
+    NOTE: 追加で OPTIONS/CORS をサポートし、受信ログを残す
     """
+    # CORS preflight support
+    if request.method == 'OPTIONS':
+        resp = make_response('', 200)
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return resp
+
     try:
+        # Diagnostic log for incoming calls from browser / UI
+        try:
+            origin = request.headers.get('Origin')
+            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as _log:
+                _log.write(f"[SEND_TO_TARGET] request from {request.remote_addr} Origin={origin} headers={dict(request.headers)}\n")
+        except Exception:
+            pass
+
         req = request.json or {}
         symbol_filter = req.get('symbol', 'all')
         tf_filter     = req.get('tf', 'all')
@@ -3695,15 +3741,19 @@ def api_backup_send_to_target():
 
         socketio.emit('update_table', {'message': 'send_to_target completed'})
         print(f'[SEND_TO_TARGET] Done: sent={sent}, skipped={skipped}, errors={errors}, target={target_url}')
-        return jsonify({
+        resp = jsonify({
             'status': 'success', 'target': target_url,
             'sent': sent, 'skipped': skipped, 'errors': errors,
             'results': results
-        }), 200
+        })
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp, 200
 
     except Exception as e:
         import traceback; traceback.print_exc()
-        return jsonify({'status': 'error', 'msg': str(e)}), 500
+        resp = jsonify({'status': 'error', 'msg': str(e)})
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp, 500
 
 
 @app.route('/api/clear_notifications', methods=['POST'])

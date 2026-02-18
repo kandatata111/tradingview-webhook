@@ -8460,7 +8460,7 @@ setTimeout(showAudioEnableOverlay, 500);
         </div>
       </div>
 
-      <button id="btnSendToTarget" onclick="sendBackupToTarget()"
+      <button id="btnSendToTarget" onclick="sendBackupToTarget_v2()"
               style="width:100%;padding:10px;background:#1d4ed8;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.95em;">
         🚀 送信開始
       </button>
@@ -8761,14 +8761,12 @@ document.querySelectorAll('input[name="sendTarget"]').forEach(el => {
 });
 
 // バックアップからWebhook送信
-async function sendBackupToTarget() {
+async function sendBackupToTarget_v2() {
   const symbol = document.getElementById('sendSymbol').value;
   const tf = document.getElementById('sendTf').value;
   const target = document.querySelector('input[name="sendTarget"]:checked').value;
   const local_url = document.getElementById('localServerUrl').value.trim() || 'http://localhost:5000';
-  // 上書きモードを固定（ユーザー要望により、常に replace にする）
   const mode = 'replace';
-
   const btn = document.getElementById('btnSendToTarget');
   const status = document.getElementById('sendTargetStatus');
 
@@ -8780,16 +8778,14 @@ async function sendBackupToTarget() {
   status.textContent = '送信処理を開始しています...';
 
   try {
-    // ローカルサーバー経由で呼ぶ（ファイル読み取りはローカルPC側で実行）
-    const apiBase = local_url; // 常にローカルサーバー経由で送信
-    const response = await fetch(apiBase + '/api/backup/send_to_target', {
+    const response = await fetch(local_url + '/api/backup/send_to_target', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol, tf, target, local_url, mode })
     });
     const data = await response.json();
     if (data.status === 'success') {
-      status.textContent = `✅ 完了: 送信 ${data.sent}件 / スキップ ${data.skipped}件 / エラー ${data.errors}件\n\n${(data.details || []).join('\n')}`;
+      status.textContent = `✅ 完了: 送信 ${data.sent}件 / スキップ ${data.skipped}件 / エラー ${data.errors}件`;
     } else {
       status.textContent = `❌ エラー: ${data.msg || JSON.stringify(data)}`;
     }
