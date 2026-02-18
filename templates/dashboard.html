@@ -307,11 +307,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 /* 通貨ごとのコンテナ */
 .currency-section {
   display: flex;
-  gap: 15px;
+  gap: 12px; /* 横間隔と揃える */
   align-items: flex-start;
-  padding-bottom: 15px;
+  padding-bottom: 12px; /* 上下の余白を狭める */
   border-bottom: 1px solid rgba(255,255,255,0.1);
-  margin-bottom: 15px;
+  margin-bottom: 12px; /* 上下の余白を狭める */
 }
 .currency-section.hidden {
   display: none;
@@ -4265,6 +4265,7 @@ function applyCurrencyFilter() {
 // 発火履歴ウィンドウの表示/非表示を適用（localStorage: tv_show_fire_history）
 function applyFireHistoryVisibility() {
   const show = localStorage.getItem('tv_show_fire_history') !== 'false'; // デフォルト true
+  console.log('[DASHBOARD] applyFireHistoryVisibility ->', show);
   document.querySelectorAll('.currency-fire-history').forEach(el => {
     if (show) {
       el.classList.remove('hidden');
@@ -4287,6 +4288,71 @@ function applyFireHistoryVisibility() {
 
   // 高さ同期を再実行
   try { syncAllFireHistoryHeights(); } catch(e) {}
+}
+
+// グリッド列数を適用（localStorage: tv_grid_columns）
+function applyGridColumns() {
+  const container = document.getElementById('dashboards-container');
+  if (!container) return;
+  let cols = parseInt(localStorage.getItem('tv_grid_columns') || '1', 10);
+  if (!cols || cols < 1) cols = 1;
+
+  // 簡易レスポンシブ: 画面幅に対して最大列数を調整
+  try {
+    const maxCols = Math.max(1, Math.floor(window.innerWidth / 360));
+    if (cols > maxCols) cols = maxCols;
+  } catch (e) { /* ignore */ }
+
+  container.style.display = 'grid';
+  container.style.gridTemplateColumns = `repeat(${cols}, minmax(280px, 1fr))`;
+  container.style.gridAutoRows = 'auto';
+  container.style.gap = '12px';
+
+  // 各セクションをグリッドアイテムとして幅いっぱいにする
+  document.querySelectorAll('.currency-section').forEach(s => {
+    s.style.width = '100%';
+  });
+}
+
+// 表示の確実性を高めるため、JSで通貨セクションの上下余白を強制設定する
+// grid レイアウト時は container の gap を使うため marginBottom を 0 にする
+function enforceSectionSpacing() {
+  const container = document.getElementById('dashboards-container');
+  const els = document.querySelectorAll('.currency-section');
+  if (!els || els.length === 0) return;
+  const isGrid = container && window.getComputedStyle(container).display === 'grid';
+
+  els.forEach(el => {
+    if (isGrid) {
+      el.style.marginBottom = '0px';
+      el.style.paddingBottom = '0px';
+      el.style.borderBottom = 'none';
+    } else {
+      el.style.marginBottom = '12px';
+      el.style.paddingBottom = '12px';
+      el.style.borderBottom = '';
+    }
+  });
+
+  // デバッグ出力（開発者コンソール）
+  const cs = window.getComputedStyle(els[0]);
+  console.log('[LAYOUT] enforceSectionSpacing applied — isGrid:', isGrid, 'marginBottom:', cs.marginBottom, 'paddingBottom:', cs.paddingBottom);
+}
+
+// 隣接するセクション間の実測ギャップを出力するデバッグ関数
+function debugSectionSpacing() {
+  const els = Array.from(document.querySelectorAll('.currency-section'));
+  if (els.length === 0) { console.log('[LAYOUT-DEBUG] no currency-section elements'); return; }
+  els.forEach((el, idx) => {
+    const rect = el.getBoundingClientRect();
+    const style = window.getComputedStyle(el);
+    console.log(`[LAYOUT-DEBUG] idx=${idx} offsetTop=${el.offsetTop} offsetHeight=${el.offsetHeight} marginTop=${style.marginTop} marginBottom=${style.marginBottom} paddingBottom=${style.paddingBottom} borderBottomWidth=${style.borderBottomWidth}`);
+    if (idx < els.length - 1) {
+      const next = els[idx + 1];
+      const gap = next.offsetTop - (el.offsetTop + el.offsetHeight);
+      console.log(`[LAYOUT-DEBUG] gap to next = ${gap}px`);
+    }
+  });
 }
 
 function updateCurrencyFilter(availableCurrencies) {
@@ -4845,6 +4911,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           case 'rows_changed':
             applyRowVisibility();
             await load();
+            break;
+          case 'grid_columns_changed':
+            console.log('[DASHBOARD] grid_columns_changed received:', data);
+            applyGridColumns();
             break;
           case 'fire_history_visibility_changed':
             applyFireHistoryVisibility();
@@ -5541,6 +5611,13 @@ async function load() {
         applyFontSize(sz);
         applyColumnVisibility();
         applyRowVisibility();
+        // ここで発火履歴とグリッド設定も必ず再適用して表示状態を保存と同期する
+        try { applyFireHistoryVisibility(); } catch(e) { console.warn('applyFireHistoryVisibility failed', e); }
+        try { applyGridColumns(); } catch(e) { /* ignore */ }
+        // ブラウザのスタイル競合を避けるため、JSで余白を強制適用
+        try { enforceSectionSpacing(); } catch(e) { /* ignore */ }
+        // 隣接セクション間の実測値をログ出力（デバッグ）
+        try { debugSectionSpacing(); } catch(e) { /* ignore */ }
       } catch (e) { /* ignore */ }
       
       // 発火履歴をデータベースから復元
@@ -7050,7 +7127,12 @@ function syncAllFireHistoryHeights() {
 
 // Keep fire history height synced on viewport changes
 window.addEventListener('resize', () => {
-  requestAnimationFrame(() => syncAllFireHistoryHeights());
+  requestAnimationFrame(() => {
+    syncAllFireHistoryHeights();
+    try { applyGridColumns(); } catch(e) { /* ignore if not defined yet */ }
+    try { enforceSectionSpacing(); } catch(e) { /* ignore */ }
+    try { debugSectionSpacing(); } catch(e) { /* ignore */ }
+  });
 });
 
 // Test fire button handler

@@ -445,6 +445,11 @@
           <input type="checkbox" id="showFireHistoryToggle" checked> 発火履歴ウィンドウを表示
         </label>
       </div>
+      <div class="row">
+        <label for="gridColumnsInput">グリッド列数</label>
+        <input type="number" id="gridColumnsInput" min="1" max="10" value="1" style="width:80px;">
+        <small style="color:rgba(255,255,255,0.5);margin-left:8px;">(1=縦配列)</small>
+      </div>
     </div>
   </div>
   
@@ -896,6 +901,11 @@ function loadSettingsFromLocalStorage() {
   const showFireHistory = localStorage.getItem('tv_show_fire_history') !== 'false';
   const showFireHistoryToggle = document.getElementById('showFireHistoryToggle');
   if (showFireHistoryToggle) showFireHistoryToggle.checked = showFireHistory;
+
+  // グリッド列数（ユーザー単位、デフォルト 1）
+  const gridCols = parseInt(localStorage.getItem('tv_grid_columns') || '1', 10);
+  const gridInput = document.getElementById('gridColumnsInput');
+  if (gridInput) gridInput.value = isNaN(gridCols) ? '1' : String(gridCols);
   
   // 列の表示
   const cols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
@@ -1652,6 +1662,19 @@ function setupEventHandlers() {
       const show = !!e.target.checked;
       localStorage.setItem('tv_show_fire_history', show.toString());
       notifyParent('fire_history_visibility_changed', { show });
+    });
+  }
+
+  // グリッド列数入力ハンドラ
+  const gridInputEl = document.getElementById('gridColumnsInput');
+  if (gridInputEl) {
+    gridInputEl.addEventListener('change', (e) => {
+      let v = parseInt(e.target.value, 10) || 1;
+      if (v < 1) v = 1;
+      if (v > 10) v = 10;
+      e.target.value = v;
+      localStorage.setItem('tv_grid_columns', v.toString());
+      notifyParent('grid_columns_changed', { columns: v });
     });
   }
   
