@@ -5963,6 +5963,8 @@ async function load() {
         // ここで発火履歴とグリッド設定も必ず再適用して表示状態を保存と同期する
         try { applyFireHistoryVisibility(); } catch(e) { console.warn('applyFireHistoryVisibility failed', e); }
         try { applyGridColumns(); } catch(e) { /* ignore */ }
+        // DOM再構築後は必ずグリッド配置を再適用（tv_grid_placementに保存した配置を復元）
+        try { applyGridPlacement(); } catch(e) { /* ignore */ }
         try { const savedPattern = localStorage.getItem('tv_grid_row_pattern') || ''; if (savedPattern) applyRowPattern(savedPattern); } catch(e) { /* ignore */ }
         // ブラウザのスタイル競合を避けるため、JSで余白を強制適用
         try { enforceSectionSpacing(); } catch(e) { /* ignore */ }

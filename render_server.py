@@ -600,12 +600,23 @@ def init_db():
         print('[INFO] No notes data file found, will be created on first save')
 
 def _restore_rules_from_backup():
-    """起動時: DBのrulesが0件のときのみ rules_backup.json から復元する（上書き防止）"""
+    """起動時: DBのrulesが0件のときのみ rules_backup.json から復元する（永続ストレージ優先）"""
     try:
-        rules_backup_path = os.path.join(BASE_DIR, 'rules_backup.json')
-        if not os.path.exists(rules_backup_path):
-            print('[RULES] No rules_backup.json found, skipping restore')
+        # 永続ストレージのバックアップを優先して探す（Render 等で PERSISTENT_DIR が設定されている場合）
+        persistent_path = os.path.join(PERSISTENT_DIR, 'rules_backup.json')
+        bundled_path = os.path.join(BASE_DIR, 'rules_backup.json')
+        rules_backup_path = None
+
+        if os.path.exists(persistent_path):
+            rules_backup_path = persistent_path
+            print(f'[RULES] Using persistent rules backup: {persistent_path}')
+        elif os.path.exists(bundled_path):
+            rules_backup_path = bundled_path
+            print(f'[RULES] Using bundled rules backup: {bundled_path}')
+        else:
+            print('[RULES] No rules_backup.json found in persistent or bundled paths, skipping restore')
             return
+
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT COUNT(*) FROM rules')
@@ -614,6 +625,7 @@ def _restore_rules_from_backup():
             print(f'[RULES] DB already has {count} rules, skipping restore from backup')
             conn.close()
             return
+
         with open(rules_backup_path, 'r', encoding='utf-8') as f:
             backup = json.load(f)
         rules_list = backup.get('rules', [])
@@ -621,6 +633,7 @@ def _restore_rules_from_backup():
             print('[RULES] rules_backup.json is empty, skipping')
             conn.close()
             return
+
         jst = pytz.timezone('Asia/Tokyo')
         now = datetime.now(jst).isoformat()
         restored = 0
@@ -645,7 +658,7 @@ def _restore_rules_from_backup():
             restored += 1
         conn.commit()
         conn.close()
-        print(f'[RULES] Restored {restored} rules from rules_backup.json')
+        print(f'[RULES] Restored {restored} rules from {rules_backup_path}')
     except Exception as e:
         print(f'[RULES] Failed to restore rules from backup: {e}')
 
@@ -674,10 +687,24 @@ def _save_rules_backup():
             'count': len(rules_list),
             'rules': rules_list
         }
-        rules_backup_path = os.path.join(BASE_DIR, 'rules_backup.json')
-        with open(rules_backup_path, 'w', encoding='utf-8') as f:
-            json.dump(backup, f, ensure_ascii=False, indent=2)
-        print(f'[RULES] Saved {len(rules_list)} rules to rules_backup.json')
+        persistent_path = os.path.join(PERSISTENT_DIR, 'rules_backup.json')
+        bundled_path = os.path.join(BASE_DIR, 'rules_backup.json')
+
+        # まず永続ストレージへ保存（できればこちらを最新にする）
+        try:
+            with open(persistent_path, 'w', encoding='utf-8') as f:
+                json.dump(backup, f, ensure_ascii=False, indent=2)
+            print(f'[RULES] Saved {len(rules_list)} rules to persistent backup: {persistent_path}')
+        except Exception as e:
+            print(f'[RULES] Failed to write persistent backup: {e} (path={persistent_path})')
+
+        # 併せてアプリバンドル側にも保存しておく（デプロイ時の参照用 / git 運用との互換）
+        try:
+            with open(bundled_path, 'w', encoding='utf-8') as f:
+                json.dump(backup, f, ensure_ascii=False, indent=2)
+            print(f'[RULES] Also saved rules backup to bundled path: {bundled_path}')
+        except Exception as e:
+            print(f'[RULES] Failed to write bundled backup: {e} (path={bundled_path})')
     except Exception as e:
         print(f'[RULES] Failed to save rules backup: {e}')
 
@@ -1546,6 +1573,67 @@ def webhook():
         try:
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
+
+            # --- 新規: 既存レコードの received_at（送信時刻ベース）と比較し、古いペイロードはスキップ ---
+            try:
+                c.execute('SELECT received_at FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol_val, tf_val))
+                row = c.fetchone()
+                if row and row[0]:
+                    try:
+                        existing_dt = datetime.fromisoformat(row[0])
+
+                        # --- incoming_dt を決定（優先順: JSON.sent_time -> payload.time(ms) -> server-received_at） ---
+                        incoming_dt = None
+
+                        # 1) JSON 内の sent_time を最優先で使用（形式: YY/MM/DD/HH:MM を想定）
+                        if sent_time_val:
+                            try:
+                                parts = sent_time_val.split('/')
+                                if len(parts) == 4:
+                                    yy, mm, dd, hhmm = parts
+                                    hh, mn = hhmm.split(':')
+                                    parsed = jst.localize(datetime(2000 + int(yy), int(mm), int(dd), int(hh), int(mn), 0))
+                                    incoming_dt = parsed
+                                else:
+                                    # 他フォーマットの簡易パースを試す
+                                    incoming_dt = datetime.fromisoformat(received_at)
+                            except Exception:
+                                # 失敗したらフォールバックに移る
+                                incoming_dt = None
+
+                        # 2) payload の time(ms) があれば次に優先
+                        if incoming_dt is None and data.get('time'):
+                            try:
+                                ms = int(data.get('time') or 0)
+                                if ms > 0:
+                                    incoming_dt = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).astimezone(existing_dt.tzinfo or pytz.UTC)
+                            except Exception:
+                                incoming_dt = None
+
+                        # 3) 最終フォールバック: 既に計算済みの received_at 変数を使用
+                        if incoming_dt is None:
+                            try:
+                                incoming_dt = datetime.fromisoformat(received_at)
+                            except Exception:
+                                incoming_dt = None
+
+                        # incoming_dt が得られた場合に比較し、既存の方が新しいか同一ならスキップ
+                        if incoming_dt is not None and existing_dt >= incoming_dt:
+                            print(f"[WEBHOOK SKIP] Ignoring older/equal payload for {symbol_val}/{tf_val} (existing:{existing_dt.isoformat()} incoming:{incoming_dt.isoformat()})")
+                            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                                f.write(f"{datetime.now(jst).isoformat()} - [WEBHOOK SKIP] Ignored older/equal payload for {symbol_val}/{tf_val} (existing:{existing_dt.isoformat()} incoming:{incoming_dt.isoformat()})\n")
+                            conn.close()
+                            response = jsonify({'status': 'skipped', 'reason': 'older_or_equal_payload_ignored'})
+                            response.headers['Access-Control-Allow-Origin'] = '*'
+                            return response, 200
+                    except Exception:
+                        # 解析失敗したら安全のため続行
+                        pass
+            except Exception:
+                # 既存チェックに失敗しても通常の保存処理を続ける
+                pass
+            # --- 比較チェックここまで ---
+
             received_timestamp = datetime.now(jst).isoformat()  # 最終更新（サーバー受信時刻）
             # received_at は sent_time ベース（上で解析済み）
             c.execute('''INSERT OR REPLACE INTO states (
