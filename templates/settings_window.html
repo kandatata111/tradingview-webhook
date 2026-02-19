@@ -445,10 +445,17 @@
           <input type="checkbox" id="showFireHistoryToggle" checked> 発火履歴ウィンドウを表示
         </label>
       </div>
-      <div class="row">
-        <label for="gridColumnsInput">グリッド列数</label>
-        <input type="number" id="gridColumnsInput" min="1" max="10" value="1" style="width:80px;">
-        <small style="color:rgba(255,255,255,0.5);margin-left:8px;">(1=縦配列)</small>
+
+
+      <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;">
+        <label style="min-width:110px;">グリッド設定</label>
+        <span style="color:rgba(255,255,255,0.8);font-size:13px;">行:</span>
+        <input type="number" id="gridRowsInput" min="1" max="20" value="2" style="width:72px;">
+        <span style="color:rgba(255,255,255,0.8);font-size:13px;">列:</span>
+        <input type="number" id="gridColsInput" min="1" max="10" value="5" style="width:72px;">
+        <button id="gridApplyBtn" class="btn btn-success" style="margin-left:8px;">適用</button>
+        <button id="gridSavePlacementBtn" class="btn btn-primary" style="margin-left:6px;">配置保存</button>
+        <small style="color:rgba(255,255,255,0.5);margin-left:8px;">空きセルにドラッグして配置</small>
       </div>
     </div>
   </div>
@@ -816,6 +823,11 @@ function setupParentCommunication() {
       availableSymbols = event.data.currencies || [];
       updateCurrencyFilter();
       updateRuleScopeOptions();
+      // Update hint showing number of available/visible currency cards
+      try {
+        const hint = document.getElementById('gridColsInput'); // unused grid input
+        void hint;
+      } catch (e) { /* ignore */ }
     }
   });
   
@@ -902,11 +914,7 @@ function loadSettingsFromLocalStorage() {
   const showFireHistoryToggle = document.getElementById('showFireHistoryToggle');
   if (showFireHistoryToggle) showFireHistoryToggle.checked = showFireHistory;
 
-  // グリッド列数（ユーザー単位、デフォルト 1）
-  const gridCols = parseInt(localStorage.getItem('tv_grid_columns') || '1', 10);
-  const gridInput = document.getElementById('gridColumnsInput');
-  if (gridInput) gridInput.value = isNaN(gridCols) ? '1' : String(gridCols);
-  
+
   // 列の表示
   const cols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   document.querySelectorAll('.col-toggle').forEach(cb => {
@@ -1645,6 +1653,35 @@ function setupEventHandlers() {
     });
   }
 
+  // グリッド設定（行×列）
+  const gridRowsInput = document.getElementById('gridRowsInput');
+  const gridColsInput = document.getElementById('gridColsInput');
+  const gridApplyBtn  = document.getElementById('gridApplyBtn');
+  const gridSavePlacementBtn = document.getElementById('gridSavePlacementBtn');
+
+  // 初期値を反映
+  if (gridRowsInput) gridRowsInput.value = localStorage.getItem('tv_grid_rows') || '2';
+  if (gridColsInput) gridColsInput.value = localStorage.getItem('tv_grid_cols') || '5';
+
+  if (gridApplyBtn) {
+    gridApplyBtn.addEventListener('click', () => {
+      const rows = Math.max(1, Math.min(20, parseInt(gridRowsInput?.value, 10) || 2));
+      const cols = Math.max(1, Math.min(10, parseInt(gridColsInput?.value, 10) || 5));
+      if (gridRowsInput) gridRowsInput.value = String(rows);
+      if (gridColsInput) gridColsInput.value = String(cols);
+      localStorage.setItem('tv_grid_rows', String(rows));
+      localStorage.setItem('tv_grid_cols', String(cols));
+      notifyParent('layout_grid_changed', { rows, cols });
+    });
+  }
+
+  if (gridSavePlacementBtn) {
+    gridSavePlacementBtn.addEventListener('click', () => {
+      // 親ダッシュボードに「配置保存」を通知（ダッシュボード側でスナップショット保存）
+      notifyParent('layout_grid_placement_saved', {});
+    });
+  }
+
   // 行並び固定トグル
   const fixRowOrderToggle = document.getElementById('fixRowOrderToggle');
   if (fixRowOrderToggle) {
@@ -1665,19 +1702,7 @@ function setupEventHandlers() {
     });
   }
 
-  // グリッド列数入力ハンドラ
-  const gridInputEl = document.getElementById('gridColumnsInput');
-  if (gridInputEl) {
-    gridInputEl.addEventListener('change', (e) => {
-      let v = parseInt(e.target.value, 10) || 1;
-      if (v < 1) v = 1;
-      if (v > 10) v = 10;
-      e.target.value = v;
-      localStorage.setItem('tv_grid_columns', v.toString());
-      notifyParent('grid_columns_changed', { columns: v });
-    });
-  }
-  
+
   // 列表示
   document.querySelectorAll('.col-toggle').forEach(cb => {
     cb.addEventListener('change', () => {

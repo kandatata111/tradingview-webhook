@@ -289,6 +289,12 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   opacity: 0.4;
 }
 
+/* Drag-mode helpers: プレースホルダとドラッグ時の見た目 */
+.sortable-chosen { opacity: 0.85; transform: scale(1.01); box-shadow: 0 8px 20px rgba(0,0,0,0.25); }
+.sortable-placeholder { outline: 2px dashed rgba(255,255,255,0.18); background: rgba(255,255,255,0.02); border-radius:6px; min-height: 60px; }
+.row-wrapper.dragging-flex { display: flex !important; grid-template-columns: none !important; align-items: flex-start; }
+.currency-section.dragging-item { opacity: 0.85; transform: translateZ(0); }
+
 /* 発火履歴ウィンドウ */
 .main-content { display: flex; flex-direction: column; gap: 1px; align-items: flex-start; padding-left: 6px; }
 #dashboards-container { width: 100%; box-sizing: border-box; }
@@ -315,10 +321,65 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
   padding-bottom: 12px; /* 上下の余白を狭める */
   border-bottom: 1px solid rgba(255,255,255,0.1);
   margin-bottom: 12px; /* 上下の余白を狭める */
+  position: relative; /* for slot index badge */
 }
 .currency-section.hidden {
   display: none;
 }
+.slot-index {
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+  opacity: 0.85;
+  z-index: 5;
+  pointer-events: none;
+}
+/* ==================================================
+   グリッド配置システム
+   - 行は `tv_grid_rows`、列は自動算出（UIでは列数を編集しません）
+   - 各セルに1つの通貨表を自由配置
+   - ドラッグ中は空きセルをドロップゾーンとして表示
+   ================================================== */
+.placement-grid .currency-section {
+  box-sizing: border-box;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+  border-bottom: none !important;
+  align-self: start;
+}
+/* 空きセル ドロップゾーン */
+.grid-drop-zone {
+  border: 2px dashed rgba(74,222,128,0.6);
+  border-radius: 8px;
+  background: rgba(74,222,128,0.06);
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(74,222,128,0.7);
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.grid-drop-zone.drag-over {
+  background: rgba(74,222,128,0.25);
+  border-color: rgba(74,222,128,1);
+  color: rgba(74,222,128,1);
+  box-shadow: 0 0 16px rgba(74,222,128,0.4);
+}
+/* ドラッグ中の元セクション */
+.currency-section.grid-dragging {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 .currency-dashboard {
   flex: 0 0 auto;
 }
@@ -4293,19 +4354,26 @@ function applyFireHistoryVisibility() {
   try { syncAllFireHistoryHeights(); } catch(e) {}
 }
 
-// グリッド列数を適用（localStorage: tv_grid_columns）
+// グリッド列数を適用（localStorage: tv_grid_cols）
 function applyGridColumns(requestedCols) {
   const container = document.getElementById('dashboards-container');
   if (!container) return;
 
-  const stored = localStorage.getItem('tv_grid_columns');
-  let cols = (typeof requestedCols === 'number' && !isNaN(requestedCols)) ? requestedCols : parseInt(stored || '1', 10);
-  if (!cols || cols < 1) cols = 1;
+  // グリッド配置が有効な場合のみ applyGridColumns の columm 計算をスキップ
+  // （applyGridPlacement がコンテナの gridTemplateColumns を上書きするため）
+  // ここでは applyGridColumns を早期 return せず継続することで fallback として機能させる
 
-  // 簡易レスポンシブ: container の実幅に合わせて最大列数を調整
   try {
     const gap = 12;           // applyGridColumns と一致させる
     const minCol = 280;       // grid の minmax に合わせる
+
+    // stored value (from settings) and initial cols choice
+    // 優先して tv_grid_cols（ユーザーがグリッド設定で指定）を使用する
+    const stored = Number(localStorage.getItem('tv_grid_cols') || localStorage.getItem('tv_grid_columns') || 3);
+    let cols = (typeof requestedCols === 'number' && isFinite(requestedCols) && requestedCols > 0)
+      ? Math.floor(requestedCols)
+      : (isFinite(stored) && stored > 0 ? Math.floor(stored) : 3);
+
     let containerWidth = (container && container.clientWidth) ? container.clientWidth : window.innerWidth;
 
     // container がまだ描画されていない場合の安全策
@@ -4313,6 +4381,7 @@ function applyGridColumns(requestedCols) {
 
     const maxCols = Math.max(1, Math.floor((containerWidth + gap) / (minCol + gap)));
     if (cols > maxCols) cols = maxCols;
+    if (cols < 1) cols = 1;
 
     console.log('[GRID] applyGridColumns — requested:', requestedCols ?? stored, '-> using cols:', cols, 'containerWidth:', containerWidth, 'maxCols:', maxCols, 'window.innerWidth:', window.innerWidth);
   } catch (e) {
@@ -4337,7 +4406,10 @@ function enforceSectionSpacing() {
   const container = document.getElementById('dashboards-container');
   const els = document.querySelectorAll('.currency-section');
   if (!els || els.length === 0) return;
-  const isGrid = container && window.getComputedStyle(container).display === 'grid';
+  const computedDisplay = container ? window.getComputedStyle(container).display : '';
+  const isRowPattern = container && container.classList.contains('row-pattern-active');
+  // Treat explicit row-pattern layout as 'grid-like' for spacing purposes
+  const isGrid = (computedDisplay === 'grid') || isRowPattern;
 
   els.forEach(el => {
     if (isGrid) {
@@ -4372,6 +4444,171 @@ function debugSectionSpacing() {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// グリッド配置システム
+//  localStorage キー:
+//    tv_grid_rows     : 行数 (整数)
+//    tv_grid_cols     : 列数 (整数)
+//    tv_grid_placement: JSON { "SYMBOL": {r, c} }  (0-indexed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getGridConfig() {
+  // 優先: ユーザー指定の tv_grid_cols があればそれを使用
+  const rows = Math.max(1, parseInt(localStorage.getItem('tv_grid_rows') || '2', 10));
+  const explicitCols = parseInt(localStorage.getItem('tv_grid_cols') || '', 10);
+  if (isFinite(explicitCols) && explicitCols > 0) {
+    return { rows, cols: Math.max(1, Math.min(10, explicitCols)) };
+  }
+
+  // 明示指定がなければレスポンシブ自動算出
+  const container = document.getElementById('dashboards-container');
+  const minCol = 220; // CSS の min-width に合わせる
+  let cols = 5;
+  try {
+    const cw = (container && container.clientWidth) ? container.clientWidth : document.documentElement.clientWidth || window.innerWidth;
+    cols = Math.max(1, Math.min(10, Math.floor(cw / minCol)));
+  } catch (e) { cols = 5; }
+
+  return { rows, cols };
+}
+
+function getPlacement() {
+  try { return JSON.parse(localStorage.getItem('tv_grid_placement') || '{}'); }
+  catch(e) { return {}; }
+}
+
+function savePlacement(p) {
+  localStorage.setItem('tv_grid_placement', JSON.stringify(p));
+}
+
+// 後方互換: 旧コードが applyRowPattern を呼ぶ可能性があるので無害な stub を残す
+function applyRowPattern() { applyGridPlacement(); }
+function clearRowPatternLayout() { /* 新システムでは不要 */ }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// applyGridPlacement: グリッド配置を適用する
+// ─────────────────────────────────────────────────────────────────────────────
+function applyGridPlacement() {
+  const container = document.getElementById('dashboards-container');
+  if (!container) return;
+
+  const { rows, cols } = getGridConfig();
+  const placement = getPlacement();
+
+  const sections = Array.from(container.querySelectorAll('.currency-section'));
+  const visible  = sections.filter(s => !s.classList.contains('hidden'));
+
+  // 占有マップ (0-indexed)
+  const occupied = Array.from({length: rows}, () => Array(cols).fill(false));
+
+  // 1. 配置データのある表を配置
+  const placed = new Set();
+  for (const el of visible) {
+    const sym = el.dataset.symbol;
+    const pos = placement[sym];
+    if (pos && typeof pos.r === 'number' && typeof pos.c === 'number'
+        && pos.r >= 0 && pos.r < rows && pos.c >= 0 && pos.c < cols
+        && !occupied[pos.r][pos.c]) {
+      el.style.gridRow    = String(pos.r + 1);
+      el.style.gridColumn = String(pos.c + 1);
+      el.style.alignSelf  = 'start';
+      occupied[pos.r][pos.c] = true;
+      placed.add(sym);
+    }
+  }
+
+  // 2. 配置データのない表を左上→右下の順で空きセルに自動配置
+  let ai = 0;
+  for (const el of visible) {
+    const sym = el.dataset.symbol;
+    if (placed.has(sym)) continue;
+    let found = false;
+    while (ai < rows * cols) {
+      const r = Math.floor(ai / cols);
+      const c = ai % cols;
+      ai++;
+      if (!occupied[r][c]) {
+        el.style.gridRow    = String(r + 1);
+        el.style.gridColumn = String(c + 1);
+        el.style.alignSelf  = 'start';
+        occupied[r][c] = true;
+        placement[sym]  = { r, c };
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      // グリッド外: inline style を外して auto flow
+      el.style.gridRow    = '';
+      el.style.gridColumn = '';
+    }
+  }
+
+  // 非表示はグリッド指定を削除
+  sections.filter(s => s.classList.contains('hidden')).forEach(el => {
+    el.style.gridRow    = '';
+    el.style.gridColumn = '';
+  });
+
+  savePlacement(placement);
+
+  container.classList.add('placement-grid');
+  container.style.display = 'grid';
+  container.style.gridTemplateColumns = `repeat(${cols}, minmax(220px, 1fr))`;
+  container.style.gridTemplateRows    = `repeat(${rows}, auto)`;
+  container.style.gap         = '12px';
+  container.style.paddingRight = '8px';
+  container.style.alignItems  = 'start';
+
+  try { removeDropZones(); } catch(e) {}
+  try { enforceSectionSpacing(); } catch(e) {}
+  try { syncAllFireHistoryHeights(); } catch(e) {}
+}
+
+// ── ドロップゾーン（空きセル）管理 ──────────────────────────────────────────
+// showDropZones: ドラッグ中に空きセルをビジュアル表示する（マウスD&D専用・D&Dイベント不要）
+function showDropZones(draggedSymbol) {
+  removeDropZones();
+  const container = document.getElementById('dashboards-container');
+  if (!container) return;
+
+  const { rows, cols } = getGridConfig();
+  const placement = getPlacement();
+
+  // 占有マップ（ドラッグ元を除く）
+  const occupied = Array.from({length: rows}, () => Array(cols).fill(false));
+  const sections = Array.from(container.querySelectorAll('.currency-section'));
+  for (const el of sections) {
+    if (el.classList.contains('hidden') || el.dataset.symbol === draggedSymbol) continue;
+    const pos = placement[el.dataset.symbol];
+    if (pos && pos.r >= 0 && pos.r < rows && pos.c >= 0 && pos.c < cols) {
+      occupied[pos.r][pos.c] = true;
+    }
+  }
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (occupied[r][c]) continue;
+      const dz = document.createElement('div');
+      dz.className = 'grid-drop-zone';
+      dz.dataset.r = String(r);
+      dz.dataset.c = String(c);
+      dz.style.gridRow    = String(r + 1);
+      dz.style.gridColumn = String(c + 1);
+      dz.textContent = 'ここに移動';
+      container.appendChild(dz);
+    }
+  }
+}
+
+function removeDropZones() {
+  document.querySelectorAll('.grid-drop-zone').forEach(el => el.remove());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 旧 logicalToVisualOrder / visualToLogicalOrder — 新システムでは不使用
+// ─────────────────────────────────────────────────────────────────────────────
+
 // テーブル表示上の各時間足ラベルに "古いデータ" 警告を付与／削除する（表示のみ）
 function updateStaleLabels() {
   try {
@@ -4402,17 +4639,17 @@ function updateStaleLabels() {
 
         const existing = tfCell.querySelector('.tf-stale');
 
-        // デバッグ出力：状態の有無を明示
-        console.log('[STALE-DBG] lookup for', symbol, tfText, '-> normalized tf=', tf, 'stateFound=', !!state, state ? state.tf : null, 'ts=', state ? state.timestamp : null);
+        // デバッグ出力：状態の有無を明示（古さ判定は received_at を使用）
+        console.log('[STALE-DBG] lookup for', symbol, tfText, '-> normalized tf=', tf, 'stateFound=', !!state, state ? state.tf : null, 'received_at=', state ? state.received_at : null);
 
-        if (!state || !state.timestamp) {
-          // stateが見つからない場合は既存マークをそのまま維持（誤削除防止）
-          console.log('[STALE] no state found for', symbol, tf, '- keeping existing mark');
+        if (!state || !state.received_at) {
+          // state が見つからない、または received_at が無い場合は既存マークを維持（誤削除防止）
+          console.log('[STALE] no state or received_at for', symbol, tf, '- keeping existing mark');
           return;
         }
 
-        const stale = (typeof isStaleData === 'function') ? isStaleData(symbol, String(tf), state.timestamp) : false;
-        console.log('[STALE-DBG] isStaleData ->', symbol, String(tf), state.timestamp, '=>', stale);
+        const stale = (typeof isStaleData === 'function') ? isStaleData(symbol, String(tf), state.received_at) : false;
+        console.log('[STALE-DBG] isStaleData ->', symbol, String(tf), state.received_at, '=>', stale);
         if (stale && !existing) {
           const span = document.createElement('span');
           span.className = 'tf-stale';
@@ -4951,6 +5188,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     wireSettings(); 
     wireSectionToggles(); 
     wireSubsectionToggles();
+
+    // Window resize: グリッド配置を再適用
+    let _gridResizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(_gridResizeTimer);
+      _gridResizeTimer = setTimeout(() => {
+        try { applyGridPlacement(); } catch (e) { console.warn('applyGridPlacement resize failed', e); }
+        try { enforceSectionSpacing(); } catch (e) { /* ignore */ }
+      }, 120);
+    });
     
     // 子ウィンドウ（settings_window）からのメッセージを受信
     window.addEventListener('message', async (event) => {
@@ -4990,9 +5237,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             await load();
             break;
           case 'grid_columns_changed':
-            console.log('[DASHBOARD] grid_columns_changed received:', data, 'localStorage:', localStorage.getItem('tv_grid_columns'));
+            console.log('[DASHBOARD] grid_columns_changed received:', data, 'localStorage:', localStorage.getItem('tv_grid_cols'));
             // イベントで渡された columns があれば直接適用（同期性向上）
             applyGridColumns(data && data.columns ? Number(data.columns) : undefined);
+            break;
+          case 'layout_grid_changed':
+            console.log('[DASHBOARD] layout_grid_changed received:', data);
+            try {
+              if (data && data.rows) localStorage.setItem('tv_grid_rows', String(data.rows));
+              if (data && data.cols) localStorage.setItem('tv_grid_cols', String(data.cols));
+              applyGridPlacement();
+              initGridDragDrop();
+            } catch (e) { console.warn('layout_grid_changed handler failed', e); }
+            break;
+          case 'layout_grid_placement_saved':
+            console.log('[DASHBOARD] layout_grid_placement_saved received');
+            try {
+              const p = getPlacement();
+              localStorage.setItem('tv_grid_placement_saved', JSON.stringify(p || {}));
+              alert('配置を保存しました');
+            } catch (e) { console.warn('layout_grid_placement_saved handler failed', e); }
+            break;
+          case 'layout_grid_placement_reset':
+            console.log('[DASHBOARD] layout_grid_placement_reset received');
+            try {
+              localStorage.removeItem('tv_grid_placement');
+              applyGridPlacement();
+            } catch (e) { console.warn('layout_grid_placement_reset handler failed', e); }
             break;
           case 'fire_history_visibility_changed':
             applyFireHistoryVisibility();
@@ -5692,6 +5963,7 @@ async function load() {
         // ここで発火履歴とグリッド設定も必ず再適用して表示状態を保存と同期する
         try { applyFireHistoryVisibility(); } catch(e) { console.warn('applyFireHistoryVisibility failed', e); }
         try { applyGridColumns(); } catch(e) { /* ignore */ }
+        try { const savedPattern = localStorage.getItem('tv_grid_row_pattern') || ''; if (savedPattern) applyRowPattern(savedPattern); } catch(e) { /* ignore */ }
         // ブラウザのスタイル競合を避けるため、JSで余白を強制適用
         try { enforceSectionSpacing(); } catch(e) { /* ignore */ }
         // 隣接セクション間の実測値をログ出力（デバッグ）
@@ -6007,7 +6279,7 @@ function renderCurrencyTable(symbol, allStates, container) {
           stateForTf = allStates.find(s => (typeof _normalizeTfKey === 'function' ? _normalizeTfKey(s.tf) : String(s.tf)) === String(c.label));
         }
       } catch (e) { stateForTf = null; }
-      const isStale = (stateForTf && typeof isStaleData === 'function') ? isStaleData(baseState.symbol || symbol, String(c.label), stateForTf.timestamp) : false;
+      const isStale = (stateForTf && typeof isStaleData === 'function') ? isStaleData(baseState.symbol || symbol, String(c.label), stateForTf.received_at) : false;
       const staleMarkHtml = isStale ? '<span class="tf-stale" title="データが古い" aria-label="データが古い">!</span>' : '';
 
       let tfBgColor = '';
@@ -7120,55 +7392,137 @@ function updateFireHistory(notifications) {
   const savedSize = localStorage.getItem('tv_font_size') || '14';
   applyFontSize(savedSize);
   
+  // Apply grid placement layout
+  try { applyGridPlacement(); } catch(e) { /* ignore */ }
+  // (Re-)bind drag & drop after DOM rebuild
+  try { initGridDragDrop(); } catch(e) { /* ignore */ }
   // Sync fire history heights after content update
   syncAllFireHistoryHeights();
 }
 
-// ドラッグ&ドロップで通貨の順序を変更
-function initCurrencySortable() {
-  const container = document.getElementById('dashboards-container');
-  if (!container) return;
-  
-  // 既存のSortableインスタンスがあれば破棄
-  if (window.currencySortable) {
-    window.currencySortable.destroy();
+// ─────────────────────────────────────────────────────────────────────────────
+// initGridDragDrop: マウスイベントベースのセル単位 D&D
+//   HTML5 draggable は <th> テーブルセル内で動作不安定なため、
+//   mousedown / mousemove / mouseup で完全に自前実装する:
+//   1. mousedown on .drag-handle → ゴーストを生成してドラッグ開始
+//   2. mousemove (document) → ゴースト追従 + 下のドロップゾーンをハイライト
+//   3. mouseup (document) → カーソル下のドロップゾーンに配置を保存
+// ─────────────────────────────────────────────────────────────────────────────
+function initGridDragDrop() {
+  // 旧 SortableJS インスタンスを破棄
+  if (window._allSortableInstances && Array.isArray(window._allSortableInstances)) {
+    window._allSortableInstances.forEach(s => { try { s.destroy(); } catch(e) {} });
   }
-  
-  // ドラッグ可能な通貨セクション全体をソート対象にする
-  window.currencySortable = new Sortable(container, {
-    handle: '.drag-handle',  // テーブルヘッダーのみドラッグ可能
-    animation: 150,
-    ghostClass: 'sortable-ghost',
-    chosenClass: 'dragging-row',
-    onEnd: function(evt) {
-      // ドラッグ終了後に順序を保存
-      const symbols = [];
-      document.querySelectorAll('.currency-section').forEach(section => {
-        const symbol = section.dataset.symbol;
-        if (symbol) {
-          symbols.push(symbol);
+  window._allSortableInstances = [];
+  window.currencySortable = null;
+
+  document.querySelectorAll('.currency-section').forEach(section => {
+    if (section._gridDragBound) return;
+    section._gridDragBound = true;
+
+    const handle = section.querySelector('.drag-handle');
+    if (!handle) return;
+
+    handle.style.cursor = 'grab';
+    handle.style.userSelect = 'none';
+    handle.style.webkitUserSelect = 'none';
+
+    handle.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return; // 左ボタンのみ
+      e.preventDefault();
+      e.stopPropagation();
+
+      const sym = section.dataset.symbol;
+      if (!sym) return;
+
+      // ゴースト要素を作成（元のセクションをクローン）
+      const rect = section.getBoundingClientRect();
+      const ghost = document.createElement('div');
+      ghost.id = 'grid-drag-ghost';
+      ghost.style.cssText = [
+        'position:fixed',
+        'pointer-events:none',
+        'z-index:9999',
+        'opacity:0.8',
+        'box-shadow:0 8px 30px rgba(0,0,0,0.6)',
+        'border-radius:8px',
+        'background:rgba(40,40,60,0.95)',
+        'border:2px solid rgba(74,222,128,0.8)',
+        'padding:8px 14px',
+        'color:#fff',
+        'font-size:14px',
+        'font-weight:bold',
+        'white-space:nowrap',
+        `left:${e.clientX + 12}px`,
+        `top:${e.clientY - 16}px`
+      ].join(';');
+      ghost.textContent = '移動中: ' + sym;
+      document.body.appendChild(ghost);
+
+      // ドラッグ中の見た目
+      section.classList.add('grid-dragging');
+      handle.style.cursor = 'grabbing';
+
+      // ドロップゾーンを表示
+      showDropZones(sym);
+
+      let currentDZ = null;
+
+      const onMouseMove = (me) => {
+        // ゴーストをカーソルに追従
+        ghost.style.left = (me.clientX + 12) + 'px';
+        ghost.style.top  = (me.clientY - 16) + 'px';
+
+        // ゴーストを一時的に非表示にして elementFromPoint で下の要素を取得
+        ghost.style.display = 'none';
+        const el = document.elementFromPoint(me.clientX, me.clientY);
+        ghost.style.display = '';
+
+        const dz = el ? el.closest('.grid-drop-zone') : null;
+
+        if (currentDZ && currentDZ !== dz) {
+          currentDZ.classList.remove('drag-over');
         }
-      });
-      
-      console.log('[SORTABLE] New order:', symbols);
-      
-      // サーバーに保存
-      fetch('/api/currency_order', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({symbols: symbols})
-      }).then(res => res.json())
-        .then(data => {
-          if (data.status === 'success') {
-            console.log('[SORTABLE] Currency order saved successfully');
-          } else {
-            console.error('[SORTABLE] Failed to save order:', data.msg);
-          }
-        })
-        .catch(err => console.error('[SORTABLE] Save error:', err));
-    }
+        if (dz) {
+          dz.classList.add('drag-over');
+          currentDZ = dz;
+        } else {
+          currentDZ = null;
+        }
+      };
+
+      const onMouseUp = (me) => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+
+        // クリーンアップ
+        ghost.remove();
+        section.classList.remove('grid-dragging');
+        handle.style.cursor = 'grab';
+
+        // カーソル下のドロップゾーンを特定
+        const el = document.elementFromPoint(me.clientX, me.clientY);
+        const dz = el ? el.closest('.grid-drop-zone') : null;
+
+        if (dz) {
+          const p = getPlacement();
+          p[sym] = { r: parseInt(dz.dataset.r, 10), c: parseInt(dz.dataset.c, 10) };
+          savePlacement(p);
+        }
+
+        removeDropZones();
+        applyGridPlacement();
+        initGridDragDrop(); // 再バインド（新しく生成された要素に対応）
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
   });
 }
+
+// 後方互換エイリアス（旧コードが initCurrencySortable を呼ぶ箇所向け）
+function initCurrencySortable() { initGridDragDrop(); }
 
 // 全通貨の発火履歴ウィンドウの高さを同期する
 function syncAllFireHistoryHeights() {
@@ -7213,7 +7567,11 @@ function syncAllFireHistoryHeights() {
 window.addEventListener('resize', () => {
   requestAnimationFrame(() => {
     syncAllFireHistoryHeights();
-    try { applyGridColumns(); } catch(e) { /* ignore if not defined yet */ }
+    try {
+      const savedPattern = localStorage.getItem('tv_grid_row_pattern') || '';
+      if (savedPattern) applyRowPattern(savedPattern);
+      else applyGridColumns();
+    } catch(e) { /* ignore */ }
     try { enforceSectionSpacing(); } catch(e) { /* ignore */ }
     try { debugSectionSpacing(); } catch(e) { /* ignore */ }
     try { updateStaleLabels(); } catch(e) { /* ignore */ }
@@ -8002,21 +8360,31 @@ setTimeout(showAudioEnableOverlay, 500);
         '1D': null
       };
       
-      // 日足の場合：営業日ベース + 30分閾値
+      // 日足の場合：24時間の猶予を設け、次の営業日07:30判定は
+      // "24時間以上経過" の場合にのみ適用する（12時間では誤検知するため緩和）
       if (tf === 'D' || tf === '1D') {
-        // 営業日が変わったかチェック
+        // 経過分（分単位）を先に算出して短時間は常に許容する
+        const diffMinutes = (now - updateTime) / (1000 * 60);
+        // 24時間（1440分）未満は古いデータとみなさない
+        if (diffMinutes < 24 * 60) {
+          console.log('[STALE-DBG] D timeframe within 24h -> not stale (diffMin=' + diffMinutes.toFixed(1) + ')');
+          return false;
+        }
+
+        // 24時間以上経過したうえで営業日が変わっている場合は07:30判定を適用
         if (isDifferentBusinessDay(updateTime, now)) {
-          // 営業日が異なる場合、07:30以降で警告
           const nowJST = new Date(now.getTime() + 9 * 60 * 60 * 1000);
           const hours = nowJST.getUTCHours();
           const minutes = nowJST.getUTCMinutes();
-          
-          // 現在がJST 07:30以降なら警告
+          // 現在がJST 07:30以降であれば古いデータと判定
           if (hours > 7 || (hours === 7 && minutes >= 30)) {
+            console.log('[STALE-DBG] D timeframe past 24h and business day changed -> stale');
             return true;
           }
         }
-        return false;
+
+        // 24時間以上経過しているが営業日条件に該当しない場合も古いとみなす
+        return true;
       }
       
       // それ以外のタイムフレーム
@@ -8109,7 +8477,7 @@ setTimeout(showAudioEnableOverlay, 500);
         return s.symbol === symbol && String(s.tf) === String(tf);
       });
 
-      if (!state || !state.timestamp) {
+      if (!state || (!state.timestamp && !state.received_at)) {
         console.warn('[CONTEXT_MENU] State not found for', symbol, tf, '(tfAttr=', tfAttr, ', tfLabel=', tfLabel, ')');
         contextMenu.classList.remove('show');
         return;
@@ -8126,18 +8494,20 @@ setTimeout(showAudioEnableOverlay, 500);
       try { updateStaleLabels(); } catch(e) { /* ignore if not ready */ }
       
       // タイムスタンプをフォーマット（JST）
-      const timestamp = new Date(state.timestamp);
-      const timestampStr = timestamp.toLocaleString('ja-JP', {
-        timeZone: 'Asia/Tokyo',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      });
-      
+      let timestampStr = '不明';
+      if (state.timestamp) {
+        const timestamp = new Date(state.timestamp);
+        timestampStr = timestamp.toLocaleString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+      }
       document.getElementById('menuTimestamp').textContent = timestampStr;
       
       // JSON受信時刻を表示
@@ -8165,9 +8535,9 @@ setTimeout(showAudioEnableOverlay, 500);
         document.getElementById('menuElapsed').textContent = getRelativeTime(state.timestamp);
       }
       
-      // 警告表示の判定
-      const isStale = isStaleData(symbol, tf, state.timestamp);
-      console.log('[CONTEXT_MENU] isStale check for', symbol, tf, '=>', isStale);
+      // 警告表示の判定（受信時刻ベース）
+      const isStale = isStaleData(symbol, tf, state.received_at);
+      console.log('[CONTEXT_MENU] isStale check for', symbol, tf, 'received_at=', state.received_at, '=>', isStale);
       const warningDiv = document.getElementById('menuWarning');
       if (isStale) {
         warningDiv.style.display = 'flex';
