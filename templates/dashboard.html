@@ -8920,6 +8920,14 @@ async function fetchBackupFromGmail() {
   const status = document.getElementById('fetchStatus');
   const progress = document.getElementById('fetchProgress');
 
+  // タイムアウト付きfetch ヘルパー（AbortController使用）
+  const fetchWithTimeout = (url, options, timeoutMs) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: ctrl.signal })
+      .finally(() => clearTimeout(timer));
+  };
+
   btn.disabled = true;
   btn.textContent = '⏳ 取得中...';
   status.textContent = '';
@@ -8929,11 +8937,11 @@ async function fetchBackupFromGmail() {
   let jobId = null;
 
   try {
-    // ジョブ開始（即座に返る）
-    const startResp = await fetch('/api/backup/fetch', {
+    // ジョブ開始（20秒以内に応答なければタイムアウト）
+    const startResp = await fetchWithTimeout('/api/backup/fetch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
-    });
+    }, 20000);
     const startData = await startResp.json();
 
     // 旧同期フォーマット互換: {message:"Backup fetch completed",output:"..."}
@@ -8981,12 +8989,16 @@ async function fetchBackupFromGmail() {
 
       let statusData;
       try {
-        const statusResp = await fetch('/api/backup/fetch/status?job_id=' + jobId);
+        // 12秒以内に応答なければタイムアウト（サーバーが無応答でも次のループへ）
+        const statusResp = await fetchWithTimeout(
+          '/api/backup/fetch/status?job_id=' + jobId,
+          {}, 12000
+        );
         statusData = await statusResp.json();
       } catch (pollErr) {
-        // ネットワーク一時エラーは無視して継続
+        // タイムアウト or ネットワークエラー → 次のポーリングへ
         progress.innerHTML =
-          '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">⏳ 確認中' + dotStr + '</div>';
+          '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">⏳ 確認中' + dotStr + ' <span style="font-size:0.82em;color:#475569;">(接続を再試行中)</span></div>';
         continue;
       }
 
@@ -8998,17 +9010,20 @@ async function fetchBackupFromGmail() {
         continue;
       }
 
+      // テキストをHTMLエスケープして安全に表示する関数
+      const escHtml = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
       // 完了 / エラー
       if (statusData.status === 'completed') {
-        // SUMMARY 行を抽出して先頭に表示
+        // SUMMARY 行を抽出して先頭に表示（出力は既にサーバー側で100行に圧縮済み）
         const lines = (statusData.output || '').split('\n');
         const summaryLine = lines.find(l => l.includes('[SUMMARY]')) || '取得完了';
         progress.innerHTML =
           '<div style="background:#1a2a1a;border:1px solid #4ade80;border-radius:6px;padding:10px;margin-bottom:8px;">' +
-            '<div style="color:#4ade80;font-weight:600;font-size:0.95em;">✅ ' + summaryLine + '</div>' +
+            '<div style="color:#4ade80;font-weight:600;font-size:0.95em;">✅ ' + escHtml(summaryLine) + '</div>' +
           '</div>' +
           '<pre style="white-space:pre-wrap;font-size:0.82em;background:#f0f4ff;color:#1e293b;padding:10px;border-radius:6px;max-height:220px;overflow:auto;border:1px solid #c7d2fe;">' +
-          (statusData.output || '') + '</pre>';
+          escHtml(statusData.output || '') + '</pre>';
         status.textContent = '✅ 完了';
         status.style.color = '#4ade80';
         setTimeout(() => loadBackupSummary(), 1000);
@@ -9025,7 +9040,7 @@ async function fetchBackupFromGmail() {
           '<div style="background:#2d1515;border:1px solid #ef4444;border-radius:6px;padding:10px;">' +
             '<div style="color:#fca5a5;font-weight:600;">❌ バックアップ取得エラー</div>' +
             '<pre style="margin-top:6px;color:#fecaca;white-space:pre-wrap;font-size:0.82em;max-height:200px;overflow:auto;">' +
-            (statusData.output || '（出力なし）') + '</pre>' +
+            escHtml(statusData.output || '（出力なし）') + '</pre>' +
           '</div>';
         status.textContent = '❌ 失敗';
         status.style.color = '#ef4444';

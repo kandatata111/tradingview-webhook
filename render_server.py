@@ -3283,6 +3283,20 @@ def api_backup_fetch():
         'started_at': datetime.now(jst).isoformat()
     }
 
+    def _trim_output(raw_stdout, raw_stderr=''):
+        """出力を圧縮: SUMMARYラインを先頭に、末尾100行 + DEBUGは除外してブラウザ負荷軽減"""
+        full = (raw_stderr + '\n' + raw_stdout).strip() if raw_stderr else raw_stdout.strip()
+        lines = full.splitlines()
+        # [DEBUG] 行を除外（メール本文プレビュー等が巨大になるため）
+        lines = [l for l in lines if not l.startswith('[DEBUG]')]
+        # SUMMARY行を抽出
+        summary_lines = [l for l in lines if '[SUMMARY]' in l]
+        non_summary = [l for l in lines if '[SUMMARY]' not in l]
+        # 末尾100行のみ保持
+        tail = non_summary[-100:] if len(non_summary) > 100 else non_summary
+        combined = summary_lines + (['--- (途中省略) ---'] if len(non_summary) > 100 else []) + tail
+        return '\n'.join(combined)
+
     def _run_fetch(job_id, python_exe, script_path):
         """バックグラウンドスレッドで backup_recovery.py を実行"""
         try:
@@ -3295,13 +3309,13 @@ def api_backup_fetch():
             stderr_lower = (result.stderr or '').lower()
             if result.returncode == 0:
                 _backup_jobs[job_id]['status'] = 'completed'
-                _backup_jobs[job_id]['output'] = result.stdout
+                _backup_jobs[job_id]['output'] = _trim_output(result.stdout)
             elif 'invalid_grant' in stderr_lower or 'token has been expired' in stderr_lower or 'token has been revoked' in stderr_lower:
                 _backup_jobs[job_id]['status'] = 'reauth_required'
-                _backup_jobs[job_id]['output'] = result.stderr + '\n' + result.stdout
+                _backup_jobs[job_id]['output'] = _trim_output(result.stdout, result.stderr)
             else:
                 _backup_jobs[job_id]['status'] = 'error'
-                _backup_jobs[job_id]['output'] = result.stderr + '\n' + result.stdout
+                _backup_jobs[job_id]['output'] = _trim_output(result.stdout, result.stderr)
         except subprocess.TimeoutExpired:
             _backup_jobs[job_id]['status'] = 'error'
             _backup_jobs[job_id]['output'] = 'Timeout: Gmail fetch took too long (>300s)'
