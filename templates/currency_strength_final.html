@@ -1447,8 +1447,12 @@
       
       // grid-template-columnsを動的に調整（日本語時はセル幅を拡張）
       const isJa = displaySettings.language === 'ja';
-      // 日本語: "日本円 +00% [+000]" は約140px必要。英語: "JPY +00% [+000]" は約90px必要。
-      const currencyColW = isJa ? 'minmax(140px, 1fr)' : 'minmax(90px, 1fr)';
+      const hasScore = displaySettings.showRawScore;
+      // スコアあり:  JA="日本円 -56% [-225]"≈140px  EN="JPY -56% [-225]"≈120px
+      // スコアなし:  JA="日本円 -56%"≈90px          EN="JPY -56%"≈72px
+      const currencyColW = isJa
+        ? (hasScore ? 'minmax(140px, 1fr)' : 'minmax(90px, 1fr)')
+        : (hasScore ? 'minmax(120px, 1fr)' : 'minmax(72px, 1fr)');
       const recColW = isJa ? '3fr' : '2fr';
       let columns = '50px'; // 時間列
       if (displaySettings.showCurrencies && displaySettings.showRecommended) {
