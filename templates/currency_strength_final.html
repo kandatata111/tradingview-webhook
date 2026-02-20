@@ -473,6 +473,10 @@
                     <input type="checkbox" id="showRecommended" checked>
                     推奨ペアを表示
                   </label>
+                  <label class="checkbox-item">
+                    <input type="checkbox" id="showRawScore" checked>
+                    スコア[+000]を表示
+                  </label>
                 </div>
               </div>
               <div>
@@ -761,7 +765,8 @@
           pairNormalizationBase: displaySettings.pairNormalizationBase,
           clipEnabled: displaySettings.clipEnabled,
           clipThreshold: displaySettings.clipThreshold,
-          language: displaySettings.language
+          language: displaySettings.language,
+          showRawScore: displaySettings.showRawScore
         };
         localStorage.setItem(STORAGE_KEY_DISPLAY_SETTINGS, JSON.stringify(displayPrefs));
 
@@ -854,6 +859,11 @@
               const radioId = dsp.language === 'ja' ? 'langJa' : 'langEn';
               const radio = document.getElementById(radioId);
               if (radio) radio.checked = true;
+            }
+            if (dsp.showRawScore !== undefined) {
+              displaySettings.showRawScore = dsp.showRawScore;
+              const cb = document.getElementById('showRawScore');
+              if (cb) cb.checked = dsp.showRawScore;
             }
           }
         } catch (e) {
@@ -984,6 +994,8 @@
       show4H: true,
       showD: true,
       showAv: true,
+      // 生スコア [ ] の表示切替
+      showRawScore: true,
       // 通貨名表示言語: 'en' or 'ja'
       language: 'en',
       // 正規化／表示スケール（UIから変更可能）
@@ -1161,7 +1173,7 @@
 
     // チェックボックスのイベントリスナーを設定
     document.addEventListener('DOMContentLoaded', () => {
-      ['showCurrencies', 'showRecommended', 'show15m', 'show1H', 'show4H', 'showD', 'showAv'].forEach(id => {
+      ['showCurrencies', 'showRecommended', 'show15m', 'show1H', 'show4H', 'showD', 'showAv', 'showRawScore'].forEach(id => {
         const checkbox = document.getElementById(id);
         if (checkbox) {
           checkbox.addEventListener('change', (e) => {
@@ -1378,7 +1390,8 @@
               const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
               const scoreText = rawScore >= 0 ? `+${String(rawScore).padStart(3, '0')}` : `-${String(Math.abs(rawScore)).padStart(3, '0')}`;
 
-              cell.textContent = `${getCurrencyLabel(item.currency)} ${percentText}% [${scoreText}]`;
+              const scoreLabel = displaySettings.showRawScore ? ` [${scoreText}]` : '';
+              cell.textContent = `${getCurrencyLabel(item.currency)} ${percentText}%${scoreLabel}`;
               cell.title = `${item.currency} (${getCurrencyLabel(item.currency)}) score:${rawScore}`;
             } else {
               // データがない場合（空セル）
@@ -1420,7 +1433,9 @@
           const scoreSpan = document.createElement('span');
           scoreSpan.style.color = '#ffd700';
           scoreSpan.style.fontWeight = 'bold';
-          scoreSpan.textContent = `${percentText}%[${pairInfo.score}]`;
+          scoreSpan.textContent = displaySettings.showRawScore
+            ? `${percentText}%[${pairInfo.score}]`
+            : `${percentText}%`;
           pairSpan.appendChild(scoreSpan);
           
           pairCell.appendChild(pairSpan);
