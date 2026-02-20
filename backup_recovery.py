@@ -175,13 +175,14 @@ def save_json_to_file(json_data, email_received_time=None):
         print(f'[ERROR] Failed to save JSON: {error_msg}')
         return False
 
-def fetch_from_gmail(max_results=500, mark_as_read=False):
+def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0):
     """
     Gmail から TradingView メールを取得して保存
     
     Args:
         max_results: 取得する最大メール数
         mark_as_read: 処理後に既読にするか
+        after_days: 0より大きい場合、Google の newer_than:Nd フィルタを付加
     
     Returns:
         (成功数, スキップ数, エラー数)
@@ -221,6 +222,9 @@ def fetch_from_gmail(max_results=500, mark_as_read=False):
         
         # TradingView からのメールを検索（既読・未読問わず）
         query = 'from:noreply@tradingview.com'
+        if after_days and after_days > 0:
+            query += f' newer_than:{after_days}d'
+            print(f'[INFO] Gmail query with date filter: {query}')
         try:
             results = service.users().messages().list(
                 userId='me',
@@ -484,7 +488,8 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='TradingView Email Backup Tool')
     parser.add_argument('--fetch', action='store_true', help='Fetch emails from Gmail')
-    parser.add_argument('--max', type=int, default=100, help='Maximum emails to fetch')
+    parser.add_argument('--max', type=int, default=500, help='Maximum emails to fetch (default: 500)')
+    parser.add_argument('--after-days', type=int, default=0, dest='after_days', help='Only fetch emails newer than N days (e.g. --after-days 3). 0=no filter')
     parser.add_argument('--mark-read', action='store_true', help='Mark emails as read after processing')
     parser.add_argument('--summary', action='store_true', help='Show backup summary')
     parser.add_argument('--list', nargs='*', help='List backup files (optional: symbol tf date)')
@@ -496,8 +501,9 @@ if __name__ == '__main__':
     
     if args.fetch:
         # Gmail から取得
-        print('[START] Fetching emails from Gmail...')
-        fetch_from_gmail(max_results=args.max, mark_as_read=args.mark_read)
+        after_days_val = args.after_days if hasattr(args, 'after_days') else 0
+        print(f'[START] Fetching emails from Gmail (max={args.max}, after_days={after_days_val})...')
+        fetch_from_gmail(max_results=args.max, mark_as_read=args.mark_read, after_days=after_days_val)
         print('[DONE]')
     
     elif args.summary:

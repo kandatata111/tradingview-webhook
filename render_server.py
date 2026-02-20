@@ -3265,9 +3265,9 @@ def api_backup_fetch():
         import sys
         python_exe = sys.executable  # 現在実行中のPythonパスを使用
         
-        # バックグラウンドで実行
+        # バックグラウンドで実行（--max 500 で D/4H メールを取りこぼさないようにする）
         result = subprocess.run(
-            [python_exe, script_path, '--fetch', '--max', '100'],
+            [python_exe, script_path, '--fetch', '--max', '500'],
             capture_output=True,
             text=True,
             timeout=300  # 5分に拡大（Gmail APIの遅延対応）
@@ -5715,9 +5715,9 @@ if __name__ == '__main__':
                 import sys
                 python_exe = sys.executable
                 
-                # 実行
+                # 実行（--after-days 3 で直近3日分のみ取得: D/4H も含め効率よく処理）
                 result = subprocess.run(
-                    [python_exe, script_path, '--fetch', '--max', '100'],
+                    [python_exe, script_path, '--fetch', '--max', '500', '--after-days', '3'],
                     capture_output=True,
                     text=True,
                     timeout=300  # 5分に拡大（Gmail API遅延対応）
