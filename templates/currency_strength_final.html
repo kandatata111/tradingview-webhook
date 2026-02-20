@@ -419,6 +419,7 @@
         通貨強弱ランキング + 推奨ペア 
         <span id="loadingText" style="color:#ffd700;font-size:14px;margin-left:10px;">読み込み中...</span>
         <span id="updateTime" style="color:#fff;font-size:12px;margin-left:10px;"></span>
+        <span id="serverVersion" style="color:#888;font-size:11px;margin-left:15px;"></span>
       </div>
       
       <div id="strengthData">
@@ -1440,6 +1441,10 @@
           }
           document.getElementById('loadingText').textContent = '✓ 更新完了';
           document.getElementById('updateTime').textContent = `最終更新: ${timeStr}`;
+          // サーバーバージョンを表示（デプロイ確認用）
+          if (result.data.server_version) {
+            document.getElementById('serverVersion').textContent = `[v: ${result.data.server_version}]`;
+          }
           
           setTimeout(() => {
             document.getElementById('loadingText').textContent = '';
@@ -1452,6 +1457,9 @@
         document.getElementById('loadingText').textContent = '❌ 通信エラー';
       }
     }
+
+    // 60秒ごとに自動リフレッシュ（Socket.IOの補完）
+    setInterval(loadCurrencyStrength, 60000);
 
     // Socket.IO接続とリアルタイム更新
     const socket = io();

@@ -1166,11 +1166,15 @@ def detect_and_record_extreme_changes(currency_data):
         except:
             pass
 
+# サーバーバージョン識別子（デプロイ確認用）
+CURRENCY_STRENGTH_VERSION = 'fix-label-match-d02572e'
+
 @app.route('/api/currency_strength', methods=['GET'])
 def api_currency_strength():
     """通貨強弱を計算して返す（APIエンドポイント）"""
     try:
         data = calculate_currency_strength_data()
+        data['server_version'] = CURRENCY_STRENGTH_VERSION
         return jsonify({
             'status': 'success',
             'data': data
