@@ -8923,7 +8923,7 @@ async function fetchBackupFromGmail() {
   // タイムアウト付きfetch ヘルパー（AbortController使用）
   const fetchWithTimeout = (url, options, timeoutMs) => {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const timer = setTimeout(() => ctrl.abort(new DOMException('Timeout: ' + timeoutMs + 'ms exceeded', 'AbortError')), timeoutMs);
     return fetch(url, { ...options, signal: ctrl.signal })
       .finally(() => clearTimeout(timer));
   };
@@ -8937,11 +8937,11 @@ async function fetchBackupFromGmail() {
   let jobId = null;
 
   try {
-    // ジョブ開始（20秒以内に応答なければタイムアウト）
+    // ジョブ開始（60秒以内に応答なければタイムアウト: Renderコールドスタート考慮）
     const startResp = await fetchWithTimeout('/api/backup/fetch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
-    }, 20000);
+    }, 60000);
     const startData = await startResp.json();
 
     // 旧同期フォーマット互換: {message:"Backup fetch completed",output:"..."}
@@ -8989,16 +8989,19 @@ async function fetchBackupFromGmail() {
 
       let statusData;
       try {
-        // 12秒以内に応答なければタイムアウト（サーバーが無応答でも次のループへ）
+        // 25秒以内に応答なければタイムアウト（サーバーが無応答でも次のループへ）
         const statusResp = await fetchWithTimeout(
           '/api/backup/fetch/status?job_id=' + jobId,
-          {}, 12000
+          {}, 25000
         );
         statusData = await statusResp.json();
       } catch (pollErr) {
         // タイムアウト or ネットワークエラー → 次のポーリングへ
+        const isTimeout = pollErr.name === 'AbortError' || (pollErr.message || '').includes('Timeout');
         progress.innerHTML =
-          '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">⏳ 確認中' + dotStr + ' <span style="font-size:0.82em;color:#475569;">(接続を再試行中)</span></div>';
+          '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">⏳ 確認中' + dotStr +
+          (isTimeout ? ' <span style="font-size:0.82em;color:#475569;">(応答待ち、再試行中)</span>' : ' <span style="font-size:0.82em;color:#475569;">(接続を再試行中)</span>') +
+          '</div>';
         continue;
       }
 
@@ -9059,13 +9062,24 @@ async function fetchBackupFromGmail() {
 
   } catch (error) {
     progress.style.display = 'block';
-    progress.innerHTML =
-      '<div style="background:#2d1515;border:1px solid #ef4444;border-radius:6px;padding:10px;">' +
-        '<div style="color:#fca5a5;font-weight:600;">❌ 通信エラー</div>' +
-        '<pre style="margin-top:6px;color:#fecaca;white-space:pre-wrap;font-size:0.82em;">' + error.message + '</pre>' +
-      '</div>';
-    status.textContent = '❌ 失敗';
-    status.style.color = '#ef4444';
+    const isTimeout = error.name === 'AbortError' || (error.message || '').includes('Timeout');
+    if (isTimeout) {
+      progress.innerHTML =
+        '<div style="background:#2d2010;border:1px solid #f59e0b;border-radius:6px;padding:10px;">' +
+          '<div style="color:#fcd34d;font-weight:600;">⏱️ サーバー接続タイムアウト</div>' +
+          '<div style="color:#fde68a;margin-top:6px;font-size:0.88em;">サーバーが60秒以内に応答しませんでした。<br>Renderがスリープ中の可能性があります。しばらく待ってから再試行してください。</div>' +
+        '</div>';
+      status.textContent = '⚠️ タイムアウト';
+      status.style.color = '#f59e0b';
+    } else {
+      progress.innerHTML =
+        '<div style="background:#2d1515;border:1px solid #ef4444;border-radius:6px;padding:10px;">' +
+          '<div style="color:#fca5a5;font-weight:600;">❌ 通信エラー</div>' +
+          '<pre style="margin-top:6px;color:#fecaca;white-space:pre-wrap;font-size:0.82em;">' + (error.message || String(error)) + '</pre>' +
+        '</div>';
+      status.textContent = '❌ 失敗';
+      status.style.color = '#ef4444';
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = '📥 手動取得開始';
