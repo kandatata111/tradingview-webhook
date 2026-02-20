@@ -1574,6 +1574,38 @@ def webhook():
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
 
+            # --- sent_time 同士を比較して古いペイロードをスキップ ---
+            # 既存レコードの sent_time と受信データの sent_time を比較。
+            # 既存の sent_time が空（スタブ）の場合は常に受け入れる。
+            # 受信データの sent_time が既存より古い場合のみスキップ。
+            try:
+                c.execute('SELECT sent_time FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol_val, tf_val))
+                row = c.fetchone()
+                existing_sent_time = row[0] if row and row[0] else ''
+                if existing_sent_time and sent_time_val:
+                    # sent_time 形式: YY/MM/DD/HH:MM → 文字列比較可能な形式に変換
+                    def parse_sent_time(s):
+                        try:
+                            parts = s.split('/')
+                            if len(parts) == 4:
+                                yy, mm, dd, hhmm = parts
+                                hh, mn = hhmm.split(':')
+                                return jst.localize(datetime(2000+int(yy), int(mm), int(dd), int(hh), int(mn)))
+                        except Exception:
+                            pass
+                        return None
+                    existing_dt = parse_sent_time(existing_sent_time)
+                    incoming_dt = parse_sent_time(sent_time_val)
+                    if existing_dt and incoming_dt and incoming_dt < existing_dt:
+                        print(f"[WEBHOOK SKIP] Older sent_time for {symbol_val}/{tf_val}: existing={existing_sent_time} incoming={sent_time_val}")
+                        conn.close()
+                        response = jsonify({'status': 'skipped', 'reason': 'older_sent_time'})
+                        response.headers['Access-Control-Allow-Origin'] = '*'
+                        return response, 200
+            except Exception:
+                pass
+            # --- sent_time 比較ここまで ---
+
             received_timestamp = datetime.now(jst).isoformat()  # 最終更新（サーバー受信時刻）
             # received_at は sent_time ベース（上で解析済み）
             c.execute('''INSERT OR REPLACE INTO states (
