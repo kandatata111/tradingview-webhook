@@ -37,79 +37,87 @@ def extract_json_from_email_body(body):
     """
     メール本文（HTML形式）から JSON を抽出
     HTML エンティティエンコードされた JSON に対応
-    括弧のマッチングで正確に抽出
+    複数の JSON が本文にある場合: sent_time + clouds を持つ最大のデータ JSON を優先して返す
     """
     import html
-    
+
     # HTML エンティティをデコード（&#34; → " など）
     body_decoded = html.unescape(body)
-    
-    # デバッグ: 本文の一部を表示
+
     print(f'[DEBUG] Body length: {len(body_decoded)} chars')
-    if len(body_decoded) > 0:
-        # 最初の500文字を表示（ASCII形式で安全に）
+    if body_decoded:
         preview = body_decoded[:500].replace('\n', '\\n').replace('\r', '\\r')
         safe_preview = preview.encode('ascii', 'backslashreplace').decode('ascii')
         print(f'[DEBUG] Body preview: {safe_preview}')
-    
-    # {"symbol" から始まる JSON を探す
-    pos = body_decoded.find('{"symbol"')
-    if pos < 0:
-        print('[DEBUG] JSON pattern not found in body')
+
+    def _extract_all_json_candidates(text):
+        """{"symbol" から始まる JSON を本文内で全て抽出して返す"""
+        results = []
+        search_start = 0
+        while True:
+            pos = text.find('{"symbol"', search_start)
+            if pos < 0:
+                break
+            depth = 0
+            in_str = False
+            esc = False
+            end_pos = pos
+            for i in range(pos, len(text)):
+                ch = text[i]
+                if esc:
+                    esc = False
+                    continue
+                if ch == '\\':
+                    esc = True
+                    continue
+                if ch == '"':
+                    in_str = not in_str
+                    continue
+                if not in_str:
+                    if ch == '{':
+                        depth += 1
+                    elif ch == '}':
+                        depth -= 1
+                        if depth == 0:
+                            end_pos = i
+                            break
+            json_str = text[pos:end_pos + 1]
+            try:
+                d = json.loads(json_str)
+                if 'symbol' in d and 'tf' in d:
+                    results.append(d)
+                    safe = json_str[:150].encode('ascii', 'backslashreplace').decode('ascii')
+                    print(f'[DEBUG] Candidate JSON (len={len(json_str)}): symbol={d.get("symbol")}, tf={d.get("tf")}, has_sent_time={"sent_time" in d}, has_clouds={"clouds" in d}, has_sg={"sg" in d}')
+            except json.JSONDecodeError:
+                pass
+            search_start = end_pos + 1
+        return results
+
+    candidates = _extract_all_json_candidates(body_decoded)
+
+    if not candidates:
+        print('[DEBUG] No JSON candidates found in body')
         return None
-    
-    print(f'[DEBUG] Found JSON at position {pos}')
-    
-    # 括弧のマッチングで JSON 全体を抽出
-    depth = 0
-    in_string = False
-    escape = False
-    
-    for i in range(pos, len(body_decoded)):
-        char = body_decoded[i]
-        
-        if escape:
-            escape = False
-            continue
-        
-        if char == '\\':
-            escape = True
-            continue
-        
-        if char == '"':
-            in_string = not in_string
-            continue
-        
-        if not in_string:
-            if char == '{':
-                depth += 1
-            elif char == '}':
-                depth -= 1
-                if depth == 0:
-                    json_str = body_decoded[pos:i+1]
-                    # Unicode文字をASCII形式でエンコードして安全に表示
-                    safe_preview = json_str[:200].encode('ascii', 'backslashreplace').decode('ascii')
-                    print(f'[DEBUG] Extracted JSON string (length={len(json_str)}): {safe_preview}...')
-                    try:
-                        data = json.loads(json_str)
-                        if 'symbol' in data and 'tf' in data:
-                            print(f'[DEBUG] Successfully parsed JSON: symbol={data.get("symbol")}, tf={data.get("tf")}')
-                            return data
-                        else:
-                            print(f'[DEBUG] JSON missing required fields: {data.keys()}')
-                    except json.JSONDecodeError as e:
-                        print(f'[DEBUG] JSON decode error: {e}')
-                        pass
-                    break
-    
-    print('[DEBUG] Failed to extract valid JSON')
-    return None
+
+    # 優先スコア: sent_time あり(+4) + clouds あり(+2) + sg なし(+1)
+    def _score(d):
+        return (int(bool(d.get('sent_time'))) * 4 +
+                int(bool(d.get('clouds'))) * 2 +
+                int('sg' not in d))
+
+    best = max(candidates, key=lambda d: (_score(d), len(json.dumps(d))))
+    print(f'[DEBUG] Selected JSON: symbol={best.get("symbol")}, tf={best.get("tf")}, score={_score(best)}')
+    return best
 
 def save_json_to_file(json_data, email_received_time=None):
     """
     JSON データをローカルファイルに保存
-    フォルダ構造: TradingViewBackup_JSON/SYMBOL/TF/YYYYMMDD_HHMMSS_time.json
-    
+    フォルダ構造: TradingViewBackup_JSON/SYMBOL/TF/YYYYMMDD_HHMM_senttime_TF_ts.json
+
+    ファイル名は sent_time（バー時刻）を最優先で使う。
+    同じバーのシグナルアラートと正規データが同じメール受信時刻で届いても
+    sent_time が違えば衝突しないため、正規データが保存されなくなる問題を防ぐ。
+
     Args:
         json_data: JSONデータ
         email_received_time: メール受信日時（ミリ秒単位タイムスタンプ）
@@ -117,29 +125,66 @@ def save_json_to_file(json_data, email_received_time=None):
     try:
         symbol = json_data.get('symbol', 'UNKNOWN')
         tf = json_data.get('tf', '5')
-        # Pine Scriptから送信された send_time を優先、なければ time フィールドを使用
+        sent_time_val = json_data.get('sent_time', '')
+
+        # ---- シグナルペイロード拒否 ----
+        # TradingView のシグナルアラートは sg キーがあり clouds がない
+        if 'sg' in json_data and not json_data.get('clouds'):
+            print(f'[SKIP] Signal payload (sg={json_data["sg"]}, no clouds): {symbol}/{tf}')
+            return False
+        # sent_time も clouds も ない完全な空ペイロード
+        if not sent_time_val and not json_data.get('clouds'):
+            print(f'[SKIP] Empty payload (no sent_time, no clouds): {symbol}/{tf}')
+            return False
+        # ---- 拒否ここまで ----
+
+        # Pine Script から送信された send_time を優先、なければ time フィールドを使用
         time_ms = json_data.get('send_time', json_data.get('time', 0))
-        
-        # デバッグ: D, W, M, Yの場合はログ出力
+
+        # デバッグ: D, W, M, Y の場合はログ出力
         if tf in ('D', 'W', 'M', 'Y'):
-            print(f'[DEBUG] Processing {symbol} {tf}: has clouds={("clouds" in json_data)}, send_time={json_data.get("send_time", "N/A")}, time={json_data.get("time", "N/A")}, time_ms={time_ms}')
-        
+            print(f'[DEBUG] Processing {symbol} {tf}: has clouds={"clouds" in json_data}, sent_time={sent_time_val}, time_ms={time_ms}')
+
         # 時間足を正規化（JSON表現は数値コードに統一）
         tf_normalized = tf
-        if tf in ('5','5m','5M'):
+        if tf in ('5', '5m', '5M'):
             tf_normalized = '5'
-        elif tf in ('15','15m','15M'):
+        elif tf in ('15', '15m', '15M'):
             tf_normalized = '15'
-        elif tf in ('1','60','1H','1h'):
+        elif tf in ('1', '60', '1H', '1h'):
             tf_normalized = '60'
-        elif tf in ('4','240','4H','4h'):
+        elif tf in ('4', '240', '4H', '4h'):
             tf_normalized = '240'
         elif tf in ('D', 'W', 'M', 'Y'):
             tf_normalized = tf  # D, W, M, Y はそのまま
-        
-        # タイムスタンプからファイル名を生成（YYYYMMDD_HHMMSS_TF_timestamp形式）
-        # 優先順位: 1. email_received_time, 2. time_ms, 3. 現在時刻
-        if email_received_time and email_received_time > 0:
+
+        # ---- ファイル名生成 ----
+        # 優先順位:
+        #   1. sent_time (バー確定時刻) → 同一バーの別メールが衝突しない
+        #   2. email_received_time (メール受信時刻)
+        #   3. time_ms (PineScript の time フィールド)
+        #   4. 現在時刻
+        if sent_time_val:
+            try:
+                parts = sent_time_val.split('/')
+                if len(parts) == 4:
+                    yy, mm, dd, hhmm = parts
+                    hh, mn = hhmm.split(':')
+                    dt = JST.localize(datetime(2000 + int(yy), int(mm), int(dd), int(hh), int(mn)))
+                    ts_ms = int(dt.timestamp() * 1000)
+                    filename = dt.strftime('%Y%m%d_%H%M') + f'_senttime_{tf_normalized}_{ts_ms}.json'
+                    print(f'[INFO] Using sent_time: {sent_time_val} -> {filename}')
+                else:
+                    raise ValueError('unexpected sent_time format')
+            except Exception as _e:
+                print(f'[WARNING] Cannot parse sent_time "{sent_time_val}": {_e}')
+                if email_received_time and email_received_time > 0:
+                    dt = datetime.fromtimestamp(email_received_time / 1000, tz=JST)
+                    filename = dt.strftime('%Y%m%d_%H%M%S') + f'_{tf_normalized}_{email_received_time}.json'
+                else:
+                    now_ms = int(datetime.now(JST).timestamp() * 1000)
+                    filename = datetime.now(JST).strftime('%Y%m%d_%H%M%S') + f'_{tf_normalized}_{now_ms}.json'
+        elif email_received_time and email_received_time > 0:
             dt = datetime.fromtimestamp(email_received_time / 1000, tz=JST)
             filename = dt.strftime('%Y%m%d_%H%M%S') + f'_{tf_normalized}_{email_received_time}.json'
             print(f'[INFO] Using email_received_time: {email_received_time} -> {filename}')
@@ -151,25 +196,26 @@ def save_json_to_file(json_data, email_received_time=None):
             now_ms = int(datetime.now(JST).timestamp() * 1000)
             filename = datetime.now(JST).strftime('%Y%m%d_%H%M%S') + f'_{tf_normalized}_{now_ms}.json'
             print(f'[WARNING] No valid timestamp. email_received_time={email_received_time}, time_ms={time_ms}, using now: {now_ms}')
-        
+        # ---- ファイル名生成ここまで ----
+
         # フォルダ作成
         folder_path = Path(BACKUP_DIR) / symbol / tf_normalized
         folder_path.mkdir(parents=True, exist_ok=True)
-        
+
         # ファイル保存
         file_path = folder_path / filename
-        
+
         # 既存ファイルがある場合はスキップ
         if file_path.exists():
             print(f'[SKIP] File already exists: {file_path.name}')
             return False
-        
+
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, ensure_ascii=False, indent=2)
-        
+
         print(f'[SAVED] {symbol}/{tf_normalized}: {filename}')
         return True
-        
+
     except Exception as e:
         error_msg = str(e).encode('ascii', 'backslashreplace').decode('ascii')
         print(f'[ERROR] Failed to save JSON: {error_msg}')
