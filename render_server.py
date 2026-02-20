@@ -1890,7 +1890,7 @@ def health_check():
             'states_count': states_count,
             'webhook_log_exists': webhook_log_exists,
             'uptime_message': 'Server is running normally',
-            'code_version': 'skip-removed'
+            'code_version': 'senttime-compare-v1'
         }), 200
     except Exception as e:
         return jsonify({
