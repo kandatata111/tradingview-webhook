@@ -3455,11 +3455,14 @@ def api_backup_fetch():
     # TF別取得設定: (tf_filter, max_count, ラベル, Gmail_subject_filter)
     # subject_filter: GmailレベルでTF別メールを絞り込む（None=絞り込まない）
     # 例: TradingViewアラートのメールタイトルに「1時間毎」「4時間毎」「日毎」が含まれる場合
+    # TF別取得設定: (tf_filter, max_count, ラベル, Gmail_subject_filter)
+    # subject_filter は Gmail 件名に含まれるワード。完全一致不要、部分一致でOK。
+    # たとえば「1時間」「4時間」「日」で検索すれば十分なはず。
     TF_FETCH_PLAN = [
-        ('15',  50, '15分足',  None),         # 15m: subject絞込なし、多めに取得
-        ('60',  50, '1時間足', '1時間毎'),   # 1H: subject絞込で確実に1Hメールのみ取得
-        ('240', 30, '4時間足', '4時間毎'),   # 4H: subject絞込
-        ('D',   20, '日足',    '日毎'),       # D:  subject絞込
+        ('15',  80, '15分足',  None),          # 15m はフィルタ無しで多数取得
+        ('60', 100, '1時間足', '1時間'),      # 件名に「1時間」を含むメール
+        ('240',80, '4時間足', '4時間'),       # 件名に「4時間」
+        ('D',   60, '日足',    '日'),          # 件名に「日」
     ]
 
     def _run_fetch(job_id, python_exe, script_path):
@@ -3475,6 +3478,7 @@ def api_backup_fetch():
                 _backup_jobs[job_id]['output'] += f'\n=== {label} (tf={tf}, max={max_count}) 取得中... ===\n'
 
                 try:
+                    # 最初は subject 付きで実行
                     cmd = [python_exe, script_path, '--fetch',
                            '--tf-filter', tf,
                            '--max', str(max_count),
@@ -3487,6 +3491,47 @@ def api_backup_fetch():
                         text=True,
                         timeout=120  # TF1つあたり2分
                     )
+                    # 結果を解析して success が0件だったとき、
+                    # subject_q を外してもう一度試す（件名が合わない場合の救済）
+                    success_hits = 0
+                    for line in result.stdout.splitlines():
+                        if '[SUMMARY]' in line:
+                            m_s = _re.search(r'Success:\s*(\d+)', line)
+                            if m_s:
+                                success_hits = int(m_s.group(1))
+                                break
+                    if success_hits == 0 and subject_q:
+                        _backup_jobs[job_id]['output'] += f"[INFO] subject filter '{subject_q}' で0件、フィルタ解除して再取得します\n"
+                        cmd2 = [python_exe, script_path, '--fetch',
+                                '--tf-filter', tf,
+                                '--max', str(max_count*3),  # 3倍まで拡大
+                                '--after-days', '7']
+                        result = subprocess.run(
+                            cmd2,
+                            capture_output=True,
+                            text=True,
+                            timeout=180
+                        )
+                        trimmed = _trim_output(result.stdout, result.stderr if result.returncode != 0 else '')
+                        _backup_jobs[job_id]['output'] += trimmed + '\n'
+                        # collect summary counts as usual later
+                        # skip the rest of this try block to avoid double processing
+                        stderr_lower = (result.stderr or '').lower()
+                        if 'invalid_grant' in stderr_lower or 'token has been expired' in stderr_lower or 'token has been revoked' in stderr_lower:
+                            _backup_jobs[job_id]['status'] = 'reauth_required'
+                            _backup_jobs[job_id]['output'] += '[ERROR] Gmail認証が無効です。「Gmail 再認証」ボタンで再認証してください。
+'
+                            return
+                        for line in result.stdout.splitlines():
+                            if '[SUMMARY]' in line:
+                                m_s  = _re.search(r'Success:\s*(\d+)', line)
+                                m_sk = _re.search(r'Skipped:\s*(\d+)', line)
+                                m_e  = _re.search(r'Errors:\s*(\d+)', line)
+                                if m_s:  all_success += int(m_s.group(1))
+                                if m_sk: all_skip    += int(m_sk.group(1))
+                                if m_e:  all_error_tf += int(m_e.group(1))
+                        continue
+
                     trimmed = _trim_output(result.stdout, result.stderr if result.returncode != 0 else '')
                     _backup_jobs[job_id]['output'] += trimmed + '\n'
 
