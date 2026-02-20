@@ -1569,6 +1569,9 @@ def webhook():
             print(f'[WEBHOOK] tf normalized: {tf_val} -> {tf_val_normalized} for {symbol_val}')
             tf_val = tf_val_normalized
         
+        # ?force=1 パラメータ（バックアップ復旧用）でスキップロジックを無効化
+        force_insert = (request.args.get('force') == '1')
+
         # 遅延処理を削除して即時保存
         try:
             conn = sqlite3.connect(DB_PATH)
@@ -1578,10 +1581,11 @@ def webhook():
             # ただし: スタブレコード（sent_time が空 = サーバー起動時に自動作成されたもの）は
             # received_at が実データより新しくても「スキップ対象外」として常に受け入れる。
             # これにより、起動直後のスタブが本物のデータを弾く問題を防ぐ。
+            # また: ?force=1 パラメータがある場合は比較を完全にスキップ。
             try:
                 c.execute('SELECT received_at, sent_time FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol_val, tf_val))
                 row = c.fetchone()
-                if row and row[0]:
+                if not force_insert and row and row[0]:
                     try:
                         # 既存 sent_time が空ならスタブ→スキップ判定しない（常に受け入れ）
                         existing_sent_time = row[1] if row[1] else ''
