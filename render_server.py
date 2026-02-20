@@ -1927,7 +1927,8 @@ def health_check():
             'database_ok': db_ok,
             'states_count': states_count,
             'webhook_log_exists': webhook_log_exists,
-            'uptime_message': 'Server is running normally'
+            'uptime_message': 'Server is running normally',
+            'code_version': '58dbfc1'
         }), 200
     except Exception as e:
         return jsonify({
