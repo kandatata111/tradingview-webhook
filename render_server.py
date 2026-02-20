@@ -33,6 +33,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # init_db()で明示的に設定される
 SERVER_START_TIME = None
 
+# バックアップ取得ジョブ管理（非同期実行用）
+# job_id -> {'status': 'running'|'completed'|'error', 'output': str, 'started_at': str}
+_backup_jobs = {}
+
 # 各タイムフレームの初回受信フラグ（再起動時の誤発火防止）
 # True = 既に受信済み（通常評価）、False = 未受信（初回は状態記録のみ）
 FIRST_RECEIVE_FLAGS = {}
@@ -3249,74 +3253,80 @@ def api_notifications():
 
 @app.route('/api/backup/fetch', methods=['POST'])
 def api_backup_fetch():
-    """Gmail から手動でバックアップを取得"""
-    try:
-        import subprocess
-        # 複数のパスを試す：
-        # 1. 同じディレクトリ (Render用)
-        # 2. 親ディレクトリ (ローカル用)
-        # 3. カレントディレクトリ
-        script_paths = [
-            os.path.join(BASE_DIR, 'backup_recovery.py'),  # TradingViewWebhook/
-            os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py'),  # PythonData/
-            os.path.join(os.getcwd(), 'backup_recovery.py')  # カレント
-        ]
-        
-        script_path = None
-        for path in script_paths:
-            if os.path.exists(path):
-                script_path = path
-                break
-        
-        if not script_path:
-            searched_paths = ', '.join(script_paths)
-            return jsonify({'status': 'error', 'msg': f'backup_recovery.py not found (searched: {searched_paths})'}), 404
-        
-        # Python 環境のパスを取得（仮想環境を優先）
-        import sys
-        python_exe = sys.executable  # 現在実行中のPythonパスを使用
-        
-        # バックグラウンドで実行（--max 500 で D/4H メールを取りこぼさないようにする）
-        result = subprocess.run(
-            [python_exe, script_path, '--fetch', '--max', '500'],
-            capture_output=True,
-            text=True,
-            timeout=300  # 5分に拡大（Gmail APIの遅延対応）
-        )
-        
-        if result.returncode == 0:
-            # 成功・スキップ・エラー数を抽出（簡易実装）
-            output = result.stdout
-            return jsonify({
-                'status': 'success',
-                'message': 'Backup fetch completed',
-                'output': output
-            }), 200
-        else:
-            stderr = (result.stderr or '').lower()
-            # 明確な原因が OAuth トークン切れ／取り消しのときは再認証を促す
-            if 'invalid_grant' in stderr or 'token has been expired' in stderr or 'token has been revoked' in stderr:
-                return jsonify({
-                    'status': 'reauth_required',
-                    'msg': 'Gmail OAuth token expired or revoked. Please re-authorize the Gmail access for the backup tool.',
-                    'how_to': "Run `python backup_recovery.py --fetch` in the PythonData folder and follow the OAuth prompt (this will recreate token.json). After that, retry '手動取得'.",
-                    'stderr': result.stderr,
-                    'output': result.stdout
-                }), 401
+    """Gmail から手動でバックアップを取得（バックグラウンド実行 → 即座にジョブIDを返す）"""
+    import uuid, threading
 
-            return jsonify({
-                'status': 'error',
-                'msg': f'Fetch failed: {result.stderr}',
-                'output': result.stdout
-            }), 500
-            
-    except subprocess.TimeoutExpired:
-        return jsonify({'status': 'error', 'msg': 'Timeout: Gmail fetch took too long (processing may still continue in background)'}), 504
-    except Exception as e:
-        print(f'[ERROR] Backup fetch failed: {e}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'msg': str(e)}), 500
+    # backup_recovery.py のパスを探す
+    script_paths = [
+        os.path.join(BASE_DIR, 'backup_recovery.py'),
+        os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py'),
+        os.path.join(os.getcwd(), 'backup_recovery.py')
+    ]
+    script_path = None
+    for path in script_paths:
+        if os.path.exists(path):
+            script_path = path
+            break
+
+    if not script_path:
+        searched_paths = ', '.join(script_paths)
+        return jsonify({'status': 'error', 'msg': f'backup_recovery.py not found (searched: {searched_paths})'}), 404
+
+    import sys
+    python_exe = sys.executable
+    jst = pytz.timezone('Asia/Tokyo')
+
+    job_id = str(uuid.uuid4())[:8]
+    _backup_jobs[job_id] = {
+        'status': 'running',
+        'output': '',
+        'started_at': datetime.now(jst).isoformat()
+    }
+
+    def _run_fetch(job_id, python_exe, script_path):
+        """バックグラウンドスレッドで backup_recovery.py を実行"""
+        try:
+            result = subprocess.run(
+                [python_exe, script_path, '--fetch', '--max', '500', '--after-days', '3'],
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+            stderr_lower = (result.stderr or '').lower()
+            if result.returncode == 0:
+                _backup_jobs[job_id]['status'] = 'completed'
+                _backup_jobs[job_id]['output'] = result.stdout
+            elif 'invalid_grant' in stderr_lower or 'token has been expired' in stderr_lower or 'token has been revoked' in stderr_lower:
+                _backup_jobs[job_id]['status'] = 'reauth_required'
+                _backup_jobs[job_id]['output'] = result.stderr + '\n' + result.stdout
+            else:
+                _backup_jobs[job_id]['status'] = 'error'
+                _backup_jobs[job_id]['output'] = result.stderr + '\n' + result.stdout
+        except subprocess.TimeoutExpired:
+            _backup_jobs[job_id]['status'] = 'error'
+            _backup_jobs[job_id]['output'] = 'Timeout: Gmail fetch took too long (>300s)'
+        except Exception as e:
+            _backup_jobs[job_id]['status'] = 'error'
+            _backup_jobs[job_id]['output'] = str(e)
+
+    t = threading.Thread(target=_run_fetch, args=(job_id, python_exe, script_path), daemon=True)
+    t.start()
+
+    return jsonify({'status': 'started', 'job_id': job_id}), 202
+
+
+@app.route('/api/backup/fetch/status', methods=['GET'])
+def api_backup_fetch_status():
+    """バックアップ取得ジョブのステータスを返す"""
+    job_id = request.args.get('job_id', '')
+    if not job_id or job_id not in _backup_jobs:
+        return jsonify({'status': 'not_found'}), 404
+    job = _backup_jobs[job_id]
+    return jsonify({
+        'status': job['status'],
+        'output': job.get('output', ''),
+        'started_at': job.get('started_at', '')
+    }), 200
 
 @app.route('/api/backup/token_status', methods=['GET'])
 def api_backup_token_status():

@@ -8914,47 +8914,89 @@ document.getElementById('menuBackupRecovery').addEventListener('click', function
   document.getElementById('sideMenuOverlay').classList.remove('active');
 });
 
-// Gmail から手動取得
+// Gmail から手動取得（バックグラウンドジョブ方式 - サーバーをブロックしない）
 async function fetchBackupFromGmail() {
   const btn = document.getElementById('btnFetchBackup');
   const status = document.getElementById('fetchStatus');
   const progress = document.getElementById('fetchProgress');
-  
+
   btn.disabled = true;
   btn.textContent = '⏳ 取得中...';
   status.textContent = '';
   progress.style.display = 'block';
   progress.innerHTML = '<div style="color:#60a5fa;">Gmail API に接続しています...</div>';
-  
+
+  let jobId = null;
+
   try {
-    const response = await fetch('/api/backup/fetch', {
+    // ジョブ開始（即座に返る）
+    const startResp = await fetch('/api/backup/fetch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
-    
-    const data = await response.json();
+    const startData = await startResp.json();
 
-    if (data.status === 'reauth_required') {
-      progress.innerHTML = '<div style="color:#f59e0b;font-weight:600;">🔑 Gmail トークンが無効です。\n「Gmail 再認証」ボタンでトークンをクリアして再取得してください。</div>';
-      status.textContent = '⚠️ 要再認証';
-      status.style.color = '#f59e0b';
-      return;
-    }
-    
-    if (data.status === 'success') {
-      progress.innerHTML = '<div style="color:#4ade80;">✅ ' + data.message + '</div>' +
-                          '<pre style="margin-top:8px;white-space:pre-wrap;color:#94a3b8;">' + 
-                          (data.output || '') + '</pre>';
-      status.textContent = '✅ 完了';
-      status.style.color = '#4ade80';
-      
-      // サマリーを更新
-      setTimeout(() => loadBackupSummary(), 1000);
-    } else {
-      progress.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー: ' + data.msg + '</div>';
+    if (startData.status !== 'started') {
+      progress.innerHTML = '<div style="color:#ff5555;">❌ 開始失敗: ' + (startData.msg || JSON.stringify(startData)) + '</div>';
       status.textContent = '❌ 失敗';
       status.style.color = '#ef4444';
+      return;
     }
+
+    jobId = startData.job_id;
+    progress.innerHTML = '<div style="color:#60a5fa;">⏳ バックグラウンドで取得中... (ジョブID: ' + jobId + ')</div>';
+
+    // ポーリング: 4秒ごとにステータスを確認（最大120回 = 8分）
+    let dots = 0;
+    for (let i = 0; i < 120; i++) {
+      await new Promise(r => setTimeout(r, 4000));
+      dots = (dots % 3) + 1;
+      const dotStr = '.'.repeat(dots);
+
+      let statusData;
+      try {
+        const statusResp = await fetch('/api/backup/fetch/status?job_id=' + jobId);
+        statusData = await statusResp.json();
+      } catch (pollErr) {
+        // ネットワーク一時エラーは無視して継続
+        progress.innerHTML = '<div style="color:#60a5fa;">⏳ 確認中' + dotStr + '</div>';
+        continue;
+      }
+
+      if (statusData.status === 'running') {
+        progress.innerHTML = '<div style="color:#60a5fa;">⏳ 取得中' + dotStr + ' (開始: ' + (statusData.started_at || '') + ')</div>';
+        continue;
+      }
+
+      // 完了 / エラー
+      if (statusData.status === 'completed') {
+        // SUMMARY 行を抽出して先頭に表示
+        const lines = (statusData.output || '').split('\n');
+        const summaryLine = lines.find(l => l.includes('[SUMMARY]')) || '取得完了';
+        progress.innerHTML = '<div style="color:#4ade80;">✅ ' + summaryLine + '</div>' +
+          '<pre style="margin-top:8px;white-space:pre-wrap;color:#94a3b8;max-height:200px;overflow:auto;">' +
+          (statusData.output || '') + '</pre>';
+        status.textContent = '✅ 完了';
+        status.style.color = '#4ade80';
+        setTimeout(() => loadBackupSummary(), 1000);
+      } else if (statusData.status === 'reauth_required') {
+        progress.innerHTML = '<div style="color:#f59e0b;font-weight:600;">🔑 Gmail トークンが無効です。「Gmail 再認証」ボタンでトークンをクリアして再取得してください。</div>';
+        status.textContent = '⚠️ 要再認証';
+        status.style.color = '#f59e0b';
+      } else {
+        progress.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー</div>' +
+          '<pre style="white-space:pre-wrap;color:#94a3b8;">' + (statusData.output || '') + '</pre>';
+        status.textContent = '❌ 失敗';
+        status.style.color = '#ef4444';
+      }
+      return;  // ループ終了
+    }
+
+    // タイムアウト（8分経過しても応答なし）
+    progress.innerHTML = '<div style="color:#f59e0b;">⚠️ 8分以上かかっています。バックグラウンドで継続中の可能性があります。</div>';
+    status.textContent = '⚠️ 時間超過';
+    status.style.color = '#f59e0b';
+
   } catch (error) {
     progress.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー: ' + error.message + '</div>';
     status.textContent = '❌ 失敗';
