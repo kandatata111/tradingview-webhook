@@ -1569,80 +1569,10 @@ def webhook():
             print(f'[WEBHOOK] tf normalized: {tf_val} -> {tf_val_normalized} for {symbol_val}')
             tf_val = tf_val_normalized
         
-        # ?force=1 パラメータ（バックアップ復旧用）でスキップロジックを無効化
-        force_insert = (request.args.get('force') == '1')
-
         # 遅延処理を削除して即時保存
         try:
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
-
-            # --- 既存レコードと比較し、古いペイロードはスキップ ---
-            # ただし: スタブレコード（sent_time が空 = サーバー起動時に自動作成されたもの）は
-            # received_at が実データより新しくても「スキップ対象外」として常に受け入れる。
-            # これにより、起動直後のスタブが本物のデータを弾く問題を防ぐ。
-            # また: ?force=1 パラメータがある場合は比較を完全にスキップ。
-            try:
-                c.execute('SELECT received_at, sent_time FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol_val, tf_val))
-                row = c.fetchone()
-                if not force_insert and row and row[0]:
-                    try:
-                        # 既存 sent_time が空ならスタブ→スキップ判定しない（常に受け入れ）
-                        existing_sent_time = row[1] if row[1] else ''
-                        if not existing_sent_time:
-                            pass  # スタブレコード: 比較せず通過
-                        else:
-                            existing_dt = datetime.fromisoformat(row[0])
-
-                            # --- incoming_dt を決定（優先順: JSON.sent_time -> payload.time(ms) -> server-received_at） ---
-                            incoming_dt = None
-
-                            # 1) JSON 内の sent_time を最優先で使用（形式: YY/MM/DD/HH:MM を想定）
-                            if sent_time_val:
-                                try:
-                                    parts = sent_time_val.split('/')
-                                    if len(parts) == 4:
-                                        yy, mm, dd, hhmm = parts
-                                        hh, mn = hhmm.split(':')
-                                        parsed = jst.localize(datetime(2000 + int(yy), int(mm), int(dd), int(hh), int(mn), 0))
-                                        incoming_dt = parsed
-                                    else:
-                                        incoming_dt = datetime.fromisoformat(received_at)
-                                except Exception:
-                                    incoming_dt = None
-
-                            # 2) payload の time(ms) があれば次に優先
-                            if incoming_dt is None and data.get('time'):
-                                try:
-                                    ms = int(data.get('time') or 0)
-                                    if ms > 0:
-                                        incoming_dt = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).astimezone(existing_dt.tzinfo or pytz.UTC)
-                                except Exception:
-                                    incoming_dt = None
-
-                            # 3) 最終フォールバック: 既に計算済みの received_at 変数を使用
-                            if incoming_dt is None:
-                                try:
-                                    incoming_dt = datetime.fromisoformat(received_at)
-                                except Exception:
-                                    incoming_dt = None
-
-                            # incoming_dt が得られた場合に比較し、既存の方が新しいか同一ならスキップ
-                            if incoming_dt is not None and existing_dt >= incoming_dt:
-                                print(f"[WEBHOOK SKIP] Ignoring older/equal payload for {symbol_val}/{tf_val} (existing:{existing_dt.isoformat()} incoming:{incoming_dt.isoformat()})")
-                                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                                    f.write(f"{datetime.now(jst).isoformat()} - [WEBHOOK SKIP] Ignored older/equal payload for {symbol_val}/{tf_val} (existing:{existing_dt.isoformat()} incoming:{incoming_dt.isoformat()})\n")
-                                conn.close()
-                                response = jsonify({'status': 'skipped', 'reason': 'older_or_equal_payload_ignored'})
-                                response.headers['Access-Control-Allow-Origin'] = '*'
-                                return response, 200
-                    except Exception:
-                        # 解析失敗したら安全のため続行
-                        pass
-            except Exception:
-                # 既存チェックに失敗しても通常の保存処理を続ける
-                pass
-            # --- 比較チェックここまで ---
 
             received_timestamp = datetime.now(jst).isoformat()  # 最終更新（サーバー受信時刻）
             # received_at は sent_time ベース（上で解析済み）
@@ -1928,7 +1858,7 @@ def health_check():
             'states_count': states_count,
             'webhook_log_exists': webhook_log_exists,
             'uptime_message': 'Server is running normally',
-            'code_version': '58dbfc1'
+            'code_version': 'skip-removed'
         }), 200
     except Exception as e:
         return jsonify({
