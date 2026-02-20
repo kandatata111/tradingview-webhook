@@ -5767,7 +5767,6 @@ if __name__ == '__main__':
 
     def auto_backup_fetch_loop():
         """30分ごとにGmailからTF別にバックアップを自動取得"""
-        import re as _auto_re
         jst = pytz.timezone('Asia/Tokyo')
         while True:
             try:
@@ -5791,7 +5790,6 @@ if __name__ == '__main__':
                 python_exe = sys.executable
 
                 total_success = 0
-                total_skip = 0
                 total_err = 0
 
                 # TF別に個別実行（sent_timeフィルタ・件数制限付き）
@@ -5801,28 +5799,26 @@ if __name__ == '__main__':
                             [python_exe, script_path, '--fetch',
                              '--tf-filter', tf,
                              '--max', str(max_count),
-                             '--after-days', '7'],
-                            capture_output=True,
+                             '--after-days', '7',
+                             '--non-interactive'],   # ブラウザOAuth起動防止
+                            stdin=subprocess.DEVNULL,   # stdinを切断（OAuth待機防止）
+                            stdout=subprocess.DEVNULL,  # 大量のDEBUG出力をメモリに溜めない
+                            stderr=subprocess.PIPE,     # エラーのみ捕捉
                             text=True,
                             timeout=120  # TF1つあたり2分
                         )
-                        # SUMMARYを集計
-                        for line in result.stdout.splitlines():
-                            if '[SUMMARY]' in line:
-                                m_s  = _auto_re.search(r'Success:\s*(\d+)', line)
-                                m_sk = _auto_re.search(r'Skipped:\s*(\d+)', line)
-                                m_e  = _auto_re.search(r'Errors:\s*(\d+)', line)
-                                if m_s:  total_success += int(m_s.group(1))
-                                if m_sk: total_skip    += int(m_sk.group(1))
-                                if m_e:  total_err     += int(m_e.group(1))
-                        if result.returncode != 0:
-                            print(f'[AUTO BACKUP WARN] {label} returncode={result.returncode}: {result.stderr[:200]}')
+                        if result.returncode == 0:
+                            total_success += 1  # TF単位での成功カウント
+                        else:
+                            total_err += 1
+                            stderr_preview = (result.stderr or '')[:300]
+                            print(f'[AUTO BACKUP WARN] {label} returncode={result.returncode}: {stderr_preview}')
                     except subprocess.TimeoutExpired:
                         print(f'[AUTO BACKUP WARN] {label} timeout (2min) - skipped')
                     except Exception as e:
                         print(f'[AUTO BACKUP ERROR] {label}: {str(e)}')
 
-                print(f'[AUTO BACKUP] Done: Success={total_success}, Skipped={total_skip}, Errors={total_err}')
+                print(f'[AUTO BACKUP] Done: TF-OK={total_success}/4, TF-ERR={total_err}/4')
 
             except Exception as e:
                 print(f'[AUTO BACKUP ERROR] {str(e)}')

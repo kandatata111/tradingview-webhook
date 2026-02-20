@@ -33,7 +33,7 @@ def ensure_backup_structure():
     Path(BACKUP_DIR).mkdir(parents=True, exist_ok=True)
     print(f'[OK] Backup directory ensured: {BACKUP_DIR}')
 
-def extract_json_from_email_body(body):
+def extract_json_from_email_body(body, verbose=False):
     """
     メール本文（HTML形式）から JSON を抽出
     HTML エンティティエンコードされた JSON に対応
@@ -44,11 +44,11 @@ def extract_json_from_email_body(body):
     # HTML エンティティをデコード（&#34; → " など）
     body_decoded = html.unescape(body)
 
-    print(f'[DEBUG] Body length: {len(body_decoded)} chars')
+    if verbose: print(f'[DEBUG] Body length: {len(body_decoded)} chars')
     if body_decoded:
         preview = body_decoded[:500].replace('\n', '\\n').replace('\r', '\\r')
         safe_preview = preview.encode('ascii', 'backslashreplace').decode('ascii')
-        print(f'[DEBUG] Body preview: {safe_preview}')
+        if verbose: print(f'[DEBUG] Body preview: {safe_preview}')
 
     def _extract_all_json_candidates(text):
         """{"symbol" から始まる JSON を本文内で全て抽出して返す"""
@@ -87,7 +87,7 @@ def extract_json_from_email_body(body):
                 if 'symbol' in d and 'tf' in d:
                     results.append(d)
                     safe = json_str[:150].encode('ascii', 'backslashreplace').decode('ascii')
-                    print(f'[DEBUG] Candidate JSON (len={len(json_str)}): symbol={d.get("symbol")}, tf={d.get("tf")}, has_sent_time={"sent_time" in d}, has_clouds={"clouds" in d}, has_sg={"sg" in d}')
+                    if verbose: print(f'[DEBUG] Candidate JSON (len={len(json_str)}): symbol={d.get("symbol")}, tf={d.get("tf")}, has_sent_time={"sent_time" in d}, has_clouds={"clouds" in d}, has_sg={"sg" in d}')
             except json.JSONDecodeError:
                 pass
             search_start = end_pos + 1
@@ -96,7 +96,7 @@ def extract_json_from_email_body(body):
     candidates = _extract_all_json_candidates(body_decoded)
 
     if not candidates:
-        print('[DEBUG] No JSON candidates found in body')
+        if verbose: print('[DEBUG] No JSON candidates found in body')
         return None
 
     # 優先スコア: sent_time あり(+4) + clouds あり(+2) + sg なし(+1)
@@ -106,10 +106,10 @@ def extract_json_from_email_body(body):
                 int('sg' not in d))
 
     best = max(candidates, key=lambda d: (_score(d), len(json.dumps(d))))
-    print(f'[DEBUG] Selected JSON: symbol={best.get("symbol")}, tf={best.get("tf")}, score={_score(best)}')
+    if verbose: print(f'[DEBUG] Selected JSON: symbol={best.get("symbol")}, tf={best.get("tf")}, score={_score(best)}')
     return best
 
-def save_json_to_file(json_data, email_received_time=None):
+def save_json_to_file(json_data, email_received_time=None, verbose=False):
     """
     JSON データをローカルファイルに保存
     フォルダ構造: TradingViewBackup_JSON/SYMBOL/TF/YYYYMMDD_HHMM_senttime_TF_ts.json
@@ -142,7 +142,7 @@ def save_json_to_file(json_data, email_received_time=None):
         time_ms = json_data.get('send_time', json_data.get('time', 0))
 
         # デバッグ: D, W, M, Y の場合はログ出力
-        if tf in ('D', 'W', 'M', 'Y'):
+        if verbose and tf in ('D', 'W', 'M', 'Y'):
             print(f'[DEBUG] Processing {symbol} {tf}: has clouds={"clouds" in json_data}, sent_time={sent_time_val}, time_ms={time_ms}')
 
         # 時間足を正規化（JSON表現は数値コードに統一）
@@ -247,7 +247,7 @@ def _normalize_tf(tf_str):
     return mapping.get(t, t)
 
 
-def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filter=None):
+def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filter=None, non_interactive=False, verbose=False):
     """
     Gmail から TradingView メールを取得して保存
     
@@ -256,6 +256,8 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filte
         mark_as_read: 処理後に既読にするか
         after_days: 0より大きい場合、Google の newer_than:Nd フィルタを付加
         tf_filter: 指定した時間足のみ保存 (例: '15', '60', '240', 'D')。None=全て
+        non_interactive: True=ブラウザ認証不要なら失敗(自動実行向け)
+        verbose: True=DEBUGログ出力
     
     Returns:
         (成功数, スキップ数, エラー数)
@@ -285,6 +287,10 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filte
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
+                # non_interactive=True の場合はブラウザ認証をスキップして失敗
+                if non_interactive:
+                    print('[ERROR] Gmail credentials invalid/expired. Re-run manually with --fetch to reauthenticate.')
+                    return (0, 0, 1)
                 if not os.path.exists(credentials_path):
                     print('[ERROR] credentials.json not found. Please follow Gmail API setup instructions.')
                     return (0, 0, 1)
@@ -329,7 +335,7 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filte
         for msg in messages:
             try:
                 # メッセージの詳細を取得
-                print(f'\n[PROCESSING] Message ID: {msg["id"]}')
+                if verbose: print(f'\n[PROCESSING] Message ID: {msg["id"]}')
                 message = service.users().messages().get(
                     userId='me',
                     id=msg['id'],
@@ -429,10 +435,10 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filte
                     skip_count += 1
                     continue
                 
-                print(f'[DEBUG] Body extracted, length={len(body)} chars')
+                if verbose: print(f'[DEBUG] Body extracted, length={len(body)} chars')
                 
                 # JSON を抽出
-                json_data = extract_json_from_email_body(body)
+                json_data = extract_json_from_email_body(body, verbose=verbose)
                 
                 if json_data:
                     # TFフィルタ: tf_filter指定があり、一致しない場合はスキップ
@@ -444,10 +450,10 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filte
 
                     # メールの受信日時を取得（internalDateはミリ秒単位のタイムスタンプ）
                     email_time_ms = int(message.get('internalDate', 0))
-                    print(f'[DEBUG] Email ID={msg["id"]}, internalDate={message.get("internalDate")}, email_time_ms={email_time_ms}')
+                    if verbose: print(f'[DEBUG] Email ID={msg["id"]}, internalDate={message.get("internalDate")}, email_time_ms={email_time_ms}')
                     
                     # ファイルに保存（メール受信日時を渡す）
-                    saved = save_json_to_file(json_data, email_received_time=email_time_ms)
+                    saved = save_json_to_file(json_data, email_received_time=email_time_ms, verbose=verbose)
                     if saved:
                         success_count += 1
                     else:
@@ -578,6 +584,8 @@ if __name__ == '__main__':
     parser.add_argument('--after-days', type=int, default=0, dest='after_days', help='Only fetch emails newer than N days (e.g. --after-days 3). 0=no filter')
     parser.add_argument('--tf-filter', type=str, default=None, dest='tf_filter', help='Only save emails for this timeframe (e.g. --tf-filter 15 or --tf-filter D)')
     parser.add_argument('--mark-read', action='store_true', help='Mark emails as read after processing')
+    parser.add_argument('--non-interactive', action='store_true', dest='non_interactive', help='Never open browser for OAuth (fail gracefully instead)')
+    parser.add_argument('--verbose', action='store_true', help='Show DEBUG logs')
     parser.add_argument('--summary', action='store_true', help='Show backup summary')
     parser.add_argument('--list', nargs='*', help='List backup files (optional: symbol tf date)')
     
@@ -590,9 +598,11 @@ if __name__ == '__main__':
         # Gmail から取得
         after_days_val = args.after_days if hasattr(args, 'after_days') else 0
         tf_filter_val = args.tf_filter if hasattr(args, 'tf_filter') else None
+        non_interactive_val = args.non_interactive if hasattr(args, 'non_interactive') else False
+        verbose_val = args.verbose if hasattr(args, 'verbose') else False
         label = f'tf={tf_filter_val}' if tf_filter_val else 'all-tf'
         print(f'[START] Fetching emails from Gmail (max={args.max}, after_days={after_days_val}, {label})...')
-        fetch_from_gmail(max_results=args.max, mark_as_read=args.mark_read, after_days=after_days_val, tf_filter=tf_filter_val)
+        fetch_from_gmail(max_results=args.max, mark_as_read=args.mark_read, after_days=after_days_val, tf_filter=tf_filter_val, non_interactive=non_interactive_val, verbose=verbose_val)
         print('[DONE]')
     
     elif args.summary:
