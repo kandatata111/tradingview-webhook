@@ -1499,6 +1499,9 @@
         }
         document.getElementById('loadingText').textContent = '✓ 更新完了';
         document.getElementById('updateTime').textContent = `最終更新: ${timeStr}`;
+        if (payload.data.server_version) {
+          document.getElementById('serverVersion').textContent = `[v: ${payload.data.server_version}]`;
+        }
         
         setTimeout(() => {
           document.getElementById('loadingText').textContent = '';

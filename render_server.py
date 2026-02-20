@@ -1071,6 +1071,7 @@ def calculate_currency_strength_data():
     
     # 更新時刻を追加
     result['last_updated'] = current_time
+    result['server_version'] = CURRENCY_STRENGTH_VERSION
     
     return result
 
@@ -1174,7 +1175,6 @@ def api_currency_strength():
     """通貨強弱を計算して返す（APIエンドポイント）"""
     try:
         data = calculate_currency_strength_data()
-        data['server_version'] = CURRENCY_STRENGTH_VERSION
         return jsonify({
             'status': 'success',
             'data': data
