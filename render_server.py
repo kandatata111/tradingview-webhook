@@ -1568,6 +1568,17 @@ def webhook():
         if tf_val_normalized != tf_val:
             print(f'[WEBHOOK] tf normalized: {tf_val} -> {tf_val_normalized} for {symbol_val}')
             tf_val = tf_val_normalized
+
+        # ---- シグナルペイロード拒否: sent_timeが空かつcloudsが空の場合はDBを更新しない ----
+        # TradingViewのシグナルアラートはclouds=[] + sent_time="" で送信されるケースがある。
+        # このような空ペイロードが正常データを上書きするのを防ぐ。
+        incoming_clouds = data.get('clouds', [])
+        if not sent_time_val and not incoming_clouds:
+            print(f'[WEBHOOK SKIP] Signal payload (no sent_time, no clouds) for {symbol_val}/{tf_val} - DB not updated')
+            response = jsonify({'status': 'skipped', 'reason': 'signal_payload_no_clouds_no_senttime'})
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 200
+        # ---- シグナルペイロード拒否ここまで ----
         
         # 遅延処理を削除して即時保存
         try:
@@ -1890,7 +1901,7 @@ def health_check():
             'states_count': states_count,
             'webhook_log_exists': webhook_log_exists,
             'uptime_message': 'Server is running normally',
-            'code_version': 'gmail-max500-afterdays-v1'
+            'code_version': 'signal-payload-guard-v1'
         }), 200
     except Exception as e:
         return jsonify({
