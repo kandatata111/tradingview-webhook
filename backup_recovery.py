@@ -164,6 +164,7 @@ def save_json_to_file(json_data, email_received_time=None):
         #   2. email_received_time (メール受信時刻)
         #   3. time_ms (PineScript の time フィールド)
         #   4. 現在時刻
+        sent_time_ts_ms = 0  # sent_time から取得したepochミリ秒（重複チェック用）
         if sent_time_val:
             try:
                 parts = sent_time_val.split('/')
@@ -171,8 +172,8 @@ def save_json_to_file(json_data, email_received_time=None):
                     yy, mm, dd, hhmm = parts
                     hh, mn = hhmm.split(':')
                     dt = JST.localize(datetime(2000 + int(yy), int(mm), int(dd), int(hh), int(mn)))
-                    ts_ms = int(dt.timestamp() * 1000)
-                    filename = dt.strftime('%Y%m%d_%H%M') + f'_senttime_{tf_normalized}_{ts_ms}.json'
+                    sent_time_ts_ms = int(dt.timestamp() * 1000)
+                    filename = dt.strftime('%Y%m%d_%H%M') + f'_senttime_{tf_normalized}_{sent_time_ts_ms}.json'
                     print(f'[INFO] Using sent_time: {sent_time_val} -> {filename}')
                 else:
                     raise ValueError('unexpected sent_time format')
@@ -205,10 +206,22 @@ def save_json_to_file(json_data, email_received_time=None):
         # ファイル保存
         file_path = folder_path / filename
 
-        # 既存ファイルがある場合はスキップ
+        # ① 同名ファイルが既にある場合はスキップ（sent_time完全一致 = 同一バーのデータ）
         if file_path.exists():
             print(f'[SKIP] File already exists: {file_path.name}')
             return False
+
+        # ② 旧フォーマットを含む sent_time タイムスタンプ重複チェック
+        # ファイル名末尾の 13桁数字 (Unix ms) が一致するファイルが既にある → 同一バーデータとして扱いスキップ
+        if sent_time_ts_ms > 0:
+            ts_str = str(sent_time_ts_ms)
+            duplicate = next(
+                (f for f in folder_path.glob('*.json') if f.stem.endswith('_' + ts_str)),
+                None
+            )
+            if duplicate:
+                print(f'[SKIP] Duplicate sent_time detected (ts={sent_time_ts_ms}): {duplicate.name}')
+                return False
 
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, ensure_ascii=False, indent=2)

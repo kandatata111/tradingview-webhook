@@ -5757,58 +5757,73 @@ if __name__ == '__main__':
         pass
     
     # バックアップ自動取得スレッドを起動
+    # TF別取得設定（手動取得と同じプラン）
+    AUTO_TF_FETCH_PLAN = [
+        ('15',  30, '15分足'),
+        ('60',  20, '1時間足'),
+        ('240', 10, '4時間足'),
+        ('D',    5, '日足'),
+    ]
+
     def auto_backup_fetch_loop():
-        """30分ごとにGmailからバックアップを自動取得"""
+        """30分ごとにGmailからTF別にバックアップを自動取得"""
+        import re as _auto_re
         jst = pytz.timezone('Asia/Tokyo')
         while True:
             try:
                 time.sleep(1800)  # 30分待機
-                
-                print(f'[AUTO BACKUP] Starting automatic backup fetch at {datetime.now(jst).strftime("%Y-%m-%d %H:%M:%S")}')
-                
+
+                print(f'[AUTO BACKUP] Starting at {datetime.now(jst).strftime("%Y-%m-%d %H:%M:%S")} (TF-split mode)')
+
                 # backup_recovery.pyのパスを探す
                 script_paths = [
                     os.path.join(BASE_DIR, 'backup_recovery.py'),
                     os.path.join(os.path.dirname(BASE_DIR), 'backup_recovery.py'),
                     os.path.join(os.getcwd(), 'backup_recovery.py')
                 ]
-                
-                script_path = None
-                for path in script_paths:
-                    if os.path.exists(path):
-                        script_path = path
-                        break
-                
+                script_path = next((p for p in script_paths if os.path.exists(p)), None)
+
                 if not script_path:
                     print(f'[AUTO BACKUP ERROR] backup_recovery.py not found')
                     continue
-                
-                # 現在実行中のPythonを使用（仮想環境を維持）
+
                 import sys
                 python_exe = sys.executable
-                
-                # 実行（--after-days 3 で直近3日分のみ取得: D/4H も含め効率よく処理）
-                result = subprocess.run(
-                    [python_exe, script_path, '--fetch', '--max', '500', '--after-days', '3'],
-                    capture_output=True,
-                    text=True,
-                    timeout=300  # 5分に拡大（Gmail API遅延対応）
-                )
-                
-                if result.returncode == 0:
-                    # 成功数を抽出
-                    output = result.stdout
-                    if '[SUMMARY]' in output:
-                        summary_line = [line for line in output.split('\n') if '[SUMMARY]' in line]
-                        if summary_line:
-                            print(f'[AUTO BACKUP] {summary_line[0]}')
-                    else:
-                        print(f'[AUTO BACKUP] Completed successfully')
-                else:
-                    print(f'[AUTO BACKUP ERROR] {result.stderr}')
-                    
-            except subprocess.TimeoutExpired:
-                print(f'[AUTO BACKUP ERROR] Timeout after 300 seconds')
+
+                total_success = 0
+                total_skip = 0
+                total_err = 0
+
+                # TF別に個別実行（sent_timeフィルタ・件数制限付き）
+                for tf, max_count, label in AUTO_TF_FETCH_PLAN:
+                    try:
+                        result = subprocess.run(
+                            [python_exe, script_path, '--fetch',
+                             '--tf-filter', tf,
+                             '--max', str(max_count),
+                             '--after-days', '7'],
+                            capture_output=True,
+                            text=True,
+                            timeout=120  # TF1つあたり2分
+                        )
+                        # SUMMARYを集計
+                        for line in result.stdout.splitlines():
+                            if '[SUMMARY]' in line:
+                                m_s  = _auto_re.search(r'Success:\s*(\d+)', line)
+                                m_sk = _auto_re.search(r'Skipped:\s*(\d+)', line)
+                                m_e  = _auto_re.search(r'Errors:\s*(\d+)', line)
+                                if m_s:  total_success += int(m_s.group(1))
+                                if m_sk: total_skip    += int(m_sk.group(1))
+                                if m_e:  total_err     += int(m_e.group(1))
+                        if result.returncode != 0:
+                            print(f'[AUTO BACKUP WARN] {label} returncode={result.returncode}: {result.stderr[:200]}')
+                    except subprocess.TimeoutExpired:
+                        print(f'[AUTO BACKUP WARN] {label} timeout (2min) - skipped')
+                    except Exception as e:
+                        print(f'[AUTO BACKUP ERROR] {label}: {str(e)}')
+
+                print(f'[AUTO BACKUP] Done: Success={total_success}, Skipped={total_skip}, Errors={total_err}')
+
             except Exception as e:
                 print(f'[AUTO BACKUP ERROR] {str(e)}')
                 traceback.print_exc()
