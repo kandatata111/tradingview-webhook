@@ -936,30 +936,35 @@ def calculate_currency_strength_data():
             
             try:
                 clouds = json.loads(clouds_json) if clouds_json else []
-                
-                # state_dataを構築
-                state_data = {
-                    'clouds': clouds,
-                    'row_order': row_order,
-                    'clouds_json': clouds_json
-                }
-                
-                trend_result = calculate_trend_strength_v2(
-                    tf=tf,
-                    state_data=state_data,
-                    all_states=None
+
+                # ---- TradingView Pine の trend_pct を直接使用 ----
+                # calculate_trend_strength_v2() はサーバー独自アルゴリズムで
+                # Pine の direction と食い違うケースがある。
+                # clouds[0] の trend_pct（Pine が計算済みの値）を正規の source とする。
+                #   trend_pct > 0 → BASE が強い (direction='up')
+                #   trend_pct < 0 → QUOTE が強い (direction='down')
+                #   trend_pct == 0 / 存在しない → range（スキップ）
+                primary_cloud = next(
+                    (c for c in clouds if c.get('trend_pct') is not None),
+                    None
                 )
-                
-                score = trend_result.get('score', 0)
-                direction = trend_result.get('direction', 'range')
-                strength = trend_result.get('strength', '横')
-                
-                # デバッグログ：計算されたスコアを出力
-                print(f'[CURRENCY_STRENGTH] {symbol} tf={tf} (表示:{tf_display}): direction={direction}, score={score}, strength={strength}, row_order={row_order}')
-                
-                # レンジはスキップ
-                if direction == 'range' or score == 0:
+                if primary_cloud is None:
                     continue
+
+                raw_pct = primary_cloud.get('trend_pct', 0)
+                if raw_pct is None or raw_pct == 0:
+                    continue
+
+                if raw_pct > 0:
+                    direction = 'up'
+                    score = raw_pct
+                else:
+                    direction = 'down'
+                    score = abs(raw_pct)
+
+                # デバッグログ：計算されたスコアを出力
+                print(f'[CURRENCY_STRENGTH] {symbol} tf={tf} (表示:{tf_display}): direction={direction}, score={score}, trend_pct={raw_pct}, label={primary_cloud.get("label")}')
+                # ---- ここまで ----
                 
                 # 方向に応じてスコアを配分
                 if direction == 'up':
