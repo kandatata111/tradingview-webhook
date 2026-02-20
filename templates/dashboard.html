@@ -8689,7 +8689,7 @@ setTimeout(showAudioEnableOverlay, 500);
         </div>
         <span id="fetchStatus" style="color:#e0e0e0;font-size:0.85em;"></span>
       </div>
-      <div id="fetchProgress" style="margin-top:8px;padding:8px;background:#2a2a2a;border:1px solid #444;border-radius:4px;font-size:0.85em;display:none;color:#e0e0e0;"></div>
+      <div id="fetchProgress" style="margin-top:8px;padding:0px;background:transparent;border-radius:6px;font-size:0.85em;display:none;"></div>
     </div>
     
     <!-- バックアップサマリー -->
@@ -8924,7 +8924,7 @@ async function fetchBackupFromGmail() {
   btn.textContent = '⏳ 取得中...';
   status.textContent = '';
   progress.style.display = 'block';
-  progress.innerHTML = '<div style="color:#60a5fa;">Gmail API に接続しています...</div>';
+  progress.innerHTML = '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">Gmail API に接続しています...</div>';
 
   let jobId = null;
 
@@ -8936,15 +8936,41 @@ async function fetchBackupFromGmail() {
     });
     const startData = await startResp.json();
 
+    // 旧同期フォーマット互換: {message:"Backup fetch completed",output:"..."}
+    if (startData.message && startData.output !== undefined) {
+      const lines = (startData.output || '').split('\n');
+      const summaryLine = lines.find(l => l.includes('[SUMMARY]')) || startData.message;
+      progress.style.display = 'block';
+      progress.innerHTML =
+        '<div style="background:#1a2a1a;border:1px solid #4ade80;border-radius:6px;padding:10px;margin-bottom:8px;">' +
+          '<div style="color:#4ade80;font-weight:600;font-size:0.95em;">✅ ' + summaryLine + '</div>' +
+        '</div>' +
+        '<pre style="margin-top:6px;white-space:pre-wrap;font-size:0.82em;background:#f0f4ff;color:#1e293b;padding:10px;border-radius:6px;max-height:220px;overflow:auto;border:1px solid #c7d2fe;">' +
+        (startData.output || '') + '</pre>';
+      status.textContent = '✅ 完了';
+      status.style.color = '#4ade80';
+      setTimeout(() => loadBackupSummary(), 1000);
+      return;
+    }
+
     if (startData.status !== 'started') {
-      progress.innerHTML = '<div style="color:#ff5555;">❌ 開始失敗: ' + (startData.msg || JSON.stringify(startData)) + '</div>';
+      const errMsg = startData.msg || startData.message || JSON.stringify(startData, null, 2);
+      progress.style.display = 'block';
+      progress.innerHTML =
+        '<div style="background:#2d1515;border:1px solid #ef4444;border-radius:6px;padding:10px;">' +
+          '<div style="color:#fca5a5;font-weight:600;">❌ 開始失敗</div>' +
+          '<pre style="margin-top:6px;color:#fecaca;white-space:pre-wrap;font-size:0.82em;max-height:180px;overflow:auto;">' + errMsg + '</pre>' +
+        '</div>';
       status.textContent = '❌ 失敗';
       status.style.color = '#ef4444';
       return;
     }
 
     jobId = startData.job_id;
-    progress.innerHTML = '<div style="color:#60a5fa;">⏳ バックグラウンドで取得中... (ジョブID: ' + jobId + ')</div>';
+    progress.innerHTML =
+      '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">' +
+        '⏳ バックグラウンドで取得中... <span style="font-size:0.85em;color:#64748b;">(ジョブID: ' + jobId + ')</span>' +
+      '</div>';
 
     // ポーリング: 4秒ごとにステータスを確認（最大120回 = 8分）
     let dots = 0;
@@ -8959,12 +8985,16 @@ async function fetchBackupFromGmail() {
         statusData = await statusResp.json();
       } catch (pollErr) {
         // ネットワーク一時エラーは無視して継続
-        progress.innerHTML = '<div style="color:#60a5fa;">⏳ 確認中' + dotStr + '</div>';
+        progress.innerHTML =
+          '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">⏳ 確認中' + dotStr + '</div>';
         continue;
       }
 
       if (statusData.status === 'running') {
-        progress.innerHTML = '<div style="color:#60a5fa;">⏳ 取得中' + dotStr + ' (開始: ' + (statusData.started_at || '') + ')</div>';
+        progress.innerHTML =
+          '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">' +
+            '⏳ 取得中' + dotStr + ' <span style="font-size:0.85em;color:#64748b;">(開始: ' + (statusData.started_at || '') + ')</span>' +
+          '</div>';
         continue;
       }
 
@@ -8973,19 +9003,30 @@ async function fetchBackupFromGmail() {
         // SUMMARY 行を抽出して先頭に表示
         const lines = (statusData.output || '').split('\n');
         const summaryLine = lines.find(l => l.includes('[SUMMARY]')) || '取得完了';
-        progress.innerHTML = '<div style="color:#4ade80;">✅ ' + summaryLine + '</div>' +
-          '<pre style="margin-top:8px;white-space:pre-wrap;color:#94a3b8;max-height:200px;overflow:auto;">' +
+        progress.innerHTML =
+          '<div style="background:#1a2a1a;border:1px solid #4ade80;border-radius:6px;padding:10px;margin-bottom:8px;">' +
+            '<div style="color:#4ade80;font-weight:600;font-size:0.95em;">✅ ' + summaryLine + '</div>' +
+          '</div>' +
+          '<pre style="white-space:pre-wrap;font-size:0.82em;background:#f0f4ff;color:#1e293b;padding:10px;border-radius:6px;max-height:220px;overflow:auto;border:1px solid #c7d2fe;">' +
           (statusData.output || '') + '</pre>';
         status.textContent = '✅ 完了';
         status.style.color = '#4ade80';
         setTimeout(() => loadBackupSummary(), 1000);
       } else if (statusData.status === 'reauth_required') {
-        progress.innerHTML = '<div style="color:#f59e0b;font-weight:600;">🔑 Gmail トークンが無効です。「Gmail 再認証」ボタンでトークンをクリアして再取得してください。</div>';
+        progress.innerHTML =
+          '<div style="background:#2d2010;border:1px solid #f59e0b;border-radius:6px;padding:10px;">' +
+            '<div style="color:#fcd34d;font-weight:600;">🔑 Gmail トークンが無効です。</div>' +
+            '<div style="color:#fde68a;margin-top:4px;font-size:0.88em;">「Gmail 再認証」ボタンでトークンをクリアして再取得してください。</div>' +
+          '</div>';
         status.textContent = '⚠️ 要再認証';
         status.style.color = '#f59e0b';
       } else {
-        progress.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー</div>' +
-          '<pre style="white-space:pre-wrap;color:#94a3b8;">' + (statusData.output || '') + '</pre>';
+        progress.innerHTML =
+          '<div style="background:#2d1515;border:1px solid #ef4444;border-radius:6px;padding:10px;">' +
+            '<div style="color:#fca5a5;font-weight:600;">❌ バックアップ取得エラー</div>' +
+            '<pre style="margin-top:6px;color:#fecaca;white-space:pre-wrap;font-size:0.82em;max-height:200px;overflow:auto;">' +
+            (statusData.output || '（出力なし）') + '</pre>' +
+          '</div>';
         status.textContent = '❌ 失敗';
         status.style.color = '#ef4444';
       }
@@ -8993,12 +9034,21 @@ async function fetchBackupFromGmail() {
     }
 
     // タイムアウト（8分経過しても応答なし）
-    progress.innerHTML = '<div style="color:#f59e0b;">⚠️ 8分以上かかっています。バックグラウンドで継続中の可能性があります。</div>';
+    progress.innerHTML =
+      '<div style="background:#2d2010;border:1px solid #f59e0b;border-radius:6px;padding:10px;">' +
+        '<div style="color:#fcd34d;font-weight:600;">⚠️ 8分以上かかっています</div>' +
+        '<div style="color:#fde68a;margin-top:4px;font-size:0.88em;">バックグラウンドで継続中の可能性があります。しばらく後にページを更新してください。</div>' +
+      '</div>';
     status.textContent = '⚠️ 時間超過';
     status.style.color = '#f59e0b';
 
   } catch (error) {
-    progress.innerHTML = '<div style="color:#ff5555;font-weight:600;">❌ エラー: ' + error.message + '</div>';
+    progress.style.display = 'block';
+    progress.innerHTML =
+      '<div style="background:#2d1515;border:1px solid #ef4444;border-radius:6px;padding:10px;">' +
+        '<div style="color:#fca5a5;font-weight:600;">❌ 通信エラー</div>' +
+        '<pre style="margin-top:6px;color:#fecaca;white-space:pre-wrap;font-size:0.82em;">' + error.message + '</pre>' +
+      '</div>';
     status.textContent = '❌ 失敗';
     status.style.color = '#ef4444';
   } finally {
