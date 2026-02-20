@@ -247,7 +247,7 @@ def _normalize_tf(tf_str):
     return mapping.get(t, t)
 
 
-def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filter=None, non_interactive=False, verbose=False):
+def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filter=None, subject_filter=None, non_interactive=False, verbose=False):
     """
     Gmail から TradingView メールを取得して保存
     
@@ -256,6 +256,7 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filte
         mark_as_read: 処理後に既読にするか
         after_days: 0より大きい場合、Google の newer_than:Nd フィルタを付加
         tf_filter: 指定した時間足のみ保存 (例: '15', '60', '240', 'D')。None=全て
+        subject_filter: Gmailのsubject検索キーワード (例: '1時間毎')。GmailレベルでTF絞込
         non_interactive: True=ブラウザ認証不要なら失敗(自動実行向け)
         verbose: True=DEBUGログ出力
     
@@ -309,6 +310,10 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filte
         query = 'from:noreply@tradingview.com'
         if after_days and after_days > 0:
             query += f' newer_than:{after_days}d'
+        if subject_filter:
+            query += f' subject:"{subject_filter}"'
+            print(f'[INFO] Gmail query with subject filter: {query}')
+        elif after_days and after_days > 0:
             print(f'[INFO] Gmail query with date filter: {query}')
         try:
             results = service.users().messages().list(
@@ -583,6 +588,7 @@ if __name__ == '__main__':
     parser.add_argument('--max', type=int, default=500, help='Maximum emails to fetch (default: 500)')
     parser.add_argument('--after-days', type=int, default=0, dest='after_days', help='Only fetch emails newer than N days (e.g. --after-days 3). 0=no filter')
     parser.add_argument('--tf-filter', type=str, default=None, dest='tf_filter', help='Only save emails for this timeframe (e.g. --tf-filter 15 or --tf-filter D)')
+    parser.add_argument('--subject-filter', type=str, default=None, dest='subject_filter', help='Add subject: clause to Gmail query (e.g. --subject-filter "1時間毎")')
     parser.add_argument('--mark-read', action='store_true', help='Mark emails as read after processing')
     parser.add_argument('--non-interactive', action='store_true', dest='non_interactive', help='Never open browser for OAuth (fail gracefully instead)')
     parser.add_argument('--verbose', action='store_true', help='Show DEBUG logs')
@@ -598,11 +604,14 @@ if __name__ == '__main__':
         # Gmail から取得
         after_days_val = args.after_days if hasattr(args, 'after_days') else 0
         tf_filter_val = args.tf_filter if hasattr(args, 'tf_filter') else None
+        subject_filter_val = args.subject_filter if hasattr(args, 'subject_filter') else None
         non_interactive_val = args.non_interactive if hasattr(args, 'non_interactive') else False
         verbose_val = args.verbose if hasattr(args, 'verbose') else False
         label = f'tf={tf_filter_val}' if tf_filter_val else 'all-tf'
+        if subject_filter_val:
+            label += f' subject={subject_filter_val}'
         print(f'[START] Fetching emails from Gmail (max={args.max}, after_days={after_days_val}, {label})...')
-        fetch_from_gmail(max_results=args.max, mark_as_read=args.mark_read, after_days=after_days_val, tf_filter=tf_filter_val, non_interactive=non_interactive_val, verbose=verbose_val)
+        fetch_from_gmail(max_results=args.max, mark_as_read=args.mark_read, after_days=after_days_val, tf_filter=tf_filter_val, subject_filter=subject_filter_val, non_interactive=non_interactive_val, verbose=verbose_val)
         print('[DONE]')
     
     elif args.summary:

@@ -340,6 +340,142 @@ def restore_from_json_backup_folder():
     return  # DISABLED - DB persists on Render persistent disk
 
 
+def inject_backup_files_to_db(backup_dir=None, tf_list=None):
+    """
+    TradingViewBackup_JSONフォルダの最新ファイルをSQLite DBに注入する。
+    各通貨ペア×時間足ごとに最新の1ファイルだけを対象とする。
+    Args:
+        backup_dir: バックアップフォルダパス（None=デフォルト）
+        tf_list: 注入対象TFリスト (例: ['60','240','D'])。None=全TF
+    Returns:
+        (injected_count, skipped_count, error_count)
+    """
+    import os as _os, json as _json
+    from pathlib import Path as _Path
+    from datetime import datetime as _datetime
+
+    # WindowsのローカルパスとRenderの両方に対応
+    _backup_dir = backup_dir or r'C:\Users\kanda\Desktop\TradingViewBackup_JSON'
+    # Renderではローカルパスにアクセス不可なので環境変数から取得も可
+    _backup_dir = _os.environ.get('BACKUP_JSON_DIR', _backup_dir)
+
+    bp = _Path(_backup_dir)
+    if not bp.exists():
+        print(f'[INJECT_BACKUP] Backup dir not found: {_backup_dir}')
+        return (0, 0, 0)
+
+    injected = 0
+    skipped = 0
+    errors = 0
+
+    jst_z = pytz.timezone('Asia/Tokyo')
+
+    # 全シンボル/TFフォルダを走査
+    for symbol_dir in sorted(bp.iterdir()):
+        if not symbol_dir.is_dir():
+            continue
+        symbol = symbol_dir.name
+
+        for tf_dir in sorted(symbol_dir.iterdir()):
+            if not tf_dir.is_dir():
+                continue
+            tf_key = tf_dir.name  # '15', '60', '240', 'D'
+
+            if tf_list and tf_key not in tf_list:
+                continue
+
+            # 最新ファイルを1つ選択（ファイル名降順→最新）
+            json_files = sorted(tf_dir.glob('*.json'), reverse=True)
+            if not json_files:
+                continue
+
+            latest_file = json_files[0]
+            try:
+                with open(latest_file, 'r', encoding='utf-8') as f:
+                    data = _json.load(f)
+
+                # 基本フィールド抽出
+                sym = data.get('symbol', symbol)
+                tf  = data.get('tf', tf_key)
+                sent_time_val = data.get('sent_time', '')
+
+                # received_at: sent_timeをパース
+                received_at = _datetime.now(jst_z).isoformat()
+                if sent_time_val:
+                    try:
+                        parts = sent_time_val.split('/')
+                        if len(parts) == 4:
+                            yy, mm, dd, hhmm = parts
+                            hh, mn = hhmm.split(':')
+                            dt = jst_z.localize(_datetime(2000+int(yy), int(mm), int(dd), int(hh), int(mn)))
+                            received_at = dt.isoformat()
+                    except Exception:
+                        pass
+
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+
+                # 既存DBのsent_timeと比較：新しい場合のみ尊入
+                c.execute('SELECT sent_time FROM states WHERE symbol=? AND tf=?', (sym, tf))
+                row = c.fetchone()
+                if row and row[0]:
+                    existing_st = row[0]
+                    try:
+                        def _parse_st(s):
+                            ps = s.split('/')
+                            if len(ps) == 4:
+                                yy2, mm2, dd2, hhmm2 = ps
+                                hh2, mn2 = hhmm2.split(':')
+                                return jst_z.localize(_datetime(2000+int(yy2), int(mm2), int(dd2), int(hh2), int(mn2)))
+                            return None
+                        ex_dt = _parse_st(existing_st)
+                        in_dt = _parse_st(sent_time_val) if sent_time_val else None
+                        if ex_dt and in_dt and in_dt <= ex_dt:
+                            print(f'[INJECT_BACKUP] SKIP {sym}/{tf}: DB sent_time={existing_st} >= backup={sent_time_val}')
+                            skipped += 1
+                            conn.close()
+                            continue
+                    except Exception:
+                        pass
+
+                c.execute('''INSERT OR REPLACE INTO states (
+                        symbol, tf, timestamp, price, time,
+                        state_flag, state_word,
+                        daytrade_status, daytrade_bos, daytrade_time,
+                        swing_status, swing_bos, swing_time,
+                        row_order, cloud_order, clouds_json, meta_json, received_at, sent_time
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (sym, tf,
+                     _datetime.now(jst_z).isoformat(),
+                     float(data.get('price', 0)),
+                     data.get('time', 0),
+                     data.get('state', {}).get('flag', ''),
+                     data.get('state', {}).get('word', ''),
+                     data.get('daytrade', {}).get('status', ''),
+                     data.get('daytrade', {}).get('bos', ''),
+                     data.get('daytrade', {}).get('time', ''),
+                     data.get('swing', {}).get('status', ''),
+                     data.get('swing', {}).get('bos', ''),
+                     data.get('swing', {}).get('time', ''),
+                     ','.join(data.get('row_order', [])),
+                     ','.join(data.get('cloud_order', [])),
+                     _json.dumps(data.get('clouds', []), ensure_ascii=False),
+                     _json.dumps(data.get('meta', {}), ensure_ascii=False),
+                     received_at,
+                     sent_time_val))
+                conn.commit()
+                conn.close()
+                print(f'[INJECT_BACKUP] SAVED {sym}/{tf}: {latest_file.name}')
+                injected += 1
+
+            except Exception as _e:
+                print(f'[INJECT_BACKUP] ERROR {symbol}/{tf_key}: {_e}')
+                errors += 1
+
+    print(f'[INJECT_BACKUP] 完了: Injected={injected}, Skipped={skipped}, Errors={errors}')
+    return (injected, skipped, errors)
+
+
 def restore_missing_data():
     """
     [DISABLED] ハードコードバックアップでの起動時復元は廃止。
@@ -3316,12 +3452,14 @@ def api_backup_fetch():
         combined = summary_lines + (['--- (途中省略) ---'] if len(non_summary) > 30 else []) + tail
         return '\n'.join(combined)
 
-    # TF別取得設定: (tf_filter, max_count, ラベル)
+    # TF別取得設定: (tf_filter, max_count, ラベル, Gmail_subject_filter)
+    # subject_filter: GmailレベルでTF別メールを絞り込む（None=絞り込まない）
+    # 例: TradingViewアラートのメールタイトルに「1時間毎」「4時間毎」「日毎」が含まれる場合
     TF_FETCH_PLAN = [
-        ('15',  30, '15分足'),
-        ('60',  20, '1時間足'),
-        ('240', 10, '4時間足'),
-        ('D',    5, '日足'),
+        ('15',  50, '15分足',  None),         # 15m: subject絞込なし、多めに取得
+        ('60',  50, '1時間足', '1時間毎'),   # 1H: subject絞込で確実に1Hメールのみ取得
+        ('240', 30, '4時間足', '4時間毎'),   # 4H: subject絞込
+        ('D',   20, '日足',    '日毎'),       # D:  subject絞込
     ]
 
     def _run_fetch(job_id, python_exe, script_path):
@@ -3332,16 +3470,19 @@ def api_backup_fetch():
             all_skip = 0
             all_error_tf = 0
 
-            for tf, max_count, label in TF_FETCH_PLAN:
+            for tf, max_count, label, subject_q in TF_FETCH_PLAN:
                 # 実行前にrunning状態のまま進捗を更新
                 _backup_jobs[job_id]['output'] += f'\n=== {label} (tf={tf}, max={max_count}) 取得中... ===\n'
 
                 try:
+                    cmd = [python_exe, script_path, '--fetch',
+                           '--tf-filter', tf,
+                           '--max', str(max_count),
+                           '--after-days', '7']
+                    if subject_q:
+                        cmd += ['--subject-filter', subject_q]
                     result = subprocess.run(
-                        [python_exe, script_path, '--fetch',
-                         '--tf-filter', tf,
-                         '--max', str(max_count),
-                         '--after-days', '7'],
+                        cmd,
                         capture_output=True,
                         text=True,
                         timeout=120  # TF1つあたり2分
@@ -3370,7 +3511,17 @@ def api_backup_fetch():
                 except Exception as e:
                     _backup_jobs[job_id]['output'] += f'[ERROR] {label}: {str(e)}\n'
 
-            # 全TF完了
+            # 全TF完了 → バックアップファイルをDBに注入
+            _backup_jobs[job_id]['output'] += '\n=== バックアップファイルをDBに注入中... ===\n'
+            try:
+                inj, skp, err = inject_backup_files_to_db(tf_list=['60', '240', 'D'])
+                _backup_jobs[job_id]['output'] += f'[INJECT_BACKUP] Injected={inj}, Skipped={skp}, Errors={err}\n'
+                if inj > 0:
+                    _backup_jobs[job_id]['output'] += f'[INJECT_BACKUP] {inj}件をDBに反映しました。通貨強弱が更新されます。\n'
+                    all_success += inj
+            except Exception as inj_e:
+                _backup_jobs[job_id]['output'] += f'[INJECT_BACKUP] ERROR: {str(inj_e)}\n'
+
             summary = f'[SUMMARY] 全TF完了 Success:{all_success}, Skipped:{all_skip}, Errors:{all_error_tf}'
             _backup_jobs[job_id]['output'] = summary + '\n\n' + _backup_jobs[job_id]['output']
             _backup_jobs[job_id]['status'] = 'completed'
