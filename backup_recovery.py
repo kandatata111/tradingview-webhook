@@ -221,7 +221,20 @@ def save_json_to_file(json_data, email_received_time=None):
         print(f'[ERROR] Failed to save JSON: {error_msg}')
         return False
 
-def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0):
+def _normalize_tf(tf_str):
+    """TF文字列を正規化キーに変換 (例: '15M' -> '15', '1H' -> '60', '4H' -> '240')"""
+    t = str(tf_str).upper().strip()
+    mapping = {
+        '5': '5', '5M': '5',
+        '15': '15', '15M': '15',
+        '1': '60', '60': '60', '1H': '60',
+        '4': '240', '240': '240', '4H': '240',
+        'D': 'D', 'W': 'W', 'M': 'M', 'Y': 'Y',
+    }
+    return mapping.get(t, t)
+
+
+def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0, tf_filter=None):
     """
     Gmail から TradingView メールを取得して保存
     
@@ -229,10 +242,17 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0):
         max_results: 取得する最大メール数
         mark_as_read: 処理後に既読にするか
         after_days: 0より大きい場合、Google の newer_than:Nd フィルタを付加
+        tf_filter: 指定した時間足のみ保存 (例: '15', '60', '240', 'D')。None=全て
     
     Returns:
         (成功数, スキップ数, エラー数)
     """
+    # tf_filter を正規化
+    if tf_filter:
+        tf_filter_norm = _normalize_tf(tf_filter)
+        print(f'[INFO] TF filter active: only saving tf={tf_filter_norm}')
+    else:
+        tf_filter_norm = None
     if not GMAIL_API_AVAILABLE:
         print('[ERROR] Gmail API libraries not installed.')
         return (0, 0, 1)
@@ -402,6 +422,13 @@ def fetch_from_gmail(max_results=500, mark_as_read=False, after_days=0):
                 json_data = extract_json_from_email_body(body)
                 
                 if json_data:
+                    # TFフィルタ: tf_filter指定があり、一致しない場合はスキップ
+                    if tf_filter_norm:
+                        json_tf_norm = _normalize_tf(json_data.get('tf', ''))
+                        if json_tf_norm != tf_filter_norm:
+                            skip_count += 1
+                            continue
+
                     # メールの受信日時を取得（internalDateはミリ秒単位のタイムスタンプ）
                     email_time_ms = int(message.get('internalDate', 0))
                     print(f'[DEBUG] Email ID={msg["id"]}, internalDate={message.get("internalDate")}, email_time_ms={email_time_ms}')
@@ -536,6 +563,7 @@ if __name__ == '__main__':
     parser.add_argument('--fetch', action='store_true', help='Fetch emails from Gmail')
     parser.add_argument('--max', type=int, default=500, help='Maximum emails to fetch (default: 500)')
     parser.add_argument('--after-days', type=int, default=0, dest='after_days', help='Only fetch emails newer than N days (e.g. --after-days 3). 0=no filter')
+    parser.add_argument('--tf-filter', type=str, default=None, dest='tf_filter', help='Only save emails for this timeframe (e.g. --tf-filter 15 or --tf-filter D)')
     parser.add_argument('--mark-read', action='store_true', help='Mark emails as read after processing')
     parser.add_argument('--summary', action='store_true', help='Show backup summary')
     parser.add_argument('--list', nargs='*', help='List backup files (optional: symbol tf date)')
@@ -548,8 +576,10 @@ if __name__ == '__main__':
     if args.fetch:
         # Gmail から取得
         after_days_val = args.after_days if hasattr(args, 'after_days') else 0
-        print(f'[START] Fetching emails from Gmail (max={args.max}, after_days={after_days_val})...')
-        fetch_from_gmail(max_results=args.max, mark_as_read=args.mark_read, after_days=after_days_val)
+        tf_filter_val = args.tf_filter if hasattr(args, 'tf_filter') else None
+        label = f'tf={tf_filter_val}' if tf_filter_val else 'all-tf'
+        print(f'[START] Fetching emails from Gmail (max={args.max}, after_days={after_days_val}, {label})...')
+        fetch_from_gmail(max_results=args.max, mark_as_read=args.mark_read, after_days=after_days_val, tf_filter=tf_filter_val)
         print('[DONE]')
     
     elif args.summary:

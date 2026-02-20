@@ -3284,44 +3284,81 @@ def api_backup_fetch():
     }
 
     def _trim_output(raw_stdout, raw_stderr=''):
-        """出力を圧縮: SUMMARYラインを先頭に、末尾100行 + DEBUGは除外してブラウザ負荷軽減"""
+        """出力を圧縮: SUMMARYラインを先頭に、末尾30行 + DEBUGは除外してブラウザ負荷軽減"""
         full = (raw_stderr + '\n' + raw_stdout).strip() if raw_stderr else raw_stdout.strip()
         lines = full.splitlines()
-        # [DEBUG] 行を除外（メール本文プレビュー等が巨大になるため）
+        # [DEBUG]行を除外（メール本文プレビュー等が巨大になるため）
         lines = [l for l in lines if not l.startswith('[DEBUG]')]
         # SUMMARY行を抽出
         summary_lines = [l for l in lines if '[SUMMARY]' in l]
         non_summary = [l for l in lines if '[SUMMARY]' not in l]
-        # 末尾100行のみ保持
-        tail = non_summary[-100:] if len(non_summary) > 100 else non_summary
-        combined = summary_lines + (['--- (途中省略) ---'] if len(non_summary) > 100 else []) + tail
+        # 末尾30行のみ保持
+        tail = non_summary[-30:] if len(non_summary) > 30 else non_summary
+        combined = summary_lines + (['--- (途中省略) ---'] if len(non_summary) > 30 else []) + tail
         return '\n'.join(combined)
 
+    # TF別取得設定: (tf_filter, max_count, ラベル)
+    TF_FETCH_PLAN = [
+        ('15',  30, '15分足'),
+        ('60',  20, '1時間足'),
+        ('240', 10, '4時間足'),
+        ('D',    5, '日足'),
+    ]
+
     def _run_fetch(job_id, python_exe, script_path):
-        """バックグラウンドスレッドで backup_recovery.py を実行"""
+        """バックグラウンドスレッドでTF別に順番実行"""
+        import re as _re
         try:
-            result = subprocess.run(
-                [python_exe, script_path, '--fetch', '--max', '500', '--after-days', '3'],
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
-            stderr_lower = (result.stderr or '').lower()
-            if result.returncode == 0:
-                _backup_jobs[job_id]['status'] = 'completed'
-                _backup_jobs[job_id]['output'] = _trim_output(result.stdout)
-            elif 'invalid_grant' in stderr_lower or 'token has been expired' in stderr_lower or 'token has been revoked' in stderr_lower:
-                _backup_jobs[job_id]['status'] = 'reauth_required'
-                _backup_jobs[job_id]['output'] = _trim_output(result.stdout, result.stderr)
-            else:
-                _backup_jobs[job_id]['status'] = 'error'
-                _backup_jobs[job_id]['output'] = _trim_output(result.stdout, result.stderr)
-        except subprocess.TimeoutExpired:
+            all_success = 0
+            all_skip = 0
+            all_error_tf = 0
+
+            for tf, max_count, label in TF_FETCH_PLAN:
+                # 実行前にrunning状態のまま進捗を更新
+                _backup_jobs[job_id]['output'] += f'\n=== {label} (tf={tf}, max={max_count}) 取得中... ===\n'
+
+                try:
+                    result = subprocess.run(
+                        [python_exe, script_path, '--fetch',
+                         '--tf-filter', tf,
+                         '--max', str(max_count),
+                         '--after-days', '7'],
+                        capture_output=True,
+                        text=True,
+                        timeout=120  # TF1つあたり2分
+                    )
+                    trimmed = _trim_output(result.stdout, result.stderr if result.returncode != 0 else '')
+                    _backup_jobs[job_id]['output'] += trimmed + '\n'
+
+                    stderr_lower = (result.stderr or '').lower()
+                    if 'invalid_grant' in stderr_lower or 'token has been expired' in stderr_lower or 'token has been revoked' in stderr_lower:
+                        _backup_jobs[job_id]['status'] = 'reauth_required'
+                        _backup_jobs[job_id]['output'] += '[ERROR] Gmail認証が無効です。「Gmail 再認証」ボタンで再認証してください。\n'
+                        return  # これ以上続けない
+
+                    # SUMMARYから件数を集計
+                    for line in result.stdout.splitlines():
+                        if '[SUMMARY]' in line:
+                            m_s  = _re.search(r'Success:\s*(\d+)', line)
+                            m_sk = _re.search(r'Skipped:\s*(\d+)', line)
+                            m_e  = _re.search(r'Errors:\s*(\d+)', line)
+                            if m_s:  all_success += int(m_s.group(1))
+                            if m_sk: all_skip    += int(m_sk.group(1))
+                            if m_e:  all_error_tf += int(m_e.group(1))
+
+                except subprocess.TimeoutExpired:
+                    _backup_jobs[job_id]['output'] += f'[TIMEOUT] {label} が2分以内に完了しませんでした。スキップします。\n'
+                except Exception as e:
+                    _backup_jobs[job_id]['output'] += f'[ERROR] {label}: {str(e)}\n'
+
+            # 全TF完了
+            summary = f'[SUMMARY] 全TF完了 Success:{all_success}, Skipped:{all_skip}, Errors:{all_error_tf}'
+            _backup_jobs[job_id]['output'] = summary + '\n\n' + _backup_jobs[job_id]['output']
+            _backup_jobs[job_id]['status'] = 'completed'
+
+        except Exception as outer_e:
             _backup_jobs[job_id]['status'] = 'error'
-            _backup_jobs[job_id]['output'] = 'Timeout: Gmail fetch took too long (>300s)'
-        except Exception as e:
-            _backup_jobs[job_id]['status'] = 'error'
-            _backup_jobs[job_id]['output'] = str(e)
+            _backup_jobs[job_id]['output'] += f'\n[FATAL] 予期しないエラー: {str(outer_e)}\n'
 
     t = threading.Thread(target=_run_fetch, args=(job_id, python_exe, script_path), daemon=True)
     t.start()

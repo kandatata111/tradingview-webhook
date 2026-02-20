@@ -8980,6 +8980,9 @@ async function fetchBackupFromGmail() {
         '⏳ バックグラウンドで取得中... <span style="font-size:0.85em;color:#64748b;">(ジョブID: ' + jobId + ')</span>' +
       '</div>';
 
+    // HTMLエスケープ（ループ全体で使用）
+    const escHtml = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
     // ポーリング: 4秒ごとにステータスを確認（最大120回 = 8分）
     let dots = 0;
     for (let i = 0; i < 120; i++) {
@@ -9006,15 +9009,17 @@ async function fetchBackupFromGmail() {
       }
 
       if (statusData.status === 'running') {
+        // 進行中: 現在の出力を表示（TF別進捗が見える）
+        const runningOut = (statusData.output || '').trim();
+        const lastLines = runningOut ? runningOut.split('\n').slice(-8).join('\n') : '';
         progress.innerHTML =
-          '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;color:#93c5fd;">' +
-            '⏳ 取得中' + dotStr + ' <span style="font-size:0.85em;color:#64748b;">(開始: ' + (statusData.started_at || '') + ')</span>' +
+          '<div style="background:#1a2035;border:1px solid #3b82f6;border-radius:6px;padding:10px;">' +
+            '<div style="color:#93c5fd;font-weight:600;margin-bottom:6px;">⏳ 取得中' + dotStr +
+            ' <span style="font-size:0.82em;color:#64748b;">(開始: ' + (statusData.started_at || '') + ')</span></div>' +
+            (lastLines ? '<pre style="margin:0;white-space:pre-wrap;font-size:0.8em;color:#94a3b8;max-height:120px;overflow:auto;">' + escHtml(lastLines) + '</pre>' : '') +
           '</div>';
         continue;
       }
-
-      // テキストをHTMLエスケープして安全に表示する関数
-      const escHtml = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
       // 完了 / エラー
       if (statusData.status === 'completed') {
