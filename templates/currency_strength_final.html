@@ -48,6 +48,7 @@
     /* テーブルレイアウト */
     .strength-table-wrapper {
       width: 100%;
+      overflow-x: auto;
     }
 
     .strength-table-grid {
@@ -1431,7 +1432,8 @@
       
       // grid-template-columnsを動的に調整（日本語時はセル幅を拡張）
       const isJa = displaySettings.language === 'ja';
-      const currencyColW = isJa ? 'minmax(88px, 1fr)' : '1fr';
+      // 日本語: "日本円 +00% [+000]" は約140px必要。英語: "JPY +00% [+000]" は約90px必要。
+      const currencyColW = isJa ? 'minmax(140px, 1fr)' : 'minmax(90px, 1fr)';
       const recColW = isJa ? '3fr' : '2fr';
       let columns = '50px'; // 時間列
       if (displaySettings.showCurrencies && displaySettings.showRecommended) {
