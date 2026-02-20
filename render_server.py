@@ -938,16 +938,26 @@ def calculate_currency_strength_data():
                 clouds = json.loads(clouds_json) if clouds_json else []
 
                 # ---- TradingView Pine の trend_pct を直接使用 ----
-                # calculate_trend_strength_v2() はサーバー独自アルゴリズムで
-                # Pine の direction と食い違うケースがある。
-                # clouds[0] の trend_pct（Pine が計算済みの値）を正規の source とする。
+                # clouds_json には複数 TF のクラウドが含まれる（例: label='15','60','240'）。
+                # tf_variants に一致するラベルのクラウドを優先して使う。
+                # ※ 先頭要素を使うと 1H クエリでも 15m の値を拾ってしまうため修正。
                 #   trend_pct > 0 → BASE が強い (direction='up')
                 #   trend_pct < 0 → QUOTE が強い (direction='down')
                 #   trend_pct == 0 / 存在しない → range（スキップ）
+
+                # まず tf_variants（例: ['60','1H']）と一致する label のクラウドを探す
                 primary_cloud = next(
-                    (c for c in clouds if c.get('trend_pct') is not None),
+                    (c for c in clouds
+                     if str(c.get('label', '')) in tf_variants
+                     and c.get('trend_pct') is not None),
                     None
                 )
+                # 一致しない場合は trend_pct を持つ先頭クラウドにフォールバック
+                if primary_cloud is None:
+                    primary_cloud = next(
+                        (c for c in clouds if c.get('trend_pct') is not None),
+                        None
+                    )
                 if primary_cloud is None:
                     continue
 
@@ -962,7 +972,7 @@ def calculate_currency_strength_data():
                     direction = 'down'
                     score = abs(raw_pct)
 
-                # デバッグログ：計算されたスコアを出力
+                # デバッグログ
                 print(f'[CURRENCY_STRENGTH] {symbol} tf={tf} (表示:{tf_display}): direction={direction}, score={score}, trend_pct={raw_pct}, label={primary_cloud.get("label")}')
                 # ---- ここまで ----
                 
