@@ -3519,8 +3519,7 @@ def api_backup_fetch():
                         stderr_lower = (result.stderr or '').lower()
                         if 'invalid_grant' in stderr_lower or 'token has been expired' in stderr_lower or 'token has been revoked' in stderr_lower:
                             _backup_jobs[job_id]['status'] = 'reauth_required'
-                            _backup_jobs[job_id]['output'] += '[ERROR] Gmail認証が無効です。「Gmail 再認証」ボタンで再認証してください。
-'
+                            _backup_jobs[job_id]['output'] += '[ERROR] Gmail認証が無効です。「Gmail 再認証」ボタンで再認証してください。\n'
                             return
                         for line in result.stdout.splitlines():
                             if '[SUMMARY]' in line:
@@ -5974,10 +5973,10 @@ if __name__ == '__main__':
     # バックアップ自動取得スレッドを起動
     # TF別取得設定（手動取得と同じプラン）
     AUTO_TF_FETCH_PLAN = [
-        ('15',  30, '15分足'),
-        ('60',  20, '1時間足'),
-        ('240', 10, '4時間足'),
-        ('D',    5, '日足'),
+        ('15',  30, '15分足',  '15分毎'),
+        ('60',  20, '1時間足', '1時間毎'),
+        ('240', 10, '4時間足', '4時間毎'),
+        ('D',    5, '日足',    '日毎'),
     ]
 
     def auto_backup_fetch_loop():
@@ -6008,14 +6007,17 @@ if __name__ == '__main__':
                 total_err = 0
 
                 # TF別に個別実行（sent_timeフィルタ・件数制限付き）
-                for tf, max_count, label in AUTO_TF_FETCH_PLAN:
+                for tf, max_count, label, subject_q in AUTO_TF_FETCH_PLAN:
                     try:
+                        cmd_auto = [python_exe, script_path, '--fetch',
+                                    '--tf-filter', tf,
+                                    '--max', str(max_count),
+                                    '--after-days', '7',
+                                    '--non-interactive']   # ブラウザOAuth起動防止
+                        if subject_q:
+                            cmd_auto += ['--subject-filter', subject_q]
                         result = subprocess.run(
-                            [python_exe, script_path, '--fetch',
-                             '--tf-filter', tf,
-                             '--max', str(max_count),
-                             '--after-days', '7',
-                             '--non-interactive'],   # ブラウザOAuth起動防止
+                            cmd_auto,
                             stdin=subprocess.DEVNULL,   # stdinを切断（OAuth待機防止）
                             stdout=subprocess.DEVNULL,  # 大量のDEBUG出力をメモリに溜めない
                             stderr=subprocess.PIPE,     # エラーのみ捕捉
