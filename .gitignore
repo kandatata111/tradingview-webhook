@@ -2,8 +2,8 @@
 credentials.json
 token.json
 
-# SQLiteデータベースファイル（Render Persistent Diskで管理、gitに含めない）
-*.db
+# SQLiteデータベースファイル
+# *.db  ← gitで管理してデプロイ時にルールを保持する
 *.db.backup
 *.db-journal
 *.db-shm
