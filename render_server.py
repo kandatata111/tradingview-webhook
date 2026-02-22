@@ -4570,11 +4570,11 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     if is_presence_check:
                         # Presence check: フィールドが存在し、有効な値を持つかチェック
                         if field == 'gc':
-                            # gcはTrue/Falseが有効値
-                            condition_met = found_value is not None
+                            # gcはJSON形式の▲GCまたは▼DCが有効値
+                            condition_met = found_value in ['▲GC', '▼DC']
                         elif field == 'dauten':
-                            # dautenは'up'または'down'が有効値
-                            condition_met = found_value in ['up', 'down']
+                            # dautenはJSON形式の▲Dowまたは▼Dowが有効値（'-'は無効）
+                            condition_met = found_value in ['▲Dow', '▼Dow']
                         elif field == 'bos_count':
                             # bos_countは0以外の値が有効
                             condition_met = found_value is not None and found_value != 0 and found_value != '0'
@@ -4588,27 +4588,27 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         matched_conditions.append(cond)
                         wlog(f'[RULE] Condition met: {tf_label}.{field} = {found_value}')
                         
-                        # 各フィールドから方向を判定
+                        # 各フィールドから方向を判定（JSON形式: ▲Dow/▼Dow/▲GC/▼DC）
                         direction = None
                         if field == 'dauten':
-                            if found_value == 'up':
+                            if found_value == '▲Dow':
                                 direction = 'up'
-                            elif found_value == 'down':
+                            elif found_value == '▼Dow':
                                 direction = 'down'
                         elif field == 'gc':
-                            # gc=True は上昇（青）、gc=False は下降（赤）
-                            if found_value is True:
+                            # ▲GC は上昇（青）、▼DC は下降（赤）
+                            if found_value == '▲GC':
                                 direction = 'up'
-                            elif found_value is False:
+                            elif found_value == '▼DC':
                                 direction = 'down'
                         elif field == 'bos_count':
                             # bos_count自体には方向情報がないので、同じTFのdautenから方向を取得
                             # bos_countは常に0以上の整数なので、方向はdautenに依存
                             cloud_for_bos = tf_cloud_data.get(tf_label, {})
                             dauten_for_bos = cloud_for_bos.get('dauten')
-                            if dauten_for_bos == 'up':
+                            if dauten_for_bos == '▲Dow':
                                 direction = 'up'
-                            elif dauten_for_bos == 'down':
+                            elif dauten_for_bos == '▼Dow':
                                 direction = 'down'
                             wlog(f'[RULE] bos_count direction from dauten: {dauten_for_bos} -> {direction}')
                         
@@ -5123,18 +5123,18 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         if primary_field == 'dauten':
                             dauten_value = cloud_data.get('dauten')
                             wlog(f'[RULE] Direction from dauten: {dauten_value}')
-                            if dauten_value == 'up':
+                            if dauten_value == '▲Dow':
                                 direction = '上昇'
-                            elif dauten_value == 'down':
+                            elif dauten_value == '▼Dow':
                                 direction = '下降'
                         
                         elif primary_field == 'gc':
-                            # gc=True は上昇（青）、gc=False は下降（赤）
+                            # ▲GC は上昇（青）、▼DC は下降（赤）
                             gc_value = cloud_data.get('gc')
                             wlog(f'[RULE] Direction from gc: {gc_value}')
-                            if gc_value is True:
+                            if gc_value == '▲GC':
                                 direction = '上昇'
-                            elif gc_value is False:
+                            elif gc_value == '▼DC':
                                 direction = '下降'
                         
                         elif primary_field == 'bos_count':
@@ -5143,9 +5143,9 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             dauten_value = cloud_data.get('dauten')
                             bos_value = cloud_data.get('bos_count')
                             wlog(f'[RULE] Direction from bos_count: bos={bos_value}, dauten={dauten_value}')
-                            if dauten_value == 'up':
+                            if dauten_value == '▲Dow':
                                 direction = '上昇'
-                            elif dauten_value == 'down':
+                            elif dauten_value == '▼Dow':
                                 direction = '下降'
                     
                     wlog(f'[RULE] Final direction for "{rule_name}": {direction}')
@@ -5396,9 +5396,9 @@ def _evaluate_rules_with_timeframe_data(data, symbol, tf_val):
                             # 方向を判定
                             direction = None
                             dauten_value = tf_cloud.get('dauten')
-                            if dauten_value == 'up':
+                            if dauten_value == '▲Dow':
                                 direction = '上昇'
-                            elif dauten_value == 'down':
+                            elif dauten_value == '▼Dow':
                                 direction = '下降'
                             
                             c_fire.execute('''INSERT INTO fire_history 
