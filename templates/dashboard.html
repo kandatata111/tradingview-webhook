@@ -6359,20 +6359,22 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + gcText + '</td>';
       else html += '<td>' + gcText + '</td>';
 
-      // PO（パーフェクトオーダー）表示 - 独立した色設定
+      // PO（パーフェクトオーダー）表示 - ダウ転（dauten）と同じロジックで色分け
       let poText = '-';
       let poBgColor = '';
       if (c.po) {
         poText = c.po;
-        if (c.po === '✕') {
-          // ✕の場合は背景色グレー
-          poBgColor = '#9c9c9c';
-        } else if (c.po === '▲PO') {
-          // ▲POの場合は青
+        // ▲で始まる（P2, P3等）= 上昇 → 青
+        if (String(c.po).startsWith('▲')) {
           poBgColor = '#2962ff';
-        } else if (c.po === '▼PO') {
-          // ▼POの場合は赤
+        }
+        // ▼で始まる（P2, P3等）= 下降 → 赤
+        else if (String(c.po).startsWith('▼')) {
           poBgColor = '#f23645';
+        }
+        // その他（✕等）= グレー
+        else if (c.po === '✕') {
+          poBgColor = '#9c9c9c';
         }
       }
       if (poBgColor) {
