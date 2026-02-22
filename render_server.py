@@ -4810,7 +4810,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         state_snapshot = {
                             'symbol': symbol,
                             'conditions': str(conditions),
-                            '__conditions_matched__': True,
+                            '__conditions_matched__': False,  # Falseにすることで次回受信時に発火
                             '__warmup_record__': True
                         }
                         
@@ -4856,7 +4856,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         state_snapshot = {
                             'symbol': symbol,
                             'conditions': str(conditions),
-                            '__conditions_matched__': True,
+                            '__conditions_matched__': False,  # Falseにすることで次回受信時に発火
                             '__first_receive_record__': True
                         }
                         
@@ -5002,7 +5002,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         state_snapshot = {
                             'symbol': symbol,
                             'conditions': str(conditions),
-                            '__conditions_matched__': True,
+                            '__conditions_matched__': False,  # Falseにすることで次回受信時に発火
                             '__initial_record__': True
                         }
                         
