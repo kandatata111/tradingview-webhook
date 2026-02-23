@@ -4765,7 +4765,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 c_check = conn_check.cursor()
                 c_check.execute('''SELECT last_state_snapshot FROM fire_history 
                                    WHERE rule_id = ? AND symbol = ? AND tf = ?
-                                   ORDER BY fired_at DESC LIMIT 1''', 
+                                   ORDER BY id DESC LIMIT 1''', 
                                (rule_id, symbol, ''))
                 last_fire = c_check.fetchone()
                 conn_check.close()
@@ -4778,335 +4778,78 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     except:
                         last_state = None
                 
-                # ===== 今回の条件揃い状態 =====
-                current_conditions_matched = all_matched
+                # ===== 現在の値を収集（正規化済み）=====
+                current_values = {}
+                if alignment_is_active:
+                    current_values['tf_order'] = current_tf_order
+                else:
+                    for cond in conditions:
+                        tf_label = cond.get('timeframe') or cond.get('label')
+                        field = cond.get('field')
+                        raw_value = tf_cloud_data.get(tf_label, {}).get(field)
+                        normalized_val = normalize_value_for_comparison(raw_value, field)
+                        current_values[f'{tf_label}.{field}'] = normalized_val
+                        wlog(f'[RULE] Current value: {tf_label}.{field} = {raw_value} → {normalized_val}')
                 
-                # ===== 発火判定ロジック =====
-                # 「条件が崩れてから再度揃った」場合に発火
-                # 1. 条件を満たしている (all_matched=True)
-                # 2. かつ、前回発火時に条件が揃っていなかった、または明確な変化がある
-                
-                should_fire = False
-                
-                # ===== ウォームアップ期間チェック =====
-                # サーバー起動後60秒以内は発火をスキップ（再起動時の誤発火防止）
-                utc_now = datetime.now(pytz.UTC)
-                wlog(f'[RULE] Checking warmup: SERVER_START_TIME={SERVER_START_TIME}, utc_now={utc_now}')
-                
-                if SERVER_START_TIME is None:
-                    # SERVER_START_TIMEが未設定の場合は安全のため発火をスキップ
-                    wlog(f'[RULE] SERVER_START_TIME is None, skipping fire for safety')
+                # ===== 初回受信（履歴なし）は値を記録するだけで発火しない =====
+                if last_state is None:
+                    wlog(f'[RULE] No history found, recording initial state without firing')
+                    try:
+                        conn_init = sqlite3.connect(DB_PATH)
+                        c_init = conn_init.cursor()
+                        c_init.execute('''INSERT INTO fire_history 
+                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                         VALUES (?, ?, ?, ?, ?, ?)''',
+                                      (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                       json.dumps({'initial': True}, ensure_ascii=False),
+                                       json.dumps(current_values, ensure_ascii=False)))
+                        conn_init.commit()
+                        conn_init.close()
+                    except Exception as e:
+                        wlog(f'[RULE] Error recording initial state: {e}')
                     continue
                 
-                seconds_since_startup = (utc_now - SERVER_START_TIME).total_seconds()
-                in_warmup_period = seconds_since_startup < 60
-                wlog(f'[RULE] Warmup check: seconds_since_startup={seconds_since_startup:.1f}, in_warmup={in_warmup_period}')
-                
-                if in_warmup_period:
-                    wlog(f'[RULE] In warmup period ({seconds_since_startup:.1f}s since startup), skipping fire')
-                    # ウォームアップ期間中は発火せず、状態のみ記録
-                    if all_matched:
-                        # 現在の状態をスナップショットとして保存（次回の比較用）
-                        state_snapshot = {
-                            'symbol': symbol,
-                            'conditions': str(conditions),
-                            '__conditions_matched__': False,  # Falseにすることで次回受信時に発火
-                            '__warmup_record__': True
-                        }
-                        
-                        # Alignment ルールの場合は tf_order を保存
-                        if alignment_is_active and current_tf_order:
-                            state_snapshot['tf_order'] = current_tf_order
-                        
-                        # 各条件のフィールド値を保存
-                        for cond in conditions:
-                            tf_label = cond.get('timeframe') or cond.get('label')
-                            field = cond.get('field')
-                            cond_cloud_data = tf_cloud_data.get(tf_label, {})
-                            raw_value = cond_cloud_data.get(field)
-                            normalized_value = normalize_value_for_comparison(raw_value, field)
-                            state_snapshot[f'{tf_label}.{field}'] = normalized_value
-                        
-                        # fire_historyに記録（発火ではなく状態記録として）
-                        try:
-                            conn_warmup = sqlite3.connect(DB_PATH)
-                            c_warmup = conn_warmup.cursor()
-                            c_warmup.execute('''INSERT INTO fire_history 
-                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
-                                             VALUES (?, ?, ?, ?, ?, ?)''',
-                                          (rule_id, symbol, '', datetime.now(jst).isoformat(),
-                                           json.dumps({'warmup': True}, ensure_ascii=False),
-                                           json.dumps(state_snapshot, ensure_ascii=False)))
-                            conn_warmup.commit()
-                            conn_warmup.close()
-                            wlog(f'[RULE] Warmup state recorded for rule {rule_name}')
-                        except Exception as e:
-                            wlog(f'[RULE] Error recording warmup state: {e}')
-                    wlog(f'[RULE] Skipping rule evaluation during warmup period')
-                    continue  # 次のルールへ
-                
-                # ===== 初回受信チェック =====
-                # サーバー起動後、各タイムフレームで初めてデータを受信した時の処理
-                # ただし、過去の履歴（last_state）がある場合は通常評価を行う
-                # （新しい変化があれば発火する必要があるため - 特に4H足で重要）
-                if is_first_receive and last_state is None:
-                    wlog(f'[RULE] First receive with no history, recording state without firing')
-                    # 完全な初回（履歴なし）の場合のみ発火をスキップ
-                    if all_matched:
-                        state_snapshot = {
-                            'symbol': symbol,
-                            'conditions': str(conditions),
-                            '__conditions_matched__': False,  # Falseにすることで次回受信時に発火
-                            '__first_receive_record__': True
-                        }
-                        
-                        # Alignment ルールの場合は tf_order を保存
-                        if alignment_is_active and current_tf_order:
-                            state_snapshot['tf_order'] = current_tf_order
-                        
-                        # 各条件のフィールド値を保存
-                        for cond in conditions:
-                            tf_label = cond.get('timeframe') or cond.get('label')
-                            field = cond.get('field')
-                            cond_cloud_data = tf_cloud_data.get(tf_label, {})
-                            raw_value = cond_cloud_data.get(field)
-                            normalized_value = normalize_value_for_comparison(raw_value, field)
-                            state_snapshot[f'{tf_label}.{field}'] = normalized_value
-                        
-                        # fire_historyに記録
-                        try:
-                            conn_first = sqlite3.connect(DB_PATH)
-                            c_first = conn_first.cursor()
-                            c_first.execute('''INSERT INTO fire_history 
-                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
-                                             VALUES (?, ?, ?, ?, ?, ?)''',
-                                          (rule_id, symbol, '', datetime.now(jst).isoformat(),
-                                           json.dumps({'first_receive': True}, ensure_ascii=False),
-                                           json.dumps(state_snapshot, ensure_ascii=False)))
-                            conn_first.commit()
-                            conn_first.close()
-                            wlog(f'[RULE] First receive state recorded for rule {rule_name}')
-                        except Exception as e:
-                            wlog(f'[RULE] Error recording first receive state: {e}')
-                    wlog(f'[RULE] Skipping rule evaluation for first receive (no history)')
-                    continue  # 次のルールへ
-                elif is_first_receive and last_state is not None:
-                    # 初回受信だが過去の履歴がある場合
-                    # サーバー再起動直後のケース：履歴が最近（例：1時間以内）の場合は発火をスキップ
-                    # 古い履歴（例：4H足で8時間以上前）の場合のみ通常評価
-                    last_fired_at_str = last_state.get('__fired_at__')
-                    skip_fire = False
-                    if last_fired_at_str:
-                        try:
-                            last_fired_at = datetime.fromisoformat(last_fired_at_str.replace('Z', '+00:00'))
-                            jst = pytz.timezone('Asia/Tokyo')
-                            now = datetime.now(jst)
-                            if last_fired_at.tzinfo is None:
-                                last_fired_at = jst.localize(last_fired_at)
-                            time_since_last_fire = now - last_fired_at
-                            
-                            # 時間足に応じて猶予期間を設定
-                            grace_period_hours = 2  # デフォルト2時間
-                            if '4H' in str(conditions):
-                                grace_period_hours = 6  # 4H足は6時間
-                            elif '1H' in str(conditions):
-                                grace_period_hours = 3  # 1H足は3時間
-                            
-                            if time_since_last_fire.total_seconds() < grace_period_hours * 3600:
-                                skip_fire = True
-                                wlog(f'[RULE] First receive but last fire was recent ({time_since_last_fire.total_seconds() / 3600:.1f}h ago), skipping to avoid duplicate')
-                        except Exception as e:
-                            wlog(f'[RULE] Error checking last fire time: {e}')
-                    
-                    if skip_fire:
-                        # 最近発火済みの場合はスキップ
-                        wlog(f'[RULE] Skipping evaluation for first receive (recent history)')
-                        continue  # 次のルールへ
+                # ===== セルが変化したかチェック =====
+                has_change = False
+                for key, current_val in current_values.items():
+                    last_val = last_state.get(key)
+                    if current_val != last_val:
+                        has_change = True
+                        wlog(f'[RULE] Cell change detected: {key}: {last_val} → {current_val}')
+                        break
                     else:
-                        # 古い履歴の場合は通常評価を継続
-                        wlog(f'[RULE] First receive but history is old, evaluating normally (may fire if changed)')
+                        wlog(f'[RULE] Cell unchanged: {key} = {current_val}')
                 
-                if all_matched:
-                    # 条件を満たしている場合、前回の状態をチェック
-                    has_field_change = False
-                    
-                    if last_state is None:
-                        # 初回評価の場合は発火せず、状態を記録するのみ
-                        # （次回以降の変化検出のため）
-                        wlog(f'[RULE] First evaluation with matched conditions, recording state without firing')
-                        has_field_change = False  # 発火しない
-                    elif last_state.get('__conditions_matched__') == False:
-                        # 前回発火時は条件が崩れていた → 今回揃ったので発火
-                        has_field_change = True
-                        wlog(f'[RULE] Conditions were not matched last time, now matched, should_fire=True')
-                    else:
-                        # Alignment ルールの場合は TF順序（価格除外）の変化をチェック
-                        if alignment_is_active:
-                            # 現在のTF順序を取得（価格除外）
-                            conn_order_check = sqlite3.connect(DB_PATH)
-                            c_order_check = conn_order_check.cursor()
-                            c_order_check.execute('SELECT cloud_order FROM states WHERE symbol = ? AND tf = ? LIMIT 1', (symbol, '5'))
-                            row_order_check = c_order_check.fetchone()
-                            conn_order_check.close()
-                            
-                            if row_order_check and row_order_check[0]:
-                                cloud_order_str = row_order_check[0]
-                                cloud_order = [x.strip() for x in cloud_order_str.split(',')]
-                                # 価格を除外してTFのみ抽出
-                                cloud_order_tfs = [x for x in cloud_order if x in ['5m', '15m', '1H', '4H']]
-                                tfs = alignment_config.get('timeframes') or alignment_config.get('tfs', [])
-                                if alignment_config.get('allTimeframes') and not tfs:
-                                    tfs = ['5m', '15m', '1H', '4H']
-                                selected_order = [x for x in cloud_order_tfs if x in tfs]
-                                current_tf_order = ','.join(selected_order)
-                            else:
-                                current_tf_order = ''
-                            
-                            last_tf_order = last_state.get('tf_order', '')
-                            
-                            # TF順序が変化し、かつ現在整列している場合に発火
-                            if current_tf_order != last_tf_order:
-                                has_field_change = True
-                                wlog(f'[RULE] TF order change detected: {last_tf_order} → {current_tf_order}')
-                            else:
-                                wlog(f'[RULE] TF order unchanged: {current_tf_order}')
-                        else:
-                            # 通常のルール: 各条件のフィールド値が変化したかチェック
-                            for cond in conditions:
-                                tf_label = cond.get('timeframe') or cond.get('label')
-                                field = cond.get('field')
-                                field_key = f'{tf_label}.{field}'
-                                
-                                current_value = tf_cloud_data.get(tf_label, {}).get(field)
-                                last_value = last_state.get(field_key)
-                                
-                                # 値を正規化して比較（外側で定義したnormalize_value_for_comparisonを使用）
-                                normalized_current = normalize_value_for_comparison(current_value, field)
-                                normalized_last = normalize_value_for_comparison(last_value, field)
-                                
-                                if normalized_current != normalized_last:
-                                    has_field_change = True
-                                    wlog(f'[RULE] Field change detected: {field_key} = {last_value}({normalized_last}) → {current_value}({normalized_current})')
-                                    break
-                                else:
-                                    wlog(f'[RULE] Field unchanged: {field_key} = {normalized_current}')
-                        
-                        if not has_field_change:
-                            wlog(f'[RULE] Conditions matched but no field change, should_fire=False')
-                    
-                    should_fire = has_field_change
-                    
-                    # 初回評価の場合は状態を記録（発火はしない）
-                    if last_state is None and all_matched:
-                        wlog(f'[RULE] Recording initial state for rule {rule_name}')
-                        state_snapshot = {
-                            'symbol': symbol,
-                            'conditions': str(conditions),
-                            '__conditions_matched__': False,  # Falseにすることで次回受信時に発火
-                            '__initial_record__': True
-                        }
-                        
-                        # Alignment ルールの場合は tf_order を保存
-                        if alignment_is_active and current_tf_order:
-                            state_snapshot['tf_order'] = current_tf_order
-                        
-                        # 各条件のフィールド値を保存
-                        for cond in conditions:
-                            tf_label = cond.get('timeframe') or cond.get('label')
-                            field = cond.get('field')
-                            cond_cloud_data = tf_cloud_data.get(tf_label, {})
-                            raw_value = cond_cloud_data.get(field)
-                            normalized_value = normalize_value_for_comparison(raw_value, field)
-                            state_snapshot[f'{tf_label}.{field}'] = normalized_value
-                        
-                        try:
-                            conn_init = sqlite3.connect(DB_PATH)
-                            c_init = conn_init.cursor()
-                            c_init.execute('''INSERT INTO fire_history 
-                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
-                                             VALUES (?, ?, ?, ?, ?, ?)''',
-                                          (rule_id, symbol, '', datetime.now(jst).isoformat(),
-                                           json.dumps({'initial_record': True}, ensure_ascii=False),
-                                           json.dumps(state_snapshot, ensure_ascii=False)))
-                            conn_init.commit()
-                            conn_init.close()
-                            wlog(f'[RULE] Initial state recorded for rule {rule_name}')
-                        except Exception as e:
-                            wlog(f'[RULE] Error recording initial state: {e}')
+                # ===== 発火判定: セル変化 AND 条件を満たす =====
+                if has_change and all_matched:
+                    should_fire = True
+                    wlog(f'[RULE] Cell changed AND conditions met → FIRE')
+                elif has_change:
+                    wlog(f'[RULE] Cell changed but conditions not met → no fire')
+                    # 値が変化したので次回比較用に状態を更新
+                    try:
+                        conn_nc = sqlite3.connect(DB_PATH)
+                        c_nc = conn_nc.cursor()
+                        c_nc.execute('''INSERT INTO fire_history 
+                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                         VALUES (?, ?, ?, ?, ?, ?)''',
+                                      (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                       json.dumps({'no_fire': True}, ensure_ascii=False),
+                                       json.dumps(current_values, ensure_ascii=False)))
+                        conn_nc.commit()
+                        conn_nc.close()
+                    except Exception as e:
+                        wlog(f'[RULE] Error saving state (no fire): {e}')
+                elif all_matched:
+                    wlog(f'[RULE] Conditions met but no cell change → no fire')
                 else:
-                    wlog(f'[RULE] Conditions not matched, should_fire=False')
-                    
-                    # ===== 条件が崩れた時の処理 =====
-                    # 前回発火時に条件が揃っていた場合、「崩れた」ことを記録
-                    # これにより、次回揃った時に再発火できる
-                    if last_state and last_state.get('__conditions_matched__') == True:
-                        wlog(f'[RULE] Conditions were matched last time, now not matched, recording state reset')
-                        try:
-                            conn_reset = sqlite3.connect(DB_PATH)
-                            c_reset = conn_reset.cursor()
-                            jst = pytz.timezone('Asia/Tokyo')
-                            reset_snapshot = {
-                                'symbol': symbol,
-                                '__conditions_matched__': False,
-                                '__reset_reason__': 'conditions_no_longer_matched'
-                            }
-                            c_reset.execute('''INSERT INTO fire_history 
-                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
-                                             VALUES (?, ?, ?, ?, ?, ?)''',
-                                          (rule_id, symbol, '', datetime.now(jst).isoformat(),
-                                           json.dumps({'reset': True}, ensure_ascii=False),
-                                           json.dumps(reset_snapshot, ensure_ascii=False)))
-                            conn_reset.commit()
-                            conn_reset.close()
-                            wlog(f'[RULE] State reset recorded for rule {rule_name}')
-                        except Exception as e:
-                            wlog(f'[RULE] Error recording state reset: {e}')
+                    wlog(f'[RULE] No cell change and conditions not met → no fire')
                 
                 # ===== 発火処理 =====
                 if should_fire:
                     wlog(f'[RULE] [OK] FIRING Rule: {rule_name}')
                     
-                    # 状態スナップショットに__conditions_matched__フラグを追加
-                    state_snapshot = {
-                        'symbol': symbol,
-                        'conditions': str(conditions),
-                        '__conditions_matched__': current_conditions_matched,
-                        '__fired_at__': datetime.now(jst).isoformat()
-                    }
-                    
-                    # Alignment ルールの場合は tf_order（価格除外のTF順序）を保存
-                    if alignment_is_active:
-                        conn_order_snap = sqlite3.connect(DB_PATH)
-                        c_order_snap = conn_order_snap.cursor()
-                        c_order_snap.execute('SELECT cloud_order FROM states WHERE symbol = ? AND tf = ? LIMIT 1', (symbol, '5'))
-                        row_order_snap = c_order_snap.fetchone()
-                        conn_order_snap.close()
-                        
-                        if row_order_snap and row_order_snap[0]:
-                            cloud_order_str = row_order_snap[0]
-                            cloud_order = [x.strip() for x in cloud_order_str.split(',')]
-                            # 価格を除外してTFのみ抽出
-                            cloud_order_tfs = [x for x in cloud_order if x in ['5m', '15m', '1H', '4H']]
-                            tfs = alignment_config.get('timeframes') or alignment_config.get('tfs', [])
-                            if alignment_config.get('allTimeframes') and not tfs:
-                                tfs = ['5m', '15m', '1H', '4H']
-                            selected_order = [x for x in cloud_order_tfs if x in tfs]
-                            state_snapshot['tf_order'] = ','.join(selected_order)
-                            # cloud_order も参考として保存（ログ用）
-                            state_snapshot['cloud_order'] = row_order_snap[0]
-                    
-                    # 各条件のタイムフレームごとにcloud_dataを追加（正規化した値を保存）
-                    for cond in conditions:
-                        tf_label = cond.get('timeframe') or cond.get('label')
-                        field = cond.get('field')
-                        cond_cloud_data = tf_cloud_data.get(tf_label, {})
-                        raw_value = cond_cloud_data.get(field)
-                        # 正規化した値を保存（比較時と同じ形式）
-                        normalized_value = normalize_value_for_comparison(raw_value, field)
-                        state_snapshot[f'{tf_label}.{field}'] = normalized_value
-                        wlog(f'[RULE] Saving to snapshot: {tf_label}.{field} = {raw_value} → {normalized_value}')
-                    
-                    # 方向を判定（発火履歴保存前に判定）
+                    # 方向を判定
                     direction = None
                     
                     # Alignment ルールの場合は alignment_direction を優先
@@ -5139,7 +4882,6 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         
                         elif primary_field == 'bos_count':
                             # BOSの方向は同じTFのdautenから判定
-                            # bos_count自体は常に正の数なので、dautenを参照
                             dauten_value = cloud_data.get('dauten')
                             bos_value = cloud_data.get('bos_count')
                             wlog(f'[RULE] Direction from bos_count: bos={bos_value}, dauten={dauten_value}')
@@ -5150,20 +4892,18 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     
                     wlog(f'[RULE] Final direction for "{rule_name}": {direction}')
                     
-                    # 発火履歴を保存（directionを含む）
+                    # 発火履歴を保存（direction含む）
                     fired_at = datetime.now(jst).isoformat()
                     try:
                         conn_fire = sqlite3.connect(DB_PATH)
                         c_fire = conn_fire.cursor()
-                        
                         c_fire.execute('''INSERT INTO fire_history 
                                          (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot, direction)
                                          VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                                      (rule_id, symbol, '', fired_at, 
-                                       json.dumps(conditions, ensure_ascii=False), 
-                                       json.dumps(state_snapshot, ensure_ascii=False),
+                                      (rule_id, symbol, '', fired_at,
+                                       json.dumps(conditions, ensure_ascii=False),
+                                       json.dumps(current_values, ensure_ascii=False),
                                        direction))
-                        
                         conn_fire.commit()
                         conn_fire.close()
                     except Exception as e:
