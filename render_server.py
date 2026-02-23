@@ -41,6 +41,17 @@ _backup_jobs = {}
 # True = 既に受信済み（通常評価）、False = 未受信（初回は状態記録のみ）
 FIRST_RECEIVE_FLAGS = {}
 
+# ルール評価のシンボル別ロック（複数Webhookの同時処理によるrace condition防止）
+_RULE_EVAL_LOCKS = {}
+_RULE_EVAL_LOCK_META = threading.Lock()
+
+def _get_rule_eval_lock(symbol):
+    """シンボルごとのルール評価ロックを取得（なければ作成）"""
+    with _RULE_EVAL_LOCK_META:
+        if symbol not in _RULE_EVAL_LOCKS:
+            _RULE_EVAL_LOCKS[symbol] = threading.Lock()
+        return _RULE_EVAL_LOCKS[symbol]
+
 # 通貨強弱の最弱・最強変更履歴記録用グローバル変数
 # 形式: {'15m': {'weakest': 'USD', 'strongest': 'JPY'}, '1H': {...}, ...}
 previous_extreme_currencies = {}
@@ -644,6 +655,12 @@ def init_db():
     # Add last_state_snapshot column if it doesn't exist
     try:
         c.execute('ALTER TABLE fire_history ADD COLUMN last_state_snapshot TEXT')
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+    # Add direction column if it doesn't exist
+    try:
+        c.execute('ALTER TABLE fire_history ADD COLUMN direction TEXT')
         conn.commit()
     except Exception:
         pass  # Column already exists
@@ -4292,6 +4309,29 @@ def api_webhook_logs():
     except Exception as e:
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
+# ===== TFラベル正規化マップ =====
+# Webhook JSON が送ってくる label 値 ("15", "60", "240", "D" など) を
+# サーバー内部で使用する統一ラベル ("15m", "1H", "4H", "D" など) に変換
+_TF_LABEL_NORMALIZE = {
+    '5': '5m',   '5m': '5m',
+    '15': '15m', '15m': '15m',
+    '60': '1H',  '1H': '1H',  '1h': '1H',
+    '240': '4H', '4H': '4H',  '4h': '4H',
+    'D':  'D',   '1D': 'D',   '1440': 'D',
+    'W':  'W',   '1W': 'W',   '10080': 'W',
+    'M':  'M',   '1M': 'M',
+}
+_TF_INTERNAL_TO_RAW = {
+    '5m': '5', '15m': '15', '1H': '60', '4H': '240', 'D': 'D', 'W': 'W', 'M': 'M'
+}
+
+def normalize_tf_label(label):
+    """TFラベルを正規化 (例: "15" → "15m", "60" → "1H", "240" → "4H")"""
+    if label is None:
+        return None
+    return _TF_LABEL_NORMALIZE.get(str(label), str(label))
+
+
 def evaluate_and_fire_rules(data, symbol, tf_val):
     """Evaluate all enabled rules against the incoming data and fire notifications if matched.
     
@@ -4340,17 +4380,21 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
-        # 5m, 15m, 1H, 4H の全データを取得
+        # 全TFのデータを取得（5m/15m/1H/4H/D/W対応）
+        # DBカラムtfは Webhook の生のtf値 ("5","15","60","240","D","W") で保存されている
         tf_states = {}
         base_cols = None
-        for tf_key, tf_label in [('5', '5m'), ('15', '15m'), ('60', '1H'), ('240', '4H')]:
-            c.execute('SELECT * FROM states WHERE symbol = ? AND tf = ? ORDER BY rowid DESC LIMIT 1', (symbol, tf_key))
-            tf_row = c.fetchone()
-            if tf_row:
-                if base_cols is None:
-                    base_cols = [d[0] for d in c.description] if c.description else []
-                tf_state = dict(zip(base_cols, tf_row))
-                tf_states[tf_label] = tf_state
+        # 全レコードをシンボルで取得し、最新行だけをtfごとに保持
+        c.execute('SELECT * FROM states WHERE symbol = ? ORDER BY rowid DESC', (symbol,))
+        all_rows = c.fetchall()
+        if all_rows and base_cols is None:
+            base_cols = [d[0] for d in c.description] if c.description else []
+        for tf_row in all_rows:
+            tf_state = dict(zip(base_cols, tf_row))
+            raw_tf = str(tf_state.get('tf', ''))
+            norm_label = normalize_tf_label(raw_tf)
+            if norm_label and norm_label not in tf_states:  # 最新1件のみ保持
+                tf_states[norm_label] = tf_state
         
         conn.close()
         
@@ -4361,33 +4405,31 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
         wlog(f'[FIRE] Retrieved states from DB for {symbol}: {list(tf_states.keys())}')
         wlog(f'[DEBUG] Calling _evaluate_rules_with_db_state for {symbol}')
         
-        # webhook JSON の clouds 配列から受信したタイムフレームのデータを抽出
+        # webhook JSON の clouds 配列を正規化して抽出
+        # JSON の label 値 ("15", "60", "240", "D") → 内部ラベル ("15m", "1H", "4H", "D") に変換
+        current_tf_norm = normalize_tf_label(tf_val)  # 例: "15" → "15m"
         current_cloud = None
         clouds = data.get('clouds', [])
-        if clouds:
-            # tf_val に対応する tf_label を作成
-            tf_label = {'5': '5m', '15': '15m', '60': '1H', '240': '4H'}.get(tf_val, tf_val)
-            # clouds 配列から該当するタイムフレームを検索
-            for cloud in clouds:
-                if cloud.get('label') == tf_label or cloud.get('tf') == tf_label:
-                    current_cloud = cloud
-                    wlog(f'[DEBUG] Found current cloud for {tf_label}: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
-                    break
-        
-        if not current_cloud:
-            wlog(f'[WARNING] No cloud data found in webhook for tf={tf_val}')
-        
-        # 5mのJSONには全TFのデータが含まれているので、全て抽出
         all_clouds = {}
         if clouds:
             for cloud in clouds:
-                label = cloud.get('label')
-                if label in ['5m', '15m', '1H', '4H']:
-                    all_clouds[label] = cloud
-                    wlog(f'[DEBUG] Extracted cloud from webhook: {label} - dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+                raw_label = cloud.get('label')
+                norm_label = normalize_tf_label(raw_label)
+                if norm_label:
+                    all_clouds[norm_label] = cloud
+                    if norm_label == current_tf_norm:
+                        current_cloud = cloud
+                        wlog(f'[DEBUG] Found current cloud for {norm_label}: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+                    else:
+                        wlog(f'[DEBUG] Extracted cloud from webhook: {norm_label} (raw={raw_label}) - dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
+        
+        if not current_cloud:
+            wlog(f'[WARNING] No cloud data found in webhook for tf={tf_val} (normalized={current_tf_norm})')
         
         # 統合データを使用してルール評価（初回受信フラグを渡す）
-        _evaluate_rules_with_db_state(tf_states, symbol, all_clouds, tf_val, is_first_receive)
+        # シンボル別ロックで複数Webhookの同時評価によるrace conditionを防止
+        with _get_rule_eval_lock(symbol):
+            _evaluate_rules_with_db_state(tf_states, symbol, all_clouds, tf_val, is_first_receive)
         wlog(f'[DEBUG] _evaluate_rules_with_db_state completed for {symbol}')
         
     except Exception as e:
@@ -4424,53 +4466,75 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
         
         wlog(f'[DEBUG] all_clouds={list(all_clouds.keys()) if all_clouds else None}, current_tf={current_tf}')
         
-        # 1. まず5mのDBレコードから全TFの雲情報（gc, thickness等）を取得
-        tf_state_5m = tf_states.get('5m')
-        if tf_state_5m:
-            clouds_json_str = tf_state_5m.get('clouds_json', '[]')
+        # ===== Step1: 主体時間足のDBレコードから全TFの雲情報（gc, thickness等）を取得 =====
+        # 主体時間足 = current_tf（送信元の時間足）
+        # 主体時間足のclouds_jsonには全TF分の雲データ（gc, thickness等）が含まれている
+        current_tf_label = normalize_tf_label(str(current_tf))
+        tf_state_main = tf_states.get(current_tf_label)
+        if tf_state_main:
+            clouds_json_str = tf_state_main.get('clouds_json', '[]')
             try:
-                clouds = json.loads(clouds_json_str)
-                for cloud in clouds:
-                    label = cloud.get('label')
-                    if label in ['5m', '15m', '1H', '4H']:
-                        tf_cloud_data[label] = cloud.copy()
-                        wlog(f'[DB] Loaded cloud data for {label} from 5m DB: gc={cloud.get("gc")}, dauten={cloud.get("dauten")}')
+                clouds_in_db = json.loads(clouds_json_str)
+                for cloud in clouds_in_db:
+                    raw_label = cloud.get('label')
+                    norm_label = normalize_tf_label(raw_label)
+                    if norm_label:
+                        tf_cloud_data[norm_label] = cloud.copy()
+                        wlog(f'[DB] Loaded cloud for {norm_label} (raw={raw_label}) from main TF ({current_tf_label}) DB: gc={cloud.get("gc")}, dauten={cloud.get("dauten")}')
             except Exception as e:
-                wlog(f'[ERROR] Failed to parse 5m clouds_json: {e}')
+                wlog(f'[ERROR] Failed to parse {current_tf_label} clouds_json: {e}')
         
-        # 2. 各TF（15m, 1H, 4H）のDBレコードからダウ転換情報を上書き（これが表の視覚的内容）
-        for tf_key, tf_label in [('15', '15m'), ('60', '1H'), ('240', '4H')]:
-            tf_state = tf_states.get(tf_label)
-            if tf_state:
-                clouds_json_str = tf_state.get('clouds_json', '[]')
-                try:
-                    clouds = json.loads(clouds_json_str)
-                    if clouds:
-                        tf_cloud = clouds[0]  # 各TFのレコードには1つのクラウドのみ
-                        if tf_label in tf_cloud_data:
-                            # ダウ転換情報を上書き
-                            tf_cloud_data[tf_label]['dauten'] = tf_cloud.get('dauten')
-                            tf_cloud_data[tf_label]['bos_count'] = tf_cloud.get('bos_count')
-                            tf_cloud_data[tf_label]['dauten_start_time'] = tf_cloud.get('dauten_start_time')
-                            wlog(f'[DB] Overwrote dauten for {tf_label} from {tf_label} DB: dauten={tf_cloud.get("dauten")}, bos={tf_cloud.get("bos_count")}')
-                        else:
-                            tf_cloud_data[tf_label] = tf_cloud.copy()
-                            wlog(f'[DB] Loaded {tf_label} data from {tf_label} DB: dauten={tf_cloud.get("dauten")}')
-                except Exception as e:
-                    wlog(f'[ERROR] Failed to parse {tf_label} clouds_json: {e}')
+        # ===== Step2: 各TFのDBレコードからダウ転換情報を上書き（最も信頼できる値）=====
+        # 各TFは自分自身のWebhookで正確なdautenを送信する → 各TFのDBレコードを優先
+        for tf_label_norm, tf_state in tf_states.items():
+            clouds_json_str = tf_state.get('clouds_json', '[]')
+            try:
+                clouds_in_db = json.loads(clouds_json_str)
+                # 自TFのcloudを検索（labelが一致するものを優先、なければ先頭）
+                own_cloud = None
+                for c_item in clouds_in_db:
+                    if normalize_tf_label(c_item.get('label')) == tf_label_norm:
+                        own_cloud = c_item
+                        break
+                if own_cloud is None and clouds_in_db:
+                    own_cloud = clouds_in_db[0]  # fallback
+                if own_cloud:
+                    if tf_label_norm in tf_cloud_data:
+                        # 既存エントリにダウ転換情報を上書き
+                        tf_cloud_data[tf_label_norm]['dauten'] = own_cloud.get('dauten')
+                        tf_cloud_data[tf_label_norm]['bos_count'] = own_cloud.get('bos_count')
+                        tf_cloud_data[tf_label_norm]['dauten_start_time'] = own_cloud.get('dauten_start_time')
+                        wlog(f'[DB] Overwrote dauten for {tf_label_norm}: dauten={own_cloud.get("dauten")}, bos={own_cloud.get("bos_count")}')
+                    else:
+                        tf_cloud_data[tf_label_norm] = own_cloud.copy()
+                        wlog(f'[DB] Loaded {tf_label_norm} data from DB: dauten={own_cloud.get("dauten")}')
+            except Exception as e:
+                wlog(f'[ERROR] Failed to parse {tf_label_norm} clouds_json: {e}')
         
-        # 3. webhook から受け取ったデータで上書き（最新データ優先）
-        # 主体時間足（5m/15m/1H）のWebhookには全TFの最新雲情報が含まれている
-        # そのため、Webhookデータを優先的に使用（表の実際の表示内容と一致）
+        # 3. webhook から受け取ったデータで上書き
+        # 【重要】dauten/bos_count は各TF自身のWebhookのみ信頼する
+        # 5mWebhookに含まれる15m/1H/4HのdautenはPineScriptのsecurity()遅延(1バー遅れ)のため不正確
+        # → 自TF以外のdautenはDBから読み込んだ値(ステップ2)をそのまま使用
+        # current_tf_label は Step1 で normalize_tf_label(str(current_tf)) として定義済み
         if all_clouds:
             for tf_label, cloud in all_clouds.items():
-                if tf_label in tf_cloud_data:
-                    # Webhookの最新データで全て上書き（dautenも含む）
-                    tf_cloud_data[tf_label].update(cloud)
-                    wlog(f'[WEBHOOK] Updated {tf_label} with webhook data: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}, elapsed_str={cloud.get("elapsed_str")}')
+                if tf_label == current_tf_label:
+                    # 自TFのWebhook: dautenも含め全フィールドを上書き（最も信頼性が高いデータ）
+                    if tf_label in tf_cloud_data:
+                        tf_cloud_data[tf_label].update(cloud)
+                    else:
+                        tf_cloud_data[tf_label] = cloud.copy()
+                    wlog(f'[WEBHOOK] Updated {tf_label} (self TF, all fields): dauten={cloud.get("dauten")}, gc={cloud.get("gc")}')
                 else:
-                    tf_cloud_data[tf_label] = cloud.copy()
-                    wlog(f'[WEBHOOK] Added {tf_label} from webhook: dauten={cloud.get("dauten")}, gc={cloud.get("gc")}, elapsed_str={cloud.get("elapsed_str")}')
+                    # 他TFのWebhook: dauten/bos_count/dauten_start_timeは除外してgc等のみ更新
+                    # （security()の1バー遅れ問題を回避するためdautenはDBの値を維持）
+                    cloud_without_dauten = {k: v for k, v in cloud.items()
+                                           if k not in ('dauten', 'bos_count', 'dauten_start_time')}
+                    if tf_label in tf_cloud_data:
+                        tf_cloud_data[tf_label].update(cloud_without_dauten)
+                    else:
+                        tf_cloud_data[tf_label] = cloud_without_dauten
+                    wlog(f'[WEBHOOK] Updated {tf_label} (other TF, dauten excluded): gc={cloud.get("gc")}')
         
         wlog(f'[DEBUG] tf_cloud_data final keys: {list(tf_cloud_data.keys())}')
         for tf_label, data in tf_cloud_data.items():
