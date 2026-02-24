@@ -1199,6 +1199,7 @@ function addConditionRow(cond = {}) {
       <option value="15m" ${cond.timeframe === '15m' ? 'selected' : ''}>15m</option>
       <option value="1H" ${cond.timeframe === '1H' ? 'selected' : ''}>1H</option>
       <option value="4H" ${cond.timeframe === '4H' ? 'selected' : ''}>4H</option>
+      <option value="D" ${cond.timeframe === 'D' ? 'selected' : ''}>D</option>
     </select>
     <select class="cond-field">
       <option value="dauten" ${cond.field === 'dauten' ? 'selected' : ''}>ダウ転</option>
