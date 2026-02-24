@@ -2130,23 +2130,37 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         let selectedState = null;
         const ruleSymbol = scope.symbol;
 
-        if (ruleSymbol) {
-          // ルールが特定の通貨に限定されている場合、その通貨の5mデータを使用
-          selectedState = currentDashboardData.find(s => s.symbol === ruleSymbol && (s.tf === '5' || s.tf === '5m'));
+        // 条件で使われているTFラベルを収集（例: '5m', '15m', '1H', '4H', 'D', 'W'）
+        const condTfLabels = conditions.map(c => c.label).filter(Boolean);
 
-          // 5mが見つからなければ、その通貨の任意のデータを使用
-          if (!selectedState) {
-            selectedState = currentDashboardData.find(s => s.symbol === ruleSymbol);
-          }
-        } else {
-          // 通貨指定なしの場合、最初の5mデータを使用
-          selectedState = currentDashboardData.find(s => s.tf === '5' || s.tf === '5m');
+        // TFラベルをDBのtf値にマッピング（細かい順）
+        const tfPriority = [
+          { label: '5m',  dbTfs: ['5', '5m'] },
+          { label: '15m', dbTfs: ['15', '15m'] },
+          { label: '1H',  dbTfs: ['60', '1H'] },
+          { label: '4H',  dbTfs: ['240', '4H'] },
+          { label: 'D',   dbTfs: ['1440', 'D', '1D'] },
+          { label: 'W',   dbTfs: ['10080', 'W', '1W'] },
+          { label: 'M',   dbTfs: ['M', '1M'] },
+        ];
 
-          // 5mが見つからなければ最初のデータを使用
-          if (!selectedState) {
-            selectedState = currentDashboardData[0];
+        // 条件に含まれるTFのうち最も細かいもの（主体時間足）のstateを優先して選択
+        const findStateByCondTfs = (symbol) => {
+          for (const { label, dbTfs } of tfPriority) {
+            if (condTfLabels.includes(label)) {
+              const found = currentDashboardData.find(s =>
+                (!symbol || s.symbol === symbol) && dbTfs.includes(s.tf)
+              );
+              if (found) return found;
+            }
           }
-        }
+          // 条件にTFが含まれない場合や見つからない場合はフォールバック
+          return symbol
+            ? currentDashboardData.find(s => s.symbol === symbol)
+            : currentDashboardData[0];
+        };
+
+        selectedState = findStateByCondTfs(ruleSymbol || null);
 
         if (selectedState) {
           payload.state_override = selectedState;
