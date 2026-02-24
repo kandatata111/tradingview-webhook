@@ -421,9 +421,12 @@ def _evaluate_rule_match(rule, cloud_data):
                 # 存在チェック（valueが空の場合）
                 if value is None or value == '':
                     if field == 'gc':
-                        condition_met = found_value is not None
+                        # gc: True/False または '▲GC'/'▼DC' どちらも有効値とみなす
+                        condition_met = found_value is not None and found_value not in ['', None]
                     elif field == 'dauten':
-                        condition_met = found_value in ['up', 'down']
+                        # dauten: 'up'/'down' または '▲Dow'/'▼Dow' どちらも有効値
+                        # '-' は無効値（ダウなし）なので除外
+                        condition_met = found_value in ['up', 'down', '▲Dow', '▼Dow']
                     elif field == 'bos_count':
                         try:
                             bos_num = int(found_value) if found_value else 0
@@ -442,21 +445,23 @@ def _evaluate_rule_match(rule, cloud_data):
                 # 各フィールドから方向を判定
                 cond_direction = None
                 if field == 'dauten':
-                    if found_value == 'up':
+                    # 'up'/'down' と '▲Dow'/'▼Dow' の両形式に対応
+                    if found_value in ('up', '▲Dow'):
                         cond_direction = 'up'
-                    elif found_value == 'down':
+                    elif found_value in ('down', '▼Dow'):
                         cond_direction = 'down'
                 elif field == 'gc':
-                    if found_value is True:
+                    # True/False と '▲GC'/'▼DC' の両形式に対応
+                    if found_value in (True, '▲GC'):
                         cond_direction = 'up'
-                    elif found_value is False:
+                    elif found_value in (False, '▼DC'):
                         cond_direction = 'down'
                 elif field == 'bos_count':
-                    # bos_countの方向はdautenから取得
+                    # bos_countの方向はdautenから取得（両形式対応）
                     dauten_for_bos = tf_data.get('dauten')
-                    if dauten_for_bos == 'up':
+                    if dauten_for_bos in ('up', '▲Dow'):
                         cond_direction = 'up'
-                    elif dauten_for_bos == 'down':
+                    elif dauten_for_bos in ('down', '▼Dow'):
                         cond_direction = 'down'
                 
                 condition_directions.append(cond_direction)

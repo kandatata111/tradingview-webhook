@@ -2723,35 +2723,68 @@ def test_single_rule(rule_id):
         c.execute('SELECT DISTINCT symbol FROM states')
         symbols = [r[0] for r in c.fetchall()]
         
+        # ルール条件で使われているTFラベルから主体時間足（最細TF）を特定する
+        # 主体TFのレコードにはより上位TFの雲データも含まれる（設計思想）
+        _tf_label_to_db = {
+            '5m': '5', '15m': '15', '1H': '60', '4H': '240',
+            'D': '1440', 'W': '10080', 'M': '43200'
+        }
+        _tf_priority = ['5m', '15m', '1H', '4H', 'D', 'W', 'M']  # 細い順
+        cond_tf_labels = [
+            (cond.get('label') or cond.get('timeframe', '')).strip()
+            for cond in rule.get('conditions', [])
+        ]
+        # 条件TFのうち細い順でDB tfキーを列挙
+        candidate_db_tfs = []
+        for lbl in _tf_priority:
+            if lbl in cond_tf_labels and lbl in _tf_label_to_db:
+                candidate_db_tfs.append(_tf_label_to_db[lbl])
+        # 条件にTFが無い場合は全TFを候補にする
+        if not candidate_db_tfs:
+            candidate_db_tfs = list(_tf_label_to_db.values())
+
         matches = []
         for sym in symbols:
             try:
-                # 5mのレコードから全TFの雲データとcloud_orderを取得
-                c.execute('SELECT clouds_json, cloud_order FROM states WHERE symbol = ? AND tf = ?', (sym, '5'))
-                row_5m = c.fetchone()
-                
-                if not row_5m or not row_5m[0]:
+                # ルールがこの通貨に適用されるか
+                scope_symbol = rule.get('scope', {}).get('symbol', '')
+                if scope_symbol and scope_symbol != sym:
                     continue
-                
-                clouds = json.loads(row_5m[0])
-                cloud_order = row_5m[1] if len(row_5m) > 1 else None
-                
+
+                # 条件の最細TFから順にDB検索し、雲データがあるレコードを使用
+                found_row = None
+                for db_tf in candidate_db_tfs:
+                    c.execute('SELECT clouds_json, cloud_order FROM states WHERE symbol = ? AND tf = ?', (sym, db_tf))
+                    row_tf = c.fetchone()
+                    if row_tf and row_tf[0]:
+                        found_row = row_tf
+                        break
+
+                # 候補TFに見つからなければ雲データがある任意のレコードを使用
+                if not found_row:
+                    c.execute(
+                        "SELECT clouds_json, cloud_order FROM states WHERE symbol = ? AND clouds_json IS NOT NULL AND clouds_json != '[]' ORDER BY rowid DESC LIMIT 1",
+                        (sym,)
+                    )
+                    found_row = c.fetchone()
+
+                if not found_row or not found_row[0]:
+                    continue
+
+                clouds = json.loads(found_row[0])
+                cloud_order = found_row[1] if len(found_row) > 1 else None
+
                 # clouds配列を {tf_label: cloud_data} の辞書に変換
                 cloud_data = {}
                 for cloud in clouds:
                     label = cloud.get('label')
                     if label:
                         cloud_data[label] = cloud
-                
+
                 # cloud_orderを特別なキーで追加（雲整列判定用）
                 if cloud_order:
                     cloud_data['__cloud_order__'] = cloud_order
-                
-                # ルールがこの通貨に適用されるか
-                scope_symbol = rule.get('scope', {}).get('symbol', '')
-                if scope_symbol and scope_symbol != sym:
-                    continue
-                
+
                 # 簡易マッチング（実際の評価ロジックを呼び出す）
                 direction = _evaluate_rule_match(rule, cloud_data)
                 if direction:
