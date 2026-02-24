@@ -400,6 +400,24 @@ def _evaluate_rule_match(rule, cloud_data):
     
     本番の _evaluate_rules_with_db_state と同じロジックを使用
     """
+    # TFラベル正規化マップ（ルール条件の'1H'/'15m'/'4H' ↔ DBの'60'/'15'/'240'）
+    _tf_normalize = {
+        '5m': ['5m', '5'],
+        '15m': ['15m', '15'],
+        '1H': ['1H', '60'],
+        '4H': ['4H', '240'],
+        'D': ['D', '1440'],
+        'W': ['W', '10080'],
+        'M': ['M', '43200'],
+    }
+    # cloud_data のキーがどちらの形式でも引けるようにエイリアスを追加
+    for canonical, aliases in _tf_normalize.items():
+        for alias in aliases:
+            if alias in cloud_data and canonical not in cloud_data:
+                cloud_data[canonical] = cloud_data[alias]
+            if canonical in cloud_data and alias not in cloud_data:
+                cloud_data[alias] = cloud_data[canonical]
+
     try:
         direction = None
         all_matched = True
