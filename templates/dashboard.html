@@ -254,6 +254,7 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 }
 /* 強度ゲージ（案B: 高さ10px、白枠1px、内パディング2px） */
 .gauge-cell { width: 150px; min-width: 150px; max-width: 150px; }
+.fire-cell { width: 48px; min-width: 48px; max-width: 48px; font-size: 0.9em; }
 .gauge-wrapper { position: relative; height: 10px; border: 1px solid rgba(255,255,255,0.9); border-radius: 3px; overflow: hidden; padding: 2px; }
 .gauge-fill { position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; background: rgba(255,255,255,0.98); border-radius: 2px; transform-origin: left center; transition: transform 0.28s ease; transform: scaleX(0); }
 .gauge-sep { position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; pointer-events: none; }
@@ -6268,13 +6269,13 @@ function renderCurrencyTable(symbol, allStates, container) {
   
   console.log('[RENDER] orderedRows count:', orderedRows.length);
   
-  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="15" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>'; 
-  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th><th class="header-black">強度ゲージ</th></tr>'; 
+  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="16" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>'; 
+  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th><th class="header-black">強度ゲージ</th><th class="header-black" style="color:#ffdd66">発火</th></tr>'; 
 
   orderedRows.forEach(row => {
     if (row.type === 'price') {
       html += '<tr class="price-row"><td class="tf-label">価格</td>';
-      html += '<td colspan="14"></td></tr>';
+      html += '<td colspan="15"></td></tr>';
     } else {
       const c = row;
       html += '<tr>';
@@ -6569,10 +6570,20 @@ function renderCurrencyTable(symbol, allStates, container) {
                             '<div class="gauge-fill" style="transform: scaleX(' + (Math.max(0, Math.min(100, gaugePercentage)) / 100) + ')"></div>' +
                             '<div class="gauge-sep" style="background:' + sepBg + '"></div>' +
                           '</div>' +
-                        '</td></tr>';
+                        '</td>';
+      // 発火セル（当該TFのlist_fireを参照）
+      const fireMeta = (tfState && tfState.last_fire) ? tfState.last_fire : null;
+      const fireText = fireMeta
+          ? (fireMeta.direction === '上昇' ? '▲売' : fireMeta.direction === '下降' ? '▼買' : '●')
+          : '';
+      const fireStyleStr = fireMeta
+          ? (fireMeta.direction === '上昇' ? 'color:#00aaff;font-weight:bold;' : 'color:#ff4444;font-weight:bold;')
+          : '';
+      const fireTitle = fireMeta ? 'title="' + (fireMeta.rule_name || '') + '"' : '';
+      const fireCellHtml = '<td class="fire-cell" ' + fireTitle + ' style="text-align:center;white-space:nowrap;' + fireStyleStr + '">' + fireText + '</td></tr>';
       console.log(`[HTML_RENDER] ${symbol}/${c.label}: trendColor=${cellBg}, direction=${direction}, trendDisplay=${cellContent}`);
       console.log(`[HTML_FRAGMENT] ${symbol}/${c.label}: Fragment=${htmlFragment.substring(0, 80)}`);
-      html += htmlFragment + gaugeHtml;
+      html += htmlFragment + gaugeHtml + fireCellHtml;
     }
   });
 

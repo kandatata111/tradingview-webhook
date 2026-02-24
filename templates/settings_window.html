@@ -555,6 +555,18 @@
               <option value="">全選択</option>
             </select>
           </div>
+
+          <div class="row">
+            <label title="発火時にダッシュボードのこの時間足の行に表示します">発火表示足</label>
+            <select id="displayTf" style="min-width:140px;">
+              <option value="">（表示なし）</option>
+              <option value="5m">5m</option>
+              <option value="15m">15m</option>
+              <option value="1H">1H</option>
+              <option value="4H">4H</option>
+              <option value="D">D</option>
+            </select>
+          </div>
           
           <!-- 音声設定（ルール個別） -->
           <div class="voice-section">
@@ -1151,6 +1163,7 @@ function selectRule(ruleId) {
   
   // フォームに反映
   document.getElementById('ruleName').value = rule.name || '';
+  document.getElementById('displayTf').value = rule.displayTf || '';
   document.getElementById('ruleScope').value = rule.scope?.symbol || '';
   
   // 音声設定
@@ -1224,6 +1237,7 @@ async function saveRule() {
   const rule = {
     id: currentRuleId || 'rule_' + Date.now(),
     name: document.getElementById('ruleName').value,
+    displayTf: document.getElementById('displayTf').value,
     scope: {
       symbol: document.getElementById('ruleScope').value
     },
@@ -1445,6 +1459,7 @@ function newRule() {
 
 function clearRuleForm() {
   document.getElementById('ruleName').value = '';
+  document.getElementById('displayTf').value = '';
   document.getElementById('ruleScope').value = '';
   document.getElementById('voiceMessage').value = '';
   document.getElementById('insertSymbol').checked = false;

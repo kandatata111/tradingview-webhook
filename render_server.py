@@ -86,6 +86,11 @@ if not os.path.exists(PERSISTENT_DIR):
     except Exception as e:
         print(f"[STORAGE ERROR] Failed to create directory: {e}")
 
+# 表示用ルール発火状態を保持するインメモリマップ
+# key: (symbol, display_tf_normalized)  例: ('USDJPY', '1H')
+# value: {'rule_id': ..., 'rule_name': ..., 'direction': '上昇' or '下降'}
+active_fires: dict = {}
+
 print(f"[STORAGE] Database exists: {os.path.exists(DB_PATH)}")
 if os.path.exists(DB_PATH):
     db_size_mb = os.path.getsize(DB_PATH) / (1024 * 1024)
@@ -2248,6 +2253,20 @@ def current_states():
         for i, s in enumerate(states[:3]):
             print(f'[RESPONSE] State {i}: {s.get("symbol")}/{s.get("tf")} trend_direction={s.get("trend_direction")}, trend_score={s.get("trend_score")}')
         
+        # active_fires をもとに各 state に last_fire を付加
+        for s in states:
+            sym = s.get('symbol', '')
+            tf_norm = s.get('tf_normalized') or s.get('tf', '')
+            fire_info = active_fires.get((sym, tf_norm))
+            s['last_fire'] = fire_info  # None or {'rule_id', 'rule_name', 'direction'}
+
+        # active_fires をもとに各 state に last_fire を付加
+        for s in states:
+            sym = s.get('symbol', '')
+            tf_norm = s.get('tf_normalized') or s.get('tf', '')
+            fire_info = active_fires.get((sym, tf_norm))
+            s['last_fire'] = fire_info  # None or {'rule_id', 'rule_name', 'direction'}
+
         response = jsonify({'status': 'success', 'states': states})
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
@@ -4489,6 +4508,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
     all_clouds: webhook から受け取った全TFのクラウドデータ {tf_label: cloud_data, ...}
     is_first_receive: このタイムフレーム・通貨ペアの組み合わせで初回受信かどうか
     """
+    global active_fires  # 発火表示状態マップへのアクセス
     # Simple inline logging function - writes directly to file
     def wlog(msg):
         """Write log directly to file"""
@@ -4950,7 +4970,37 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     wlog(f'[RULE] Conditions met but no cell change → no fire')
                 else:
                     wlog(f'[RULE] No cell change and conditions not met → no fire')
-                
+
+                # ===== 発火表示足のアクティブ状態更新 =====
+                # all_matched=True: 条件維持中 → 表示フラグをセット
+                # all_matched=False: 条件崩れ  → 表示フラグをクリア
+                display_tf_rule = rule.get('displayTf', '')
+                if display_tf_rule:
+                    fire_key = (symbol, display_tf_rule)
+                    if all_matched:
+                        # 方向はルールの条件から取得
+                        fire_dir = None
+                        if alignment_direction:
+                            fire_dir = '上昇' if alignment_direction == 'up' else '下降'
+                        elif conditions:
+                            pf = conditions[0].get('field')
+                            ptf = conditions[0].get('timeframe') or conditions[0].get('label')
+                            pcd = tf_cloud_data.get(ptf, {})
+                            if pf == 'dauten':
+                                v = pcd.get('dauten')
+                                if v == '▲Dow': fire_dir = '上昇'
+                                elif v == '▼Dow': fire_dir = '下降'
+                            elif pf == 'gc':
+                                v = pcd.get('gc')
+                                if v == '▲GC': fire_dir = '上昇'
+                                elif v == '▼DC': fire_dir = '下降'
+                        active_fires[fire_key] = {'rule_id': rule_id, 'rule_name': rule_name, 'direction': fire_dir}
+                        wlog(f'[ACTIVE_FIRE] Set {fire_key} = {fire_dir}')
+                    else:
+                        if fire_key in active_fires and active_fires[fire_key].get('rule_id') == rule_id:
+                            del active_fires[fire_key]
+                            wlog(f'[ACTIVE_FIRE] Cleared {fire_key} (conditions no longer met)')
+
                 # ===== 発火処理 =====
                 if should_fire:
                     wlog(f'[RULE] [OK] FIRING Rule: {rule_name}')
