@@ -2725,9 +2725,17 @@ def test_single_rule(rule_id):
         
         # ルール条件で使われているTFラベルから主体時間足（最細TF）を特定する
         # 主体TFのレコードにはより上位TFの雲データも含まれる（設計思想）
+        # timeframeラベルをDBのtf列で見られる可能性のある値にマップ
+        # 日足には 'D' という文字列（データ中に使われている）があり、
+        # 分換算値の '1440' も存在し得るため両方を列挙する。
         _tf_label_to_db = {
-            '5m': '5', '15m': '15', '1H': '60', '4H': '240',
-            'D': '1440', 'W': '10080', 'M': '43200'
+            '5m': ['5', '5m'],
+            '15m': ['15', '15m'],
+            '1H': ['60', '1H'],
+            '4H': ['240', '4H'],
+            'D': ['D', '1440'],
+            'W': ['W', '10080'],
+            'M': ['M', '43200'],
         }
         _tf_priority = ['5m', '15m', '1H', '4H', 'D', 'W', 'M']  # 細い順
         cond_tf_labels = [
@@ -2738,10 +2746,11 @@ def test_single_rule(rule_id):
         candidate_db_tfs = []
         for lbl in _tf_priority:
             if lbl in cond_tf_labels and lbl in _tf_label_to_db:
-                candidate_db_tfs.append(_tf_label_to_db[lbl])
+                candidate_db_tfs.extend(_tf_label_to_db[lbl])
         # 条件にTFが無い場合は全TFを候補にする
         if not candidate_db_tfs:
-            candidate_db_tfs = list(_tf_label_to_db.values())
+            for vals in _tf_label_to_db.values():
+                candidate_db_tfs.extend(vals)
 
         matches = []
         for sym in symbols:
