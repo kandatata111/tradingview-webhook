@@ -893,12 +893,12 @@ function setupVoiceOptions() {
 async function loadCurrencies() {
   try {
     // サーバーから現在のデータを取得して通貨を抽出
-    const response = await fetch('/data');
+    const response = await fetch('/current_states');
     if (!response.ok) throw new Error('Failed to load data');
     
     const data = await response.json();
-    if (data.status === 'success' && data.data) {
-      availableSymbols = Object.keys(data.data);
+    if (data.status === 'success' && data.states) {
+      availableSymbols = [...new Set(data.states.map(s => s.symbol))].filter(s => s !== 'TESTER');
       updateCurrencyFilter();
       updateRuleScopeOptions();
     }
