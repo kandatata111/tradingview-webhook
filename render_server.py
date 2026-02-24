@@ -2519,6 +2519,7 @@ def rules():
                 }
                 # rule_dataの中身をマージ（voice, cloudAlign, conditions等）
                 rule_obj.update(rule_data)
+                # payloadがtop-level ruleオブジェクトなら displayTf はすでにここに含まれる
                 res.append(rule_obj)
             return jsonify({'status': 'success', 'rules': res}), 200
 
@@ -2534,11 +2535,14 @@ def rules():
         rule_data = {
             'voice': payload.get('voice', {}),
             'cloudAlign': payload.get('cloudAlign', {}),
-            'conditions': payload.get('conditions', [])
+            'conditions': payload.get('conditions', []),
+            # 発火表示足を保持
+            'displayTf': payload.get('displayTf', '')
         }
         
         # server-side validation: ensure alignment settings (if present) are sane
-        rule_obj = payload.get('rule') or rule_data
+        # rule_obj はフルのルールオブジェクト（payload自体）を使用
+        rule_obj = payload if isinstance(payload, dict) else rule_data
         align = rule_obj.get('alignment')
         if align:
             try:
