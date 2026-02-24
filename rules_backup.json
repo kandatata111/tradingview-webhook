@@ -1,0 +1,210 @@
+{
+  "exported_at": "2026-02-24T23:04:34.273583+09:00",
+  "count": 5,
+  "rules": [
+    {
+      "id": "5分ダウ+交差",
+      "name": "ダウ+交差_5m",
+      "enabled": false,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2025-11-20T21:52:56.870225",
+      "updated_at": "2025-12-03T19:04:40.609727",
+      "sort_order": 9,
+      "voice": {
+        "message": "5分でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "suffix",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "警報が鳴る.mp3",
+        "voiceFile": "368"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "5m",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "5m",
+          "field": "gc",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "15分ダウ+交差",
+      "name": "ダウ+交差_15m",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2025-11-23T14:38:46.710568",
+      "updated_at": "2026-02-24T23:04:34.254982",
+      "sort_order": 10,
+      "voice": {
+        "message": "15分でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "suffix",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "警報が鳴る.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "15m",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "15m",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": "15m"
+    },
+    {
+      "id": "1時間ダウ+交差",
+      "name": "ダウ+交差_1H",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2025-11-23T14:41:53.051250",
+      "updated_at": "2026-02-24T23:04:27.509758",
+      "sort_order": 11,
+      "voice": {
+        "message": "1時間でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "suffix",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "警報が鳴る.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "1H",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "1H",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": "1H"
+    },
+    {
+      "id": "rule-1764294567304",
+      "name": "ダウ+交差_4H",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2025-11-28T10:49:27.329314",
+      "updated_at": "2026-02-24T23:04:16.109948",
+      "sort_order": 12,
+      "voice": {
+        "message": "4時間でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "suffix",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "警報が鳴る.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "4H",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "4H",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": "4H"
+    },
+    {
+      "id": "rule_1771941801924_2mgo9hu76",
+      "name": "ダウ+交差_D",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2026-02-24T23:03:21.928354",
+      "updated_at": "2026-02-24T23:03:48.850780",
+      "sort_order": 9999,
+      "voice": {
+        "message": "日足でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "suffix",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "警報が鳴る.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "D",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "D",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": "D"
+    }
+  ]
+}

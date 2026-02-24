@@ -91,6 +91,9 @@ if not os.path.exists(PERSISTENT_DIR):
 # value: {'rule_id': ..., 'rule_name': ..., 'direction': '上昇' or '下降'}
 active_fires: dict = {}
 
+# 全シンボル一括評価の最終実行時刻（エポック秒）
+_last_all_eval_time: float = 0.0
+
 print(f"[STORAGE] Database exists: {os.path.exists(DB_PATH)}")
 if os.path.exists(DB_PATH):
     db_size_mb = os.path.getsize(DB_PATH) / (1024 * 1024)
@@ -1970,6 +1973,8 @@ def webhook():
                     f.flush()
                 evaluate_and_fire_rules(data, symbol_val, tf_val)
                 print(f'[DEBUG] RULE_EVAL_END for {symbol_val}/{tf_val}')
+                # Webhhook受信後に全通貨のルール状態を最新化
+                evaluate_all_symbols_from_db()
                 with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
                     f.write(f'{saved_at} - RULE_EVAL_END for {symbol_val}/{tf_val}\n')
                     f.flush()
@@ -2093,6 +2098,11 @@ def health_check():
 @app.route('/current_states')
 def current_states():
     print('[ACCESS] Current states request')
+    # 全通貨ルール評価を更新（クールダウン付き）
+    try:
+        evaluate_all_symbols_from_db(cooldown=10.0)
+    except Exception as _ae:
+        print(f'[WARN] evaluate_all_symbols_from_db failed: {_ae}')
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -2258,13 +2268,8 @@ def current_states():
             sym = s.get('symbol', '')
             tf_norm = s.get('tf_normalized') or s.get('tf', '')
             fire_info = active_fires.get((sym, tf_norm))
-            s['last_fire'] = fire_info  # None or {'rule_id', 'rule_name', 'direction'}
-
-        # active_fires をもとに各 state に last_fire を付加
-        for s in states:
-            sym = s.get('symbol', '')
-            tf_norm = s.get('tf_normalized') or s.get('tf', '')
-            fire_info = active_fires.get((sym, tf_norm))
+            if fire_info:
+                print(f'[INJECT] last_fire for {sym}/{tf_norm} = {fire_info}')
             s['last_fire'] = fire_info  # None or {'rule_id', 'rule_name', 'direction'}
 
         response = jsonify({'status': 'success', 'states': states})
@@ -4503,6 +4508,55 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
         traceback.print_exc()
 
 
+def evaluate_all_symbols_from_db(cooldown: float = 10.0):
+    """DB 内の全通貨ペアに対してルール評価を実行し active_fires を最新化する。
+
+    連続呼び出しを防ぐため cooldown（秒）以内の再実行はスキップする。
+    """
+    global _last_all_eval_time
+    import time as _time_mod
+    now = _time_mod.time()
+    if now - _last_all_eval_time < cooldown:
+        return  # クールダウン中はスキップ
+    _last_all_eval_time = now
+
+    print('[ALL_EVAL] Evaluating rules for all symbols in DB')
+    try:
+        conn_ae = sqlite3.connect(DB_PATH)
+        c_ae = conn_ae.cursor()
+        c_ae.execute('SELECT DISTINCT symbol FROM states')
+        symbols = [row[0] for row in c_ae.fetchall()]
+        conn_ae.close()
+    except Exception as e:
+        print(f'[ALL_EVAL] DB error fetching symbols: {e}')
+        return
+
+    for sym in symbols:
+        try:
+            conn_sym = sqlite3.connect(DB_PATH)
+            c_sym = conn_sym.cursor()
+            c_sym.execute('SELECT * FROM states WHERE symbol = ? ORDER BY rowid DESC', (sym,))
+            rows_sym = c_sym.fetchall()
+            cols_sym = [d[0] for d in c_sym.description] if c_sym.description else []
+            conn_sym.close()
+
+            tf_states_sym = {}
+            for row_sym in rows_sym:
+                ts = dict(zip(cols_sym, row_sym))
+                raw_tf = str(ts.get('tf', ''))
+                norm_lbl = normalize_tf_label(raw_tf)
+                if norm_lbl and norm_lbl not in tf_states_sym:
+                    tf_states_sym[norm_lbl] = ts
+
+            if tf_states_sym:
+                with _get_rule_eval_lock(sym):
+                    _evaluate_rules_with_db_state(tf_states_sym, sym, {}, None, False)
+        except Exception as e:
+            print(f'[ALL_EVAL] Error evaluating {sym}: {e}')
+
+    print(f'[ALL_EVAL] Done. active_fires has {len(active_fires)} entries')
+
+
 def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf=None, is_first_receive=False):
     """DBから取得した全タイムフレームのデータを使用してルール評価
     
@@ -4921,6 +4975,69 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         current_values[f'{tf_label}.{field}'] = normalized_val
                         wlog(f'[RULE] Current value: {tf_label}.{field} = {raw_value} → {normalized_val}')
                 
+                # ===== 発火表示足のアクティブ状態更新（常に実行 - continue の前） =====
+                # all_matched=True: 条件維持中 → 表示フラグをセット
+                # all_matched=False: 条件崩れ  → 表示フラグをクリア
+                _display_tf_rule = rule.get('displayTf') or None
+                # displayTf が未設定の場合、conditions の最初の TF を自動推論
+                if not _display_tf_rule:
+                    if alignment_is_active:
+                        # alignment ルールは最も長い TF を表示足とする
+                        _align_tfs = alignment_config.get('timeframes') or alignment_config.get('tfs', [])
+                        _display_tf_rule = _align_tfs[-1] if _align_tfs else None
+                    elif conditions:
+                        _display_tf_rule = conditions[0].get('timeframe') or conditions[0].get('label') or None
+                if _display_tf_rule:
+                    _fire_key = (symbol, _display_tf_rule)
+                    if all_matched:
+                        _fire_dir = None
+                        if alignment_direction:
+                            # alignment_direction はすでに '上昇'/'下降'（日本語）で設定済み
+                            _fire_dir = alignment_direction
+                        else:
+                            # condition_directions は条件ループで 'up'/'down' として収集済み
+                            # None を除いた最初の方向を使用（複数条件も正しく扱える）
+                            _cd_valid = [d for d in condition_directions if d is not None]
+                            if _cd_valid:
+                                _fire_dir = '上昇' if _cd_valid[0] == 'up' else '下降'
+                        _fa_existing = active_fires.get(_fire_key, {}).get('fired_at')
+                        if not _fa_existing:
+                            # active_fires が空の場合（サーバー再起動後など）
+                            # fire_history から実際の発火日時を取得して再起動後も同じ fp を維持
+                            try:
+                                _conn_fh = sqlite3.connect(DB_PATH)
+                                _c_fh = _conn_fh.cursor()
+                                _c_fh.execute(
+                                    "SELECT fired_at FROM fire_history "
+                                    "WHERE rule_id=? AND symbol=? "
+                                    "AND conditions_snapshot IS NOT NULL "
+                                    "AND conditions_snapshot NOT LIKE '{\"initial%' "
+                                    "AND conditions_snapshot NOT LIKE '{\"no_fire%' "
+                                    "ORDER BY fired_at DESC LIMIT 1",
+                                    (rule_id, symbol)
+                                )
+                                _row_fh = _c_fh.fetchone()
+                                _conn_fh.close()
+                                if _row_fh and _row_fh[0]:
+                                    try:
+                                        _dt_fh = datetime.fromisoformat(_row_fh[0])
+                                        _fa_existing = _dt_fh.astimezone(pytz.timezone('Asia/Tokyo')).strftime('%y/%m/%d %H:%M')
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+                        active_fires[_fire_key] = {
+                            'rule_id': rule_id,
+                            'rule_name': rule_name,
+                            'direction': _fire_dir,
+                            'fired_at': _fa_existing or datetime.now(pytz.timezone('Asia/Tokyo')).strftime('%y/%m/%d %H:%M')
+                        }
+                        wlog(f'[ACTIVE_FIRE] Set {_fire_key} = {_fire_dir} fired_at={active_fires[_fire_key]["fired_at"]}')
+                    else:
+                        if _fire_key in active_fires and active_fires[_fire_key].get('rule_id') == rule_id:
+                            del active_fires[_fire_key]
+                            wlog(f'[ACTIVE_FIRE] Cleared {_fire_key} (conditions no longer met)')
+
                 # ===== 初回受信（履歴なし）は値を記録するだけで発火しない =====
                 if last_state is None:
                     wlog(f'[RULE] No history found, recording initial state without firing')
@@ -4974,36 +5091,6 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     wlog(f'[RULE] Conditions met but no cell change → no fire')
                 else:
                     wlog(f'[RULE] No cell change and conditions not met → no fire')
-
-                # ===== 発火表示足のアクティブ状態更新 =====
-                # all_matched=True: 条件維持中 → 表示フラグをセット
-                # all_matched=False: 条件崩れ  → 表示フラグをクリア
-                display_tf_rule = rule.get('displayTf', '')
-                if display_tf_rule:
-                    fire_key = (symbol, display_tf_rule)
-                    if all_matched:
-                        # 方向はルールの条件から取得
-                        fire_dir = None
-                        if alignment_direction:
-                            fire_dir = '上昇' if alignment_direction == 'up' else '下降'
-                        elif conditions:
-                            pf = conditions[0].get('field')
-                            ptf = conditions[0].get('timeframe') or conditions[0].get('label')
-                            pcd = tf_cloud_data.get(ptf, {})
-                            if pf == 'dauten':
-                                v = pcd.get('dauten')
-                                if v == '▲Dow': fire_dir = '上昇'
-                                elif v == '▼Dow': fire_dir = '下降'
-                            elif pf == 'gc':
-                                v = pcd.get('gc')
-                                if v == '▲GC': fire_dir = '上昇'
-                                elif v == '▼DC': fire_dir = '下降'
-                        active_fires[fire_key] = {'rule_id': rule_id, 'rule_name': rule_name, 'direction': fire_dir}
-                        wlog(f'[ACTIVE_FIRE] Set {fire_key} = {fire_dir}')
-                    else:
-                        if fire_key in active_fires and active_fires[fire_key].get('rule_id') == rule_id:
-                            del active_fires[fire_key]
-                            wlog(f'[ACTIVE_FIRE] Cleared {fire_key} (conditions no longer met)')
 
                 # ===== 発火処理 =====
                 if should_fire:
