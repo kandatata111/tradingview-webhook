@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-02-24T23:04:34.273583+09:00",
+  "exported_at": "2026-02-25T09:59:17.064723+09:00",
   "count": 5,
   "rules": [
     {
@@ -50,12 +50,12 @@
         "symbol": ""
       },
       "created_at": "2025-11-23T14:38:46.710568",
-      "updated_at": "2026-02-24T23:04:34.254982",
+      "updated_at": "2026-02-25T09:33:52.763905",
       "sort_order": 10,
       "voice": {
         "message": "15分でダウと交差が揃いました。",
         "insertSymbol": true,
-        "symbolInsertPosition": "suffix",
+        "symbolInsertPosition": "both",
         "directionBased": true,
         "messagePosition": "suffix",
         "messageUp": "上昇です。",
@@ -91,12 +91,12 @@
         "symbol": ""
       },
       "created_at": "2025-11-23T14:41:53.051250",
-      "updated_at": "2026-02-24T23:04:27.509758",
+      "updated_at": "2026-02-25T09:33:43.566424",
       "sort_order": 11,
       "voice": {
         "message": "1時間でダウと交差が揃いました。",
         "insertSymbol": true,
-        "symbolInsertPosition": "suffix",
+        "symbolInsertPosition": "both",
         "directionBased": true,
         "messagePosition": "suffix",
         "messageUp": "上昇です。",
@@ -132,12 +132,12 @@
         "symbol": ""
       },
       "created_at": "2025-11-28T10:49:27.329314",
-      "updated_at": "2026-02-24T23:04:16.109948",
+      "updated_at": "2026-02-25T09:33:34.552166",
       "sort_order": 12,
       "voice": {
         "message": "4時間でダウと交差が揃いました。",
         "insertSymbol": true,
-        "symbolInsertPosition": "suffix",
+        "symbolInsertPosition": "both",
         "directionBased": true,
         "messagePosition": "suffix",
         "messageUp": "上昇です。",
@@ -166,19 +166,19 @@
       "displayTf": "4H"
     },
     {
-      "id": "rule_1771941801924_2mgo9hu76",
+      "id": "rule_1771979564923_km95r2r6z",
       "name": "ダウ+交差_D",
       "enabled": true,
       "scope": {
         "symbol": ""
       },
-      "created_at": "2026-02-24T23:03:21.928354",
-      "updated_at": "2026-02-24T23:03:48.850780",
+      "created_at": "2026-02-25T09:32:45.233874",
+      "updated_at": "2026-02-25T09:33:22.392414",
       "sort_order": 9999,
       "voice": {
         "message": "日足でダウと交差が揃いました。",
         "insertSymbol": true,
-        "symbolInsertPosition": "suffix",
+        "symbolInsertPosition": "both",
         "directionBased": true,
         "messagePosition": "suffix",
         "messageUp": "上昇です。",

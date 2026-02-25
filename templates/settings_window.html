@@ -1674,7 +1674,21 @@ async function testVoice() {
   const insertSymbol = document.getElementById('insertSymbol').checked;
   const symbolPosition = document.getElementById('symbolInsertPosition').value;
   if (insertSymbol) {
-    const testSymbol = 'ドル円'; // テスト用
+    // 通貨名マッピング（ruleScope で選択された通貨を日本語読みに変換）
+    const _cnMap = {
+      'USDJPY':'ドル円', 'EURUSD':'ユーロドル', 'GBPUSD':'ポンドドル',
+      'GBPJPY':'ポンド円', 'AUDUSD':'オージードル', 'AUDJPY':'オージー円',
+      'NZDUSD':'ニュージードル', 'NZDJPY':'ニュージー円', 'CADJPY':'カナダ円',
+      'CHFJPY':'スイス円', 'EURJPY':'ユーロ円', 'GBPAUD':'ポンドオージー',
+      'EURGBP':'ユーロポンド', 'USDCAD':'ドルカナダ', 'USDCHF':'ドルスイス',
+      'EURAUD':'ユーロオージー', 'EURCAD':'ユーロカナダ', 'EURCHF':'ユーロスイス',
+      'GBPCAD':'ポンドカナダ', 'GBPCHF':'ポンドスイス', 'AUDCAD':'オージーカナダ',
+      'AUDCHF':'オージースイス', 'AUDNZD':'オージーニュージー', 'NZDCAD':'ニュージーカナダ',
+      'NZDCHF':'ニュージースイス', 'CADCHF':'カナダスイス'
+    };
+    const _scopeVal = document.getElementById('ruleScope').value;
+    // 全通貨選択（空）の場合はドル円、それ以外は選択通貨の日本語名
+    const testSymbol = _scopeVal ? (_cnMap[_scopeVal] || _scopeVal) : 'ドル円';
     if (symbolPosition === 'prefix') {
       message = testSymbol + '、' + message;
     } else if (symbolPosition === 'suffix') {

@@ -809,7 +809,8 @@ def _restore_rules_from_backup():
             rule_data = {
                 'voice': rule.get('voice', {}),
                 'cloudAlign': rule.get('cloudAlign', {}),
-                'conditions': rule.get('conditions', [])
+                'conditions': rule.get('conditions', []),
+                'displayTf': rule.get('displayTf', '')
             }
             c.execute('INSERT OR REPLACE INTO rules (id,name,enabled,scope_json,rule_json,created_at,updated_at,sort_order) VALUES (?,?,?,?,?,?,?,?)',
                 (
@@ -2480,7 +2481,8 @@ def api_rules_import():
             rule_data = {
                 'voice': rule.get('voice', {}),
                 'cloudAlign': rule.get('cloudAlign', {}),
-                'conditions': rule.get('conditions', [])
+                'conditions': rule.get('conditions', []),
+                'displayTf': rule.get('displayTf', '')
             }
             c.execute('INSERT OR REPLACE INTO rules (id,name,enabled,scope_json,rule_json,created_at,updated_at,sort_order) VALUES (?,?,?,?,?,?,?,?)',
                 (
@@ -2536,13 +2538,25 @@ def rules():
         # Debug: log the incoming payload for voice settings
         print(f'[DEBUG] Received payload: {json.dumps(payload, ensure_ascii=False, indent=2)}')
         
+        # dashboard.html は { id, name, scope, rule: { conditions, voice, alignment } } の形式で送信し、
+        # settings_window.html は { id, name, scope, conditions, voice, cloudAlign, displayTf } の
+        # フラット形式で送信する。どちらにも対応するため nested fallback を使用する。
+        _rule_nested = payload.get('rule') or {}
+        
+        # voice, cloudAlign, conditions, displayTf をトップレベルまたは rule ネストから取得
+        _voice    = payload.get('voice')     or _rule_nested.get('voice')     or {}
+        _align    = (payload.get('cloudAlign') or payload.get('alignment')
+                     or _rule_nested.get('cloudAlign') or _rule_nested.get('alignment') or {})
+        _conds    = (payload.get('conditions') or _rule_nested.get('conditions') or [])
+        _disp_tf  = (payload.get('displayTf') or _rule_nested.get('displayTf') or '')
+        
         # voice, cloudAlign, conditions等をrule_jsonにまとめる
         rule_data = {
-            'voice': payload.get('voice', {}),
-            'cloudAlign': payload.get('cloudAlign', {}),
-            'conditions': payload.get('conditions', []),
+            'voice': _voice,
+            'cloudAlign': _align,
+            'conditions': _conds,
             # 発火表示足を保持
-            'displayTf': payload.get('displayTf', '')
+            'displayTf': _disp_tf
         }
         
         # server-side validation: ensure alignment settings (if present) are sane
