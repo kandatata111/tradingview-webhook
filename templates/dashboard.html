@@ -6303,7 +6303,13 @@ function renderCurrencyTable(symbol, allStates, container) {
   
   console.log('[RENDER] orderedRows count:', orderedRows.length);
   
-  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="16" style="text-align: center; cursor: grab; color: white;">' + baseState.symbol + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>'; 
+  // ヘッダ行に通貨シンボルと日本語名を併記
+  let displayName = baseState.symbol;
+  if (typeof currencyNames !== 'undefined' && currencyNames[baseState.symbol]) {
+    // 全角括弧に変更して文字間を稼ぐ
+    displayName += '［' + currencyNames[baseState.symbol] + '］';
+  }
+  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="16" style="text-align: center; cursor: grab; color: white;">' + displayName + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>'; 
   html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th><th class="header-black">強度ゲージ</th><th class="header-black" style="color:#ffdd66">発火</th></tr>'; 
 
   orderedRows.forEach(row => {
