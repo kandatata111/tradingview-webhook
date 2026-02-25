@@ -94,6 +94,14 @@ active_fires: dict = {}
 # 全シンボル一括評価の最終実行時刻（エポック秒）
 _last_all_eval_time: float = 0.0
 
+# サーバー起動直後の初回評価フラグ
+# True の間は発火しない。evaluate_all_symbols_from_db の初回完了後に False になる
+_server_just_started: bool = True
+
+# 再起動直後のベースライン（インメモリ）: key=(rule_id, symbol) -> current_values dict
+# DBに書かず、メモリ上で前回値として保持。次回評価時に変化検知の基準にする
+_restart_baseline: dict = {}
+
 print(f"[STORAGE] Database exists: {os.path.exists(DB_PATH)}")
 if os.path.exists(DB_PATH):
     db_size_mb = os.path.getsize(DB_PATH) / (1024 * 1024)
@@ -2101,7 +2109,7 @@ def current_states():
     print('[ACCESS] Current states request')
     # 全通貨ルール評価を常に更新（クールダウンなし）して発火マークを常に最新状態に一致させる
     try:
-        evaluate_all_symbols_from_db(cooldown=0)
+        evaluate_all_symbols_from_db(cooldown=5.0)
     except Exception as _ae:
         print(f'[WARN] evaluate_all_symbols_from_db failed: {_ae}')
     try:
@@ -4527,7 +4535,7 @@ def evaluate_all_symbols_from_db(cooldown: float = 10.0):
 
     連続呼び出しを防ぐため cooldown（秒）以内の再実行はスキップする。
     """
-    global _last_all_eval_time
+    global _last_all_eval_time, _server_just_started, _restart_baseline
     import time as _time_mod
     now = _time_mod.time()
     if now - _last_all_eval_time < cooldown:
@@ -4569,6 +4577,10 @@ def evaluate_all_symbols_from_db(cooldown: float = 10.0):
             print(f'[ALL_EVAL] Error evaluating {sym}: {e}')
 
     print(f'[ALL_EVAL] Done. active_fires has {len(active_fires)} entries')
+    # 起動直後の初回評価が完了したのでフラグをクリア
+    if _server_just_started:
+        _server_just_started = False
+        print('[ALL_EVAL] サーバー起動後初回評価完了。次回評価から通常発火に戻ります。')
 
 
 def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf=None, is_first_receive=False):
@@ -4581,6 +4593,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
     is_first_receive: このタイムフレーム・通貨ペアの組み合わせで初回受信かどうか
     """
     global active_fires  # 発火表示状態マップへのアクセス
+    global _server_just_started, _restart_baseline  # 起動直後フラグ
     # Simple inline logging function - writes directly to file
     def wlog(msg):
         """Write log directly to file"""
@@ -4949,6 +4962,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         if isinstance(val, str):
                             if val == '▲GC': return 'up'
                             if val == '▼DC': return 'down'
+                            if val in ('up', 'down'): return val  # 既正規化値はそのまま
                         return None  # 無効値(・など)はNoneに統一
                     
                     # dauten の場合: 'up'/'down' に統一
@@ -4956,6 +4970,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         if isinstance(val, str):
                             if val == '▲Dow': return 'up'
                             if val == '▼Dow': return 'down'
+                            if val in ('up', 'down'): return val  # 既正規化値はそのまま
                         return None  # 無効値(・など)はNoneに統一
 
                     # po の場合: 方向のみに統一（P2/P3を無視して先頭の▲/▼のみで判定）
@@ -4963,6 +4978,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         if isinstance(val, str):
                             if val.startswith('▲'): return 'up'
                             if val.startswith('▼'): return 'down'
+                            if val in ('up', 'down'): return val  # 既正規化値はそのまま
                         return None  # 無効値(・など)はNoneに統一
                     
                     return val
@@ -4986,9 +5002,42 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 if last_fire and last_fire[0]:
                     try:
-                        last_state = json.loads(last_fire[0])
+                        _ls_raw = json.loads(last_fire[0])
+                        # restart/initial/no_fire フラグ形式のスナップショットは比較に使わない
+                        if isinstance(_ls_raw, dict) and not any(k in _ls_raw for k in ('restart', 'initial', 'no_fire')):
+                            # V3形式かチェック: キーが "tf.field" 形式 or "tf_order" (alignment)
+                            _has_v3_format = any('.' in k for k in _ls_raw.keys()) or 'tf_order' in _ls_raw
+                            if _has_v3_format:
+                                # V3形式: 旧フォーマット値("▲Dow"等) → 正規化形式("up"等)に変換
+                                normalized_last = {}
+                                for _k, _v in _ls_raw.items():
+                                    _field_for_norm = _k.rsplit('.', 1)[-1] if '.' in _k else _k
+                                    normalized_last[_k] = normalize_value_for_comparison(_v, _field_for_norm)
+                                last_state = normalized_last
+                            elif not alignment_is_active and conditions:
+                                # 旧形式 {"dauten":"▲Dow"}: ルールのconditionsを使って
+                                # "tf.field" 形式にマッピングして再起動後の誤発火を防ぐ
+                                _mapped_last = {}
+                                for _cond in conditions:
+                                    _c_tf = _cond.get('timeframe') or _cond.get('label')
+                                    _c_field = _cond.get('field')
+                                    if _c_tf and _c_field and _c_field in _ls_raw:
+                                        _new_key = f'{_c_tf}.{_c_field}'
+                                        _mapped_last[_new_key] = normalize_value_for_comparison(_ls_raw[_c_field], _c_field)
+                                last_state = _mapped_last if _mapped_last else None
+                                if last_state:
+                                    wlog(f'[RULE] 旧フォーマットDB → V3キーにマッピング: {last_state}')
+                            else:
+                                last_state = None
+                        else:
+                            last_state = None  # フラグ形式は比較に使わない
                     except:
                         last_state = None
+                
+                # _restart_baseline にこのルールの値が記録されている場合はそれを使う
+                # (再起動直後の初回比較を正しく行うため)
+                if last_state is None and (rule_id, symbol) in _restart_baseline:
+                    last_state = _restart_baseline.get((rule_id, symbol))
                 
                 # ===== 現在の値を収集（正規化済み）=====
                 current_values = {}
@@ -5003,8 +5052,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         current_values[f'{tf_label}.{field}'] = normalized_val
                         wlog(f'[RULE] Current value: {tf_label}.{field} = {raw_value} → {normalized_val}')
                 
-                # ===== 発火表示足のアクティブ状態更新（常に実行 - continue の前） =====
-                # all_matched=True: 条件維持中 → 表示フラグをセット
+                # ===== 発火表示足のアクティブ状態更新（常に実行・起動直後も含む） =====
+                # all_matched=True: 条件維持中 → 表示フラグをセット（サーバー再起動後も即時復元）
                 # all_matched=False: 条件崩れ  → 表示フラグをクリア
                 _display_tf_rule = rule.get('displayTf') or None
                 # displayTf が未設定の場合、conditions の最初の TF を自動推論
@@ -5086,6 +5135,13 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             del active_fires[_fire_key]
                             wlog(f'[ACTIVE_FIRE] Cleared {_fire_key} (conditions no longer met)')
 
+                # ===== サーバー起動直後：現在値を記録するだけで発火しない =====
+                # (active_fires 更新は上で完了済み → セル表示は即時復元される)
+                if _server_just_started:
+                    wlog(f'[RULE] サーバー起動直後モード: "{rule_name}" の現在値を初期状態として記録（発火しない）')
+                    _restart_baseline[(rule_id, symbol)] = current_values
+                    continue  # 通知・音は出さず次のルールへ
+
                 # ===== 初回受信（履歴なし）は値を記録するだけで発火しない =====
                 if last_state is None:
                     wlog(f'[RULE] No history found, recording initial state without firing')
@@ -5106,15 +5162,38 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 # ===== セルが変化したかチェック =====
                 has_change = False
+                _unknown_to_known = False  # None→値への遷移(不明→既知)フラグ
                 for key, current_val in current_values.items():
                     last_val = last_state.get(key)
-                    if current_val != last_val:
+                    if last_val is None and current_val is not None:
+                        # 前回値不明(None)→今回値あり: 初期データ取得のため発火しない
+                        _unknown_to_known = True
+                        wlog(f'[RULE] Cell initial-known (no fire): {key}: None → {current_val}')
+                    elif current_val != last_val:
                         has_change = True
                         wlog(f'[RULE] Cell change detected: {key}: {last_val} → {current_val}')
                         break
                     else:
                         wlog(f'[RULE] Cell unchanged: {key} = {current_val}')
                 
+                # None→値遷移のみで has_change=False の場合: 状態を更新して発火しない
+                if _unknown_to_known and not has_change:
+                    wlog(f'[RULE] Initial data received for rule "{rule_name}", updating state without firing')
+                    try:
+                        conn_unk = sqlite3.connect(DB_PATH)
+                        c_unk = conn_unk.cursor()
+                        c_unk.execute('''INSERT INTO fire_history
+                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                         VALUES (?, ?, ?, ?, ?, ?)''',
+                                      (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                       json.dumps({'no_fire': True}, ensure_ascii=False),
+                                       json.dumps(current_values, ensure_ascii=False)))
+                        conn_unk.commit()
+                        conn_unk.close()
+                    except Exception as e:
+                        wlog(f'[RULE] Error saving initial-known state: {e}')
+                    continue
+
                 # ===== 発火判定: セル変化 AND 条件を満たす =====
                 if has_change and all_matched:
                     should_fire = True
@@ -5421,7 +5500,13 @@ def _evaluate_rules_with_timeframe_data(data, symbol, tf_val):
                     last_state = None
                     if last_fire and last_fire[0]:
                         try:
-                            last_state = json.loads(last_fire[0])
+                            _ls_raw2 = json.loads(last_fire[0])
+                            if isinstance(_ls_raw2, dict) and not any(k in _ls_raw2 for k in ('restart', 'initial', 'no_fire')):
+                                # 旧フォーマット値を正規化して格納
+                                normalized_last2 = {}
+                                for _k2, _v2 in _ls_raw2.items():
+                                    normalized_last2[_k2] = _v2
+                                last_state = normalized_last2
                         except:
                             last_state = None
                     
@@ -5627,7 +5712,9 @@ def _evaluate_rules_with_state(base_state):
                     last_state = None
                     if last_fire and last_fire[0]:
                         try:
-                            last_state = json.loads(last_fire[0])
+                            _ls_raw3 = json.loads(last_fire[0])
+                            if isinstance(_ls_raw3, dict) and not any(k in _ls_raw3 for k in ('restart', 'initial', 'no_fire')):
+                                last_state = _ls_raw3
                         except:
                             last_state = None
                     

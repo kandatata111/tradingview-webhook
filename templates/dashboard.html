@@ -6057,7 +6057,15 @@ function renderCurrencyTable(symbol, allStates, container) {
   
   console.log(`[RENDER_START] ${symbol} - baseTimeframe=${baseTimeframe} (from ${fromElement ? 'element' : 'localStorage'})`);
   
-  const config = timeframeConfig[baseTimeframe];
+  let config = timeframeConfig[baseTimeframe];
+  
+  // configが存在しない場合、利用可能なTFからフォールバック
+  if (!config) {
+    const configFallbackOrder = ['15', '60', '240', 'D', '15m', '1H', '4H'];
+    for (const fbKey of configFallbackOrder) {
+      if (timeframeConfig[fbKey]) { config = timeframeConfig[fbKey]; baseTimeframe = fbKey; break; }
+    }
+  }
   
   console.log('[BASE_TF] renderCurrencyTable using baseTimeframe:', baseTimeframe);
   
@@ -6076,7 +6084,20 @@ function renderCurrencyTable(symbol, allStates, container) {
   // 主体時間足のデータを取得
   const baseTfVariants = [baseTimeframe];
   
-  const baseState = findValidState(symbol, baseTfVariants);
+  let baseState = findValidState(symbol, baseTfVariants);
+  
+  // フォールバック: baseTimeframeのデータがない場合は、利用可能なTFのうち最も短いものを使用
+  if (!baseState) {
+    const availableTfs = ['15', '60', '240', 'D', 'W', 'M', '15m', '1H', '4H', '5m', '5'];
+    for (const fallbackTf of availableTfs) {
+      const fb = findValidState(symbol, [fallbackTf]);
+      if (fb) {
+        baseState = fb;
+        console.warn(`[RENDER] ${symbol} - baseTimeframe "${baseTimeframe}" not found, falling back to "${fallbackTf}"`);
+        break;
+      }
+    }
+  }
   
   if (!baseState) {
     container.innerHTML = '<div class="loading">主体時間足のデータがありません</div>';
