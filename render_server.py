@@ -2099,9 +2099,9 @@ def health_check():
 @app.route('/current_states')
 def current_states():
     print('[ACCESS] Current states request')
-    # 全通貨ルール評価を更新（クールダウン付き）
+    # 全通貨ルール評価を常に更新（クールダウンなし）して発火マークを常に最新状態に一致させる
     try:
-        evaluate_all_symbols_from_db(cooldown=10.0)
+        evaluate_all_symbols_from_db(cooldown=0)
     except Exception as _ae:
         print(f'[WARN] evaluate_all_symbols_from_db failed: {_ae}')
     try:
@@ -4776,6 +4776,9 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         elif field == 'bos_count':
                             # bos_countは0以外の値が有効
                             condition_met = found_value is not None and found_value != 0 and found_value != '0'
+                        elif field == 'po':
+                            # POは▲か▼で始まる値が有効（P2/P3問わず方向のみ判定、'-'は無効）
+                            condition_met = isinstance(found_value, str) and (found_value.startswith('▲') or found_value.startswith('▼'))
                         else:
                             condition_met = found_value is not None and found_value != ''
                     else:
@@ -4809,6 +4812,14 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             elif dauten_for_bos == '▼Dow':
                                 direction = 'down'
                             wlog(f'[RULE] bos_count direction from dauten: {dauten_for_bos} -> {direction}')
+                        elif field == 'po':
+                            # POは先頭の▲/▼で方向判定（P2/P3は無視）
+                            if isinstance(found_value, str):
+                                if found_value.startswith('▲'):
+                                    direction = 'up'
+                                elif found_value.startswith('▼'):
+                                    direction = 'down'
+                            wlog(f'[RULE] po direction: {found_value} -> {direction}')
                         
                         condition_directions.append(direction)
                         wlog(f'[RULE] Added direction: {direction}')
@@ -4933,23 +4944,26 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 return 0
                         return 0
                     
-                    # gc の場合: boolean に統一
+                    # gc の場合: 方向文字列に統一（変化検知と方向一致チェックのため）
                     if field_name == 'gc':
-                        if isinstance(val, bool):
-                            return val
                         if isinstance(val, str):
-                            return val.lower() in ('true', '1', 'yes', 'gc')
-                        return bool(val)
+                            if val == '▲GC': return 'up'
+                            if val == '▼DC': return 'down'
+                        return None  # 無効値(・など)はNoneに統一
                     
                     # dauten の場合: 'up'/'down' に統一
                     if field_name == 'dauten':
                         if isinstance(val, str):
-                            val_lower = val.lower()
-                            if 'up' in val_lower or '上' in val_lower:
-                                return 'up'
-                            if 'down' in val_lower or '下' in val_lower:
-                                return 'down'
-                        return val
+                            if val == '▲Dow': return 'up'
+                            if val == '▼Dow': return 'down'
+                        return None  # 無効値(・など)はNoneに統一
+
+                    # po の場合: 方向のみに統一（P2/P3を無視して先頭の▲/▼のみで判定）
+                    if field_name == 'po':
+                        if isinstance(val, str):
+                            if val.startswith('▲'): return 'up'
+                            if val.startswith('▼'): return 'down'
+                        return None  # 無効値(・など)はNoneに統一
                     
                     return val
 
@@ -5014,6 +5028,26 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             _cd_valid = [d for d in condition_directions if d is not None]
                             if _cd_valid:
                                 _fire_dir = '上昇' if _cd_valid[0] == 'up' else '下降'
+                            else:
+                                # condition_directionsが全てNoneの場合、実際のクラウド値から方向を再取得
+                                for _cond_back in conditions:
+                                    _back_field = _cond_back.get('field')
+                                    _back_tf = _cond_back.get('timeframe') or _cond_back.get('label')
+                                    _back_cloud = tf_cloud_data.get(_back_tf, {})
+                                    if _back_field == 'dauten':
+                                        _v = _back_cloud.get('dauten')
+                                        if _v == '▲Dow': _fire_dir = '上昇'; break
+                                        elif _v == '▼Dow': _fire_dir = '下降'; break
+                                    elif _back_field == 'gc':
+                                        _v = _back_cloud.get('gc')
+                                        if _v == '▲GC': _fire_dir = '上昇'; break
+                                        elif _v == '▼DC': _fire_dir = '下降'; break
+                                    elif _back_field == 'po':
+                                        _v = _back_cloud.get('po')
+                                        if isinstance(_v, str):
+                                            if _v.startswith('▲'): _fire_dir = '上昇'; break
+                                            elif _v.startswith('▼'): _fire_dir = '下降'; break
+                                wlog(f'[RULE] _fire_dir fallback from cloud values: {_fire_dir}')
                         _fa_existing = active_fires.get(_fire_key, {}).get('fired_at')
                         if not _fa_existing:
                             # active_fires が空の場合（サーバー再起動後など）
@@ -5150,6 +5184,36 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 direction = '上昇'
                             elif dauten_value == '▼Dow':
                                 direction = '下降'
+
+                        elif primary_field == 'po':
+                            # POは先頭の▲/▼で方向判定（P2/P3は無視）
+                            po_value = cloud_data.get('po')
+                            wlog(f'[RULE] Direction from po: {po_value}')
+                            if isinstance(po_value, str):
+                                if po_value.startswith('▲'):
+                                    direction = '上昇'
+                                elif po_value.startswith('▼'):
+                                    direction = '下降'
+
+                        # 最初の条件で方向が取れない場合、他の条件から也試みる
+                        if direction is None and len(conditions) > 1:
+                            for _cond_fb in conditions[1:]:
+                                _fb_field = _cond_fb.get('field')
+                                _fb_tf = _cond_fb.get('timeframe') or _cond_fb.get('label')
+                                _fb_cloud = tf_cloud_data.get(_fb_tf, {})
+                                if _fb_field == 'dauten':
+                                    _v = _fb_cloud.get('dauten')
+                                    if _v == '▲Dow': direction = '上昇'; break
+                                    elif _v == '▼Dow': direction = '下降'; break
+                                elif _fb_field == 'gc':
+                                    _v = _fb_cloud.get('gc')
+                                    if _v == '▲GC': direction = '上昇'; break
+                                    elif _v == '▼DC': direction = '下降'; break
+                                elif _fb_field == 'po':
+                                    _v = _fb_cloud.get('po')
+                                    if isinstance(_v, str):
+                                        if _v.startswith('▲'): direction = '上昇'; break
+                                        elif _v.startswith('▼'): direction = '下降'; break
                     
                     wlog(f'[RULE] Final direction for "{rule_name}": {direction}')
                     

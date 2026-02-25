@@ -7,6 +7,7 @@
   <!-- Socket.IO CDN -->
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
+    :root { --cs-font-size: 14px; }
     body {
       font-family: 'Segoe UI', Meiryo, sans-serif;
       background: #1a1a1a;
@@ -56,7 +57,7 @@
       grid-template-columns: 50px repeat(5, 1fr) 2fr;
       gap: 2px;
       font-family: 'Consolas', monospace;
-      font-size: 14px;
+      font-size: var(--cs-font-size,14px);
       font-weight: bold;
       width: 100%;
     }
@@ -145,7 +146,7 @@
       display: flex;
       align-items: center;
       gap: 3px;
-      font-size: 14px;
+      font-size: var(--cs-font-size,14px);
       white-space: nowrap;
     }
 
@@ -155,7 +156,7 @@
       padding: 2px 5px;
       border-radius: 3px;
       font-weight: bold;
-      font-size: 14px;
+      font-size: var(--cs-font-size,14px);
     }
 
     .sell-badge {
@@ -164,7 +165,7 @@
       padding: 2px 5px;
       border-radius: 3px;
       font-weight: bold;
-      font-size: 14px;
+      font-size: var(--cs-font-size,14px);
     }
 
     /* 推奨ペア */
@@ -411,6 +412,27 @@
       margin: 16px 0 8px;
     }
   </style>
+<script>
+// apply stored cs font size and update on storage events
+function applyCsFontSize(){
+  const sz = localStorage.getItem('tv_cs_font_size');
+  const val = sz ? sz+'px' : '14px';
+  document.documentElement.style.setProperty('--cs-font-size', val);
+}
+applyCsFontSize();
+window.addEventListener('storage', (e)=>{
+  if(e.key==='tv_cs_font_size') applyCsFontSize();
+});
+// セレクト変更時に即時反映（保存ボタンを押さなくても反映）
+document.addEventListener('DOMContentLoaded', function(){
+  const sel = document.getElementById('csFontSizeSelect');
+  if(sel){
+    sel.addEventListener('change', function(){
+      document.documentElement.style.setProperty('--cs-font-size', sel.value+'px');
+    });
+  }
+});
+</script>
 </head>
 <body>
   <div class="container">
@@ -479,21 +501,37 @@
                   </label>
                 </div>
               </div>
-              <div>
-                <div class="subsection-title">ズーム倍率</div>
-                <select id="zoomLevel">
-                  <option value="50">50%</option>
-                  <option value="60">60%</option>
-                  <option value="70">70%</option>
-                  <option value="80">80%</option>
-                  <option value="90">90%</option>
-                  <option value="100" selected>100%</option>
-                  <option value="110">110%</option>
-                  <option value="120">120%</option>
-                  <option value="130">130%</option>
-                  <option value="140">140%</option>
-                  <option value="150">150%</option>
-                </select>
+              <div style="display:flex;flex-direction:column;gap:16px;">
+                <div>
+                  <div class="subsection-title">ズーム倍率</div>
+                  <select id="zoomLevel">
+                    <option value="50">50%</option>
+                    <option value="60">60%</option>
+                    <option value="70">70%</option>
+                    <option value="80">80%</option>
+                    <option value="90">90%</option>
+                    <option value="100" selected>100%</option>
+                    <option value="110">110%</option>
+                    <option value="120">120%</option>
+                    <option value="130">130%</option>
+                    <option value="140">140%</option>
+                    <option value="150">150%</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="subsection-title">文字サイズ</div>
+                  <select id="csFontSizeSelect">
+                    <option value="10">10px</option>
+                    <option value="11">11px</option>
+                    <option value="12">12px</option>
+                    <option value="13">13px</option>
+                    <option value="14" selected>14px（標準）</option>
+                    <option value="15">15px</option>
+                    <option value="16">16px</option>
+                    <option value="17">17px</option>
+                    <option value="18">18px</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -773,6 +811,14 @@
         // ズーム設定を保存
         const zoomLevel = document.getElementById('zoomLevel').value;
         localStorage.setItem(STORAGE_KEY_ZOOM, zoomLevel);
+
+        // フォントサイズを保存
+        const csFontSizeEl = document.getElementById('csFontSizeSelect');
+        if (csFontSizeEl) {
+          const fsVal = csFontSizeEl.value;
+          localStorage.setItem('tv_cs_font_size', fsVal);
+          applyCsFontSize();
+        }
         
         // 保存成功メッセージを表示
         const saveMsg = document.getElementById('saveMessage');
@@ -877,6 +923,15 @@
           applyZoom(savedZoom);
           console.log('[LOAD] ズーム設定を復元:', savedZoom + '%');
         }
+
+        // フォントサイズを読み込み
+        const savedCsFontSize = localStorage.getItem('tv_cs_font_size');
+        const csFontSizeEl2 = document.getElementById('csFontSizeSelect');
+        if (savedCsFontSize && csFontSizeEl2) {
+          csFontSizeEl2.value = savedCsFontSize;
+          console.log('[LOAD] フォントサイズを復元:', savedCsFontSize + 'px');
+        }
+        applyCsFontSize();
       } catch (e) {
         console.error('[LOAD] 設定の読み込みに失敗:', e);
       }

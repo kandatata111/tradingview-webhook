@@ -404,6 +404,20 @@
         </select>
       </div>
       <div class="row">
+        <label for="csFontSizeSelect">通貨強弱フォントサイズ</label>
+        <select id="csFontSizeSelect">
+          <option value="10">10px</option>
+          <option value="11">11px</option>
+          <option value="12">12px</option>
+          <option value="13">13px</option>
+          <option value="14" selected>14px</option>
+          <option value="15">15px</option>
+          <option value="16">16px</option>
+          <option value="17">17px</option>
+          <option value="18">18px</option>
+        </select>
+      </div>
+      <div class="row">
         <label for="timeFormatSelect">経過時間の表示</label>
         <select id="timeFormatSelect">
           <option value="datetime">測定開始日時</option>
@@ -786,6 +800,9 @@ function loadSettingsFromLocalStorage() {
   // フォントサイズ
   const fontSize = localStorage.getItem('tv_font_size') || '14';
   document.getElementById('fontSizeSelect').value = fontSize;
+  // 通貨強弱フォントサイズ
+  const csFontSize = localStorage.getItem('tv_cs_font_size') || '14';
+  document.getElementById('csFontSizeSelect').value = csFontSize;
   
   // 時間形式
   const timeFormat = localStorage.getItem('tv_time_format') || 'datetime';
@@ -1218,6 +1235,7 @@ function addConditionRow(cond = {}) {
       <option value="dauten" ${cond.field === 'dauten' ? 'selected' : ''}>ダウ転</option>
       <option value="bos_count" ${cond.field === 'bos_count' ? 'selected' : ''}>突破数</option>
       <option value="gc" ${cond.field === 'gc' ? 'selected' : ''}>雲交差</option>
+      <option value="po" ${cond.field === 'po' ? 'selected' : ''}>PO</option>
       <option value="distance_from_prev" ${cond.field === 'distance_from_prev' ? 'selected' : ''}>各雲間</option>
       <option value="distance_from_price" ${cond.field === 'distance_from_price' ? 'selected' : ''}>価格間</option>
       <option value="angle" ${cond.field === 'angle' ? 'selected' : ''}>雲角度</option>
@@ -1503,6 +1521,11 @@ function setupEventHandlers() {
   document.getElementById('fontSizeSelect').addEventListener('change', (e) => {
     localStorage.setItem('tv_font_size', e.target.value);
     notifyParent('font_size_changed', { size: e.target.value });
+  });
+  // 通貨強弱フォントサイズ
+  document.getElementById('csFontSizeSelect').addEventListener('change', (e) => {
+    localStorage.setItem('tv_cs_font_size', e.target.value);
+    notifyParent('cs_font_size_changed', { size: e.target.value });
   });
   
   // 時間形式

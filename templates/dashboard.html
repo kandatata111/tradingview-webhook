@@ -7188,7 +7188,7 @@ function createConditionRow(c) {
   // hide/remove val when field is one of the toggle-only types
   function updateCondVisibility() {
     try {
-      const hideVal = ['dauten','bos_count','gc','dauten_start_time_str','cross_start_time'];
+      const hideVal = ['dauten','bos_count','gc','po','dauten_start_time_str','cross_start_time'];
       
       if (hideVal.includes(field.value)) {
         // remove val from DOM
