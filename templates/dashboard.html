@@ -6662,7 +6662,7 @@ function renderCurrencyTable(symbol, allStates, container) {
       const fireTitle = fireMeta
           ? (fireMeta.rule_name || '') + (fireMeta.fired_at ? '\n' + fireMeta.fired_at : '')
           : '';
-      const fireKey = symbol + '/' + c.label;
+      const fireKey = symbol + '/' + getTfDisplayLabel(c.label);
       const fireFp  = fireMeta ? (fireMeta.rule_id || '') + '|' + (fireMeta.fired_at || '') : '';
       const fireCellHtml = '<td class="fire-cell" data-fire-key="' + fireKey + '" data-fire-fp="' + fireFp + '"' +
           (fireTitle ? ' title="' + fireTitle + '"' : '') +
