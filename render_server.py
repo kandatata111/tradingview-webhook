@@ -5346,6 +5346,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         'rule_name': rule_name,
                         'symbol': symbol,
                         'tf': 'multi',
+                        'display_tf': _display_tf_rule or '',
                         'timestamp': fired_at,
                         'message': final_message,
                         'direction': direction,

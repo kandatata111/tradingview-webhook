@@ -5144,6 +5144,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 発火履歴に即座に追加(APIを待たずに)
       addNotificationToHistory(notification);
       
+      // ===== 点滅トリガー: new_notification 受信時のみ =====
+      if (notification.symbol && notification.display_tf) {
+        const _blinkKey = notification.symbol + '/' + notification.display_tf;
+        _pendingBlinks.add(_blinkKey);
+        console.log('[BLINK] Added pending blink for', _blinkKey);
+        // DOMが既に存在する場合は即時点滅開始
+        document.querySelectorAll('.fire-cell[data-fire-key="' + _blinkKey + '"]').forEach(cell => {
+          if (!cell.classList.contains('blinking')) {
+            cell.classList.add('blinking');
+            cell.addEventListener('click', () => {
+              cell.classList.remove('blinking');
+              _pendingBlinks.delete(_blinkKey);
+            }, { once: true });
+          }
+        });
+      }
+      
       // 通知リストの更新はポーリングに任せるため、setTimeoutを削除
     });
     
@@ -6025,6 +6042,8 @@ async function load() {
 
 // 発火既知マップ： key = 'symbol/tf'  value = 'rule_id|fired_at'のフィンガープリント
 const _knownFires = new Map();
+// 点滅待ちセット: new_notification 受信時のみ追加、クリック解除で削除（ページ再読込でリセット）
+const _pendingBlinks = new Set();
 // ローカルストレージから復元（サーバー再起動時にも記憶を保持）
 (function(){
   try {
@@ -6667,22 +6686,24 @@ function renderCurrencyTable(symbol, allStates, container) {
     container.querySelectorAll('.fire-cell').forEach(cell => {
       const key = cell.dataset.fireKey || '';
       const fp  = cell.dataset.fireFp  || '';
-      if (fp && _knownFires.get(key) !== fp) {
-        // 新規発火: 点滅開始
+      if (_pendingBlinks.has(key)) {
+        // new_notification で追加済みのキー → 点滅継続
         cell.classList.add('blinking');
         cell.addEventListener('click', () => {
           cell.classList.remove('blinking');
-          _knownFires.set(key, fp);  // 確認済みに登録
+          _pendingBlinks.delete(key);
+          _knownFires.set(key, fp);
           try { localStorage.setItem('knownFires', JSON.stringify(Object.fromEntries(_knownFires))); } catch(e) {}
-        });
-      } else if (!fp) {
-        // 発火なしに戻ったら済みレコードを削除
-        _knownFires.delete(key);
-        try { localStorage.setItem('knownFires', JSON.stringify(Object.fromEntries(_knownFires))); } catch(e) {}
+        }, { once: true });
+      } else {
+        cell.classList.remove('blinking');
+        if (!fp) {
+          // 発火なしに戻ったら済みレコードを削除
+          _knownFires.delete(key);
+          try { localStorage.setItem('knownFires', JSON.stringify(Object.fromEntries(_knownFires))); } catch(e) {}
+        }
       }
     });
-    // map内容をまとめて保存（ループ外）
-    try { localStorage.setItem('knownFires', JSON.stringify(Object.fromEntries(_knownFires))); } catch(e) {}
 
   } else {
     console.error('[RENDER] ✗ Container not found!');
