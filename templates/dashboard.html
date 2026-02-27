@@ -5755,67 +5755,76 @@ function getRuleConditionFieldsForSymbol(symbol, ruleId) {
 }
 
 // 発火方向に一致している条件フィールドの中で最も後発の時刻を返す。
-// sameDirection チェックをせず、方向が一致するフィールドだけを対象にする。
+// 比較には生のmsタイムスタンプを使用し、表示は_strをそのまま利用する。
 // 返り値: { diff: number(分), alignedAtStr: string } or null
 function getAlignedTimeDiffForFire(cloud, ruleFields, fireDirection) {
   if (!cloud || !ruleFields || ruleFields.length === 0) return null;
   const expectedUp = (fireDirection === '上昇');
 
-  function parseTime(str) {
-    if (!str || str === '-') return null;
-    const segments = str.split('/');
-    if (segments.length < 4) return null;
-    const year = 2000 + parseInt(segments[0]);
-    const month = parseInt(segments[1]) - 1;
-    const day = parseInt(segments[2]);
-    const timePart = segments[3];
-    let hour = 0, minute = 0;
-    if (timePart.includes(':')) {
-      const tp = timePart.split(':');
-      hour = parseInt(tp[0]);
-      minute = parseInt(tp[1]);
-    } else {
-      hour = parseInt(timePart);
-    }
-    return new Date(year, month, day, hour, minute);
+  // YY/MM/DD/HH:mm 形式の文字列をmsタイムスタンプに変換（フォールバック用）
+  function parseDatetimeStr(str) {
+    if (!str || str === '-') return 0;
+    const segs = str.split('/');
+    if (segs.length < 4) return 0;
+    const year = 2000 + parseInt(segs[0]);
+    const month = parseInt(segs[1]) - 1;
+    const day = parseInt(segs[2]);
+    const tp = segs[3].split(':');
+    const hour = parseInt(tp[0]) || 0;
+    const minute = parseInt(tp[1]) || 0;
+    const d = new Date(year, month, day, hour, minute);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
   }
 
-  function getEntry(field) {
-    let tStr, isUp;
-    if (field === 'dauten') {
-      tStr = cloud.dauten_start_time_str;
-      isUp = (cloud.dauten === '▲Dow');
-    } else if (field === 'gc') {
-      tStr = cloud.cross_start_time_str;
-      isUp = (cloud.gc === '▲GC');
-    } else if (field === 'po') {
-      tStr = cloud.po_fire_time_str;
-      isUp = !!(cloud.po && cloud.po.startsWith('▲'));
-    } else {
-      return null;
-    }
-    if (!tStr || tStr === '-') return null;
-    if (isUp !== expectedUp) return null; // 方向不一致はスキップ
-    const dt = parseTime(tStr);
-    if (!dt) return null;
-    return { str: tStr, dt: dt };
-  }
+  const candidates = [];
 
-  let latestEntry = null;
   for (const field of ruleFields) {
-    const entry = getEntry(field);
-    if (!entry) continue;
-    if (!latestEntry || entry.dt.getTime() > latestEntry.dt.getTime()) {
-      latestEntry = entry;
+    let isUp = null;
+    let tMs = 0;   // 比較用: 生のmsタイムスタンプ
+    let tStr = ''; // 表示用: _str フィールドをそのまま使う
+
+    if (field === 'dauten') {
+      const d = cloud.dauten;
+      // Pineスクリプト形式('▲Dow'/'▼Dow')と古いデータ形式('up'/'down')の両方に対応
+      if (d === '▲Dow' || d === 'up')   isUp = true;
+      else if (d === '▼Dow' || d === 'down') isUp = false;
+      tMs  = Number(cloud.dauten_start_time) || 0; // 生msタイムスタンプ
+      tStr = cloud.dauten_start_time_str || '';
+    } else if (field === 'gc') {
+      const g = cloud.gc;
+      // Pineスクリプト形式('▲GC'/'▼DC')とboolean形式(true/false)の両方に対応
+      if (g === '▲GC' || g === true)   isUp = true;
+      else if (g === '▼DC' || g === false) isUp = false;
+      tMs  = Number(cloud.cross_start_time) || 0; // 生msタイムスタンプ
+      tStr = cloud.cross_start_time_str || '';
+    } else if (field === 'po') {
+      const p = cloud.po;
+      if (p && String(p).startsWith('▲')) isUp = true;
+      else if (p && String(p).startsWith('▼')) isUp = false;
+      // poは生ms未送信のためstrをパースしてフォールバック
+      tStr = cloud.po_fire_time_str || '';
+      tMs  = parseDatetimeStr(tStr);
     }
+
+    if (isUp === null || isUp !== expectedUp) continue;
+    if (!tStr || tStr === '-' || tStr === '') continue;
+
+    candidates.push({ tMs, tStr });
   }
 
-  if (!latestEntry) return null;
+  if (candidates.length === 0) return null;
 
-  const alignedAt = latestEntry.dt.getTime();
-  let diffMin = Math.max(0, Math.floor((Date.now() - alignedAt) / 60000));
-  diffMin = Math.floor(diffMin / 5) * 5;
-  return { diff: diffMin, alignedAtStr: latestEntry.str };
+  // 最新（tMs が最大）のものを選択
+  let best = candidates[0];
+  for (const c of candidates) {
+    if (c.tMs > best.tMs) best = c;
+  }
+
+  const ms = best.tMs;
+  const diffMin = ms > 0
+    ? Math.floor(Math.max(0, (Date.now() - ms) / 60000) / 5) * 5
+    : 0;
+  return { diff: diffMin, alignedAtStr: best.tStr };
 }
 
 function formatTimeDiff(diffMin, format) {
