@@ -5723,8 +5723,22 @@ function calculateTrendWithConfig(cloud, config) {
 }
 
 // 追加条件に応じてどのイベント（ダウ転/交差/PO）を考慮するか算出
-function getRuleConditionFieldsForSymbol(symbol) {
+// ruleId が渡された場合はそのルールのみを参照し、そうでなければ指定シンボルに
+// マッチする有効ルール全体のunionを返す。
+function getRuleConditionFieldsForSymbol(symbol, ruleId) {
   if (!allRules || allRules.length === 0) return [];
+  // ruleId がある場合は先に探す
+  if (ruleId) {
+    const rule = allRules.find(r => r.id === ruleId);
+    if (rule) {
+      const conds = (rule.rule && rule.rule.conditions) || ([]);
+      return conds
+        .filter(c => c && c.field && ['dauten','gc','po'].includes(c.field))
+        .map(c => c.field);
+    }
+    // fall through to union logic if rule not found
+  }
+
   const fields = new Set();
   allRules.forEach(r => {
     if (r.enabled === false) return;
@@ -6554,7 +6568,10 @@ function renderCurrencyTable(symbol, allStates, container) {
 
       // calculate timeDiffHtml but do not append yet (moved to after fire cell)
       console.log(`[BEFORE_TIMEDIFF] ${symbol}/${c.label}: About to calculate time difference`);
-      const ruleFields = getRuleConditionFieldsForSymbol(symbol);
+      // use fired rule's conditions if available otherwise fall back to symbol-wide union
+      const ruleId = fireMeta && fireMeta.rule_id ? fireMeta.rule_id : null;
+      const ruleFields = getRuleConditionFieldsForSymbol(symbol, ruleId);
+      console.log('[RULEFIELDS]', symbol, 'ruleId=', ruleId, 'fields=', ruleFields);
       const timeDiffResult = calculateTransferTimeDiff(c, ruleFields);
       let timeDiffFormatted;
       if (timeFormat === 'datetime') {
