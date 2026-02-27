@@ -481,10 +481,11 @@
         <label><input type="checkbox" class="col-toggle" data-col="8" checked> 雲厚み</label>
         <label><input type="checkbox" class="col-toggle" data-col="9" checked> ダウ時間</label>
         <label><input type="checkbox" class="col-toggle" data-col="10" checked> 交差時間</label>
-        <label><input type="checkbox" class="col-toggle" data-col="11" checked> 時間差</label>
-        <label><input type="checkbox" class="col-toggle" data-col="12" checked> PO時間</label>
-        <label><input type="checkbox" class="col-toggle" data-col="13" checked> トレンド</label>
-        <label><input type="checkbox" class="col-toggle" data-col="14" checked> 強度ゲージ</label>
+        <label><input type="checkbox" class="col-toggle" data-col="11" checked> PO時間</label>
+        <label><input type="checkbox" class="col-toggle" data-col="12" checked> トレンド</label>
+        <label><input type="checkbox" class="col-toggle" data-col="13" checked> 強度ゲージ</label>
+        <label><input type="checkbox" class="col-toggle" data-col="14" checked> 発火</label>
+        <label><input type="checkbox" class="col-toggle" data-col="15" checked> 経過時間</label>
       </div>
     </div>
   </div>
@@ -1233,16 +1234,9 @@ function addConditionRow(cond = {}) {
     </select>
     <select class="cond-field">
       <option value="dauten" ${cond.field === 'dauten' ? 'selected' : ''}>ダウ転</option>
-      <option value="bos_count" ${cond.field === 'bos_count' ? 'selected' : ''}>突破数</option>
       <option value="gc" ${cond.field === 'gc' ? 'selected' : ''}>雲交差</option>
       <option value="po" ${cond.field === 'po' ? 'selected' : ''}>PO</option>
-      <option value="distance_from_prev" ${cond.field === 'distance_from_prev' ? 'selected' : ''}>各雲間</option>
-      <option value="distance_from_price" ${cond.field === 'distance_from_price' ? 'selected' : ''}>価格間</option>
-      <option value="angle" ${cond.field === 'angle' ? 'selected' : ''}>雲角度</option>
-      <option value="thickness" ${cond.field === 'thickness' ? 'selected' : ''}>雲厚み</option>
-      <option value="transfer_time_diff" ${cond.field === 'transfer_time_diff' ? 'selected' : ''}>転換時間差</option>
     </select>
-    <input class="cond-value" type="text" placeholder="値" value="${cond.value || ''}">
     <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;">削除</button>
   `;
   
@@ -1278,8 +1272,7 @@ async function saveRule() {
     },
     conditions: Array.from(document.querySelectorAll('.cond-row')).map(row => ({
       timeframe: row.querySelector('.cond-tf')?.value,
-      field: row.querySelector('.cond-field')?.value,
-      value: row.querySelector('.cond-value')?.value
+      field: row.querySelector('.cond-field')?.value
     })).filter(c => c.timeframe && c.field),
     enabled: currentRuleId ? (allRules.find(r => r.id === currentRuleId)?.enabled !== false) : true
   };

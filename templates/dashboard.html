@@ -1152,10 +1152,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="8" checked> 雲厚み</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="9" checked> ダウ時間</label>
         <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="10" checked> 交差時間</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="11" checked> 時間差</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="12" checked> PO時間</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="13" checked> トレンド</label>
-        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="14" checked> 強度ゲージ</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="11" checked> PO時間</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="12" checked> トレンド</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="13" checked> 強度ゲージ</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="14" checked> 発火</label>
+        <label style="font-size:0.9em"><input type="checkbox" class="col-toggle" data-col="15" checked> 経過時間</label>
       </div>
     </div>
     
@@ -1337,15 +1338,9 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
               </select>
               <select class="cond-field" style="padding:6px;border-radius:6px;background:transparent;color:inherit">
                 <option value="dauten">ダウ転</option>
-                <option value="bos_count">突破数</option>
                 <option value="gc">雲交差</option>
-                <option value="distance_from_prev">各雲間</option>
-                <option value="distance_from_price">価格間</option>
-                <option value="angle">雲角度</option>
-                <option value="thickness">雲厚み</option>
-                <option value="transfer_time_diff">転換時間差</option>
+                <option value="po">PO</option>
               </select>
-              <input class="cond-value" placeholder="値" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:inherit;width:60px">
               <button class="removeCond" style="padding:6px 12px">削除</button>
             </div>
           </div>
@@ -4284,7 +4279,7 @@ function applyColumnVisibility() {
   const savedCols = JSON.parse(localStorage.getItem('tv_cols') || '{}');
   
   // 列ごとに表示/非表示を適用
-  for (let colIndex = 1; colIndex <= 14; colIndex++) {
+  for (let colIndex = 1; colIndex <= 15; colIndex++) {
     const visible = savedCols[colIndex.toString()] !== false; // デフォルトtrue
     const selector = `table th:nth-child(${colIndex + 1}), table td:nth-child(${colIndex + 1})`;
     document.querySelectorAll(selector).forEach(el => {
@@ -6350,7 +6345,7 @@ function renderCurrencyTable(symbol, allStates, container) {
     displayName += '［' + currencyNames[baseState.symbol] + '］';
   }
   let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="16" style="text-align: center; cursor: grab; color: white;">' + displayName + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>'; 
-  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">時間差</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th><th class="header-black">強度ゲージ</th><th class="header-black" style="color:#ffdd66">発火</th></tr>'; 
+  html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th><th class="header-black">強度ゲージ</th><th class="header-black" style="color:#ffdd66">発火</th><th class="header-black">経過時間</th></tr>'; 
 
   orderedRows.forEach(row => {
     if (row.type === 'price') {
@@ -6500,8 +6495,8 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + crossTimeFormatted + '</td>';
       else html += '<td>' + crossTimeFormatted + '</td>';
 
+      // calculate timeDiffHtml but do not append yet (moved to after fire cell)
       console.log(`[BEFORE_TIMEDIFF] ${symbol}/${c.label}: About to calculate time difference`);
-      
       const timeDiffResult = calculateTransferTimeDiff(c);
       const timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
       let timeDiffBg = '';
@@ -6511,13 +6506,14 @@ function renderCurrencyTable(symbol, allStates, container) {
       } else {
         timeDiffBg = '#9c9c9c';
       }
+      let timeDiffHtml = '';
       if (timeDiffBg) {
-        html += '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
+        timeDiffHtml = '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
       } else {
-        html += '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
+        timeDiffHtml = '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
       }
 
-      // PO時間（ダウ時間と同じロジック）- 時間差の後に移動
+      // PO時間（ダウ時間と同じロジック）
       const poTimeFormatted = formatElapsedTime(c.po_fire_time_str || '-', timeFormat);
       if (poBgColor && poBgColor !== '#9c9c9c') {
         // PO = "✕"でない場合はPOの色を適用
@@ -6666,10 +6662,10 @@ function renderCurrencyTable(symbol, allStates, container) {
       const fireFp  = fireMeta ? (fireMeta.rule_id || '') + '|' + (fireMeta.fired_at || '') : '';
       const fireCellHtml = '<td class="fire-cell" data-fire-key="' + fireKey + '" data-fire-fp="' + fireFp + '"' +
           (fireTitle ? ' title="' + fireTitle + '"' : '') +
-          ' style="background:' + fireBg + '; color:#fff;">' + fireText + '</td></tr>';
+          ' style="background:' + fireBg + '; color:#fff;">' + fireText + '</td>';
       console.log(`[HTML_RENDER] ${symbol}/${c.label}: trendColor=${cellBg}, direction=${direction}, trendDisplay=${cellContent}`);
       console.log(`[HTML_FRAGMENT] ${symbol}/${c.label}: Fragment=${htmlFragment.substring(0, 80)}`);
-      html += htmlFragment + gaugeHtml + fireCellHtml;
+      html += htmlFragment + gaugeHtml + fireCellHtml + timeDiffHtml + '</tr>';
     }
   });
 
@@ -7221,40 +7217,16 @@ function validateAlignmentForSave(){
 function createConditionRow(c) {
   const div = document.createElement('div'); div.className = 'cond-row'; div.style.display='flex'; div.style.gap='6px'; div.style.alignItems='center';
   const tf = document.createElement('select'); tf.className='cond-tf'; tf.style.padding='6px'; tf.style.borderRadius='6px'; tf.style.background='rgba(15,27,65,0.7)'; tf.style.color='inherit'; tf.style.border='1px solid rgba(255,255,255,0.12)'; tf.innerHTML = '<option value="5m">5m</option><option value="15m">15m</option><option value="1H">1H</option><option value="4H">4H</option>';
-  const field = document.createElement('select'); field.className='cond-field'; field.style.padding='6px'; field.style.borderRadius='6px'; field.style.background='rgba(15,27,65,0.7)'; field.style.color='inherit'; field.style.border='1px solid rgba(255,255,255,0.12)'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="bos_count">突破数</option><option value="gc">雲交差</option><option value="po">PO</option><option value="distance_from_prev">各雲間</option><option value="distance_from_price">価格間</option><option value="angle">雲角度</option><option value="thickness">雲厚み</option><option value="transfer_time_diff">転換時間差</option>';
-  const val = document.createElement('input'); val.className='cond-value'; val.placeholder='値'; val.style.padding='6px'; val.style.borderRadius='6px'; val.style.border='1px solid rgba(255,255,255,0.08)'; val.style.background='transparent'; val.style.color='inherit'; val.style.width='60px';
+  const field = document.createElement('select'); field.className='cond-field'; field.style.padding='6px'; field.style.borderRadius='6px'; field.style.background='rgba(15,27,65,0.7)'; field.style.color='inherit'; field.style.border='1px solid rgba(255,255,255,0.12)'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="gc">雲交差</option><option value="po">PO</option>';
   const rem = document.createElement('button'); rem.className='removeCond'; rem.textContent='削除'; rem.style.padding='6px 12px';
   rem.addEventListener('click', () => div.remove());
-  div.append(tf, field, val, rem);
+  div.append(tf, field, rem);
 
-  // hide/remove val when field is one of the toggle-only types
-  function updateCondVisibility() {
-    try {
-      const hideVal = ['dauten','bos_count','gc','po','dauten_start_time_str','cross_start_time'];
-      
-      if (hideVal.includes(field.value)) {
-        // remove val from DOM
-        if (val.parentNode === div) div.removeChild(val);
-      } else {
-        // show val for numeric input
-        if (val.parentNode !== div) div.insertBefore(val, rem);
-        val.style.display = '';
-        val.placeholder = '値';
-      }
-    } catch (e) {
-      console.warn('updateCondVisibility error:', e);
-    }
-  }
-
-  field.addEventListener('change', updateCondVisibility);
-  // Set values from loaded rule BEFORE calling initial visibility update
+  // no value input needed for dauten/gc/po only
   if (c) {
     tf.value = c.label || tf.value;
     field.value = c.field || field.value;
-    val.value = c.value || '';
   }
-  // initial visibility (AFTER setting field value so it checks the correct field type)
-  updateCondVisibility();
   return div;
 }
 
