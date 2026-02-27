@@ -6566,33 +6566,6 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + crossTimeFormatted + '</td>';
       else html += '<td>' + crossTimeFormatted + '</td>';
 
-      // calculate timeDiffHtml but do not append yet (moved to after fire cell)
-      console.log(`[BEFORE_TIMEDIFF] ${symbol}/${c.label}: About to calculate time difference`);
-      // use fired rule's conditions if available otherwise fall back to symbol-wide union
-      const ruleId = fireMeta && fireMeta.rule_id ? fireMeta.rule_id : null;
-      const ruleFields = getRuleConditionFieldsForSymbol(symbol, ruleId);
-      console.log('[RULEFIELDS]', symbol, 'ruleId=', ruleId, 'fields=', ruleFields);
-      const timeDiffResult = calculateTransferTimeDiff(c, ruleFields);
-      let timeDiffFormatted;
-      if (timeFormat === 'datetime') {
-        // 格納しておいた揃った時刻文字列を表示
-        timeDiffFormatted = timeDiffResult.alignedAtStr || '-';
-      } else {
-        timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
-      }
-      let timeDiffBg = '';
-      let timeDiffColor = '#fff';
-      if (timeDiffResult.sameDirection) {
-        timeDiffBg = dautenColor || '';
-      } else {
-        timeDiffBg = '#9c9c9c';
-      }
-      let timeDiffHtml = '';
-      if (timeDiffBg) {
-        timeDiffHtml = '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
-      } else {
-        timeDiffHtml = '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
-      }
 
       // PO時間（ダウ時間と同じロジック）
       const poTimeFormatted = formatElapsedTime(c.po_fire_time_str || '-', timeFormat);
@@ -6744,6 +6717,31 @@ function renderCurrencyTable(symbol, allStates, container) {
       const fireCellHtml = '<td class="fire-cell" data-fire-key="' + fireKey + '" data-fire-fp="' + fireFp + '"' +
           (fireTitle ? ' title="' + fireTitle + '"' : '') +
           ' style="background:' + fireBg + '; color:#fff;">' + fireText + '</td>';
+      // calculate timeDiffHtml now that fireMeta is available
+      console.log(`[BEFORE_TIMEDIFF] ${symbol}/${c.label}: About to calculate time difference`);
+      const ruleId = fireMeta && fireMeta.rule_id ? fireMeta.rule_id : null;
+      const ruleFields = getRuleConditionFieldsForSymbol(symbol, ruleId);
+      console.log('[RULEFIELDS]', symbol, 'ruleId=', ruleId, 'fields=', ruleFields);
+      const timeDiffResult = calculateTransferTimeDiff(c, ruleFields);
+      let timeDiffFormatted;
+      if (timeFormat === 'datetime') {
+        timeDiffFormatted = timeDiffResult.alignedAtStr || '-';
+      } else {
+        timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
+      }
+      let timeDiffBg = '';
+      let timeDiffColor = '#fff';
+      if (timeDiffResult.sameDirection) {
+        timeDiffBg = dautenColor || '';
+      } else {
+        timeDiffBg = '#9c9c9c';
+      }
+      let timeDiffHtml = '';
+      if (timeDiffBg) {
+        timeDiffHtml = '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
+      } else {
+        timeDiffHtml = '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
+      }
       console.log(`[HTML_RENDER] ${symbol}/${c.label}: trendColor=${cellBg}, direction=${direction}, trendDisplay=${cellContent}`);
       console.log(`[HTML_FRAGMENT] ${symbol}/${c.label}: Fragment=${htmlFragment.substring(0, 80)}`);
       html += htmlFragment + gaugeHtml + fireCellHtml + timeDiffHtml + '</tr>';
