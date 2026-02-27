@@ -5722,26 +5722,35 @@ function calculateTrendWithConfig(cloud, config) {
   return 'レンジ';
 }
 
-function calculateTransferTimeDiff(cloud) {
-  const dautenTimeStr = cloud.dauten_start_time_str;
-  const crossTimeStr = cloud.cross_start_time_str; // elapsed_strではなくcross_start_time_strを使用
-  if (!dautenTimeStr || !crossTimeStr || dautenTimeStr === '-' || crossTimeStr === '-') {
+// 追加条件に応じてどのイベント（ダウ転/交差/PO）を考慮するか算出
+function getRuleConditionFieldsForSymbol(symbol) {
+  if (!allRules || allRules.length === 0) return [];
+  const fields = new Set();
+  allRules.forEach(r => {
+    if (r.enabled === false) return;
+    const scope = r.scope || {};
+    if (scope.symbol && scope.symbol !== symbol) return;
+    const conds = (r.rule && r.rule.conditions) || [];
+    conds.forEach(c => {
+      if (c && c.field && ['dauten','gc','po'].includes(c.field)) {
+        fields.add(c.field);
+      }
+    });
+  });
+  return Array.from(fields);
+}
+
+function calculateTransferTimeDiff(cloud, ruleFields) {
+  // ruleFields が未指定または空なら従来のダウ転+雲交差の動作
+  if (!ruleFields || ruleFields.length === 0) {
+    ruleFields = ['dauten','gc'];
+  }
+  // 条件が2つ未満なら時間差は不明扱い
+  if (ruleFields.length < 2) {
     return { diff: null, sameDirection: false, alignedAtStr: null };
   }
-  
-  const dautenDir = cloud.dauten; // '▲Dow' or '▼Dow'
-  const crossDir = cloud.gc; // '▲GC' or '▼DC'
-  
-  // 同方向チェック: dauten '▲Dow' matches gc '▲GC', dauten '▼Dow' matches gc '▼DC'
-  const dautenUp = dautenDir === '▲Dow';
-  const crossUp = crossDir === '▲GC';
-  const sameDirection = dautenUp === crossUp;
-  
-  if (!sameDirection) {
-    return { diff: null, sameDirection: false, alignedAtStr: null };
-  }
-  
-  // 時間差計算
+
+  // 共通タイムパース
   function parseTime(str) {
     if (!str || str === '-') return null;
     const segments = str.split('/');
@@ -5760,18 +5769,54 @@ function calculateTransferTimeDiff(cloud) {
     }
     return new Date(year, month, day, hour, minute);
   }
-  
-  const dautenTime = parseTime(dautenTimeStr);
-  const crossTime = parseTime(crossTimeStr);
-  if (!dautenTime || !crossTime) return { diff: null, sameDirection: false, alignedAtStr: null };
-  
-  // 揃った時刻 = ダウ転と雲交差のうち「後から発生した方」
-  const alignedAt = Math.max(dautenTime.getTime(), crossTime.getTime());
-  // どちらの文字列を返すかを決めておく
-  const alignedAtStr = dautenTime.getTime() >= crossTime.getTime() ? dautenTimeStr : crossTimeStr;
-  // parseTime はブラウザのローカル時刻で Date を生成するため Date.now() と直接比較できる
+
+  const entries = [];
+  function pushEntry(field) {
+    let tStr, dirStr;
+    if (field === 'dauten') {
+      tStr = cloud.dauten_start_time_str;
+      dirStr = cloud.dauten;
+    } else if (field === 'gc') {
+      tStr = cloud.cross_start_time_str;
+      dirStr = cloud.gc;
+    } else if (field === 'po') {
+      tStr = cloud.po_fire_time_str;
+      dirStr = cloud.po;
+    }
+    if (!tStr || tStr === '-') return {ok:false};
+    const dt = parseTime(tStr);
+    if (!dt) return {ok:false};
+    let up = null;
+    if (field === 'dauten') up = (dirStr === '▲Dow');
+    else if (field === 'gc') up = (dirStr === '▲GC');
+    else if (field === 'po') up = dirStr && dirStr.startsWith('▲');
+    if (up === null) return {ok:false};
+    entries.push({dt: dt, up: up, str: tStr});
+    return {ok:true};
+  }
+
+  for (const f of ruleFields) {
+    const res = pushEntry(f);
+    if (!res.ok) {
+      return { diff: null, sameDirection: false, alignedAtStr: null };
+    }
+  }
+
+  const firstUp = entries[0].up;
+  const sameDirection = entries.every(e => e.up === firstUp);
+  if (!sameDirection) {
+    return { diff: null, sameDirection: false, alignedAtStr: null };
+  }
+
+  let latest = entries[0];
+  entries.forEach(e => {
+    if (e.dt.getTime() > latest.dt.getTime()) {
+      latest = e;
+    }
+  });
+  const alignedAt = latest.dt.getTime();
+  const alignedAtStr = latest.str;
   let diffMin = Math.max(0, Math.floor((Date.now() - alignedAt) / 60000));
-  // 他の時間列と同様に5分刻みに丸める
   diffMin = Math.floor(diffMin / 5) * 5;
   return { diff: diffMin, sameDirection: true, alignedAtStr };
 }
@@ -6509,7 +6554,8 @@ function renderCurrencyTable(symbol, allStates, container) {
 
       // calculate timeDiffHtml but do not append yet (moved to after fire cell)
       console.log(`[BEFORE_TIMEDIFF] ${symbol}/${c.label}: About to calculate time difference`);
-      const timeDiffResult = calculateTransferTimeDiff(c);
+      const ruleFields = getRuleConditionFieldsForSymbol(symbol);
+      const timeDiffResult = calculateTransferTimeDiff(c, ruleFields);
       let timeDiffFormatted;
       if (timeFormat === 'datetime') {
         // 格納しておいた揃った時刻文字列を表示
@@ -6860,6 +6906,8 @@ async function loadRules() {
         renderRulesList(allRules);
       });
     }
+    // ルールが更新されたらテーブル再読み込みして経過時間等の計算を反映
+    try { load(); } catch (err) { console.log('load after rules error', err); }
   } catch (e) { console.log('loadRules error', e); }
 }
 
