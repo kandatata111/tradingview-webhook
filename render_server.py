@@ -1762,13 +1762,14 @@ def webhook():
             print(f'[WEBHOOK] tf normalized: {tf_val} -> {tf_val_normalized} for {symbol_val}')
             tf_val = tf_val_normalized
 
-        # ---- シグナルペイロード拒否: sent_timeが空かつcloudsが空の場合はDBを更新しない ----
-        # TradingViewのシグナルアラートはclouds=[] + sent_time="" で送信されるケースがある。
-        # このような空ペイロードが正常データを上書きするのを防ぐ。
+        # ---- シグナルペイロード拒否: cloudsが空の場合はDBを更新しない ----
+        # TradingViewのシグナルアラートは clouds=[] で送信されるケースがある。
+        # cloudsが空のペイロードは正常データを上書きするリスクがあるためスキップ。
+        # ※ sent_timeの有無にかかわらず、clouds=[]なら常にスキップ。
         incoming_clouds = data.get('clouds', [])
-        if not sent_time_val and not incoming_clouds:
-            print(f'[WEBHOOK SKIP] Signal payload (no sent_time, no clouds) for {symbol_val}/{tf_val} - DB not updated')
-            response = jsonify({'status': 'skipped', 'reason': 'signal_payload_no_clouds_no_senttime'})
+        if not incoming_clouds:
+            print(f'[WEBHOOK SKIP] Empty clouds payload for {symbol_val}/{tf_val} - DB not updated (sent_time={sent_time_val})')
+            response = jsonify({'status': 'skipped', 'reason': 'empty_clouds'})
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response, 200
         # ---- シグナルペイロード拒否ここまで ----

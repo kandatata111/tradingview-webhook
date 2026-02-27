@@ -1463,6 +1463,11 @@ document.addEventListener('DOMContentLoaded', function(){
         
         const tfData = data[tf.key];
         const currencies = tfData.currencies; // すでにソート済み（弱→強）
+        // 通貨データが空の場合はスキップ（空cloudsペイロードでDBが上書きされた場合の保護）
+        if (!currencies || currencies.length === 0) {
+          console.log('[renderStrengthData] ' + tf.key + ': currencies empty, skipping row');
+          return;
+        }
         const rawScores = tfData.raw_scores;
         // 非表示通貨を除外したリスト
         const filteredCurrencies = displaySettings.activeCurrencies
@@ -1707,8 +1712,21 @@ document.addEventListener('DOMContentLoaded', function(){
       console.log('[SOCKET.IO] Currency strength update received:', payload);
       
       if (payload.status === 'success' && payload.data) {
-        window.currentData = payload.data;
-        renderStrengthData(payload.data);
+        // 空の通貨データで既存の有効データを上書きしないようにマージ
+        const newData = payload.data;
+        if (window.currentData) {
+          ['5m', '15m', '1H', '4H', 'D', 'Av'].forEach(tf => {
+            const newTf = newData[tf];
+            const oldTf = window.currentData[tf];
+            if (newTf && (!newTf.currencies || newTf.currencies.length === 0) &&
+                oldTf && oldTf.currencies && oldTf.currencies.length > 0) {
+              console.log('[SOCKET.IO] ' + tf + ': empty currencies in update, keeping previous data');
+              newData[tf] = oldTf;
+            }
+          });
+        }
+        window.currentData = newData;
+        renderStrengthData(newData);
         
         // 変更履歴を更新（サーバーから取得）
         renderChangeHistory();
