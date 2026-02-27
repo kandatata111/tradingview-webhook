@@ -5725,7 +5725,9 @@ function calculateTrendWithConfig(cloud, config) {
 function calculateTransferTimeDiff(cloud) {
   const dautenTimeStr = cloud.dauten_start_time_str;
   const crossTimeStr = cloud.cross_start_time_str; // elapsed_strではなくcross_start_time_strを使用
-  if (!dautenTimeStr || !crossTimeStr || dautenTimeStr === '-' || crossTimeStr === '-') return { diff: null, sameDirection: false };
+  if (!dautenTimeStr || !crossTimeStr || dautenTimeStr === '-' || crossTimeStr === '-') {
+    return { diff: null, sameDirection: false, alignedAtStr: null };
+  }
   
   const dautenDir = cloud.dauten; // '▲Dow' or '▼Dow'
   const crossDir = cloud.gc; // '▲GC' or '▼DC'
@@ -5735,7 +5737,9 @@ function calculateTransferTimeDiff(cloud) {
   const crossUp = crossDir === '▲GC';
   const sameDirection = dautenUp === crossUp;
   
-  if (!sameDirection) return { diff: null, sameDirection: false };
+  if (!sameDirection) {
+    return { diff: null, sameDirection: false, alignedAtStr: null };
+  }
   
   // 時間差計算
   function parseTime(str) {
@@ -5759,19 +5763,25 @@ function calculateTransferTimeDiff(cloud) {
   
   const dautenTime = parseTime(dautenTimeStr);
   const crossTime = parseTime(crossTimeStr);
-  if (!dautenTime || !crossTime) return { diff: null, sameDirection: false };
+  if (!dautenTime || !crossTime) return { diff: null, sameDirection: false, alignedAtStr: null };
   
   // 揃った時刻 = ダウ転と雲交差のうち「後から発生した方」
   const alignedAt = Math.max(dautenTime.getTime(), crossTime.getTime());
+  // どちらの文字列を返すかを決めておく
+  const alignedAtStr = dautenTime.getTime() >= crossTime.getTime() ? dautenTimeStr : crossTimeStr;
   // parseTime はブラウザのローカル時刻で Date を生成するため Date.now() と直接比較できる
   const diffMin = Math.max(0, Math.floor((Date.now() - alignedAt) / 60000));
-  return { diff: diffMin, sameDirection: true };
+  return { diff: diffMin, sameDirection: true, alignedAtStr };
 }
 
 function formatTimeDiff(diffMin, format) {
   if (diffMin === null) return '-';
+  // NOTE: when the 'datetime' display format is selected the caller bypasses
+  // this helper and instead displays the raw timestamp string returned by
+  // calculateTransferTimeDiff(). This function only processes numeric
+  // differences for other formats.
   if (format === 'datetime') {
-    // 測定開始時間が選択されている場合、時間差を「時:分」形式で表示
+    // fall back to hour:minute just in case the caller forgot to handle it
     const hours = Math.floor(diffMin / 60);
     const mins = diffMin % 60;
     return String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
@@ -6498,7 +6508,13 @@ function renderCurrencyTable(symbol, allStates, container) {
       // calculate timeDiffHtml but do not append yet (moved to after fire cell)
       console.log(`[BEFORE_TIMEDIFF] ${symbol}/${c.label}: About to calculate time difference`);
       const timeDiffResult = calculateTransferTimeDiff(c);
-      const timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
+      let timeDiffFormatted;
+      if (timeFormat === 'datetime') {
+        // 格納しておいた揃った時刻文字列を表示
+        timeDiffFormatted = timeDiffResult.alignedAtStr || '-';
+      } else {
+        timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
+      }
       let timeDiffBg = '';
       let timeDiffColor = '#fff';
       if (timeDiffResult.sameDirection) {
