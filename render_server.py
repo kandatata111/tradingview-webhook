@@ -3569,6 +3569,7 @@ def api_backup_fetch():
     # subject_filter は Gmail 件名に含まれるワード。完全一致不要、部分一致でOK。
     # たとえば「1時間」「4時間」「日」で検索すれば十分なはず。
     TF_FETCH_PLAN = [
+        ('5',  120, '5分足',   '5分毎'),        # 件名に「5分毎」を含むメール
         ('15',  80, '15分足',  '15分毎'),      # 件名に「15分毎」を含むメール
         ('60', 100, '1時間足', '1時間毎'),     # 件名に「1時間毎」を含むメール
         ('240', 80, '4時間足', '4時間毎'),     # 件名に「4時間毎」を含むメール
@@ -6127,6 +6128,7 @@ if __name__ == '__main__':
     # バックアップ自動取得スレッドを起動
     # TF別取得設定（手動取得と同じプラン）
     AUTO_TF_FETCH_PLAN = [
+        ('5',   50, '5分足',   '5分毎'),
         ('15',  30, '15分足',  '15分毎'),
         ('60',  20, '1時間足', '1時間毎'),
         ('240', 10, '4時間足', '4時間毎'),
@@ -6189,7 +6191,7 @@ if __name__ == '__main__':
                     except Exception as e:
                         print(f'[AUTO BACKUP ERROR] {label}: {str(e)}')
 
-                print(f'[AUTO BACKUP] Done: TF-OK={total_success}/4, TF-ERR={total_err}/4')
+                print(f'[AUTO BACKUP] Done: TF-OK={total_success}/5, TF-ERR={total_err}/5')
 
             except Exception as e:
                 print(f'[AUTO BACKUP ERROR] {str(e)}')
@@ -6218,6 +6220,6 @@ if __name__ == '__main__':
                 f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
                 f.write(f'Full traceback:\n{traceback.format_exc()}\n')
         except:
-            pass
+この問題を究明して解決して下さい。            pass
         raise
 
