@@ -5725,13 +5725,24 @@ function calculateTrendWithConfig(cloud, config) {
 // 追加条件に応じてどのイベント（ダウ転/交差/PO）を考慮するか算出
 // ruleId が渡された場合はそのルールのみを参照し、そうでなければ指定シンボルに
 // マッチする有効ルール全体のunionを返す。
+// ★ /rules API はルールデータを flat 構造で返す（rule.conditions がトップレベル）
 function getRuleConditionFieldsForSymbol(symbol, ruleId) {
   if (!allRules || allRules.length === 0) return [];
+
+  // conditions を取得するヘルパー（flat形式とnested形式の両方に対応）
+  function getConditions(r) {
+    // flat形式: r.conditions (APIから直接)
+    if (Array.isArray(r.conditions) && r.conditions.length > 0) return r.conditions;
+    // nested形式: r.rule.conditions (旧形式フォールバック)
+    if (r.rule && Array.isArray(r.rule.conditions)) return r.rule.conditions;
+    return [];
+  }
+
   // ruleId がある場合は先に探す
   if (ruleId) {
     const rule = allRules.find(r => r.id === ruleId);
     if (rule) {
-      const conds = (rule.rule && rule.rule.conditions) || ([]);
+      const conds = getConditions(rule);
       return conds
         .filter(c => c && c.field && ['dauten','gc','po'].includes(c.field))
         .map(c => c.field);
@@ -5744,7 +5755,7 @@ function getRuleConditionFieldsForSymbol(symbol, ruleId) {
     if (r.enabled === false) return;
     const scope = r.scope || {};
     if (scope.symbol && scope.symbol !== symbol) return;
-    const conds = (r.rule && r.rule.conditions) || [];
+    const conds = getConditions(r);
     conds.forEach(c => {
       if (c && c.field && ['dauten','gc','po'].includes(c.field)) {
         fields.add(c.field);
@@ -5788,20 +5799,19 @@ function getAlignedTimeDiffForFire(cloud, ruleFields, fireDirection) {
       // Pineスクリプト形式('▲Dow'/'▼Dow')と古いデータ形式('up'/'down')の両方に対応
       if (d === '▲Dow' || d === 'up')   isUp = true;
       else if (d === '▼Dow' || d === 'down') isUp = false;
-      tMs  = Number(cloud.dauten_start_time) || 0; // 生msタイムスタンプ
       tStr = cloud.dauten_start_time_str || '';
+      tMs  = Number(cloud.dauten_start_time) || parseDatetimeStr(tStr); // 生ms優先、なければstrをパース
     } else if (field === 'gc') {
       const g = cloud.gc;
       // Pineスクリプト形式('▲GC'/'▼DC')とboolean形式(true/false)の両方に対応
       if (g === '▲GC' || g === true)   isUp = true;
       else if (g === '▼DC' || g === false) isUp = false;
-      tMs  = Number(cloud.cross_start_time) || 0; // 生msタイムスタンプ
       tStr = cloud.cross_start_time_str || '';
+      tMs  = Number(cloud.cross_start_time) || parseDatetimeStr(tStr); // 生ms優先、なければstrをパース
     } else if (field === 'po') {
       const p = cloud.po;
       if (p && String(p).startsWith('▲')) isUp = true;
       else if (p && String(p).startsWith('▼')) isUp = false;
-      // poは生ms未送信のためstrをパースしてフォールバック
       tStr = cloud.po_fire_time_str || '';
       tMs  = parseDatetimeStr(tStr);
     }
