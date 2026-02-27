@@ -5770,7 +5770,9 @@ function calculateTransferTimeDiff(cloud) {
   // どちらの文字列を返すかを決めておく
   const alignedAtStr = dautenTime.getTime() >= crossTime.getTime() ? dautenTimeStr : crossTimeStr;
   // parseTime はブラウザのローカル時刻で Date を生成するため Date.now() と直接比較できる
-  const diffMin = Math.max(0, Math.floor((Date.now() - alignedAt) / 60000));
+  let diffMin = Math.max(0, Math.floor((Date.now() - alignedAt) / 60000));
+  // 他の時間列と同様に5分刻みに丸める
+  diffMin = Math.floor(diffMin / 5) * 5;
   return { diff: diffMin, sameDirection: true, alignedAtStr };
 }
 
