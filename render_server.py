@@ -6220,6 +6220,6 @@ if __name__ == '__main__':
                 f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
                 f.write(f'Full traceback:\n{traceback.format_exc()}\n')
         except:
-この問題を究明して解決して下さい。            pass
+            pass
         raise
 
