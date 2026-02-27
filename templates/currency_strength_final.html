@@ -554,6 +554,10 @@ document.addEventListener('DOMContentLoaded', function(){
             <div class="subsection-title">時間足</div>
             <div style="display: flex; gap: 20px; flex-wrap: wrap;">
               <label class="checkbox-item">
+                <input type="checkbox" id="show5m" checked>
+                5分足
+              </label>
+              <label class="checkbox-item">
                 <input type="checkbox" id="show15m" checked>
                 15分足
               </label>
@@ -573,6 +577,35 @@ document.addEventListener('DOMContentLoaded', function(){
                 <input type="checkbox" id="showAv" checked>
                 平均
               </label>
+            </div>
+
+            <!-- 表示通貨 -->
+            <div style="margin-top:16px;border-top:1px dashed #333;padding-top:12px;">
+              <div class="subsection-title">表示通貨（非表示にすると通貨強弱・推奨ペアから除外）</div>
+              <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <label class="checkbox-item"><input type="checkbox" class="currency-toggle" data-currency="USD" checked> USD（米ドル）</label>
+                <label class="checkbox-item"><input type="checkbox" class="currency-toggle" data-currency="JPY" checked> JPY（日本円）</label>
+                <label class="checkbox-item"><input type="checkbox" class="currency-toggle" data-currency="EUR" checked> EUR（ユーロ）</label>
+                <label class="checkbox-item"><input type="checkbox" class="currency-toggle" data-currency="GBP" checked> GBP（ポンド）</label>
+                <label class="checkbox-item"><input type="checkbox" class="currency-toggle" data-currency="AUD" checked> AUD（豪ドル）</label>
+              </div>
+            </div>
+
+            <!-- 表示通貨ペア -->
+            <div style="margin-top:16px;border-top:1px dashed #333;padding-top:12px;">
+              <div class="subsection-title">表示通貨ペア（推奨ペアの計算対象）</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px;">
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="USDJPY" checked> USDJPY</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="EURUSD" checked> EURUSD</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="GBPUSD" checked> GBPUSD</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="AUDUSD" checked> AUDUSD</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="EURJPY" checked> EURJPY</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="GBPJPY" checked> GBPJPY</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="AUDJPY" checked> AUDJPY</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="EURGBP" checked> EURGBP</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="EURAUD" checked> EURAUD</label>
+                <label class="checkbox-item"><input type="checkbox" class="pair-toggle" data-pair="GBPAUD" checked> GBPAUD</label>
+              </div>
             </div>
 
             <!-- 正規化 / クリップ設定 -->
@@ -798,6 +831,7 @@ document.addEventListener('DOMContentLoaded', function(){
         const displayPrefs = {
           showCurrencies: displaySettings.showCurrencies,
           showRecommended: displaySettings.showRecommended,
+          show5m: displaySettings.show5m,
           show15m: displaySettings.show15m,
           show1H: displaySettings.show1H,
           show4H: displaySettings.show4H,
@@ -809,7 +843,9 @@ document.addEventListener('DOMContentLoaded', function(){
           clipThreshold: displaySettings.clipThreshold,
           language: displaySettings.language,
           showRawScore: displaySettings.showRawScore,
-          showPercentage: displaySettings.showPercentage
+          showPercentage: displaySettings.showPercentage,
+          activeCurrencies: displaySettings.activeCurrencies,
+          activePairs: displaySettings.activePairs
         };
         localStorage.setItem(STORAGE_KEY_DISPLAY_SETTINGS, JSON.stringify(displayPrefs));
 
@@ -881,7 +917,7 @@ document.addEventListener('DOMContentLoaded', function(){
             console.log('[LOAD] 表示設定を読み込み:', dsp);
 
             // チェックボックス類
-            ['showCurrencies','showRecommended','show15m','show1H','show4H','showD','showAv'].forEach(id => {
+            ['showCurrencies','showRecommended','show5m','show15m','show1H','show4H','showD','showAv'].forEach(id => {
               if (dsp[id] !== undefined) {
                 document.getElementById(id).checked = dsp[id];
                 displaySettings[id] = dsp[id];
@@ -920,6 +956,20 @@ document.addEventListener('DOMContentLoaded', function(){
               displaySettings.showPercentage = dsp.showPercentage;
               const cb = document.getElementById('showPercentage');
               if (cb) cb.checked = dsp.showPercentage;
+            }
+            if (dsp.activeCurrencies) {
+              displaySettings.activeCurrencies = Object.assign({}, displaySettings.activeCurrencies, dsp.activeCurrencies);
+              document.querySelectorAll('.currency-toggle').forEach(cb => {
+                const cur = cb.dataset.currency;
+                if (cur && dsp.activeCurrencies[cur] !== undefined) cb.checked = dsp.activeCurrencies[cur];
+              });
+            }
+            if (dsp.activePairs) {
+              displaySettings.activePairs = Object.assign({}, displaySettings.activePairs, dsp.activePairs);
+              document.querySelectorAll('.pair-toggle').forEach(cb => {
+                const pair = cb.dataset.pair;
+                if (pair && dsp.activePairs[pair] !== undefined) cb.checked = dsp.activePairs[pair];
+              });
             }
           }
         } catch (e) {
@@ -1054,6 +1104,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const displaySettings = {
       showCurrencies: true,
       showRecommended: true,
+      show5m: true,
       show15m: true,
       show1H: true,
       show4H: true,
@@ -1074,7 +1125,11 @@ document.addEventListener('DOMContentLoaded', function(){
       pairMaxTheoretical: 800,
       // 生スコアが clipThreshold を超えたら 100% でクリップ（表示上）
       clipEnabled: true,
-      clipThreshold: 350
+      clipThreshold: 350,
+      // 表示通貨フィルタ（falseにした通貨は強弱表・推奨ペアから除外）
+      activeCurrencies: { USD: true, JPY: true, EUR: true, GBP: true, AUD: true },
+      // 表示通貨ペアフィルタ（falseにしたペアは推奨ペアの計算対象から除外）
+      activePairs: { USDJPY: true, EURUSD: true, GBPUSD: true, AUDUSD: true, EURJPY: true, GBPJPY: true, AUDJPY: true, EURGBP: true, EURAUD: true, GBPAUD: true }
     };
 
     // 通貨名マッピング（英語⇔日本語）
@@ -1110,6 +1165,7 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // 前回の最弱・最強を保存
     let previousExtreme = {
+      '5m': { weakest: null, strongest: null },
       '15m': { weakest: null, strongest: null },
       '1H': { weakest: null, strongest: null },
       '4H': { weakest: null, strongest: null },
@@ -1240,7 +1296,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // チェックボックスのイベントリスナーを設定
     document.addEventListener('DOMContentLoaded', () => {
-      ['showCurrencies', 'showRecommended', 'show15m', 'show1H', 'show4H', 'showD', 'showAv', 'showRawScore', 'showPercentage'].forEach(id => {
+      ['showCurrencies', 'showRecommended', 'show5m', 'show15m', 'show1H', 'show4H', 'showD', 'showAv', 'showRawScore', 'showPercentage'].forEach(id => {
         const checkbox = document.getElementById(id);
         if (checkbox) {
           checkbox.addEventListener('change', (e) => {
@@ -1261,6 +1317,28 @@ document.addEventListener('DOMContentLoaded', function(){
             }
           });
         }
+      });
+
+      // 表示通貨チェックボックス
+      document.querySelectorAll('.currency-toggle').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          const cur = e.target.dataset.currency;
+          if (cur) {
+            displaySettings.activeCurrencies[cur] = e.target.checked;
+            if (window.currentData) renderStrengthData(window.currentData);
+          }
+        });
+      });
+
+      // 表示通貨ペアチェックボックス
+      document.querySelectorAll('.pair-toggle').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          const pair = e.target.dataset.pair;
+          if (pair) {
+            displaySettings.activePairs[pair] = e.target.checked;
+            if (window.currentData) renderStrengthData(window.currentData);
+          }
+        });
       });
     });
     // 通貨ペアの定義（実在するペアのみ）
@@ -1291,6 +1369,13 @@ document.addEventListener('DOMContentLoaded', function(){
       const pairs = [];
       
       for (const [pair, [base, quote]] of Object.entries(PAIR_DEFINITIONS)) {
+        // 非表示ペアをスキップ
+        if (displaySettings.activePairs && displaySettings.activePairs[pair] === false) continue;
+        // 非表示通貨を含むペアをスキップ
+        if (displaySettings.activeCurrencies && (
+          displaySettings.activeCurrencies[base] === false ||
+          displaySettings.activeCurrencies[quote] === false
+        )) continue;
         const baseScore = rawScores[base] || 0;
         const quoteScore = rawScores[quote] || 0;
         const diff = Math.abs(baseScore - quoteScore);
@@ -1349,7 +1434,7 @@ document.addEventListener('DOMContentLoaded', function(){
           headerCurrencies.className = 'table-header-currencies';
           headerCurrencies.style.textAlign = 'center';
           headerCurrencies.style.letterSpacing = '0.05em';
-          headerCurrencies.style.gridColumn = 'span 5'; // 5列分をカバー
+          headerCurrencies.style.gridColumn = `span ${displaySettings.activeCurrencies ? Object.values(displaySettings.activeCurrencies).filter(v => v !== false).length : 5}`; // 通貨列数に合わせる
           headerCurrencies.textContent = '弱　　◀　　◀　　中　　▶　　▶　　強';
           grid.appendChild(headerCurrencies);
         }
@@ -1365,6 +1450,7 @@ document.addEventListener('DOMContentLoaded', function(){
         
         // データ行
       const timeframes = [
+        { key: '5m', id: 'show5m' },
         { key: '15m', id: 'show15m' },
         { key: '1H', id: 'show1H' },
         { key: '4H', id: 'show4H' },
@@ -1378,12 +1464,16 @@ document.addEventListener('DOMContentLoaded', function(){
         const tfData = data[tf.key];
         const currencies = tfData.currencies; // すでにソート済み（弱→強）
         const rawScores = tfData.raw_scores;
+        // 非表示通貨を除外したリスト
+        const filteredCurrencies = displaySettings.activeCurrencies
+          ? currencies.filter(item => displaySettings.activeCurrencies[item.currency] !== false)
+          : currencies;
         const recommendedPairs = calculateRecommendedPairs(currencies, rawScores);
         
         // 🔔 変更検出：最弱と最強をチェック
-        if (currencies && currencies.length > 0 && voiceNotificationSettings.notify[tf.key]) {
-          const currentWeakest = currencies[0].currency;  // 最弱
-          const currentStrongest = currencies[currencies.length - 1].currency;  // 最強
+        if (filteredCurrencies && filteredCurrencies.length > 0 && voiceNotificationSettings.notify[tf.key]) {
+          const currentWeakest = filteredCurrencies[0].currency;  // 最弱
+          const currentStrongest = filteredCurrencies[filteredCurrencies.length - 1].currency;  // 最強
           const prevState = previousExtreme[tf.key] || {};
           
           console.log(`[${tf.key}] 通知チェック: 最弱=${currentWeakest}, 最強=${currentStrongest}`);
@@ -1433,14 +1523,14 @@ document.addEventListener('DOMContentLoaded', function(){
         
         // 通貨セル（5通貨、ソート済み）
         if (displaySettings.showCurrencies) {
-          // 5通貨を保証（データが不足していても5セル作成）
-          const currencyCount = 5;
+          // フィルタリング後の通貨数分セルを作成
+          const currencyCount = filteredCurrencies.length;
           for (let i = 0; i < currencyCount; i++) {
             const cell = document.createElement('div');
             
-            if (i < currencies.length) {
+            if (i < filteredCurrencies.length) {
               // データがある場合
-              const item = currencies[i];
+              const item = filteredCurrencies[i];
               cell.className = 'table-cell ' + getStrengthClass(item.score);
               
               // raw score を使ってクライアント側で % を計算（displaySettings に従う）
@@ -1520,13 +1610,17 @@ document.addEventListener('DOMContentLoaded', function(){
       const isJa = displaySettings.language === 'ja';
       const currencyColW = 'max-content';
       const recColW = isJa ? '3fr' : '2fr';
+      // アクティブな通貨数を決定
+      const activeCurrencyCount = displaySettings.activeCurrencies
+        ? Object.values(displaySettings.activeCurrencies).filter(v => v !== false).length
+        : 5;
       let columns = '50px'; // 時間列
       if (displaySettings.showCurrencies && displaySettings.showRecommended) {
-        // 両方表示: 時間 + 通貨5列 + 推奨ペア
-        columns += ` repeat(5, ${currencyColW}) ${recColW}`;
+        // 両方表示: 時間 + 通貨N列 + 推奨ペア
+        columns += ` repeat(${activeCurrencyCount}, ${currencyColW}) ${recColW}`;
       } else if (displaySettings.showCurrencies) {
-        // 通貨のみ: 時間 + 通貨5列
-        columns += ` repeat(5, ${currencyColW})`;
+        // 通貨のみ: 時間 + 通貨N列
+        columns += ` repeat(${activeCurrencyCount}, ${currencyColW})`;
       } else if (displaySettings.showRecommended) {
         // 推奨ペアのみ: 時間 + 推奨ペア
         columns += ` ${recColW}`;
