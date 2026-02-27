@@ -6495,9 +6495,24 @@ function renderCurrencyTable(symbol, allStates, container) {
       if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + crossTimeFormatted + '</td>';
       else html += '<td>' + crossTimeFormatted + '</td>';
 
-      // elapsed column – show raw cross_start_time_str (YY/MM/DD/HH:mm)
-      const elapsedTimeStr = c.cross_start_time_str || '-';
-      let timeDiffHtml = '<td>' + elapsedTimeStr + '</td>';
+      // calculate timeDiffHtml but do not append yet (moved to after fire cell)
+      console.log(`[BEFORE_TIMEDIFF] ${symbol}/${c.label}: About to calculate time difference`);
+      const timeDiffResult = calculateTransferTimeDiff(c);
+      const timeDiffFormatted = formatTimeDiff(timeDiffResult.diff, timeFormat);
+      let timeDiffBg = '';
+      let timeDiffColor = '#fff';
+      if (timeDiffResult.sameDirection) {
+        timeDiffBg = dautenColor || '';
+      } else {
+        timeDiffBg = '#9c9c9c';
+      }
+      let timeDiffHtml = '';
+      if (timeDiffBg) {
+        timeDiffHtml = '<td style="background:' + timeDiffBg + '; color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
+      } else {
+        timeDiffHtml = '<td style="color:' + timeDiffColor + '">' + timeDiffFormatted + '</td>';
+      }
+
       // PO時間（ダウ時間と同じロジック）
       const poTimeFormatted = formatElapsedTime(c.po_fire_time_str || '-', timeFormat);
       if (poBgColor && poBgColor !== '#9c9c9c') {
