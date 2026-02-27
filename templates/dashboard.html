@@ -5754,17 +5754,13 @@ function getRuleConditionFieldsForSymbol(symbol, ruleId) {
   return Array.from(fields);
 }
 
-function calculateTransferTimeDiff(cloud, ruleFields) {
-  // ruleFields が未指定または空なら従来のダウ転+雲交差の動作
-  if (!ruleFields || ruleFields.length === 0) {
-    ruleFields = ['dauten','gc'];
-  }
-  // 条件が2つ未満なら時間差は不明扱い
-  if (ruleFields.length < 2) {
-    return { diff: null, sameDirection: false, alignedAtStr: null };
-  }
+// 発火方向に一致している条件フィールドの中で最も後発の時刻を返す。
+// sameDirection チェックをせず、方向が一致するフィールドだけを対象にする。
+// 返り値: { diff: number(分), alignedAtStr: string } or null
+function getAlignedTimeDiffForFire(cloud, ruleFields, fireDirection) {
+  if (!cloud || !ruleFields || ruleFields.length === 0) return null;
+  const expectedUp = (fireDirection === '上昇');
 
-  // 共通タイムパース
   function parseTime(str) {
     if (!str || str === '-') return null;
     const segments = str.split('/');
@@ -5784,55 +5780,42 @@ function calculateTransferTimeDiff(cloud, ruleFields) {
     return new Date(year, month, day, hour, minute);
   }
 
-  const entries = [];
-  function pushEntry(field) {
-    let tStr, dirStr;
+  function getEntry(field) {
+    let tStr, isUp;
     if (field === 'dauten') {
       tStr = cloud.dauten_start_time_str;
-      dirStr = cloud.dauten;
+      isUp = (cloud.dauten === '▲Dow');
     } else if (field === 'gc') {
       tStr = cloud.cross_start_time_str;
-      dirStr = cloud.gc;
+      isUp = (cloud.gc === '▲GC');
     } else if (field === 'po') {
       tStr = cloud.po_fire_time_str;
-      dirStr = cloud.po;
+      isUp = !!(cloud.po && cloud.po.startsWith('▲'));
+    } else {
+      return null;
     }
-    if (!tStr || tStr === '-') return {ok:false};
+    if (!tStr || tStr === '-') return null;
+    if (isUp !== expectedUp) return null; // 方向不一致はスキップ
     const dt = parseTime(tStr);
-    if (!dt) return {ok:false};
-    let up = null;
-    if (field === 'dauten') up = (dirStr === '▲Dow');
-    else if (field === 'gc') up = (dirStr === '▲GC');
-    else if (field === 'po') up = dirStr && dirStr.startsWith('▲');
-    if (up === null) return {ok:false};
-    entries.push({dt: dt, up: up, str: tStr});
-    return {ok:true};
+    if (!dt) return null;
+    return { str: tStr, dt: dt };
   }
 
-  for (const f of ruleFields) {
-    const res = pushEntry(f);
-    if (!res.ok) {
-      return { diff: null, sameDirection: false, alignedAtStr: null };
+  let latestEntry = null;
+  for (const field of ruleFields) {
+    const entry = getEntry(field);
+    if (!entry) continue;
+    if (!latestEntry || entry.dt.getTime() > latestEntry.dt.getTime()) {
+      latestEntry = entry;
     }
   }
 
-  const firstUp = entries[0].up;
-  const sameDirection = entries.every(e => e.up === firstUp);
-  if (!sameDirection) {
-    return { diff: null, sameDirection: false, alignedAtStr: null };
-  }
+  if (!latestEntry) return null;
 
-  let latest = entries[0];
-  entries.forEach(e => {
-    if (e.dt.getTime() > latest.dt.getTime()) {
-      latest = e;
-    }
-  });
-  const alignedAt = latest.dt.getTime();
-  const alignedAtStr = latest.str;
+  const alignedAt = latestEntry.dt.getTime();
   let diffMin = Math.max(0, Math.floor((Date.now() - alignedAt) / 60000));
   diffMin = Math.floor(diffMin / 5) * 5;
-  return { diff: diffMin, sameDirection: true, alignedAtStr };
+  return { diff: diffMin, alignedAtStr: latestEntry.str };
 }
 
 function formatTimeDiff(diffMin, format) {
@@ -6728,9 +6711,9 @@ function renderCurrencyTable(symbol, allStates, container) {
       const timeDiffColor = '#fff';
       if (fireMeta) {
         timeDiffBg = fireMeta.direction === '上昇' ? '#2962ff' : '#f23645';
-        // 条件が揃っている場合のみ後発時刻を計算して表示
-        const timeDiffResult = calculateTransferTimeDiff(c, ruleFields);
-        if (timeDiffResult && timeDiffResult.sameDirection) {
+        // 発火方向と一致している条件の中で最も後発の時刻を表示
+        const timeDiffResult = getAlignedTimeDiffForFire(c, ruleFields, fireMeta.direction);
+        if (timeDiffResult) {
           if (timeFormat === 'datetime') {
             timeDiffFormatted = timeDiffResult.alignedAtStr || '-';
           } else {
