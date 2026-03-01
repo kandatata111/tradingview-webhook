@@ -6729,10 +6729,23 @@ function renderCurrencyTable(symbol, allStates, container) {
       let timeDiffBg = '#9c9c9c';
       const timeDiffColor = '#fff';
       if (fireMeta) {
-        timeDiffBg = fireMeta.direction === '上昇' ? '#2962ff' : '#f23645';
+        // まず基本色をセットしておく
+        const defaultBg = fireMeta.direction === '上昇' ? '#2962ff' : '#f23645';
+        timeDiffBg = defaultBg;
         // 発火方向と一致している条件の中で最も後発の時刻を表示
         const timeDiffResult = getAlignedTimeDiffForFire(c, ruleFields, fireMeta.direction);
         if (timeDiffResult) {
+          // 10バー以内であれば黄色に上書き
+          let barMinutes;
+          if (c.label === 'D') {
+            barMinutes = 1440; // 日足は1440分
+          } else {
+            barMinutes = parseInt(c.label, 10) || 0;
+          }
+          const tenBarsMs = barMinutes * 60 * 1000 * 10;
+          if (barMinutes > 0 && timeDiffResult.diff <= tenBarsMs) {
+            timeDiffBg = '#f0d40c';
+          }
           if (timeFormat === 'datetime') {
             timeDiffFormatted = timeDiffResult.alignedAtStr || '-';
           } else {
