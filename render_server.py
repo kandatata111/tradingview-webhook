@@ -2640,13 +2640,22 @@ def reorder_rules():
         if not payload or 'order' not in payload:
             return jsonify({'status': 'error', 'msg': 'order array required'}), 400
         
-        order = payload['order']  # [rule_id1, rule_id2, ...] の配列
+        order = payload['order']  # [{id: rule_id, sort_order: idx}, ...] または [rule_id, ...] の配列
         
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
-        for idx, rule_id in enumerate(order):
-            c.execute('UPDATE rules SET sort_order = ? WHERE id = ?', (idx, rule_id))
+        for idx, item in enumerate(order):
+            # フロントエンドがオブジェクト形式 {id, sort_order} で送る場合と、
+            # 文字列形式 rule_id で送る場合の両方に対応
+            if isinstance(item, dict):
+                rule_id = item.get('id')
+                sort_val = item.get('sort_order', idx)
+            else:
+                rule_id = item
+                sort_val = idx
+            if rule_id:
+                c.execute('UPDATE rules SET sort_order = ? WHERE id = ?', (sort_val, rule_id))
         
         conn.commit()
         conn.close()
