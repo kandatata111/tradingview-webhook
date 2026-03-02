@@ -1983,8 +1983,10 @@ def webhook():
                     f.flush()
                 evaluate_and_fire_rules(data, symbol_val, tf_val)
                 print(f'[DEBUG] RULE_EVAL_END for {symbol_val}/{tf_val}')
-                # Webhhook受信後に全通貨のルール状態を最新化
-                evaluate_all_symbols_from_db()
+                # evaluate_all_symbols_from_db() はここでは呼ばない。
+                # evaluate_and_fire_rules() が最新Webhookデータで正確に評価済みのため、
+                # 直後に空の all_clouds={} で再評価すると active_fires が誤ってクリアされるバグを防ぐ。
+                # /current_states エンドポイントが cooldown=5.0 で再評価する。
                 with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
                     f.write(f'{saved_at} - RULE_EVAL_END for {symbol_val}/{tf_val}\n')
                     f.flush()
