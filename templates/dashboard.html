@@ -5631,6 +5631,23 @@ function formatElapsedTime(datetimeStr, format) {
   }
 }
 
+// datetimeStr から現在までの経過分数を返す。解析に失敗した場合は null。
+function parseElapsedMin(datetimeStr) {
+  if (!datetimeStr || datetimeStr === '-' || datetimeStr === '') return null;
+  const segs = datetimeStr.trim().split('/');
+  if (segs.length < 4) return null;
+  const year = 2000 + parseInt(segs[0], 10);
+  const month = parseInt(segs[1], 10) - 1;
+  const day = parseInt(segs[2], 10);
+  const tp = segs[3].split(':');
+  const hour = parseInt(tp[0], 10) || 0;
+  const minute = parseInt(tp[1], 10) || 0;
+  const d = new Date(year, month, day, hour, minute);
+  const diff = Date.now() - d.getTime();
+  if (diff < 0) return null;
+  return Math.floor(diff / 60000);
+}
+
 function calculateTrend(cloud) {
   // localStorageからトレンド設定を読み込み
   const configStr = localStorage.getItem('tv_trend_config');
@@ -6561,22 +6578,50 @@ function renderCurrencyTable(symbol, allStates, container) {
       const timeFormat = localStorage.getItem('tv_time_format') || 'datetime';
       
       const dautenTimeFormatted = formatElapsedTime(c.dauten_start_time_str || '-', timeFormat);
-      if (dautenColor) html += '<td style="background:' + dautenColor + '; color:#fff">' + dautenTimeFormatted + '</td>';
+      // 10バー以内なら方向色に置き換え
+      let dautenBg = dautenColor;
+      const dautenMin = parseElapsedMin(c.dauten_start_time_str || '-');
+      if (dautenMin !== null) {
+        let barM = (c.label === 'D') ? 1440 : (parseInt(c.label, 10) || 0);
+        const tenBars = barM * 10;
+        if (barM > 0 && dautenMin <= tenBars) {
+          // 上昇・下降は dautenColor から判定しても良い
+          dautenBg = (dautenColor === '#2962ff') ? '#06b7f9' : (dautenColor === '#f23645' ? '#ff57ea' : dautenColor);
+        }
+      }
+      if (dautenBg) html += '<td style="background:' + dautenBg + '; color:#fff">' + dautenTimeFormatted + '</td>';
       else html += '<td>' + dautenTimeFormatted + '</td>';
 
       const crossTimeFormatted = formatElapsedTime(c.cross_start_time_str || '-', timeFormat);
-      if (gcColor) html += '<td style="background:' + gcColor + '; color:#fff">' + crossTimeFormatted + '</td>';
+      let crossBg = gcColor;
+      const crossMin = parseElapsedMin(c.cross_start_time_str || '-');
+      if (crossMin !== null) {
+        let barM = (c.label === 'D') ? 1440 : (parseInt(c.label, 10) || 0);
+        const tenBars = barM * 10;
+        if (barM > 0 && crossMin <= tenBars) {
+          crossBg = (gcColor === '#2962ff') ? '#06b7f9' : (gcColor === '#f23645' ? '#ff57ea' : gcColor);
+        }
+      }
+      if (crossBg) html += '<td style="background:' + crossBg + '; color:#fff">' + crossTimeFormatted + '</td>';
       else html += '<td>' + crossTimeFormatted + '</td>';
-
 
       // PO時間（ダウ時間と同じロジック）
       const poTimeFormatted = formatElapsedTime(c.po_fire_time_str || '-', timeFormat);
-      if (poBgColor && poBgColor !== '#9c9c9c') {
+      let poFinalBg = poBgColor;
+      const poMin = parseElapsedMin(c.po_fire_time_str || '-');
+      if (poMin !== null) {
+        let barM = (c.label === 'D') ? 1440 : (parseInt(c.label, 10) || 0);
+        const tenBars = barM * 10;
+        if (barM > 0 && poMin <= tenBars) {
+          poFinalBg = (poBgColor === '#2962ff') ? '#06b7f9' : (poBgColor === '#f23645' ? '#ff57ea' : poBgColor);
+        }
+      }
+      if (poFinalBg && poFinalBg !== '#9c9c9c') {
         // PO = "✕"でない場合はPOの色を適用
-        html += '<td style="background:' + poBgColor + '; color:#fff">' + poTimeFormatted + '</td>';
-      } else if (poBgColor === '#9c9c9c') {
+        html += '<td style="background:' + poFinalBg + '; color:#fff">' + poTimeFormatted + '</td>';
+      } else if (poFinalBg === '#9c9c9c') {
         // PO = "✕"の場合はグレー背景
-        html += '<td style="background:' + poBgColor + '; color:#fff">' + poTimeFormatted + '</td>';
+        html += '<td style="background:' + poFinalBg + '; color:#fff">' + poTimeFormatted + '</td>';
       } else {
         html += '<td>' + poTimeFormatted + '</td>';
       }
