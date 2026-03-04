@@ -1544,11 +1544,9 @@ async function setupAllEventListeners() {
   const menuSettings = document.getElementById('menuSettings');
   if (menuSettings) menuSettings.addEventListener('click', () => {
     if (settingsWindowRef && !settingsWindowRef.closed) {
-      // ウィンドウが開いている場合は前面に出す
       settingsWindowRef.focus();
     } else {
-      // 新しいウィンドウを開く
-      settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
+      settingsWindowRef = window.open('/settings_window', 'settings_window');
     }
     updateMenuStatus();
   });
@@ -1559,7 +1557,7 @@ async function setupAllEventListeners() {
     if (noteWindowRef && !noteWindowRef.closed) {
       noteWindowRef.focus();
     } else {
-      noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
+      noteWindowRef = window.open('/notes_window', 'notes_window');
     }
     updateMenuStatus();
   });
@@ -1570,7 +1568,7 @@ async function setupAllEventListeners() {
     if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
       economicCalendarWindowRef.focus();
     } else {
-      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
+      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window');
     }
     updateMenuStatus();
   });
@@ -1581,7 +1579,7 @@ async function setupAllEventListeners() {
     if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
       shepherdColumnWindowRef.focus();
     } else {
-      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
+      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window');
     }
     updateMenuStatus();
   });
@@ -1592,7 +1590,7 @@ async function setupAllEventListeners() {
     if (timerWindowRef && !timerWindowRef.closed) {
       timerWindowRef.focus();
     } else {
-      timerWindowRef = window.open('/timer_window', 'timer_window', 'width=500,height=700,left=300,top=100,resizable=yes,scrollbars=yes');
+      timerWindowRef = window.open('/timer_window', 'timer_window');
     }
     updateMenuStatus();
   });
@@ -1603,7 +1601,7 @@ async function setupAllEventListeners() {
     if (currencyStrengthWindowRef && !currencyStrengthWindowRef.closed) {
       currencyStrengthWindowRef.focus();
     } else {
-      currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window', 'width=1400,height=800,left=350,top=150,resizable=yes,scrollbars=yes');
+      currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window');
     }
     updateMenuStatus();
   });
@@ -1618,13 +1616,10 @@ async function setupAllEventListeners() {
   const modal = document.querySelector('.modal');
 
   if (openBtn) openBtn.addEventListener('click', () => { 
-    // 子ウィンドウが既に開いているか確認
     if (settingsWindowRef && !settingsWindowRef.closed) {
-      // 既存ウィンドウを前面に
       settingsWindowRef.focus();
     } else {
-      // 新しい子ウィンドウを開く
-      settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
+      settingsWindowRef = window.open('/settings_window', 'settings_window');
     }
   });
   // closeBtn は子ウィンドウ側で処理するため、ここでは不要（モーダル用に残す）
@@ -1652,13 +1647,10 @@ let currentNotePage = 0;
 let notePages = [];
 
 if (openNoteBtn) openNoteBtn.addEventListener('click', async () => { 
-  // 子ウィンドウが既に開いているか確認
   if (noteWindowRef && !noteWindowRef.closed) {
-    // 既存ウィンドウを前面に
     noteWindowRef.focus();
   } else {
-    // 新しい子ウィンドウを開く
-    noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
+    noteWindowRef = window.open('/notes_window', 'notes_window');
   }
 });
 
@@ -1668,7 +1660,7 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
     if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
       economicCalendarWindowRef.focus();
     } else {
-      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
+      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window');
     }
   });
 
@@ -1678,7 +1670,7 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
     if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
       shepherdColumnWindowRef.focus();
     } else {
-      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
+      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window');
     }
   });
 
