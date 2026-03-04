@@ -1546,7 +1546,7 @@ async function setupAllEventListeners() {
     if (settingsWindowRef && !settingsWindowRef.closed) {
       settingsWindowRef.focus();
     } else {
-      settingsWindowRef = window.open('/settings_window', 'settings_window');
+      settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
@@ -1557,7 +1557,7 @@ async function setupAllEventListeners() {
     if (noteWindowRef && !noteWindowRef.closed) {
       noteWindowRef.focus();
     } else {
-      noteWindowRef = window.open('/notes_window', 'notes_window');
+      noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
@@ -1568,7 +1568,7 @@ async function setupAllEventListeners() {
     if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
       economicCalendarWindowRef.focus();
     } else {
-      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window');
+      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
@@ -1579,7 +1579,7 @@ async function setupAllEventListeners() {
     if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
       shepherdColumnWindowRef.focus();
     } else {
-      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window');
+      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
@@ -1590,7 +1590,7 @@ async function setupAllEventListeners() {
     if (timerWindowRef && !timerWindowRef.closed) {
       timerWindowRef.focus();
     } else {
-      timerWindowRef = window.open('/timer_window', 'timer_window');
+      timerWindowRef = window.open('/timer_window', 'timer_window', 'width=500,height=700,left=300,top=100,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
@@ -1601,7 +1601,7 @@ async function setupAllEventListeners() {
     if (currencyStrengthWindowRef && !currencyStrengthWindowRef.closed) {
       currencyStrengthWindowRef.focus();
     } else {
-      currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window');
+      currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window', 'width=1400,height=800,left=350,top=150,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
@@ -1619,7 +1619,7 @@ async function setupAllEventListeners() {
     if (settingsWindowRef && !settingsWindowRef.closed) {
       settingsWindowRef.focus();
     } else {
-      settingsWindowRef = window.open('/settings_window', 'settings_window');
+      settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
     }
   });
   // closeBtn は子ウィンドウ側で処理するため、ここでは不要（モーダル用に残す）
@@ -1650,7 +1650,7 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
   if (noteWindowRef && !noteWindowRef.closed) {
     noteWindowRef.focus();
   } else {
-    noteWindowRef = window.open('/notes_window', 'notes_window');
+    noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
   }
 });
 
@@ -1660,7 +1660,7 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
     if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
       economicCalendarWindowRef.focus();
     } else {
-      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window');
+      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
     }
   });
 
@@ -1670,7 +1670,7 @@ if (openNoteBtn) openNoteBtn.addEventListener('click', async () => {
     if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
       shepherdColumnWindowRef.focus();
     } else {
-      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window');
+      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
     }
   });
 
