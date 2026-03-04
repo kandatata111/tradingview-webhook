@@ -1728,7 +1728,8 @@ document.addEventListener('DOMContentLoaded', function(){
             }
             const pctText = percentage>=0?`+${String(percentage).padStart(2,'0')}`:`-${String(Math.abs(percentage)).padStart(2,'0')}`;
             const color = percentage>=0 ? '#06b7f9' : '#ff57ea';
-            const filled = Math.floor(Math.abs(percentage)/10);
+            // round to nearest slot
+            const filled = Math.round(Math.abs(percentage)/10);
             const bars = '▮'.repeat(filled);
             const pad = '　'.repeat(Math.max(0, 10 - filled));
             cell.style.color = color;
