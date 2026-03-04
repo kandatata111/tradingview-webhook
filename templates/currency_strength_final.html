@@ -1708,7 +1708,7 @@ document.addEventListener('DOMContentLoaded', function(){
       });
 
       const maxRank = Math.max(...ranked.map(r=>r.length));
-      // 各順位行を作成
+      // 各順位行を作成 (通貨)
       for (let i=0; i<maxRank; i++) {
         const rankCell = document.createElement('div');
         rankCell.className = 'table-row-label';
@@ -1742,6 +1742,58 @@ document.addEventListener('DOMContentLoaded', function(){
           }
           grid.appendChild(cell);
         });
+      }
+      
+      // 推奨ペアセクション
+      if (displaySettings.showRecommended) {
+        // ペア用ヘッダー行
+        const pairHeader = document.createElement('div');
+        pairHeader.className = 'table-header';
+        pairHeader.textContent = 'ペア';
+        grid.appendChild(pairHeader);
+        timeframes.forEach(tf => {
+          const h = document.createElement('div');
+          h.className = 'table-header';
+          h.textContent = '';
+          grid.appendChild(h);
+        });
+        // 各時間足でおすすめペアをランキング
+        const rankedPairs = timeframes.map(tf => {
+          const tfData = data[tf.key];
+          const pairs = calculateRecommendedPairs(tfData.currencies || [], tfData.raw_scores || {});
+          return pairs;
+        });
+        const pairMax = Math.max(...rankedPairs.map(r=>r.length));
+        for (let i=0; i<pairMax; i++) {
+          const rankCell = document.createElement('div');
+          rankCell.className = 'table-row-label';
+          rankCell.textContent = `${i+1}位`;
+          grid.appendChild(rankCell);
+          timeframes.forEach((tf, idx) => {
+            const cell = document.createElement('div');
+            cell.className = 'table-cell';
+            const pitem = rankedPairs[idx][i];
+            if (pitem) {
+              const rawScore = pitem.score || 0;
+              const denom = (displaySettings.pairNormalizationBase && displaySettings.pairNormalizationBase>0)
+                            ? displaySettings.pairNormalizationBase : 700;
+              let percentage = Math.round((rawScore/denom)*100);
+              percentage = Math.max(-100, Math.min(100, percentage));
+              const color = percentage>=0 ? '#06b7f9' : '#ff57ea';
+              const bars = '▮'.repeat(Math.floor(Math.abs(percentage)/10));
+              cell.style.color = color;
+              let inner = `<span style="color:#fff">[${getPairLabel(pitem.base,pitem.quote)}[${pitem.direction==='sell'?'売▼':'買▲'}]`;
+              if (displaySettings.showPercentage) inner += `${percentage>=0?'+':''}${percentage}%`;
+              inner += `]</span>`;
+              cell.innerHTML = inner + bars;
+              cell.title = `${pitem.pair} score:${rawScore}`;
+            } else {
+              cell.textContent = '-';
+              cell.style.opacity = '0.3';
+            }
+            grid.appendChild(cell);
+          });
+        }
       }
 
       // カラム幅設定：順位＋時間足分
