@@ -1754,7 +1754,7 @@ document.addEventListener('DOMContentLoaded', function(){
         timeframes.forEach(tf => {
           const h = document.createElement('div');
           h.className = 'table-header';
-          h.textContent = '';
+          h.textContent = tf.key;
           grid.appendChild(h);
         });
         // 各時間足でおすすめペアをランキング
@@ -1779,14 +1779,14 @@ document.addEventListener('DOMContentLoaded', function(){
                             ? displaySettings.pairNormalizationBase : 700;
               let percentage = Math.round((rawScore/denom)*100);
               percentage = Math.max(-100, Math.min(100, percentage));
-              const color = percentage>=0 ? '#06b7f9' : '#ff57ea';
-              const bars = '▮'.repeat(Math.floor(Math.abs(percentage)/10));
-              cell.style.color = color;
-              let inner = `<span style="color:#fff">[${getPairLabel(pitem.base,pitem.quote)}[${pitem.direction==='sell'?'売▼':'買▲'}]`;
-              if (displaySettings.showPercentage) inner += `${percentage>=0?'+':''}${percentage}%`;
-              inner += `]</span>`;
-              cell.innerHTML = inner + bars;
-              cell.title = `${pitem.pair} score:${rawScore}`;
+              // rank-based background
+              if (i < 3) {
+                cell.style.background = '#006400';
+                cell.style.color = '#fff';
+              }
+              let txt = `${getPairLabel(pitem.base,pitem.quote)}[${pitem.direction==='sell'?'売▼':'買▲'}]`;
+              if (displaySettings.showPercentage) txt += ` ${percentage>=0?'+':''}${percentage}%`;
+              cell.textContent = txt;
             } else {
               cell.textContent = '-';
               cell.style.opacity = '0.3';
