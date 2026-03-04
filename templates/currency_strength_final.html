@@ -1798,7 +1798,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 cell.style.background = '#f23645';
                 cell.style.color = '#fff';
               }
-              let txt = `${getPairLabel(pitem.base,pitem.quote)}[${pitem.direction==='sell'?'売▼':'買▲'}]`;
+              let txt = `${getPairLabel(pitem.base,pitem.quote)}   [${pitem.direction==='sell'?'売▼':'買▲'}]`;
               // always show percentage for pairs in gauge mode
               txt += ` ${percentage>=0?'+':''}${percentage}%`;
               cell.textContent = txt;
