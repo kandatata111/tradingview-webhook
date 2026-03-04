@@ -1788,8 +1788,14 @@ document.addEventListener('DOMContentLoaded', function(){
                             ? displaySettings.pairNormalizationBase : 700;
               let percentage = Math.round((rawScore/denom)*100);
               percentage = Math.max(-100, Math.min(100, percentage));
-              // rank-based background
-              // do not alter background for actual pair cells
+              // direction color
+              if (pitem.direction === 'buy') {
+                cell.style.background = '#06b7f9';
+                cell.style.color = '#fff';
+              } else {
+                cell.style.background = '#ff57ea';
+                cell.style.color = '#fff';
+              }
               let txt = `${getPairLabel(pitem.base,pitem.quote)}[${pitem.direction==='sell'?'売▼':'買▲'}]`;
               if (displaySettings.showPercentage) txt += ` ${percentage>=0?'+':''}${percentage}%`;
               cell.textContent = txt;
