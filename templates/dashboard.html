@@ -1493,25 +1493,22 @@ let availableCurrenciesGlobal = [];
 // 既存ウィンドウを前面に出す確実な方法:
 //   window.open('', 'name') で既存ウィンドウの参照を再取得 → blur() → focus()
 //   これによりブラウザのポップアップフォーカスブロックを回避できる
-function _bringWindowToFront(ref, name) {
+// BroadcastChannel でフォーカスリクエストを子ウィンドウに送信
+// 子ウィンドウ側が自身の window.focus() を呼ぶため、ブラウザのセキュリティ制限を回避できる
+function _bringWindowToFront(ref, windowName) {
   try {
-    // window.open('', name) はユーザーインタラクション由来のため focus() が確実に通る
-    const w = window.open('', name);
-    if (w && !w.closed) {
-      w.blur();
-      w.focus();
-      return w;
-    }
+    const bc = new BroadcastChannel('tv_tool_window_focus');
+    bc.postMessage({ type: 'focus_request', target: windowName });
+    bc.close();
+    console.log('[MENU] BroadcastChannel focus_request sent for', windowName);
   } catch (e) {
-    console.warn('[MENU] _bringWindowToFront fallback for', name, e);
+    console.warn('[MENU] BroadcastChannel not supported, fallback focus for', windowName, e);
+    // フォールバック
+    if (ref && !ref.closed) {
+      try { ref.focus(); } catch(e2) {}
+    }
   }
-  // フォールバック: 古いrefをそのままフォーカス
-  if (ref && !ref.closed) {
-    try { ref.blur(); } catch(e) {}
-    try { ref.focus(); } catch(e) {}
-    return ref;
-  }
-  return null;
+  return ref;
 }
 
 function openMenuWindow(type) {
