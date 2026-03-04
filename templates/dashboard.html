@@ -1490,6 +1490,30 @@ let currencyStrengthWindowRef = null;
 let availableCurrenciesGlobal = [];
 
 // サイドメニュー各項目のウィンドウを開くグローバル関数（onclickから直接呼び出し）
+// 既存ウィンドウを前面に出す確実な方法:
+//   window.open('', 'name') で既存ウィンドウの参照を再取得 → blur() → focus()
+//   これによりブラウザのポップアップフォーカスブロックを回避できる
+function _bringWindowToFront(ref, name) {
+  try {
+    // window.open('', name) はユーザーインタラクション由来のため focus() が確実に通る
+    const w = window.open('', name);
+    if (w && !w.closed) {
+      w.blur();
+      w.focus();
+      return w;
+    }
+  } catch (e) {
+    console.warn('[MENU] _bringWindowToFront fallback for', name, e);
+  }
+  // フォールバック: 古いrefをそのままフォーカス
+  if (ref && !ref.closed) {
+    try { ref.blur(); } catch(e) {}
+    try { ref.focus(); } catch(e) {}
+    return ref;
+  }
+  return null;
+}
+
 function openMenuWindow(type) {
   try {
     // サイドメニューを閉じる
@@ -1501,42 +1525,42 @@ function openMenuWindow(type) {
     switch (type) {
       case 'settings':
         if (settingsWindowRef && !settingsWindowRef.closed) {
-          settingsWindowRef.focus();
+          settingsWindowRef = _bringWindowToFront(settingsWindowRef, 'settings_window') || settingsWindowRef;
         } else {
           settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
         }
         break;
       case 'note':
         if (noteWindowRef && !noteWindowRef.closed) {
-          noteWindowRef.focus();
+          noteWindowRef = _bringWindowToFront(noteWindowRef, 'notes_window') || noteWindowRef;
         } else {
           noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
         }
         break;
       case 'economicCalendar':
         if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
-          economicCalendarWindowRef.focus();
+          economicCalendarWindowRef = _bringWindowToFront(economicCalendarWindowRef, 'economic_calendar_window') || economicCalendarWindowRef;
         } else {
           economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
         }
         break;
       case 'shepherdColumn':
         if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
-          shepherdColumnWindowRef.focus();
+          shepherdColumnWindowRef = _bringWindowToFront(shepherdColumnWindowRef, 'shepherd_column_window') || shepherdColumnWindowRef;
         } else {
           shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
         }
         break;
       case 'timer':
         if (timerWindowRef && !timerWindowRef.closed) {
-          timerWindowRef.focus();
+          timerWindowRef = _bringWindowToFront(timerWindowRef, 'timer_window') || timerWindowRef;
         } else {
           timerWindowRef = window.open('/timer_window', 'timer_window', 'width=500,height=700,left=300,top=100,resizable=yes,scrollbars=yes');
         }
         break;
       case 'currencyStrength':
         if (currencyStrengthWindowRef && !currencyStrengthWindowRef.closed) {
-          currencyStrengthWindowRef.focus();
+          currencyStrengthWindowRef = _bringWindowToFront(currencyStrengthWindowRef, 'currency_strength_window') || currencyStrengthWindowRef;
         } else {
           currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window', 'width=1400,height=800,left=350,top=150,resizable=yes,scrollbars=yes');
         }
