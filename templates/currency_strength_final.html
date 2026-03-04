@@ -1737,7 +1737,7 @@ document.addEventListener('DOMContentLoaded', function(){
             let inner = `<span style="color:#fff">${getCurrencyLabel(item.currency)}`;
             if (displaySettings.showPercentage) inner += `${pctText}%`;
             inner += `</span>`;
-            cell.innerHTML = inner + ' ' + bars + pad;
+            cell.innerHTML = inner + '&nbsp;' + bars + pad;
             cell.title = `${item.currency} score:${rawScore}`;
           } else {
             cell.textContent = '-';
