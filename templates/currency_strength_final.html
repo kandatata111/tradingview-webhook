@@ -1734,7 +1734,7 @@ document.addEventListener('DOMContentLoaded', function(){
             const pad = '　'.repeat(Math.max(0, 10 - filled));
             cell.style.color = color;
             // currency+percent text always white; percentage visibility toggled
-            let inner = `<span style="color:#fff">[${getCurrencyLabel(item.currency)}`;
+            let inner = `<span style="color:#fff">${getCurrencyLabel(item.currency)}`;
             if (displaySettings.showPercentage) inner += `${pctText}%`;
             inner += `]</span>`;
             cell.innerHTML = inner + bars + pad;
