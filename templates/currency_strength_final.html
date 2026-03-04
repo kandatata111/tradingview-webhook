@@ -503,6 +503,10 @@ document.addEventListener('DOMContentLoaded', function(){
                     <input type="checkbox" id="showPercentage" checked>
                     %を表示
                   </label>
+                  <label class="checkbox-item">
+                    <input type="checkbox" id="showGauge">
+                    ゲージを表示
+                  </label>
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;gap:16px;">
@@ -831,6 +835,7 @@ document.addEventListener('DOMContentLoaded', function(){
         const displayPrefs = {
           showCurrencies: displaySettings.showCurrencies,
           showRecommended: displaySettings.showRecommended,
+          showGauge: displaySettings.showGauge,
           show5m: displaySettings.show5m,
           show15m: displaySettings.show15m,
           show1H: displaySettings.show1H,
@@ -917,7 +922,7 @@ document.addEventListener('DOMContentLoaded', function(){
             console.log('[LOAD] 表示設定を読み込み:', dsp);
 
             // チェックボックス類
-            ['showCurrencies','showRecommended','show5m','show15m','show1H','show4H','showD','showAv'].forEach(id => {
+            ['showCurrencies','showRecommended','showGauge','show5m','show15m','show1H','show4H','showD','showAv'].forEach(id => {
               if (dsp[id] !== undefined) {
                 document.getElementById(id).checked = dsp[id];
                 displaySettings[id] = dsp[id];
@@ -956,6 +961,11 @@ document.addEventListener('DOMContentLoaded', function(){
               displaySettings.showPercentage = dsp.showPercentage;
               const cb = document.getElementById('showPercentage');
               if (cb) cb.checked = dsp.showPercentage;
+            }
+            if (dsp.showGauge !== undefined) {
+              displaySettings.showGauge = dsp.showGauge;
+              const cb = document.getElementById('showGauge');
+              if (cb) cb.checked = dsp.showGauge;
             }
             if (dsp.activeCurrencies) {
               displaySettings.activeCurrencies = Object.assign({}, displaySettings.activeCurrencies, dsp.activeCurrencies);
@@ -1110,6 +1120,8 @@ document.addEventListener('DOMContentLoaded', function(){
       show4H: true,
       showD: true,
       showAv: true,
+      // ゲージ表示切替（縦横入れ替え）
+      showGauge: false,
       // 生スコア [ ] の表示切替
       showRawScore: true,
       // %表示の切替
@@ -1296,7 +1308,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // チェックボックスのイベントリスナーを設定
     document.addEventListener('DOMContentLoaded', () => {
-      ['showCurrencies', 'showRecommended', 'show5m', 'show15m', 'show1H', 'show4H', 'showD', 'showAv', 'showRawScore', 'showPercentage'].forEach(id => {
+      ['showCurrencies', 'showRecommended', 'showGauge', 'show5m', 'show15m', 'show1H', 'show4H', 'showD', 'showAv', 'showRawScore', 'showPercentage'].forEach(id => {
         const checkbox = document.getElementById(id);
         if (checkbox) {
           checkbox.addEventListener('change', (e) => {
@@ -1415,6 +1427,12 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         
         container.innerHTML = '';
+        
+        // ゲージモードならテーブルを縦横入れ替えて描画
+        if (displaySettings.showGauge) {
+          renderGaugeLayout(data, container);
+          return;
+        }
         
         // テーブル作成
         const table = document.createElement('div');
@@ -1647,6 +1665,88 @@ document.addEventListener('DOMContentLoaded', function(){
           container.innerHTML = '<div style="color: red; padding: 20px;">レンダリングエラー: ' + error.message + '</div>';
         }
       }
+    }
+
+    // ゲージモード用レンダリング関数
+    function renderGaugeLayout(data, container) {
+      // container is already cleared
+      const table = document.createElement('div');
+      table.className = 'strength-table-wrapper';
+      const grid = document.createElement('div');
+      grid.className = 'strength-table-grid';
+
+      // 利用する時間足のリスト
+      const timeframes = [
+        { key: '5m', id: 'show5m' },
+        { key: '15m', id: 'show15m' },
+        { key: '1H', id: 'show1H' },
+        { key: '4H', id: 'show4H' },
+        { key: 'D', id: 'showD' },
+        { key: 'Av', id: 'showAv' }
+      ].filter(tf => displaySettings[tf.id] && data[tf.key]);
+
+      // ヘッダー行：順位と各時間足
+      const headerRank = document.createElement('div');
+      headerRank.className = 'table-header';
+      headerRank.textContent = '順位';
+      grid.appendChild(headerRank);
+      timeframes.forEach(tf => {
+        const h = document.createElement('div');
+        h.className = 'table-header';
+        h.textContent = tf.key;
+        grid.appendChild(h);
+      });
+
+      // 各時間足ごとにソートされた通貨配列（強->弱）を作る
+      const ranked = timeframes.map(tf => {
+        const list = data[tf.key].currencies || [];
+        const filtered = displaySettings.activeCurrencies
+          ? list.filter(item => displaySettings.activeCurrencies[item.currency] !== false)
+          : list.slice();
+        filtered.sort((a,b) => (b.score||0) - (a.score||0));
+        return filtered;
+      });
+
+      const maxRank = Math.max(...ranked.map(r=>r.length));
+      // 各順位行を作成
+      for (let i=0; i<maxRank; i++) {
+        const rankCell = document.createElement('div');
+        rankCell.className = 'table-row-label';
+        rankCell.textContent = `${i+1}位`;
+        grid.appendChild(rankCell);
+        timeframes.forEach((tf, idx) => {
+          const cell = document.createElement('div');
+          cell.className = 'table-cell';
+          const item = ranked[idx][i];
+          if (item) {
+            const rawScore = item.score || 0;
+            const denom = (displaySettings.currencyNormalizationBase && displaySettings.currencyNormalizationBase>0)
+                          ? displaySettings.currencyNormalizationBase : 350;
+            let percentage = Math.round((rawScore/denom)*100);
+            if (displaySettings.clipEnabled && Math.abs(rawScore) > (displaySettings.clipThreshold||350)) {
+              percentage = rawScore>=0?100:-100;
+            }
+            const pctText = percentage>=0?`+${String(percentage).padStart(2,'0')}`:`-${String(Math.abs(percentage)).padStart(2,'0')}`;
+            const color = percentage>=0 ? '#06b7f9' : '#ff57ea';
+            const bars = '▮'.repeat(Math.floor(Math.abs(percentage)/10));
+            cell.style.color = color;
+            cell.textContent = `[${getCurrencyLabel(item.currency)}${pctText}%]` + bars;
+            cell.title = `${item.currency} score:${rawScore}`;
+          } else {
+            cell.textContent = '-';
+            cell.style.opacity = '0.3';
+          }
+          grid.appendChild(cell);
+        });
+      }
+
+      // カラム幅設定：順位＋時間足分
+      let columns = '50px';
+      columns += ` repeat(${timeframes.length}, max-content)`;
+      grid.style.gridTemplateColumns = columns;
+
+      table.appendChild(grid);
+      container.appendChild(table);
     }
 
     // データ取得
