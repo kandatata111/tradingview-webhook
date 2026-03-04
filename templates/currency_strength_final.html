@@ -1799,7 +1799,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 cell.style.color = '#fff';
               }
               let txt = `${getPairLabel(pitem.base,pitem.quote)}[${pitem.direction==='sell'?'売▼':'買▲'}]`;
-              if (displaySettings.showPercentage) txt += ` ${percentage>=0?'+':''}${percentage}%`;
+              // always show percentage for pairs in gauge mode
+              txt += ` ${percentage>=0?'+':''}${percentage}%`;
               cell.textContent = txt;
             } else {
               cell.textContent = '-';
