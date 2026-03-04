@@ -1755,6 +1755,8 @@ document.addEventListener('DOMContentLoaded', function(){
           const h = document.createElement('div');
           h.className = 'table-header';
           h.textContent = tf.key;
+          h.style.background = '#006400';
+          h.style.color = '#fff';
           grid.appendChild(h);
         });
         // 各時間足でおすすめペアをランキング
@@ -1768,6 +1770,11 @@ document.addEventListener('DOMContentLoaded', function(){
           const rankCell = document.createElement('div');
           rankCell.className = 'table-row-label';
           rankCell.textContent = `${i+1}位`;
+          // color top3 rank labels green
+          if (i < 3) {
+            rankCell.style.background = '#006400';
+            rankCell.style.color = '#fff';
+          }
           grid.appendChild(rankCell);
           timeframes.forEach((tf, idx) => {
             const cell = document.createElement('div');
@@ -1780,10 +1787,7 @@ document.addEventListener('DOMContentLoaded', function(){
               let percentage = Math.round((rawScore/denom)*100);
               percentage = Math.max(-100, Math.min(100, percentage));
               // rank-based background
-              if (i < 3) {
-                cell.style.background = '#006400';
-                cell.style.color = '#fff';
-              }
+              // do not alter background for actual pair cells
               let txt = `${getPairLabel(pitem.base,pitem.quote)}[${pitem.direction==='sell'?'売▼':'買▲'}]`;
               if (displaySettings.showPercentage) txt += ` ${percentage>=0?'+':''}${percentage}%`;
               cell.textContent = txt;
