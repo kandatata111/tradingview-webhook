@@ -1790,10 +1790,10 @@ document.addEventListener('DOMContentLoaded', function(){
               percentage = Math.max(-100, Math.min(100, percentage));
               // direction color
               if (pitem.direction === 'buy') {
-                cell.style.background = '#06b7f9';
+                cell.style.background = '#2962ff';
                 cell.style.color = '#fff';
               } else {
-                cell.style.background = '#ff57ea';
+                cell.style.background = '#f23645';
                 cell.style.color = '#fff';
               }
               let txt = `${getPairLabel(pitem.base,pitem.quote)}[${pitem.direction==='sell'?'売▼':'買▲'}]`;
