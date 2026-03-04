@@ -46,19 +46,6 @@
       min-height: 500px;
     }
   </style>
-  <script>
-    // BroadcastChannel: ダッシュボードからのフォーカスリクエストを受信して自身を前面へ
-    (function() {
-      try {
-        const _bc = new BroadcastChannel('tv_tool_window_focus');
-        _bc.onmessage = function(e) {
-          if (e.data && e.data.type === 'focus_request' && e.data.target === 'shepherd_column_window') {
-            window.focus();
-          }
-        };
-      } catch(e) { console.warn('[FOCUS] BroadcastChannel not available', e); }
-    })();
-  </script>
 </head>
 <body>
   <div class="header">

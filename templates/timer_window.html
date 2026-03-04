@@ -591,18 +591,6 @@
   </div>
 
   <script>
-    // BroadcastChannel: ダッシュボードからのフォーカスリクエストを受信して自身を前面へ
-    (function() {
-      try {
-        const _bc = new BroadcastChannel('tv_tool_window_focus');
-        _bc.onmessage = function(e) {
-          if (e.data && e.data.type === 'focus_request' && e.data.target === 'timer_window') {
-            window.focus();
-          }
-        };
-      } catch(e) { console.warn('[FOCUS] BroadcastChannel not available', e); }
-    })();
-
     let notifyBefore = 60;
     let enableNotify = true;
     let voiceId = 368;  // 七海のインデックス

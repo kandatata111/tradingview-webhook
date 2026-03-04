@@ -1053,37 +1053,37 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
     <button class="side-menu-close" id="closeSideMenu">✕</button>
   </div>
   <div class="side-menu-items">
-    <button class="side-menu-item" id="menuSettings" onclick="openMenuWindow('settings')">
+    <button class="side-menu-item" id="menuSettings">
       <span class="menu-icon">⚙️</span>
       <span>設定</span>
       <span class="menu-status" id="statusSettings"></span>
     </button>
-    <button class="side-menu-item" id="menuNote" onclick="openMenuWindow('note')">
+    <button class="side-menu-item" id="menuNote">
       <span class="menu-icon">📝</span>
       <span>Note</span>
       <span class="menu-status" id="statusNote"></span>
     </button>
-    <button class="side-menu-item" id="menuEconomicCalendar" onclick="openMenuWindow('economicCalendar')">
+    <button class="side-menu-item" id="menuEconomicCalendar">
       <span class="menu-icon">📊</span>
       <span>経済指標</span>
       <span class="menu-status" id="statusEconomicCalendar"></span>
     </button>
-    <button class="side-menu-item" id="menuShepherdColumn" onclick="openMenuWindow('shepherdColumn')">
+    <button class="side-menu-item" id="menuShepherdColumn">
       <span class="menu-icon">🐑</span>
       <span>羊飼い</span>
       <span class="menu-status" id="statusShepherdColumn"></span>
     </button>
-    <button class="side-menu-item" id="menuTimer" onclick="openMenuWindow('timer')">
+    <button class="side-menu-item" id="menuTimer">
       <span class="menu-icon">⏱️</span>
       <span>確定タイマー</span>
       <span class="menu-status" id="statusTimer"></span>
     </button>
-    <button class="side-menu-item" id="menuCurrencyStrength" onclick="openMenuWindow('currencyStrength')">
+    <button class="side-menu-item" id="menuCurrencyStrength">
       <span class="menu-icon">💪</span>
       <span>通貨強弱</span>
       <span class="menu-status" id="statusCurrencyStrength"></span>
     </button>
-    <button class="side-menu-item" id="menuBackupRecovery" onclick="openMenuWindow('backupRecovery')">
+    <button class="side-menu-item" id="menuBackupRecovery">
       <span class="menu-icon">💾</span>
       <span>バックアップ復旧</span>
       <span class="menu-status" id="statusBackupRecovery"></span>
@@ -1453,14 +1453,6 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
 
 </div>
 <script>
-// global error logging to catch unhandled issues and avoid silent failures
-window.addEventListener('error', function(evt) {
-  console.error('[GLOBAL ERROR]', evt.message, 'at', evt.filename + ':' + evt.lineno, evt.error);
-});
-window.addEventListener('unhandledrejection', function(evt) {
-  console.error('[GLOBAL UNHANDLED REJECTION]', evt.reason);
-});
-
 // Version check and cache buster - 2025-12-05-v3
 (function() {
   const REQUIRED_VERSION = '2025-12-05-v3';
@@ -1489,92 +1481,6 @@ let currencyStrengthWindowRef = null;
 // 利用可能な通貨リスト（子ウィンドウと共有用）
 let availableCurrenciesGlobal = [];
 
-// サイドメニュー各項目のウィンドウを開くグローバル関数（onclickから直接呼び出し）
-// 既存ウィンドウを前面に出す確実な方法:
-//   window.open('', 'name') で既存ウィンドウの参照を再取得 → blur() → focus()
-//   これによりブラウザのポップアップフォーカスブロックを回避できる
-// BroadcastChannel でフォーカスリクエストを子ウィンドウに送信
-// 子ウィンドウ側が自身の window.focus() を呼ぶため、ブラウザのセキュリティ制限を回避できる
-function _bringWindowToFront(ref, windowName) {
-  try {
-    const bc = new BroadcastChannel('tv_tool_window_focus');
-    bc.postMessage({ type: 'focus_request', target: windowName });
-    bc.close();
-    console.log('[MENU] BroadcastChannel focus_request sent for', windowName);
-  } catch (e) {
-    console.warn('[MENU] BroadcastChannel not supported, fallback focus for', windowName, e);
-    // フォールバック
-    if (ref && !ref.closed) {
-      try { ref.focus(); } catch(e2) {}
-    }
-  }
-  return ref;
-}
-
-function openMenuWindow(type) {
-  try {
-    // サイドメニューを閉じる
-    const sideMenu = document.getElementById('sideMenu');
-    const sideMenuOverlay = document.getElementById('sideMenuOverlay');
-    if (sideMenu) sideMenu.classList.remove('active');
-    if (sideMenuOverlay) sideMenuOverlay.classList.remove('active');
-
-    switch (type) {
-      case 'settings':
-        if (settingsWindowRef && !settingsWindowRef.closed) {
-          settingsWindowRef = _bringWindowToFront(settingsWindowRef, 'settings_window') || settingsWindowRef;
-        } else {
-          settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
-        }
-        break;
-      case 'note':
-        if (noteWindowRef && !noteWindowRef.closed) {
-          noteWindowRef = _bringWindowToFront(noteWindowRef, 'notes_window') || noteWindowRef;
-        } else {
-          noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
-        }
-        break;
-      case 'economicCalendar':
-        if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
-          economicCalendarWindowRef = _bringWindowToFront(economicCalendarWindowRef, 'economic_calendar_window') || economicCalendarWindowRef;
-        } else {
-          economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
-        }
-        break;
-      case 'shepherdColumn':
-        if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
-          shepherdColumnWindowRef = _bringWindowToFront(shepherdColumnWindowRef, 'shepherd_column_window') || shepherdColumnWindowRef;
-        } else {
-          shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
-        }
-        break;
-      case 'timer':
-        if (timerWindowRef && !timerWindowRef.closed) {
-          timerWindowRef = _bringWindowToFront(timerWindowRef, 'timer_window') || timerWindowRef;
-        } else {
-          timerWindowRef = window.open('/timer_window', 'timer_window', 'width=500,height=700,left=300,top=100,resizable=yes,scrollbars=yes');
-        }
-        break;
-      case 'currencyStrength':
-        if (currencyStrengthWindowRef && !currencyStrengthWindowRef.closed) {
-          currencyStrengthWindowRef = _bringWindowToFront(currencyStrengthWindowRef, 'currency_strength_window') || currencyStrengthWindowRef;
-        } else {
-          currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window', 'width=1400,height=800,left=350,top=150,resizable=yes,scrollbars=yes');
-        }
-        break;
-      case 'backupRecovery':
-        if (typeof openBackupRecoveryModal === 'function') {
-          openBackupRecoveryModal();
-        }
-        break;
-      default:
-        console.warn('[MENU] Unknown menu type:', type);
-    }
-  } catch (e) {
-    console.error('[MENU] openMenuWindow error for type=' + type, e);
-  }
-}
-
 async function setupAllEventListeners() {
   console.log('[INIT] Setting up all event listeners');
 
@@ -1585,29 +1491,14 @@ async function setupAllEventListeners() {
   const closeSideMenuBtn = document.getElementById('closeSideMenu');
 
   function openSideMenu() {
-    try {
-      if (!sideMenu || !sideMenuOverlay) {
-        console.warn('[MENU] openSideMenu called but elements missing');
-        return;
-      }
-      sideMenu.classList.add('active');
-      sideMenuOverlay.classList.add('active');
-      updateMenuStatus();
-    } catch (e) {
-      console.error('[MENU] openSideMenu error', e);
-    }
+    sideMenu.classList.add('active');
+    sideMenuOverlay.classList.add('active');
+    updateMenuStatus();
   }
 
   function closeSideMenu() {
-    try {
-      if (!sideMenu || !sideMenuOverlay) {
-        return;
-      }
-      sideMenu.classList.remove('active');
-      sideMenuOverlay.classList.remove('active');
-    } catch (e) {
-      console.error('[MENU] closeSideMenu error', e);
-    }
+    sideMenu.classList.remove('active');
+    sideMenuOverlay.classList.remove('active');
   }
 
   // メニューの状態を更新（開いているウィンドウをハイライト）
@@ -1650,131 +1541,72 @@ async function setupAllEventListeners() {
   let shepherdColumnWindowVisible = false;
 
   // 設定メニュー項目: 子ウィンドウを開く/前面に出す/背面に移動
-  try {
-    const menuSettings = document.getElementById('menuSettings');
-    if (menuSettings) {
-      menuSettings.addEventListener('click', () => {
-        try {
-          if (settingsWindowRef && !settingsWindowRef.closed) {
-            // ウィンドウが開いている場合は前面に出す
-            settingsWindowRef.focus();
-          } else {
-            // 新しいウィンドウを開く
-            settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
-          }
-        } catch (innerErr) {
-          console.error('[MENU] menuSettings click handler error', innerErr);
-        }
-      });
+  const menuSettings = document.getElementById('menuSettings');
+  if (menuSettings) menuSettings.addEventListener('click', () => {
+    if (settingsWindowRef && !settingsWindowRef.closed) {
+      // ウィンドウが開いている場合は前面に出す
+      settingsWindowRef.focus();
+    } else {
+      // 新しいウィンドウを開く
+      settingsWindowRef = window.open('/settings_window', 'settings_window', 'width=500,height=700,left=100,top=100,resizable=yes,scrollbars=yes');
     }
-  } catch (err) {
-    console.error('[MENU] failed to attach listener for menuSettings', err);
-  }
+    updateMenuStatus();
+  });
 
   // Noteメニュー項目: 子ウィンドウを開く/前面に出す
-  try {
-    const menuNote = document.getElementById('menuNote');
-    if (menuNote) {
-      menuNote.addEventListener('click', () => {
-        try {
-          if (noteWindowRef && !noteWindowRef.closed) {
-            noteWindowRef.focus();
-          } else {
-            noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
-          }
-          updateMenuStatus();
-        } catch (inner) {
-          console.error('[MENU] menuNote handler error', inner);
-        }
-      });
+  const menuNote = document.getElementById('menuNote');
+  if (menuNote) menuNote.addEventListener('click', () => {
+    if (noteWindowRef && !noteWindowRef.closed) {
+      noteWindowRef.focus();
+    } else {
+      noteWindowRef = window.open('/notes_window', 'notes_window', 'width=800,height=600,left=150,top=150,resizable=yes,scrollbars=yes');
     }
-  } catch (err) {
-    console.error('[MENU] failed to attach listener for menuNote', err);
-  }
+    updateMenuStatus();
+  });
 
   // 経済指標メニュー項目: 子ウィンドウを開く/前面に出す
-  try {
-    const menuEconomicCalendar = document.getElementById('menuEconomicCalendar');
-    if (menuEconomicCalendar) {
-      menuEconomicCalendar.addEventListener('click', () => {
-        try {
-          if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
-            economicCalendarWindowRef.focus();
-          } else {
-            economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
-          }
-          updateMenuStatus();
-        } catch (inner) {
-          console.error('[MENU] menuEconomicCalendar handler error', inner);
-        }
-      });
+  const menuEconomicCalendar = document.getElementById('menuEconomicCalendar');
+  if (menuEconomicCalendar) menuEconomicCalendar.addEventListener('click', () => {
+    if (economicCalendarWindowRef && !economicCalendarWindowRef.closed) {
+      economicCalendarWindowRef.focus();
+    } else {
+      economicCalendarWindowRef = window.open('/economic_calendar_window', 'economic_calendar_window', 'width=600,height=500,left=200,top=100,resizable=yes,scrollbars=yes');
     }
-  } catch (err) {
-    console.error('[MENU] failed to attach listener for menuEconomicCalendar', err);
-  }
+    updateMenuStatus();
+  });
 
   // 羊飼いメニュー項目: 子ウィンドウを開く/前面に出す
-  try {
-    const menuShepherdColumn = document.getElementById('menuShepherdColumn');
-    if (menuShepherdColumn) {
-      menuShepherdColumn.addEventListener('click', () => {
-        try {
-          if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
-            shepherdColumnWindowRef.focus();
-          } else {
-            shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
-          }
-          updateMenuStatus();
-        } catch (inner) {
-          console.error('[MENU] menuShepherdColumn handler error', inner);
-        }
-      });
+  const menuShepherdColumn = document.getElementById('menuShepherdColumn');
+  if (menuShepherdColumn) menuShepherdColumn.addEventListener('click', () => {
+    if (shepherdColumnWindowRef && !shepherdColumnWindowRef.closed) {
+      shepherdColumnWindowRef.focus();
+    } else {
+      shepherdColumnWindowRef = window.open('/shepherd_column_window', 'shepherd_column_window', 'width=700,height=600,left=250,top=150,resizable=yes,scrollbars=yes');
     }
-  } catch (err) {
-    console.error('[MENU] failed to attach listener for menuShepherdColumn', err);
-  }
+    updateMenuStatus();
+  });
 
   // 確定タイマーメニュー項目: 子ウィンドウを開く/前面に出す
-  try {
-    const menuTimer = document.getElementById('menuTimer');
-    if (menuTimer) {
-      menuTimer.addEventListener('click', () => {
-        try {
-          if (timerWindowRef && !timerWindowRef.closed) {
-            timerWindowRef.focus();
-          } else {
-            timerWindowRef = window.open('/timer_window', 'timer_window', 'width=500,height=700,left=300,top=100,resizable=yes,scrollbars=yes');
-          }
-          updateMenuStatus();
-        } catch (inner) {
-          console.error('[MENU] menuTimer handler error', inner);
-        }
-      });
+  const menuTimer = document.getElementById('menuTimer');
+  if (menuTimer) menuTimer.addEventListener('click', () => {
+    if (timerWindowRef && !timerWindowRef.closed) {
+      timerWindowRef.focus();
+    } else {
+      timerWindowRef = window.open('/timer_window', 'timer_window', 'width=500,height=700,left=300,top=100,resizable=yes,scrollbars=yes');
     }
-  } catch (err) {
-    console.error('[MENU] failed to attach listener for menuTimer', err);
-  }
+    updateMenuStatus();
+  });
 
   // 通貨強弱メニュー項目: 子ウィンドウを開く/前面に出す
-  try {
-    const menuCurrencyStrength = document.getElementById('menuCurrencyStrength');
-    if (menuCurrencyStrength) {
-      menuCurrencyStrength.addEventListener('click', () => {
-        try {
-          if (currencyStrengthWindowRef && !currencyStrengthWindowRef.closed) {
-            currencyStrengthWindowRef.focus();
-          } else {
-            currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window', 'width=1400,height=800,left=350,top=150,resizable=yes,scrollbars=yes');
-          }
-          updateMenuStatus();
-        } catch (inner) {
-          console.error('[MENU] menuCurrencyStrength handler error', inner);
-        }
-      });
+  const menuCurrencyStrength = document.getElementById('menuCurrencyStrength');
+  if (menuCurrencyStrength) menuCurrencyStrength.addEventListener('click', () => {
+    if (currencyStrengthWindowRef && !currencyStrengthWindowRef.closed) {
+      currencyStrengthWindowRef.focus();
+    } else {
+      currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window', 'width=1400,height=800,left=350,top=150,resizable=yes,scrollbars=yes');
     }
-  } catch (err) {
-    console.error('[MENU] failed to attach listener for menuCurrencyStrength', err);
-  }
+    updateMenuStatus();
+  });
 
   // ウィンドウが閉じられたときのステータス更新（定期チェック）
   setInterval(updateMenuStatus, 1000);
@@ -5640,14 +5472,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ]);
       await setupPromise;
     } catch (e) {
-      console.error('[INIT] Setup failed:', e);
-      // make one more attempt in case a transient error interrupted the first run
-      try {
-        console.log('[INIT] Retrying setupAllEventListeners after failure');
-        await setupAllEventListeners();
-      } catch (e2) {
-        console.error('[INIT] Retry also failed:', e2);
-      }
+      console.error('[INIT] Setup failed:', e.message);
     }
 
     // 主体時間足選択のイベントリスナーを設定
@@ -9329,8 +9154,12 @@ function closeBackupRecoveryModal() {
   }
 })();
 
-// メニューアイテムへのクリックリスナーは onclick="openMenuWindow('backupRecovery')" 属性で処理するため不要
-// (削除: addEventListener の代わりに onclick 属性を使用)
+// メニューアイテムにイベントリスナー追加
+document.getElementById('menuBackupRecovery').addEventListener('click', function() {
+  openBackupRecoveryModal();
+  document.getElementById('sideMenu').classList.remove('active');
+  document.getElementById('sideMenuOverlay').classList.remove('active');
+});
 
 // Gmail から手動取得（バックグラウンドジョブ方式 - サーバーをブロックしない）
 async function fetchBackupFromGmail() {

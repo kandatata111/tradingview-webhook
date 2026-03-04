@@ -413,18 +413,6 @@
     }
   </style>
 <script>
-// BroadcastChannel: ダッシュボードからのフォーカスリクエストを受信して自身を前面へ
-(function() {
-  try {
-    const _bc = new BroadcastChannel('tv_tool_window_focus');
-    _bc.onmessage = function(e) {
-      if (e.data && e.data.type === 'focus_request' && e.data.target === 'currency_strength_window') {
-        window.focus();
-      }
-    };
-  } catch(e) { console.warn('[FOCUS] BroadcastChannel not available', e); }
-})();
-
 // apply stored cs font size and update on storage events
 function applyCsFontSize(){
   const sz = localStorage.getItem('tv_cs_font_size');
@@ -1746,10 +1734,10 @@ document.addEventListener('DOMContentLoaded', function(){
             const pad = '　'.repeat(Math.max(0, 10 - filled));
             cell.style.color = color;
             // currency+percent text always white; percentage visibility toggled
-            let inner = `<span style="color:#fff">${getCurrencyLabel(item.currency)}`;
+            let inner = `<span style="color:#fff">[${getCurrencyLabel(item.currency)}`;
             if (displaySettings.showPercentage) inner += `${pctText}%`;
-            inner += `</span>`;
-            cell.innerHTML = inner + '&nbsp;' + bars + pad;
+            inner += `]</span>`;
+            cell.innerHTML = inner + bars + pad;
             cell.title = `${item.currency} score:${rawScore}`;
           } else {
             cell.textContent = '-';

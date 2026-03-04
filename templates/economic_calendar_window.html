@@ -96,18 +96,6 @@
   </div>
   
   <script>
-    // BroadcastChannel: ダッシュボードからのフォーカスリクエストを受信して自身を前面へ
-    (function() {
-      try {
-        const _bc = new BroadcastChannel('tv_tool_window_focus');
-        _bc.onmessage = function(e) {
-          if (e.data && e.data.type === 'focus_request' && e.data.target === 'economic_calendar_window') {
-            window.focus();
-          }
-        };
-      } catch(e) { console.warn('[FOCUS] BroadcastChannel not available', e); }
-    })();
-
     // 言語選択の変更イベント
     const langSelect = document.getElementById('calendar-lang-select');
     const calendarIframe = document.getElementById('calendar-iframe');
