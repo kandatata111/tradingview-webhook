@@ -1750,12 +1750,14 @@ document.addEventListener('DOMContentLoaded', function(){
         const pairHeader = document.createElement('div');
         pairHeader.className = 'table-header';
         pairHeader.textContent = 'ペア';
+        pairHeader.style.background = '#0fb800';
+        pairHeader.style.color = '#fff';
         grid.appendChild(pairHeader);
         timeframes.forEach(tf => {
           const h = document.createElement('div');
           h.className = 'table-header';
           h.textContent = tf.key;
-          h.style.background = '#006400';
+          h.style.background = '#0fb800';
           h.style.color = '#fff';
           grid.appendChild(h);
         });
@@ -1772,7 +1774,7 @@ document.addEventListener('DOMContentLoaded', function(){
           rankCell.textContent = `${i+1}位`;
           // color top3 rank labels green
           if (i < 3) {
-            rankCell.style.background = '#006400';
+            rankCell.style.background = '#0fb800';
             rankCell.style.color = '#fff';
           }
           grid.appendChild(rankCell);
