@@ -1603,46 +1603,52 @@ document.addEventListener('DOMContentLoaded', function(){
           }
         }
         
-        // 推奨ペアセル（1行表示）
+        // 推奨ペアセル（1位・2位・3位を個別セルで表示）
         if (displaySettings.showRecommended) {
-          const pairCell = document.createElement('div');
-          pairCell.className = 'table-recommended';
-        
-        recommendedPairs.forEach(pairInfo => {
-          const pairSpan = document.createElement('span');
-          pairSpan.className = 'recommended-pair';
-          
-          const pairName = document.createElement('span');
-          pairName.style.fontWeight = 'bold';
-          pairName.style.color = '#fff';
-          pairName.textContent = getPairLabel(pairInfo.base, pairInfo.quote);
-          pairSpan.appendChild(pairName);
-          
-          const dirBadge = document.createElement('span');
-          dirBadge.className = pairInfo.direction === 'buy' ? 'buy-badge' : 'sell-badge';
-          dirBadge.textContent = pairInfo.direction === 'buy' ? '買↑' : '売↓';
-          pairSpan.appendChild(dirBadge);
-          
-          // pair % は displaySettings.pairNormalizationBase を使用
-          const pairDenom = (displaySettings.pairNormalizationBase && displaySettings.pairNormalizationBase > 0) ? displaySettings.pairNormalizationBase : 700;
-          let percentage = Math.round((pairInfo.score / pairDenom) * 100);
-          percentage = Math.max(-100, Math.min(100, percentage)); // 表示上はクリップ
-          const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
-          
-          const scoreSpan = document.createElement('span');
-          scoreSpan.style.color = '#ffd700';
-          scoreSpan.style.fontWeight = 'bold';
-          scoreSpan.textContent = !displaySettings.showPercentage
-            ? (displaySettings.showRawScore ? `[${pairInfo.score}]` : '')
-            : displaySettings.showRawScore
-              ? `${percentText}%[${pairInfo.score}]`
-              : `${percentText}%`;
-          pairSpan.appendChild(scoreSpan);
-          
-          pairCell.appendChild(pairSpan);
-        });
-        
-        grid.appendChild(pairCell);
+          for (let rank = 0; rank < 3; rank++) {
+            const pairCell = document.createElement('div');
+            pairCell.className = 'table-recommended';
+            
+            const pairInfo = recommendedPairs[rank];
+            if (pairInfo) {
+              const pairSpan = document.createElement('span');
+              pairSpan.className = 'recommended-pair';
+              
+              const pairName = document.createElement('span');
+              pairName.style.fontWeight = 'bold';
+              pairName.style.color = '#fff';
+              pairName.textContent = getPairLabel(pairInfo.base, pairInfo.quote);
+              pairSpan.appendChild(pairName);
+              
+              const dirBadge = document.createElement('span');
+              dirBadge.className = pairInfo.direction === 'buy' ? 'buy-badge' : 'sell-badge';
+              dirBadge.textContent = pairInfo.direction === 'buy' ? '買↑' : '売↓';
+              pairSpan.appendChild(dirBadge);
+              
+              const pairDenom = (displaySettings.pairNormalizationBase && displaySettings.pairNormalizationBase > 0) ? displaySettings.pairNormalizationBase : 700;
+              let percentage = Math.round((pairInfo.score / pairDenom) * 100);
+              percentage = Math.max(-100, Math.min(100, percentage));
+              const percentText = percentage >= 0 ? `+${String(percentage).padStart(2, '0')}` : `-${String(Math.abs(percentage)).padStart(2, '0')}`;
+              
+              const scoreSpan = document.createElement('span');
+              scoreSpan.style.color = '#ffd700';
+              scoreSpan.style.fontWeight = 'bold';
+              scoreSpan.textContent = !displaySettings.showPercentage
+                ? (displaySettings.showRawScore ? `[${pairInfo.score}]` : '')
+                : displaySettings.showRawScore
+                  ? `${percentText}%[${pairInfo.score}]`
+                  : `${percentText}%`;
+              pairSpan.appendChild(scoreSpan);
+              
+              pairCell.appendChild(pairSpan);
+            } else {
+              pairCell.textContent = '-';
+              pairCell.style.opacity = '0.3';
+            }
+            
+            grid.appendChild(pairCell);
+          }
+        }
         }
       });
       
@@ -1657,14 +1663,14 @@ document.addEventListener('DOMContentLoaded', function(){
         : 5;
       let columns = '50px'; // 時間列
       if (displaySettings.showCurrencies && displaySettings.showRecommended) {
-        // 両方表示: 時間 + 通貨N列 + 推奨ペア
-        columns += ` repeat(${activeCurrencyCount}, ${currencyColW}) ${recColW}`;
+        // 両方表示: 時間 + 通貨N列 + 推奨ペア3列
+        columns += ` repeat(${activeCurrencyCount}, ${currencyColW}) repeat(3, ${recColW})`;
       } else if (displaySettings.showCurrencies) {
         // 通貨のみ: 時間 + 通貨N列
         columns += ` repeat(${activeCurrencyCount}, ${currencyColW})`;
       } else if (displaySettings.showRecommended) {
-        // 推奨ペアのみ: 時間 + 推奨ペア
-        columns += ` ${recColW}`;
+        // 推奨ペアのみ: 時間 + 推奨ペア3列
+        columns += ` repeat(3, ${recColW})`;
       }
       grid.style.gridTemplateColumns = columns;
       
