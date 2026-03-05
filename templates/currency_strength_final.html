@@ -1472,10 +1472,13 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         
         if (displaySettings.showRecommended) {
-          const headerRecommended = document.createElement('div');
-          headerRecommended.className = 'table-header-recommended';
-          headerRecommended.textContent = '推奨ペア';
-          grid.appendChild(headerRecommended);
+          // 推奨ペア列を3つに分割
+          for (let rank = 1; rank <= 3; rank++) {
+            const hdr = document.createElement('div');
+            hdr.className = 'table-header-recommended';
+            hdr.textContent = `推奨${rank}位`;
+            grid.appendChild(hdr);
+          }
         }
         
         console.log('[renderStrengthData] Headers created');
