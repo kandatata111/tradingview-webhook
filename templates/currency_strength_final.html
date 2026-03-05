@@ -1229,6 +1229,22 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // 再生ボタンの処理
     console.log('[VOICE_SETUP] Setting up play button listeners...');
+    // helper for test replacements using live data
+    function expandPlaceholders(timeframe, msg) {
+      if (!window.currentData || !window.currentData[timeframe]) return msg;
+      const list = window.currentData[timeframe].currencies || [];
+      const filtered = displaySettings.activeCurrencies
+            ? list.filter(item => displaySettings.activeCurrencies[item.currency] !== false)
+            : list.slice();
+      filtered.sort((a,b) => (b.score||0) - (a.score||0));
+      if (filtered.length > 0) {
+        const weakest = filtered[0].currency;
+        const strongest = filtered[filtered.length-1].currency;
+        msg = msg.replace('[WEAKEST]', weakest).replace('[STRONGEST]', strongest);
+      }
+      return msg;
+    }
+
     ['15m', '1H', '4H'].forEach(tf => {
       const playBtn = document.getElementById(`play${tf}`);
       console.log(`[VOICE_SETUP] play${tf} button:`, playBtn);
@@ -1236,7 +1252,8 @@ document.addEventListener('DOMContentLoaded', function(){
         playBtn.addEventListener('click', () => {
           console.log(`[VOICE_SETUP] Play button clicked for ${tf}`);
           const msgInput = document.getElementById(`msg${tf}`);
-          const message = msgInput ? (msgInput.value || voiceNotificationSettings.customMessages[tf]) : `${tf}足で最弱・最強が変更になりました`;
+          let message = msgInput ? (msgInput.value || voiceNotificationSettings.customMessages[tf]) : `${tf}足で最弱・最強が変更になりました`;
+          message = expandPlaceholders(tf, message);
           console.log(`[VOICE_SETUP] Message:`, message);
           playNotificationSound(tf, message);
         });
