@@ -881,6 +881,13 @@ document.addEventListener('DOMContentLoaded', function(){
           localStorage.setItem('tv_cs_font_size', fsVal);
           applyCsFontSize();
         }
+
+        // 正規化基準値をサーバーに同期（履歴%計算に使用）
+        fetch('/api/client_settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currencyNormalizationBase: displaySettings.currencyNormalizationBase })
+        }).catch(e => console.warn('[SAVE] server sync failed:', e));
         
         // 保存成功メッセージを表示
         const saveMsg = document.getElementById('saveMessage');
@@ -1018,6 +1025,14 @@ document.addEventListener('DOMContentLoaded', function(){
           console.log('[LOAD] フォントサイズを復元:', savedCsFontSize + 'px');
         }
         applyCsFontSize();
+
+        // 正規化基準値をサーバーに同期（ページ読み込み時）
+        fetch('/api/client_settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currencyNormalizationBase: displaySettings.currencyNormalizationBase })
+        }).catch(e => console.warn('[LOAD] server sync failed:', e));
+
       } catch (e) {
         console.error('[LOAD] 設定の読み込みに失敗:', e);
       }

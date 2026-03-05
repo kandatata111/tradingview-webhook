@@ -56,6 +56,9 @@ def _get_rule_eval_lock(symbol):
 # 形式: {'15m': {'weakest': 'USD', 'strongest': 'JPY'}, '1H': {...}, ...}
 previous_extreme_currencies = {}
 
+# 履歴パーセント計算用の正規化基準値（クライアントの設定を受け取って更新）
+currency_norm_base = 350
+
 # IMMEDIATELY log the file path to confirm which render_server.py is running
 with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as _f:
     _f.write(f'\n====== LOADING render_server.py FROM: {__file__} ======\n')
@@ -1267,8 +1270,9 @@ def detect_and_record_extreme_changes(currency_data):
                 # scoreから正しいパーセントを算出（フロントエンドと同じ分母350で計算）
                 weakest_score = currencies[0]['score']
                 strongest_score = currencies[-1]['score']
-                weakest_percent = max(-100, min(100, round((weakest_score / 350.0) * 100)))
-                strongest_percent = max(-100, min(100, round((strongest_score / 350.0) * 100)))
+                denom = float(currency_norm_base) if currency_norm_base > 0 else 350.0
+                weakest_percent = max(-100, min(100, round((weakest_score / denom) * 100)))
+                strongest_percent = max(-100, min(100, round((strongest_score / denom) * 100)))
                 
                 # 時間足に応じた期間バケット（例:5mなら「202603051035」=2026/03/05 10:35台）
                 now_jst = datetime.now(jst)
@@ -1375,6 +1379,21 @@ def detect_and_record_extreme_changes(currency_data):
 
 # サーバーバージョン識別子（デプロイ確認用）
 CURRENCY_STRENGTH_VERSION = 'fix-label-match-d02572e'
+
+@app.route('/api/client_settings', methods=['POST'])
+def api_save_client_settings():
+    """クライアントの表示設定をサーバーに同期（正規化基準値など）"""
+    global currency_norm_base
+    try:
+        body = request.get_json(force=True) or {}
+        if 'currencyNormalizationBase' in body:
+            val = int(body['currencyNormalizationBase'])
+            if val > 0:
+                currency_norm_base = val
+                print(f'[CLIENT_SETTINGS] currencyNormalizationBase updated to {currency_norm_base}')
+        return jsonify({'status': 'ok', 'currency_norm_base': currency_norm_base}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)}), 400
 
 @app.route('/api/currency_strength', methods=['GET'])
 def api_currency_strength():
