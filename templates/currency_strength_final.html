@@ -672,6 +672,12 @@ document.addEventListener('DOMContentLoaded', function(){
             <div class="subsection-title">時間足別通知設定</div>
             
             <div class="voice-timeframe">
+              <input type="checkbox" id="notify5m" checked>
+              <label for="notify5m">5分足</label>
+              <input type="text" id="msg5m" placeholder="通知メッセージ">
+              <button id="play5m">▶ 再生</button>
+            </div>
+            <div class="voice-timeframe">
               <input type="checkbox" id="notify15m" checked>
               <label for="notify15m">15分足</label>
               <input type="text" id="msg15m" placeholder="通知メッセージ">
@@ -1173,11 +1179,13 @@ document.addEventListener('DOMContentLoaded', function(){
       enableElectronic: false,
       electronicSound: '',
       notify: {
+        '5m': true,
         '15m': true,
         '1H': true,
         '4H': true
       },
       customMessages: {
+        '5m': '5分足で最弱・最強が変更になりました',
         '15m': '15分足で最弱・最強が変更になりました',
         '1H': '1時間足で最弱・最強が変更になりました',
         '4H': '4時間足で最弱・最強が変更になりました'
@@ -1211,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     
     // 通知有効化チェックボックス
-    ['15m', '1H', '4H'].forEach(tf => {
+    ['5m','15m', '1H', '4H'].forEach(tf => {
       const checkbox = document.getElementById(`notify${tf}`);
       if (checkbox) {
         checkbox.addEventListener('change', (e) => {
@@ -1252,7 +1260,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return msg;
     }
 
-    ['15m', '1H', '4H'].forEach(tf => {
+    ['5m','15m', '1H', '4H'].forEach(tf => {
       const playBtn = document.getElementById(`play${tf}`);
       console.log(`[VOICE_SETUP] play${tf} button:`, playBtn);
       if (playBtn) {
