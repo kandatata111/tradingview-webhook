@@ -1560,14 +1560,15 @@ document.addEventListener('DOMContentLoaded', function(){
         
         // 通貨セル（5通貨、ソート済み）
         if (displaySettings.showCurrencies) {
-          // フィルタリング後の通貨数分セルを作成
-          const currencyCount = filteredCurrencies.length;
+          // 強→弱に並べ替え（左端＝最強）
+          const displayList = filteredCurrencies.slice().reverse();
+          const currencyCount = displayList.length;
           for (let i = 0; i < currencyCount; i++) {
             const cell = document.createElement('div');
             
-            if (i < filteredCurrencies.length) {
+            if (i < displayList.length) {
               // データがある場合
-              const item = filteredCurrencies[i];
+              const item = displayList[i];
               cell.className = 'table-cell ' + getStrengthClass(item.score);
               
               // raw score を使ってクライアント側で % を計算（displaySettings に従う）
