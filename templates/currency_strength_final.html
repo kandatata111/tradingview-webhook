@@ -918,7 +918,7 @@ document.addEventListener('DOMContentLoaded', function(){
           voiceNotificationSettings.electronicSound = settings.electronicSound || '';
           
           // 各時間足の設定を復元
-          ['15m', '1H', '4H'].forEach(tf => {
+          ['5m', '15m', '1H', '4H'].forEach(tf => {
             if (settings.notify && settings.notify[tf] !== undefined) {
               document.getElementById(`notify${tf}`).checked = settings.notify[tf];
               voiceNotificationSettings.notify[tf] = settings.notify[tf];
