@@ -1934,8 +1934,15 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     }
 
-    // 60秒ごとに自動リフレッシュ（Socket.IOの補完）
-    setInterval(loadCurrencyStrength, 60000);
+    // 毎分00秒に同期してポーリング（Socket.IOの補完）
+    (function scheduleMinuteAlignedPoll() {
+      const now = new Date();
+      const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+      setTimeout(() => {
+        loadCurrencyStrength();
+        setInterval(loadCurrencyStrength, 60000);
+      }, msToNextMinute);
+    })();
 
     // Socket.IO接続とリアルタイム更新
     const socket = io();
