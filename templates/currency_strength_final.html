@@ -1285,6 +1285,14 @@ document.addEventListener('DOMContentLoaded', function(){
     // 音声メッセージを再生
     function playVoiceMessage(message) {
       try {
+        // 通貨コードを日本語名に置換（音声用）
+        message = message
+          .replace(/\bUSD\b/g, '米ドル')
+          .replace(/\bJPY\b/g, '日本円')
+          .replace(/\bEUR\b/g, 'ユーロ')
+          .replace(/\bGBP\b/g, 'ポンド')
+          .replace(/\bAUD\b/g, '豪ドル');
+        
         // Web Speech API を使用
         const utterance = new SpeechSynthesisUtterance(message);
         utterance.lang = 'ja-JP';
