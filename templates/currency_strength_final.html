@@ -1236,10 +1236,16 @@ document.addEventListener('DOMContentLoaded', function(){
       const filtered = displaySettings.activeCurrencies
             ? list.filter(item => displaySettings.activeCurrencies[item.currency] !== false)
             : list.slice();
-      filtered.sort((a,b) => (b.score||0) - (a.score||0));
       if (filtered.length > 0) {
-        const weakest = filtered[0].currency;
-        const strongest = filtered[filtered.length-1].currency;
+        let weakest = filtered[0].currency;
+        let strongest = filtered[0].currency;
+        let minScore = filtered[0].score || 0;
+        let maxScore = filtered[0].score || 0;
+        filtered.forEach(item => {
+          const s = item.score || 0;
+          if (s < minScore) { minScore = s; weakest = item.currency; }
+          if (s > maxScore) { maxScore = s; strongest = item.currency; }
+        });
         msg = msg.replace('[WEAKEST]', weakest).replace('[STRONGEST]', strongest);
       }
       return msg;
@@ -1537,8 +1543,16 @@ document.addEventListener('DOMContentLoaded', function(){
         
         // 🔔 変更検出：最弱と最強をチェック
         if (filteredCurrencies && filteredCurrencies.length > 0 && voiceNotificationSettings.notify[tf.key]) {
-          const currentWeakest = filteredCurrencies[0].currency;  // 最弱
-          const currentStrongest = filteredCurrencies[filteredCurrencies.length - 1].currency;  // 最強
+          // スコアを比較して本当に最弱/最強を求める
+          let currentWeakest = filteredCurrencies[0].currency;
+          let currentStrongest = filteredCurrencies[0].currency;
+          let minScore = filteredCurrencies[0].score || 0;
+          let maxScore = filteredCurrencies[0].score || 0;
+          filteredCurrencies.forEach(item => {
+            const s = item.score || 0;
+            if (s < minScore) { minScore = s; currentWeakest = item.currency; }
+            if (s > maxScore) { maxScore = s; currentStrongest = item.currency; }
+          });
           const prevState = previousExtreme[tf.key] || {};
           
           console.log(`[${tf.key}] 通知チェック: 最弱=${currentWeakest}, 最強=${currentStrongest}`);
