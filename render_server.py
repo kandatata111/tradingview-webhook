@@ -1264,8 +1264,11 @@ def detect_and_record_extreme_changes(currency_data):
                 currencies = data['currencies']
                 weakest = currencies[0]['currency']
                 strongest = currencies[-1]['currency']
-                weakest_percent = max(-100, min(100, currencies[0]['percentage']))
-                strongest_percent = max(-100, min(100, currencies[-1]['percentage']))
+                # scoreから正しいパーセントを算出（フロントエンドと同じ分母350で計算）
+                weakest_score = currencies[0]['score']
+                strongest_score = currencies[-1]['score']
+                weakest_percent = max(-100, min(100, round((weakest_score / 350.0) * 100)))
+                strongest_percent = max(-100, min(100, round((strongest_score / 350.0) * 100)))
                 
                 # 時間足に応じた期間バケット（例:5mなら「202603051035」=2026/03/05 10:35台）
                 now_jst = datetime.now(jst)
