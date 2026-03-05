@@ -1434,7 +1434,7 @@ def api_change_history():
             ]
         else:
             # 全ての時間足を取得
-            timeframes = ['15m', '1H', '4H', 'D', 'Av']
+            timeframes = ['5m', '15m', '1H', '4H', 'D', 'Av']
             for tf in timeframes:
                 if has_percent:
                     c.execute('''SELECT timeframe, weakest, strongest, weakest_percent, strongest_percent, timestamp, created_at 
