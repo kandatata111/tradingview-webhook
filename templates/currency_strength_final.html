@@ -1456,13 +1456,19 @@ document.addEventListener('DOMContentLoaded', function(){
         grid.appendChild(headerTime);
         
         if (displaySettings.showCurrencies) {
-          const headerCurrencies = document.createElement('div');
-          headerCurrencies.className = 'table-header-currencies';
-          headerCurrencies.style.textAlign = 'center';
-          headerCurrencies.style.letterSpacing = '0.05em';
-          headerCurrencies.style.gridColumn = `span ${displaySettings.activeCurrencies ? Object.values(displaySettings.activeCurrencies).filter(v => v !== false).length : 5}`; // 通貨列数に合わせる
-          headerCurrencies.textContent = '弱　　◀　　◀　　中　　▶　　▶　　強';
-          grid.appendChild(headerCurrencies);
+          // 通貨列ごとに順位ヘッダーを作成
+          const active = displaySettings.activeCurrencies
+            ? Object.entries(displaySettings.activeCurrencies)
+                .filter(([_,v]) => v !== false)
+                .map(([k,_v]) => k)
+            : ['JPY','USD','EUR','GBP','AUD'];
+          active.forEach((cur, idx) => {
+            const hdr = document.createElement('div');
+            hdr.className = 'table-header';
+            hdr.textContent = `${idx+1}位`;
+            hdr.style.textAlign = 'center';
+            grid.appendChild(hdr);
+          });
         }
         
         if (displaySettings.showRecommended) {
