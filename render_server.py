@@ -1251,7 +1251,7 @@ def detect_and_record_extreme_changes(currency_data):
     jst = pytz.timezone('Asia/Tokyo')
     
     try:
-        current_time = datetime.now(jst).strftime('%y/%m/%d/%H:%M')
+        current_time = datetime.now(jst).strftime('%y/%m/%d/%H:%M:%S')
         
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -1262,64 +1262,97 @@ def detect_and_record_extreme_changes(currency_data):
                     continue
                 
                 currencies = data['currencies']
-                weakest = currencies[0]['currency']  # 最初（最弱）
-                strongest = currencies[-1]['currency']  # 最後（最強）
-                weakest_percent = currencies[0]['percentage']  # 最弱の%
-                strongest_percent = currencies[-1]['percentage']  # 最強の%
+                weakest = currencies[0]['currency']
+                strongest = currencies[-1]['currency']
+                weakest_percent = max(-100, min(100, currencies[0]['percentage']))
+                strongest_percent = max(-100, min(100, currencies[-1]['percentage']))
                 
-                # 前回の値と比較
-                previous = previous_extreme_currencies.get(timeframe)
+                # 時間足に応じた期間バケット（例:5mなら「202603051035」=2026/03/05 10:35台）
+                now_jst = datetime.now(jst)
+                if timeframe == '5m':
+                    b = (now_jst.minute // 5) * 5
+                    current_bucket = now_jst.strftime('%Y%m%d%H') + f'{b:02d}'
+                elif timeframe == '15m':
+                    b = (now_jst.minute // 15) * 15
+                    current_bucket = now_jst.strftime('%Y%m%d%H') + f'{b:02d}'
+                elif timeframe == '1H':
+                    current_bucket = now_jst.strftime('%Y%m%d%H') + '00'
+                elif timeframe == '4H':
+                    b = (now_jst.hour // 4) * 4
+                    current_bucket = now_jst.strftime('%Y%m%d') + f'{b:02d}' + '00'
+                else:
+                    current_bucket = now_jst.strftime('%Y%m%d%H%M')
                 
-                if previous is None:
-                    # 初回：初期状態をDBに記録（サーバー再起動時の履歴保持のため）
+                # DBの最新レコードを取得して「値変化」と「期間」の両方を確認
+                c.execute('''SELECT weakest, strongest, created_at FROM change_history 
+                             WHERE timeframe = ? ORDER BY created_at DESC LIMIT 1''', (timeframe,))
+                last_db = c.fetchone()
+                
+                skip_insert = False
+                skip_reason = ''
+                if last_db:
+                    last_w, last_s, last_cat_str = last_db
+                    # 同じ値ならスキップ（1H後も同じ最強・最弱ならスキップ）
+                    if last_w == weakest and last_s == strongest:
+                        skip_insert = True
+                        skip_reason = 'same values'
+                    else:
+                        # 値が変わっていても同じ期間内ならスキップ（時間足毎に1件）
+                        try:
+                            last_dt = datetime.fromisoformat(last_cat_str)
+                            if last_dt.tzinfo is None:
+                                last_dt = jst.localize(last_dt)
+                            last_dt_jst = last_dt.astimezone(jst)
+                            if timeframe == '5m':
+                                lb = (last_dt_jst.minute // 5) * 5
+                                last_bucket = last_dt_jst.strftime('%Y%m%d%H') + f'{lb:02d}'
+                            elif timeframe == '15m':
+                                lb = (last_dt_jst.minute // 15) * 15
+                                last_bucket = last_dt_jst.strftime('%Y%m%d%H') + f'{lb:02d}'
+                            elif timeframe == '1H':
+                                last_bucket = last_dt_jst.strftime('%Y%m%d%H') + '00'
+                            elif timeframe == '4H':
+                                lb = (last_dt_jst.hour // 4) * 4
+                                last_bucket = last_dt_jst.strftime('%Y%m%d') + f'{lb:02d}' + '00'
+                            else:
+                                last_bucket = last_dt_jst.strftime('%Y%m%d%H%M')
+                            if current_bucket == last_bucket:
+                                skip_insert = True
+                                skip_reason = 'same period'
+                        except Exception:
+                            pass
+                
+                if not skip_insert:
                     try:
                         c.execute('''INSERT INTO change_history 
                                      (timeframe, weakest, strongest, weakest_percent, strongest_percent, timestamp, created_at) 
                                      VALUES (?, ?, ?, ?, ?, ?, ?)''',
                                   (timeframe, weakest, strongest, weakest_percent, strongest_percent, current_time, datetime.now(jst).isoformat()))
                         conn.commit()
-                        print(f'[CHANGE_HISTORY] Initial state recorded for {timeframe}: {weakest}{weakest_percent:+d}%⇔{strongest}{strongest_percent:+d}%')
+                        print(f'[CHANGE_HISTORY] Recorded for {timeframe}: {weakest}{weakest_percent:+d}%⇔{strongest}{strongest_percent:+d}%')
+                        
+                        # 各時間足ごとに最大1000件を維持（古い履歴を削除）
+                        c.execute('''SELECT id FROM change_history 
+                                     WHERE timeframe = ? 
+                                     ORDER BY created_at DESC 
+                                     LIMIT -1 OFFSET 1000''', (timeframe,))
+                        old_ids = [row[0] for row in c.fetchall()]
+                        if old_ids:
+                            placeholders = ','.join(['?'] * len(old_ids))
+                            c.execute(f'DELETE FROM change_history WHERE id IN ({placeholders})', old_ids)
+                            conn.commit()
+                            print(f'[CHANGE_HISTORY] Deleted {len(old_ids)} old records for {timeframe}')
                         
                     except Exception as e:
-                        print(f'[ERROR] Failed to record initial state for {timeframe}: {e}')
-                    
-                    # メモリにも保存
-                    previous_extreme_currencies[timeframe] = {
-                        'weakest': weakest,
-                        'strongest': strongest
-                    }
+                        print(f'[ERROR] Failed to record change history for {timeframe}: {e}')
                 else:
-                    # 変更があった場合のみ記録
-                    if previous['weakest'] != weakest or previous['strongest'] != strongest:
-                        # DBに記録
-                        try:
-                            c.execute('''INSERT INTO change_history 
-                                         (timeframe, weakest, strongest, weakest_percent, strongest_percent, timestamp, created_at) 
-                                         VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                                      (timeframe, weakest, strongest, weakest_percent, strongest_percent, current_time, datetime.now(jst).isoformat()))
-                            conn.commit()
-                            print(f'[CHANGE_HISTORY] Recorded change for {timeframe}: {weakest}{weakest_percent:+d}%⇔{strongest}{strongest_percent:+d}%')
-                            
-                            # 各時間足ごとに最大1000件を維持（古い履歴を削除）
-                            c.execute('''SELECT id FROM change_history 
-                                         WHERE timeframe = ? 
-                                         ORDER BY created_at DESC 
-                                         LIMIT -1 OFFSET 1000''', (timeframe,))
-                            old_ids = [row[0] for row in c.fetchall()]
-                            if old_ids:
-                                placeholders = ','.join(['?'] * len(old_ids))
-                                c.execute(f'DELETE FROM change_history WHERE id IN ({placeholders})', old_ids)
-                                conn.commit()
-                                print(f'[CHANGE_HISTORY] Deleted {len(old_ids)} old records for {timeframe}')
-                            
-                        except Exception as e:
-                            print(f'[ERROR] Failed to record change history for {timeframe}: {e}')
-                        
-                        # グローバル変数を更新
-                        previous_extreme_currencies[timeframe] = {
-                            'weakest': weakest,
-                            'strongest': strongest
-                        }
+                    print(f'[CHANGE_HISTORY] Skipped {timeframe} ({skip_reason}): {weakest}⇔{strongest}')
+                
+                # メモリを常に最新に更新（変更追跡用）
+                previous_extreme_currencies[timeframe] = {
+                    'weakest': weakest,
+                    'strongest': strongest
+                }
             except Exception as tf_error:
                 print(f'[ERROR] Error processing timeframe {timeframe}: {tf_error}')
                 continue
