@@ -1961,22 +1961,18 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         }
       }
 
-      // インデックスベースで音声を取得
+      // voiceSelectのvalueは現在「音声名」を保持している
       const voiceSettings = {};
-      if (!isNaN(voiceIndex)) {
-        const voices = speechSynthesis.getVoices();
-        if (voices[voiceIndex]) {
-          voiceSettings.voice_name = voices[voiceIndex].name;
-          console.log('[EVENT] Selected voice index:', voiceIndex, 'name:', voiceSettings.voice_name);
-        } else {
-          // インデックスが無効な場合、デフォルトで七海を設定
-          voiceSettings.voice_name = 'Microsoft 七海 Online (Natural) - Japanese (Japan)';
-          console.log('[EVENT] Invalid voice index, using default:', voiceSettings.voice_name);
-        }
+      const selectedVoiceName = document.getElementById('voiceSelect').value;
+      if (selectedVoiceName) {
+        voiceSettings.voice_name = selectedVoiceName;
+        console.log('[EVENT] Selected voice name:', voiceSettings.voice_name);
       } else {
-        // インデックスが指定されていない場合、デフォルトで七海を設定
-        voiceSettings.voice_name = 'Microsoft 七海 Online (Natural) - Japanese (Japan)';
-        console.log('[EVENT] No voice index selected, using default:', voiceSettings.voice_name);
+        // fallback: 七海をキーワードで検索
+        const voices = speechSynthesis.getVoices();
+        const fallback = voices.find(v => v.name.includes('七海') && v.lang.startsWith('ja'));
+        voiceSettings.voice_name = fallback ? fallback.name : '';
+        console.log('[EVENT] No voice selected, fallback:', voiceSettings.voice_name);
       }
       if (playChime && chimeFile) voiceSettings.chime_file = chimeFile;
       if (insertSymbol && ruleScope) {
@@ -4966,34 +4962,44 @@ function populateVoiceSelect() {
   
   const voices = speechSynthesis.getVoices();
   console.log('[VOICE] Total voices available:', voices.length);
-  
-  // 利用可能な日本語オンライン音声を定義（インデックスベース）
-  const japaneseOnlineVoices = [
-    { index: 369, name: '七海', displayName: '七海［女性］' },
-    { index: 370, name: '圭太', displayName: '圭太［男性］' }
+
+  // 名前で検索（インデックスはOSバージョンでずれるため使わない）
+  const targetVoices = [
+    { keyword: '七海', displayName: '七海［女性］' },
+    { keyword: '圭太', displayName: '圭太［男性］' }
   ];
-  
-  console.log('[VOICE] Available Japanese online voices:');
-  japaneseOnlineVoices.forEach(v => {
-    if (voices[v.index]) {
-      console.log(`  [${v.index}] ${v.name}: ${voices[v.index].name}`);
-      
+
+  console.log('[VOICE] Searching for Japanese online voices by name:');
+  targetVoices.forEach(tv => {
+    const found = voices.find(v => v.name.includes(tv.keyword) && v.name.toLowerCase().includes('online'));
+    if (found) {
+      console.log(`  ✓ ${tv.keyword}: ${found.name} (index: ${voices.indexOf(found)})`);
       const option = document.createElement('option');
-      option.value = v.index.toString(); // インデックスを保存
-      option.textContent = v.displayName;
+      option.value = found.name; // 名前をvalueに保存
+      option.textContent = tv.displayName;
       select.appendChild(option);
     } else {
-      console.warn(`  [${v.index}] ${v.name}: NOT FOUND`);
+      // Onlineが見つからなければキーワードだけで探す
+      const fallback = voices.find(v => v.name.includes(tv.keyword) && v.lang.startsWith('ja'));
+      if (fallback) {
+        console.log(`  ~ ${tv.keyword} (fallback): ${fallback.name}`);
+        const option = document.createElement('option');
+        option.value = fallback.name;
+        option.textContent = tv.displayName;
+        select.appendChild(option);
+      } else {
+        console.warn(`  ✗ ${tv.keyword}: NOT FOUND`);
+      }
     }
   });
-  
+
   console.log('[VOICE] Total voices added:', select.options.length);
-  
+
   // Restore previous selection if it still exists
   if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
     select.value = currentValue;
   } else if (select.options.length > 0) {
-    select.value = select.options[0].value; // デフォルトは最初の選択肢
+    select.value = select.options[0].value;
   }
 }
 
@@ -8252,59 +8258,51 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
   
   console.log('[VOICE_MESSAGE] Total voices:', voices.length, 'After blocking:', availableVoices.length);
   
-  // Set voice if specified
+  // Set voice if specified（名前で検索、allowedリストによるブロックを廃止）
+  const findJapaneseVoice = (name) => {
+    if (!name) return null;
+    // 完全一致
+    let v = availableVoices.find(v => v.name === name);
+    if (v) return v;
+    // 部分一致（七海・圭太などキーワード）
+    v = availableVoices.find(v => v.name.includes(name) && v.lang.startsWith('ja'));
+    return v || null;
+  };
+
   if (voiceSettings && voiceSettings.voice_name) {
-    // 許可リストに含まれている音声のみを選択
-    if (allowedVoiceNames.includes(voiceSettings.voice_name)) {
-      const selectedVoice = availableVoices.find(v => v.name === voiceSettings.voice_name);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        console.log('[VOICE_MESSAGE] ✓ Using custom voice:', selectedVoice.name);
-      } else {
-        console.warn('[VOICE_MESSAGE] ⚠️ Voice not found in available voices:', voiceSettings.voice_name);
-        // フォールバック: 許可された音声リストから最初の利用可能な音声を選択
-        const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
-        if (fallbackVoice) {
-          utterance.voice = fallbackVoice;
-          console.warn('[VOICE_MESSAGE] ⚠️ Using fallback voice:', fallbackVoice.name);
-        }
-      }
+    const selectedVoice = findJapaneseVoice(voiceSettings.voice_name);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      console.log('[VOICE_MESSAGE] ✓ Using voice:', selectedVoice.name);
     } else {
-      console.warn('[VOICE_MESSAGE] ⚠️ Requested voice not in allowed list:', voiceSettings.voice_name);
-      // 許可リストにない音声が指定されたので、デフォルト音声を使用
-      const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
-      if (fallbackVoice) {
-        utterance.voice = fallbackVoice;
-        console.warn('[VOICE_MESSAGE] ⚠️ Using allowed fallback voice:', fallbackVoice.name);
+      console.warn('[VOICE_MESSAGE] ⚠️ Voice not found:', voiceSettings.voice_name, '— using Japanese fallback');
+      const fallback = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
+                    || availableVoices.find(v => v.lang.startsWith('ja'));
+      if (fallback) {
+        utterance.voice = fallback;
+        console.warn('[VOICE_MESSAGE] ⚠️ Fallback voice:', fallback.name);
       }
     }
   } else {
-    console.warn('[VOICE_MESSAGE] ⚠️ No voice settings provided');
-    // 許可された音声リストから最初の利用可能な音声を選択
-    const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
-    if (fallbackVoice) {
-      utterance.voice = fallbackVoice;
-      console.log('[VOICE_MESSAGE] Using fallback voice:', fallbackVoice.name);
-    } else {
-      console.error('[VOICE_MESSAGE] ❌ No allowed voices available! Canceling speech.');
-      if (onComplete) onComplete();
-      return; // 音声再生をキャンセル
+    console.warn('[VOICE_MESSAGE] ⚠️ No voice settings — using Japanese fallback');
+    const fallback = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
+                  || availableVoices.find(v => v.lang.startsWith('ja'));
+    if (fallback) {
+      utterance.voice = fallback;
+      console.log('[VOICE_MESSAGE] Fallback voice:', fallback.name);
     }
   }
   
-  // 音声が正しく設定されているか最終チェック
+  // 音声が正しく設定されているか最終チェック（blockedリストは参考のみ、キャンセルしない）
   if (utterance.voice && blockedVoiceNames.includes(utterance.voice.name)) {
-    console.error('[VOICE_MESSAGE] ❌ BLOCKED VOICE DETECTED:', utterance.voice.name);
-    console.error('[VOICE_MESSAGE] ❌ Forcing voice to first allowed voice...');
-    const forcedVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
+    console.warn('[VOICE_MESSAGE] ⚠️ Blocked voice detected:', utterance.voice.name, '— trying Japanese online fallback');
+    const forcedVoice = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
+                     || availableVoices.find(v => v.lang.startsWith('ja'));
     if (forcedVoice) {
       utterance.voice = forcedVoice;
-      console.log('[VOICE_MESSAGE] ✓ Forced to:', forcedVoice.name);
-    } else {
-      console.error('[VOICE_MESSAGE] ❌ Cannot find allowed voice. Canceling speech.');
-      if (onComplete) onComplete();
-      return;
+      console.log('[VOICE_MESSAGE] ✓ Replaced with:', forcedVoice.name);
     }
+    // 見つからなくてもキャンセルせずそのまま発声（ブラウザデフォルトに任せる）
   }
   
   // 通貨名挿入の場合、一拍の間を入れるために分割発声
