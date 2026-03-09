@@ -901,22 +901,51 @@ async function loadChimeFiles() {
 // ===== 声優オプション設定 =====
 function setupVoiceOptions() {
   const select = document.getElementById('voiceSelect');
-  
-  // 既存のオプションをクリア
   select.innerHTML = '';
-  
-  // 声優オプションを追加（実際に動作する音声のみ - インデックスベース）
-  const voices = [
-    { value: '369', label: '七海 [女性]' },
-    { value: '370', label: '圭太 [男性]' }
+
+  // 名前で検索（インデックスはOSバージョンでずれるため使わない）
+  const targetVoices = [
+    { keyword: '七海', displayName: '七海［女性］' },
+    { keyword: '碧衣', displayName: '碧衣［女性］' },
+    { keyword: '真夕', displayName: '真夕［女性］' },
+    { keyword: '志織', displayName: '志織［女性］' },
+    { keyword: '圭太', displayName: '圭太［男性］' },
+    { keyword: '大智', displayName: '大智［男性］' },
+    { keyword: '直紀', displayName: '直紀［男性］' }
   ];
-  
-  voices.forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v.value;
-    opt.textContent = v.label;
-    select.appendChild(opt);
-  });
+
+  const loadVoices = () => {
+    const allVoices = speechSynthesis.getVoices();
+    if (allVoices.length === 0) return false;
+    select.innerHTML = '';
+    let first = null;
+    targetVoices.forEach(({ keyword, displayName }) => {
+      const found = allVoices.find(v => v.name.includes(keyword) && v.lang.startsWith('ja'));
+      if (found) {
+        const opt = document.createElement('option');
+        opt.value = found.name;  // 音声名をそのまま保存
+        opt.textContent = displayName;
+        select.appendChild(opt);
+        if (!first) first = found.name;
+      }
+    });
+    // フォールバック: キーワードで見つからない場合はオンライン日本語音声を全列挙
+    if (select.options.length === 0) {
+      allVoices.filter(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online')).forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.name;
+        opt.textContent = v.name;
+        select.appendChild(opt);
+      });
+    }
+    return true;
+  };
+
+  if (!loadVoices()) {
+    // 音声リストがまだロードされていない場合はイベントを待つ
+    speechSynthesis.addEventListener('voiceschanged', () => loadVoices(), { once: true });
+    setTimeout(loadVoices, 500);
+  }
 }
 
 // ===== 通貨リスト取得 =====
@@ -1195,7 +1224,17 @@ function selectRule(ruleId) {
   document.getElementById('voiceMessageDown').value = voice.messageDown || '';
   document.getElementById('playChimeFirst').checked = voice.playChimeFirst || false;
   document.getElementById('chimeSelect').value = voice.chime || '';
-  document.getElementById('voiceSelect').value = voice.voiceFile || '369'; // デフォルト: 七海
+  // voice_name（新形式）または voiceFile（旧形式インデックス）を復元
+  const _savedVoice = voice.voice_name || voice.voiceFile || '';
+  const _voiceSel = document.getElementById('voiceSelect');
+  if (_savedVoice) {
+    // 選択肢に一致するものを探す（完全一致 or 部分一致）
+    let _matchOpt = Array.from(_voiceSel.options).find(o => o.value === _savedVoice);
+    if (!_matchOpt) _matchOpt = Array.from(_voiceSel.options).find(o => o.value.includes(_savedVoice) || _savedVoice.includes(o.value.split(' ')[1] || ''));
+    _voiceSel.value = _matchOpt ? _matchOpt.value : (_voiceSel.options[0]?.value || '');
+  } else {
+    _voiceSel.value = _voiceSel.options[0]?.value || '';
+  }
   
   // 方向別メッセージ表示
   document.getElementById('directionMessages').style.display = voice.directionBased ? 'block' : 'none';
@@ -1263,6 +1302,7 @@ async function saveRule() {
       messageDown: document.getElementById('voiceMessageDown').value,
       playChimeFirst: document.getElementById('playChimeFirst').checked,
       chime: document.getElementById('chimeSelect').value,
+      voice_name: document.getElementById('voiceSelect').value,
       voiceFile: document.getElementById('voiceSelect').value
     },
     cloudAlign: {
@@ -1476,7 +1516,7 @@ function clearRuleForm() {
   document.getElementById('insertSymbol').checked = false;
   document.getElementById('voiceDirectionBased').checked = false;
   document.getElementById('playChimeFirst').checked = false;
-  document.getElementById('voiceSelect').value = '369'; // デフォルト: 七海
+  (() => { const sel = document.getElementById('voiceSelect'); sel.value = sel.options[0]?.value || ''; })(); // デフォルト: 先頭の音声
   document.getElementById('chimeSelect').value = '';
   document.getElementById('alignAllTf').checked = false;
   document.querySelectorAll('.align-tf').forEach(cb => cb.checked = false);
@@ -1736,12 +1776,6 @@ async function testVoice() {
   
   console.log('[音声テスト] 音量:', utterance.volume, '速度:', utterance.rate);
   
-  // 許可された音声リスト（実際に使用可能な音声のみ）
-  const allowedVoiceNames = [
-    'Microsoft 七海 Online (Natural) - Japanese (Japan)',
-    'Microsoft 圭太 Online (Natural) - Japanese (Japan)'
-  ];
-  
   // ブロックする音声リスト（オフライン音声など）
   const blockedVoiceNames = [
     'Microsoft Ayumi - Japanese (Japan)',
@@ -1757,51 +1791,51 @@ async function testVoice() {
     'Microsoft Ichiro (Japanese)',
     'Microsoft Sayaka (Japanese)'
   ];
-  
-  // 声優選択
-  const voiceIndex = document.getElementById('voiceSelect').value;
-  const voices = speechSynthesis.getVoices();
-  
-  console.log('[音声テスト] 利用可能な音声数:', voices.length);
-  
-  // ブロックされた音声を除外
-  const availableVoices = voices.filter(v => !blockedVoiceNames.includes(v.name));
-  
-  if (voiceIndex) {
-    const idx = parseInt(voiceIndex);
-    if (voices[idx]) {
-      const selectedVoice = voices[idx];
-      console.log('[音声テスト] 選択された音声:', selectedVoice.name);
-      // 選択された音声が許可リストにあるか確認
-      if (allowedVoiceNames.includes(selectedVoice.name)) {
-        utterance.voice = selectedVoice;
-        console.log('[音声テスト] ✓ 使用する音声:', selectedVoice.name);
-      } else {
-        console.warn('[音声テスト] ⚠ ブロックされた音声:', selectedVoice.name);
-        // デフォルトで七海を使用
-        const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
-        if (fallbackVoice) {
-          utterance.voice = fallbackVoice;
-          console.log('[音声テスト] フォールバック音声:', fallbackVoice.name);
-        }
-      }
-    }
-  } else {
-    // 音声が選択されていない場合、デフォルトで七海を使用
-    const defaultVoice = availableVoices.find(v => v.name === 'Microsoft 七海 Online (Natural) - Japanese (Japan)');
-    if (defaultVoice) {
-      utterance.voice = defaultVoice;
-      console.log('[音声テスト] デフォルト音声:', defaultVoice.name);
+
+  // 選択された音声名（voiceSelectのvalueは音声名文字列）
+  const selectedVoiceName = document.getElementById('voiceSelect').value;
+  const allVoices = speechSynthesis.getVoices();
+
+  console.log('[音声テスト] 利用可能な音声数:', allVoices.length, '選択:', selectedVoiceName);
+
+  const availableVoices = allVoices.filter(v => !blockedVoiceNames.includes(v.name));
+
+  // 名前で検索するヘルパー（完全一致→部分一致）
+  const findJapaneseVoice = (name) => {
+    if (!name) return null;
+    let v = availableVoices.find(v => v.name === name);
+    if (v) return v;
+    v = availableVoices.find(v => v.name.includes(name) && v.lang.startsWith('ja'));
+    return v || null;
+  };
+
+  if (selectedVoiceName) {
+    const found = findJapaneseVoice(selectedVoiceName);
+    if (found) {
+      utterance.voice = found;
+      console.log('[音声テスト] ✓ 使用する音声:', found.name);
     } else {
-      // 七海が見つからない場合、許可リストの最初の音声を使用
-      const fallbackVoice = availableVoices.find(v => allowedVoiceNames.includes(v.name));
-      if (fallbackVoice) {
-        utterance.voice = fallbackVoice;
-        console.log('[音声テスト] フォールバック音声:', fallbackVoice.name);
+      // フォールバック: オンライン日本語音声
+      const fallback = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
+                     || availableVoices.find(v => v.lang.startsWith('ja'));
+      if (fallback) {
+        utterance.voice = fallback;
+        console.warn('[音声テスト] ⚠ フォールバック音声:', fallback.name);
       } else {
         console.error('[音声テスト] ❌ 使用可能な音声が見つかりません');
         return;
       }
+    }
+  } else {
+    // 未選択: オンライン日本語音声を使用
+    const fallback = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
+                   || availableVoices.find(v => v.lang.startsWith('ja'));
+    if (fallback) {
+      utterance.voice = fallback;
+      console.log('[音声テスト] デフォルト音声:', fallback.name);
+    } else {
+      console.error('[音声テスト] ❌ 使用可能な音声が見つかりません');
+      return;
     }
   }
   
