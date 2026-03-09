@@ -695,6 +695,7 @@ let currentRuleId = null;
 let availableSymbols = [];
 let parentWindow = window.opener;
 let draggedItem = null;
+let cachedVoices = [];  // 音声リストキャッシュ（testVoice で使用）
 
 // ===== 初期化 =====
 document.addEventListener('DOMContentLoaded', async () => {
@@ -917,6 +918,7 @@ function setupVoiceOptions() {
   const loadVoices = () => {
     const allVoices = speechSynthesis.getVoices();
     if (allVoices.length === 0) return false;
+    cachedVoices = allVoices;  // キャッシュ更新
     select.innerHTML = '';
     let first = null;
     targetVoices.forEach(({ keyword, displayName }) => {
@@ -1701,13 +1703,32 @@ function setupEventHandlers() {
   document.getElementById('testVoiceBtn').addEventListener('click', testVoice);
 }
 
+// 音声リストを確実に取得する（キャッシュ優先→イベント待ち→タイムアウト）
+function getVoicesAsync() {
+  return new Promise(resolve => {
+    if (cachedVoices.length > 0) { resolve(cachedVoices); return; }
+    const v = speechSynthesis.getVoices();
+    if (v.length > 0) { cachedVoices = v; resolve(v); return; }
+    const handler = () => {
+      const loaded = speechSynthesis.getVoices();
+      cachedVoices = loaded;
+      resolve(loaded);
+    };
+    speechSynthesis.addEventListener('voiceschanged', handler, { once: true });
+    // 1秒後にタイムアウト（イベントが来なくても進める）
+    setTimeout(() => {
+      const fallback = speechSynthesis.getVoices();
+      cachedVoices = fallback;
+      resolve(fallback);
+    }, 1000);
+  });
+}
+
 async function testVoice() {
   console.log('[音声テスト] 開始');
-  
-  // 電子音を先に再生
   const playChimeFirst = document.getElementById('playChimeFirst').checked;
   const chimeFile = document.getElementById('chimeSelect').value;
-  
+
   if (playChimeFirst && chimeFile) {
     try {
       console.log('[音声テスト] チャイム再生:', chimeFile);
@@ -1794,8 +1815,9 @@ async function testVoice() {
 
   // 選択された音声名（voiceSelectのvalueは音声名文字列）
   const selectedVoiceName = document.getElementById('voiceSelect').value;
-  const allVoices = speechSynthesis.getVoices();
 
+  // 音声リストをキャッシュ優先で確実に取得
+  const allVoices = await getVoicesAsync();
   console.log('[音声テスト] 利用可能な音声数:', allVoices.length, '選択:', selectedVoiceName);
 
   const availableVoices = allVoices.filter(v => !blockedVoiceNames.includes(v.name));
@@ -1846,9 +1868,11 @@ async function testVoice() {
   utterance.onstart = () => console.log('[音声テスト] 発声開始');
   utterance.onend = () => console.log('[音声テスト] 発声終了');
   utterance.onerror = (e) => console.error('[音声テスト] 発声エラー:', e);
-  
-  console.log('[音声テスト] speechSynthesis.speak() 実行');
-  speechSynthesis.speak(utterance);
+
+  // cancel()直後にspeak()すると無視される場合があるため50ms待つ
+  speechSynthesis.cancel();
+  console.log('[音声テスト] speechSynthesis.speak() 実行 (50ms遅延)');
+  setTimeout(() => speechSynthesis.speak(utterance), 50);
 }
 
 // ===== ユーティリティ =====
