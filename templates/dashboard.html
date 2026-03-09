@@ -7563,8 +7563,8 @@ async function checkNotifications() {
     // Update fire history display
     updateFireHistory(notifications);
     
-    // Get the latest notification
-    const latest = notifications[0];
+    // Get the latest notification（末尾 = 最新）
+    const latest = notifications[notifications.length - 1];
     const latestTimestamp = latest.timestamp;
     
     // 初回ロード時は音声を再生しない
@@ -8273,6 +8273,19 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
     v = availableVoices.find(v => v.name.includes(name) && v.lang.startsWith('ja'));
     return v || null;
   };
+
+  // マイグレーション: 旧ルールは voiceFile に数値インデックスを保存していた
+  // voice_name が未設定で voiceFile/voice_file が数値の場合、インデックスで音声を解決する
+  if (voiceSettings && !voiceSettings.voice_name) {
+    const legacyFile = voiceSettings.voice_file || voiceSettings.voiceFile;
+    if (legacyFile && /^\d+$/.test(String(legacyFile))) {
+      const legacyIdx = parseInt(legacyFile);
+      if (voices[legacyIdx]) {
+        voiceSettings = Object.assign({}, voiceSettings, { voice_name: voices[legacyIdx].name });
+        console.log('[VOICE_MESSAGE] Migration: voiceFile', legacyIdx, '→', voiceSettings.voice_name);
+      }
+    }
+  }
 
   if (voiceSettings && voiceSettings.voice_name) {
     const selectedVoice = findJapaneseVoice(voiceSettings.voice_name);

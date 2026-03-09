@@ -5438,6 +5438,22 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
         # 発火した通知をSocket.IOで配信
         wlog(f'[FIRE] Checking fired_notifications: count={len(fired_notifications)}')
         if fired_notifications:
+            # notifications.json に保存（ポーリング用フォールバック）
+            notifications_path = os.path.join(BASE_DIR, 'notifications.json')
+            try:
+                if os.path.exists(notifications_path):
+                    with open(notifications_path, 'r', encoding='utf-8') as f:
+                        existing = json.load(f)
+                else:
+                    existing = []
+                existing.extend(fired_notifications)
+                if len(existing) > 100:
+                    existing = existing[-100:]
+                with open(notifications_path, 'w', encoding='utf-8') as f:
+                    json.dump(existing, f, ensure_ascii=False, indent=2)
+                wlog(f'[FIRE] Saved {len(fired_notifications)} notifications to file')
+            except Exception as save_error:
+                wlog(f'[FIRE] ERROR saving notifications to file: {save_error}')
             # 各通知を個別に送信
             for notification in fired_notifications:
                 try:
