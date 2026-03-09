@@ -1703,55 +1703,16 @@ function setupEventHandlers() {
   document.getElementById('testVoiceBtn').addEventListener('click', testVoice);
 }
 
-// 音声リストを確実に取得する（キャッシュ優先→イベント待ち→タイムアウト）
-function getVoicesAsync() {
-  return new Promise(resolve => {
-    if (cachedVoices.length > 0) { resolve(cachedVoices); return; }
-    const v = speechSynthesis.getVoices();
-    if (v.length > 0) { cachedVoices = v; resolve(v); return; }
-    const handler = () => {
-      const loaded = speechSynthesis.getVoices();
-      cachedVoices = loaded;
-      resolve(loaded);
-    };
-    speechSynthesis.addEventListener('voiceschanged', handler, { once: true });
-    // 1秒後にタイムアウト（イベントが来なくても進める）
-    setTimeout(() => {
-      const fallback = speechSynthesis.getVoices();
-      cachedVoices = fallback;
-      resolve(fallback);
-    }, 1000);
-  });
-}
-
-async function testVoice() {
+function testVoice() {
   console.log('[音声テスト] 開始');
-  const playChimeFirst = document.getElementById('playChimeFirst').checked;
-  const chimeFile = document.getElementById('chimeSelect').value;
 
-  if (playChimeFirst && chimeFile) {
-    try {
-      console.log('[音声テスト] チャイム再生:', chimeFile);
-      const audio = new Audio('/Alarm/' + chimeFile);
-      audio.volume = parseFloat(document.getElementById('voiceVolume').value);
-      await new Promise((resolve, reject) => {
-        audio.onended = resolve;
-        audio.onerror = reject;
-        audio.play();
-      });
-    } catch (e) {
-      console.error('[音声テスト] チャイム再生エラー:', e);
-    }
-  }
-  
-  // メッセージを構築
+  // ===== メッセージ構築（すべて同期）=====
   let message = document.getElementById('voiceMessage').value || 'テスト音声';
-  
-  // 通貨名挿入
   const insertSymbol = document.getElementById('insertSymbol').checked;
   const symbolPosition = document.getElementById('symbolInsertPosition').value;
+  const ruleScope = document.getElementById('ruleScope').value;
+
   if (insertSymbol) {
-    // 通貨名マッピング（ruleScope で選択された通貨を日本語読みに変換）
     const _cnMap = {
       'USDJPY':'ドル円', 'EURUSD':'ユーロドル', 'GBPUSD':'ポンドドル',
       'GBPJPY':'ポンド円', 'AUDUSD':'オージードル', 'AUDJPY':'オージー円',
@@ -1763,116 +1724,90 @@ async function testVoice() {
       'AUDCHF':'オージースイス', 'AUDNZD':'オージーニュージー', 'NZDCAD':'ニュージーカナダ',
       'NZDCHF':'ニュージースイス', 'CADCHF':'カナダスイス'
     };
-    const _scopeVal = document.getElementById('ruleScope').value;
-    // 全通貨選択（空）の場合はドル円、それ以外は選択通貨の日本語名
-    const testSymbol = _scopeVal ? (_cnMap[_scopeVal] || _scopeVal) : 'ドル円';
-    if (symbolPosition === 'prefix') {
-      message = testSymbol + '、' + message;
-    } else if (symbolPosition === 'suffix') {
-      message = message + '、' + testSymbol;
-    } else if (symbolPosition === 'both') {
-      message = testSymbol + '、' + message + '、' + testSymbol;
-    }
+    const testSymbol = ruleScope ? (_cnMap[ruleScope] || ruleScope) : 'ドル円';
+    if (symbolPosition === 'prefix') message = testSymbol + '、' + message;
+    else if (symbolPosition === 'suffix') message = message + '、' + testSymbol;
+    else if (symbolPosition === 'both') message = testSymbol + '、' + message + '、' + testSymbol;
   }
-  
-  // 方向別挿入
+
   const directionBased = document.getElementById('voiceDirectionBased').checked;
   if (directionBased) {
     const messagePosition = document.getElementById('voiceMessagePosition').value;
-    const directionMsg = document.getElementById('voiceMessageUp').value || '上昇'; // テスト用に上昇を使用
-    if (messagePosition === 'prefix') {
-      message = directionMsg + '、' + message;
-    } else {
-      message = message + '、' + directionMsg;
-    }
+    const directionMsg = document.getElementById('voiceMessageUp').value || '上昇';
+    if (messagePosition === 'prefix') message = directionMsg + '、' + message;
+    else message = message + '、' + directionMsg;
   }
-  
+
   console.log('[音声テスト] メッセージ:', message);
-  
-  // 音声合成
-  const utterance = new SpeechSynthesisUtterance(message);
-  utterance.lang = 'ja-JP';
-  utterance.volume = parseFloat(document.getElementById('voiceVolume').value);
-  utterance.rate = parseFloat(document.getElementById('voiceRate').value);
-  
-  console.log('[音声テスト] 音量:', utterance.volume, '速度:', utterance.rate);
-  
-  // ブロックする音声リスト（オフライン音声など）
-  const blockedVoiceNames = [
-    'Microsoft Ayumi - Japanese (Japan)',
-    'Microsoft Haruka - Japanese (Japan)',
-    'Microsoft Ichiro - Japanese (Japan)',
-    'Microsoft Sayaka - Japanese (Japan)',
-    'Microsoft Ayumi Desktop - Japanese (Japan)',
-    'Microsoft Haruka Desktop - Japanese (Japan)',
-    'Microsoft Ichiro Desktop - Japanese (Japan)',
-    'Microsoft Sayaka Desktop - Japanese (Japan)',
-    'Microsoft Ayumi (Japanese)',
-    'Microsoft Haruka (Japanese)',
-    'Microsoft Ichiro (Japanese)',
-    'Microsoft Sayaka (Japanese)'
-  ];
 
-  // 選択された音声名（voiceSelectのvalueは音声名文字列）
   const selectedVoiceName = document.getElementById('voiceSelect').value;
+  const playChime = document.getElementById('playChimeFirst').checked;
+  const chimeFile = document.getElementById('chimeSelect').value;
+  const volume = parseFloat(document.getElementById('voiceVolume').value);
 
-  // 音声リストをキャッシュ優先で確実に取得
-  const allVoices = await getVoicesAsync();
-  console.log('[音声テスト] 利用可能な音声数:', allVoices.length, '選択:', selectedVoiceName);
+  // ===== ① 親ウィンドウ (dashboard.html) の playVoiceAlert に委譲（最優先）=====
+  // dashboard.html はすでに音声ロード済みで確実に動作するため、そちらに再生させる
+  if (window.opener && !window.opener.closed && typeof window.opener.playVoiceAlert === 'function') {
+    console.log('[音声テスト] 親ウィンドウのplayVoiceAlertを使用');
+    const voiceSettings = {
+      voice_name: selectedVoiceName || null,
+      chime_file: (playChime && chimeFile) ? chimeFile : null
+    };
+    window.opener.playVoiceAlert(message, voiceSettings, ruleScope || 'USDJPY');
+    return;
+  }
 
-  const availableVoices = allVoices.filter(v => !blockedVoiceNames.includes(v.name));
+  // ===== ② フォールバック: ローカル speechSynthesis（await なし・setTimeout なし）=====
+  console.log('[音声テスト] フォールバック: ローカルspeechSynthesisを使用');
 
-  // 名前で検索するヘルパー（完全一致→部分一致）
-  const findJapaneseVoice = (name) => {
+  // チャイム（await使わずfire-and-forget）
+  if (playChime && chimeFile) {
+    try {
+      const audio = new Audio('/Alarm/' + chimeFile);
+      audio.volume = volume;
+      audio.play().catch(e => console.warn('[音声テスト] チャイム再生失敗:', e.message));
+    } catch (e) { console.warn('[音声テスト] チャイム作成失敗:', e); }
+  }
+
+  // 音声リストは同期取得のみ（awaitによるユーザーアクティベーション消失を防ぐ）
+  const allVoices = cachedVoices.length > 0 ? cachedVoices : speechSynthesis.getVoices();
+  if (allVoices.length === 0) {
+    console.warn('[音声テスト] 音声リスト未ロード。少し待ってから再度お試しください。');
+    alert('音声リストがまだ読み込まれていません。数秒後に再度お試しください。');
+    // 次回のために非同期ロードをトリガー
+    speechSynthesis.addEventListener('voiceschanged', () => { cachedVoices = speechSynthesis.getVoices(); }, { once: true });
+    return;
+  }
+  cachedVoices = allVoices;
+
+  const blocked = ['Microsoft Ayumi','Microsoft Haruka','Microsoft Ichiro','Microsoft Sayaka',
+    'Microsoft Ayumi Desktop','Microsoft Haruka Desktop','Microsoft Ichiro Desktop','Microsoft Sayaka Desktop'];
+  const available = allVoices.filter(v => !blocked.some(b => v.name.startsWith(b)));
+
+  const findVoice = (name) => {
     if (!name) return null;
-    let v = availableVoices.find(v => v.name === name);
-    if (v) return v;
-    v = availableVoices.find(v => v.name.includes(name) && v.lang.startsWith('ja'));
-    return v || null;
+    return available.find(v => v.name === name) || available.find(v => v.name.includes(name) && v.lang.startsWith('ja')) || null;
   };
 
-  if (selectedVoiceName) {
-    const found = findJapaneseVoice(selectedVoiceName);
-    if (found) {
-      utterance.voice = found;
-      console.log('[音声テスト] ✓ 使用する音声:', found.name);
-    } else {
-      // フォールバック: オンライン日本語音声
-      const fallback = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
-                     || availableVoices.find(v => v.lang.startsWith('ja'));
-      if (fallback) {
-        utterance.voice = fallback;
-        console.warn('[音声テスト] ⚠ フォールバック音声:', fallback.name);
-      } else {
-        console.error('[音声テスト] ❌ 使用可能な音声が見つかりません');
-        return;
-      }
-    }
-  } else {
-    // 未選択: オンライン日本語音声を使用
-    const fallback = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
-                   || availableVoices.find(v => v.lang.startsWith('ja'));
-    if (fallback) {
-      utterance.voice = fallback;
-      console.log('[音声テスト] デフォルト音声:', fallback.name);
-    } else {
-      console.error('[音声テスト] ❌ 使用可能な音声が見つかりません');
-      return;
-    }
-  }
-  
-  // 発声前にキャンセルして音声キューをクリア
-  speechSynthesis.cancel();
-  
-  // イベントリスナーを追加してデバッグ
+  const voice = findVoice(selectedVoiceName)
+             || available.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
+             || available.find(v => v.lang.startsWith('ja'));
+
+  if (!voice) { console.error('[音声テスト] ❌ 日本語音声が見つかりません'); return; }
+  console.log('[音声テスト] ✓ 使用する音声:', voice.name);
+
+  const utterance = new SpeechSynthesisUtterance(message);
+  utterance.lang = 'ja-JP';
+  utterance.volume = volume;
+  utterance.rate = parseFloat(document.getElementById('voiceRate').value);
+  utterance.voice = voice;
   utterance.onstart = () => console.log('[音声テスト] 発声開始');
-  utterance.onend = () => console.log('[音声テスト] 発声終了');
+  utterance.onend   = () => console.log('[音声テスト] 発声終了');
   utterance.onerror = (e) => console.error('[音声テスト] 発声エラー:', e);
 
-  // cancel()直後にspeak()すると無視される場合があるため50ms待つ
+  // cancel後に直接speak（setTimeoutなし：ユーザーアクティベーション維持）
   speechSynthesis.cancel();
-  console.log('[音声テスト] speechSynthesis.speak() 実行 (50ms遅延)');
-  setTimeout(() => speechSynthesis.speak(utterance), 50);
+  speechSynthesis.speak(utterance);
 }
 
 // ===== ユーティリティ =====
