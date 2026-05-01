@@ -1233,11 +1233,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
               <label style="font-size:0.9em;min-width:72px">ルール名：</label>
               <input id="ruleName" placeholder="ルール名" style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:inherit">
             </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <label style="font-size:0.9em;min-width:72px">通貨選択：</label>
-              <select id="ruleScope" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:160px">
-                <option value="">全選択</option>
-              </select>
+            <div style="display:flex;align-items:flex-start;gap:8px">
+              <label style="font-size:0.9em;min-width:72px;padding-top:6px">通貨選択：</label>
+              <div id="ruleScopeChips" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);min-height:34px;flex:1">
+                <!-- chips are populated by populateRuleScopeSelect() -->
+              </div>
             </div>
           </div>
           
@@ -1924,7 +1924,8 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
       const playChime = document.getElementById('playChimeFirst').checked;
       const chimeFile = document.getElementById('chimeSelect').value;
       const insertSymbol = document.getElementById('insertSymbol').checked;
-      const ruleScope = document.getElementById('ruleScope').value;
+      const _scopeForVoice = getRuleScopeSymbols();
+      const ruleScope = _scopeForVoice.length > 0 ? _scopeForVoice[0] : '';
 
       let testMessage = '';
       if (isDirectionBased) {
@@ -1993,7 +1994,8 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
       if(!alignValid.ok){ return; }
 
       const name = document.getElementById('ruleName').value || ('rule-' + Date.now());
-      const scope = (document.getElementById('ruleScope').value ? { symbol: document.getElementById('ruleScope').value } : {});
+      const _scopeSyms = getRuleScopeSymbols();
+      const scope = _scopeSyms.length > 0 ? { symbols: _scopeSyms } : {};
       const condRows = Array.from(document.querySelectorAll('#conditionsContainer .cond-row'));
       const conditions = condRows.map(r => {
         const tf = r.querySelector('.cond-tf').value;
@@ -2094,7 +2096,8 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
       detailsEl.innerHTML = '';
 
       // build payload
-      const scope = (document.getElementById('ruleScope').value ? { symbol: document.getElementById('ruleScope').value } : {});
+      const _scopeSymsTest = getRuleScopeSymbols();
+      const scope = _scopeSymsTest.length > 0 ? { symbols: _scopeSymsTest } : {};
       const condRows = Array.from(document.querySelectorAll('#conditionsContainer .cond-row'));
       const conditions = condRows.map(r => {
         const tf = r.querySelector('.cond-tf').value;
@@ -4926,21 +4929,58 @@ function wireSubsectionToggles() {
   }
 }
 
-// Populate the rule scope select (通貨選択) with available currencies
+// Populate the rule scope chips (通貨選択) with available currencies
 function populateRuleScopeSelect(availableCurrencies) {
   try {
-    const sel = document.getElementById('ruleScope');
-    if (!sel) return;
-    const cur = sel.value;
-    // Always keep the default '全選択' option
-    sel.innerHTML = '';
-    const optAll = document.createElement('option'); optAll.value = ''; optAll.textContent = '全選択'; sel.appendChild(optAll);
+    const container = document.getElementById('ruleScopeChips');
+    if (!container) return;
+    // 現在の選択状態を保存
+    const prevSelected = getRuleScopeSymbols();
+    container.innerHTML = '';
+    // 「全選択」チップ
+    const allChip = document.createElement('button');
+    allChip.type = 'button';
+    allChip.dataset.symbol = '';
+    allChip.textContent = '全選択';
+    allChip.className = 'scope-chip' + (prevSelected.length === 0 ? ' selected' : '');
+    allChip.style.cssText = 'padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);background:' + (prevSelected.length === 0 ? '#2157ec' : 'rgba(255,255,255,0.08)') + ';color:#f5f7ff;cursor:pointer;font-size:0.82em;white-space:nowrap';
+    allChip.addEventListener('click', () => { setRuleScopeSymbols([]); });
+    container.appendChild(allChip);
+    // 各通貨ペアチップ
     (availableCurrencies || []).forEach(sym => {
-      const o = document.createElement('option'); o.value = sym; o.textContent = sym; sel.appendChild(o);
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.dataset.symbol = sym;
+      chip.textContent = sym;
+      chip.className = 'scope-chip' + (prevSelected.includes(sym) ? ' selected' : '');
+      chip.style.cssText = 'padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);background:' + (prevSelected.includes(sym) ? '#2157ec' : 'rgba(255,255,255,0.08)') + ';color:#f5f7ff;cursor:pointer;font-size:0.82em;white-space:nowrap';
+      chip.addEventListener('click', () => {
+        const cur = getRuleScopeSymbols();
+        const idx = cur.indexOf(sym);
+        if (idx >= 0) { cur.splice(idx, 1); } else { cur.push(sym); }
+        setRuleScopeSymbols(cur);
+      });
+      container.appendChild(chip);
     });
-    // restore previous selection if still present
-    if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
   } catch (e) { console.log('populateRuleScopeSelect error', e); }
+}
+
+// 選択中の通貨ペア配列を返す（空配列 = 全選択）
+function getRuleScopeSymbols() {
+  return Array.from(document.querySelectorAll('#ruleScopeChips .scope-chip.selected'))
+    .map(el => el.dataset.symbol)
+    .filter(s => s !== '');
+}
+
+// 通貨ペア配列を反映してチップの選択状態を更新する
+function setRuleScopeSymbols(symbols) {
+  const isAll = !symbols || symbols.length === 0;
+  document.querySelectorAll('#ruleScopeChips .scope-chip').forEach(chip => {
+    const sym = chip.dataset.symbol;
+    const active = sym === '' ? isAll : (!isAll && symbols.includes(sym));
+    chip.classList.toggle('selected', active);
+    chip.style.background = active ? '#2157ec' : 'rgba(255,255,255,0.08)';
+  });
 }
 
 // Populate voice select with available voices
@@ -7265,9 +7305,10 @@ function openRuleEditor(rule) {
   // populate editor fields
   console.log('[DEBUG] Editing rule:', JSON.stringify(rule, null, 2));
   document.getElementById('ruleName').value = rule.name || '';
-  const scopeSel = document.getElementById('ruleScope');
-  if (rule.scope && rule.scope.symbol) { scopeSel.value = rule.scope.symbol; }
-  else { scopeSel.value = ''; }
+  // scope 復元（symbols 配列 or 旧 symbol 文字列）
+  const _restoreSyms = (rule.scope && rule.scope.symbols) ? rule.scope.symbols
+    : (rule.scope && rule.scope.symbol) ? [rule.scope.symbol] : [];
+  setRuleScopeSymbols(_restoreSyms);
   // clear conditions
   const condCont = document.getElementById('conditionsContainer'); condCont.innerHTML = '';
   const conds = (rule.rule && rule.rule.conditions) || [];

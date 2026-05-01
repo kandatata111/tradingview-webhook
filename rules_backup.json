@@ -1,0 +1,415 @@
+{
+  "exported_at": "2026-03-09T14:08:01.560802+09:00",
+  "count": 10,
+  "rules": [
+    {
+      "id": "5分ダウ+交差",
+      "name": "ダウ+交差_5m",
+      "enabled": false,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2025-11-20T21:52:56.870225",
+      "updated_at": "2025-12-03T19:04:40.609727",
+      "sort_order": 0,
+      "voice": {
+        "message": "5分でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "suffix",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "警報が鳴る.mp3",
+        "voiceFile": "368"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "5m",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "5m",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": ""
+    },
+    {
+      "id": "15分ダウ+交差",
+      "name": "ダウ+交差_15m",
+      "enabled": false,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2025-11-23T14:38:46.710568",
+      "updated_at": "2026-02-25T01:13:18.239612",
+      "sort_order": 1,
+      "voice": {
+        "message": "15分でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "15m",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "15m",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": "15m"
+    },
+    {
+      "id": "1時間ダウ+交差",
+      "name": "ダウ+交差_1H",
+      "enabled": false,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2025-11-23T14:41:53.051250",
+      "updated_at": "2026-02-25T01:13:09.564337",
+      "sort_order": 2,
+      "voice": {
+        "message": "1時間でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "1H",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "1H",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": "1H"
+    },
+    {
+      "id": "rule-1764294567304",
+      "name": "ダウ+交差_4H",
+      "enabled": false,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2025-11-28T10:49:27.329314",
+      "updated_at": "2026-02-25T01:13:01.487789",
+      "sort_order": 3,
+      "voice": {
+        "message": "4時間でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "4H",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "4H",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": "4H"
+    },
+    {
+      "id": "rule_1771979564923_km95r2r6z",
+      "name": "ダウ+交差_D",
+      "enabled": false,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2026-02-25T09:32:45.233874",
+      "updated_at": "2026-02-25T01:13:30.636638",
+      "sort_order": 4,
+      "voice": {
+        "message": "日足でダウと交差が揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "D",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "D",
+          "field": "gc",
+          "value": ""
+        }
+      ],
+      "displayTf": "D"
+    },
+    {
+      "id": "rule_1772360261334_etx00d5qf",
+      "name": "ダウ+PO_5m",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2026-03-01T19:17:41.647666",
+      "updated_at": "2026-03-09T14:08:01.542594",
+      "sort_order": 5,
+      "voice": {
+        "message": "5分でダウとPOが揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
+        "voiceFile": "Microsoft 七海 Online (Natural) - Japanese (Japan)"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "5m",
+          "field": "dauten"
+        },
+        {
+          "timeframe": "5m",
+          "field": "po"
+        }
+      ],
+      "displayTf": "5m"
+    },
+    {
+      "id": "rule_1772021360194_lx6yyk4at",
+      "name": "ダウ+PO_15m",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2026-02-25T21:09:20.513999",
+      "updated_at": "2026-02-25T21:35:21.385443",
+      "sort_order": 6,
+      "voice": {
+        "message": "15分でダウとPOが揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "15m",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "15m",
+          "field": "po",
+          "value": ""
+        }
+      ],
+      "displayTf": "15m"
+    },
+    {
+      "id": "rule_1772022729543_bb10kg6hu",
+      "name": "ダウ+PO_1H",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2026-02-25T21:32:09.546345",
+      "updated_at": "2026-02-25T21:32:59.154133",
+      "sort_order": 7,
+      "voice": {
+        "message": "1時間でダウとPOが揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "1H",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "1H",
+          "field": "po",
+          "value": ""
+        }
+      ],
+      "displayTf": "1H"
+    },
+    {
+      "id": "rule_1772022808888_almzwy1zb",
+      "name": "ダウ+PO_4H",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2026-02-25T21:33:29.206396",
+      "updated_at": "2026-02-25T21:33:58.722217",
+      "sort_order": 8,
+      "voice": {
+        "message": "4時間でダウとPOが揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "4H",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "4H",
+          "field": "po",
+          "value": ""
+        }
+      ],
+      "displayTf": "4H"
+    },
+    {
+      "id": "rule_1772022859637_k9yxj8j7q",
+      "name": "ダウ+PO_D",
+      "enabled": true,
+      "scope": {
+        "symbol": ""
+      },
+      "created_at": "2026-02-25T21:34:19.642577",
+      "updated_at": "2026-02-25T21:34:48.125679",
+      "sort_order": 9,
+      "voice": {
+        "message": "日足でダウとPOが揃いました。",
+        "insertSymbol": true,
+        "symbolInsertPosition": "both",
+        "directionBased": true,
+        "messagePosition": "suffix",
+        "messageUp": "上昇です。",
+        "messageDown": "下降です。",
+        "playChimeFirst": true,
+        "chime": "レベルアップ.mp3",
+        "voiceFile": "369"
+      },
+      "cloudAlign": {
+        "allTimeframes": false,
+        "timeframes": [],
+        "missingBehavior": "ignore"
+      },
+      "conditions": [
+        {
+          "timeframe": "D",
+          "field": "dauten",
+          "value": ""
+        },
+        {
+          "timeframe": "D",
+          "field": "po",
+          "value": ""
+        }
+      ],
+      "displayTf": "D"
+    }
+  ]
+}

@@ -4811,9 +4811,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 wlog(f'[RULE] Processing rule "{rule_name}" scope={scope}')
                 wlog(f'[RULE] Voice settings: {voice_settings}')
                 
-                # Check scope: if scope has symbol, must match
-                if scope.get('symbol') and scope['symbol'] != symbol:
-                    wlog(f'[RULE] Rule "{rule_name}" skipped: scope symbol mismatch ({scope.get("symbol")} != {symbol})')
+                # Check scope: symbol / symbols（複数選択）対応
+                _scope_symbols = scope.get('symbols') or []
+                if not _scope_symbols and scope.get('symbol'):
+                    _scope_symbols = [scope['symbol']]
+                if _scope_symbols and symbol not in _scope_symbols:
+                    wlog(f'[RULE] Rule "{rule_name}" skipped: {symbol} not in scope {_scope_symbols}')
                     continue
                 
                 wlog(f'[RULE] Testing rule "{rule_name}" for {symbol}')
@@ -5523,9 +5526,12 @@ def _evaluate_rules_with_timeframe_data(data, symbol, tf_val):
                 scope = json.loads(scope_json) if scope_json else {}
                 rule = json.loads(rule_json) if rule_json else {}
                 
-                # Check scope: if scope has symbol, must match
-                if scope.get('symbol') and scope['symbol'] != symbol:
-                    print(f'[FIRE] Rule "{rule_name}" scope mismatch: {scope.get("symbol")} != {symbol}')
+                # Check scope: symbol / symbols（複数選択）対応
+                _scope_symbols = scope.get('symbols') or []
+                if not _scope_symbols and scope.get('symbol'):
+                    _scope_symbols = [scope['symbol']]
+                if _scope_symbols and symbol not in _scope_symbols:
+                    print(f'[FIRE] Rule "{rule_name}" scope mismatch: {symbol} not in {_scope_symbols}')
                     continue
                 
                 # Check scope: if scope has tf, must match

@@ -564,11 +564,11 @@
             <input type="text" id="ruleName" placeholder="ルール名" style="flex:1;">
           </div>
           
-          <div class="row">
-            <label>通貨選択</label>
-            <select id="ruleScope" style="min-width:140px;">
-              <option value="">全選択</option>
-            </select>
+          <div class="row" style="align-items:flex-start;">
+            <label style="padding-top:5px;">通貨選択</label>
+            <div id="ruleScopeChips" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.15);flex:1;min-height:30px;">
+              <!-- chips populated by updateRuleScopeOptions() -->
+            </div>
           </div>
 
           <div class="row">
@@ -1001,15 +1001,46 @@ function saveCurrencyFilter() {
 }
 
 function updateRuleScopeOptions() {
-  const select = document.getElementById('ruleScope');
-  // 既存オプション以外を追加（TESTERを除外）
-  availableSymbols.filter(symbol => symbol !== 'TESTER').forEach(symbol => {
-    if (![...select.options].some(o => o.value === symbol)) {
-      const opt = document.createElement('option');
-      opt.value = symbol;
-      opt.textContent = symbol;
-      select.appendChild(opt);
-    }
+  const container = document.getElementById('ruleScopeChips');
+  if (!container) return;
+  const prevSelected = getRuleScopeSymbols();
+  container.innerHTML = '';
+  // 「全選択」チップ
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.dataset.symbol = '';
+  allChip.textContent = '全選択';
+  allChip.className = 'scope-chip' + (prevSelected.length === 0 ? ' selected' : '');
+  allChip.style.cssText = 'padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);background:' + (prevSelected.length === 0 ? '#2157ec' : 'rgba(255,255,255,0.08)') + ';color:#f5f7ff;cursor:pointer;font-size:0.82em;white-space:nowrap';
+  allChip.addEventListener('click', () => setRuleScopeSymbols([]));
+  container.appendChild(allChip);
+  availableSymbols.filter(s => s !== 'TESTER').forEach(sym => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.dataset.symbol = sym;
+    chip.textContent = sym;
+    chip.className = 'scope-chip' + (prevSelected.includes(sym) ? ' selected' : '');
+    chip.style.cssText = 'padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);background:' + (prevSelected.includes(sym) ? '#2157ec' : 'rgba(255,255,255,0.08)') + ';color:#f5f7ff;cursor:pointer;font-size:0.82em;white-space:nowrap';
+    chip.addEventListener('click', () => {
+      const cur = getRuleScopeSymbols();
+      const idx = cur.indexOf(sym);
+      if (idx >= 0) { cur.splice(idx, 1); } else { cur.push(sym); }
+      setRuleScopeSymbols(cur);
+    });
+    container.appendChild(chip);
+  });
+}
+function getRuleScopeSymbols() {
+  return Array.from(document.querySelectorAll('#ruleScopeChips .scope-chip.selected'))
+    .map(el => el.dataset.symbol).filter(s => s !== '');
+}
+function setRuleScopeSymbols(symbols) {
+  const isAll = !symbols || symbols.length === 0;
+  document.querySelectorAll('#ruleScopeChips .scope-chip').forEach(chip => {
+    const sym = chip.dataset.symbol;
+    const active = sym === '' ? isAll : (!isAll && symbols.includes(sym));
+    chip.classList.toggle('selected', active);
+    chip.style.background = active ? '#2157ec' : 'rgba(255,255,255,0.08)';
   });
 }
 
@@ -1213,7 +1244,10 @@ function selectRule(ruleId) {
   // フォームに反映
   document.getElementById('ruleName').value = rule.name || '';
   document.getElementById('displayTf').value = rule.displayTf || '';
-  document.getElementById('ruleScope').value = rule.scope?.symbol || '';
+  // scope復元（symbols 配列 or 旧 symbol 文字列）
+  const _restoreSyms = (rule.scope && rule.scope.symbols) ? rule.scope.symbols
+    : (rule.scope && rule.scope.symbol) ? [rule.scope.symbol] : [];
+  setRuleScopeSymbols(_restoreSyms);
   
   // 音声設定
   const voice = rule.voice || {};
@@ -1291,9 +1325,7 @@ async function saveRule() {
     id: currentRuleId || 'rule_' + Date.now(),
     name: document.getElementById('ruleName').value,
     displayTf: document.getElementById('displayTf').value,
-    scope: {
-      symbol: document.getElementById('ruleScope').value
-    },
+    scope: (function() { const syms = getRuleScopeSymbols(); return syms.length > 0 ? { symbols: syms } : {}; })(),
     voice: {
       message: document.getElementById('voiceMessage').value,
       insertSymbol: document.getElementById('insertSymbol').checked,
@@ -1513,7 +1545,7 @@ function newRule() {
 function clearRuleForm() {
   document.getElementById('ruleName').value = '';
   document.getElementById('displayTf').value = '';
-  document.getElementById('ruleScope').value = '';
+  setRuleScopeSymbols([]);
   document.getElementById('voiceMessage').value = '';
   document.getElementById('insertSymbol').checked = false;
   document.getElementById('voiceDirectionBased').checked = false;
@@ -1710,7 +1742,8 @@ function testVoice() {
   let message = document.getElementById('voiceMessage').value || 'テスト音声';
   const insertSymbol = document.getElementById('insertSymbol').checked;
   const symbolPosition = document.getElementById('symbolInsertPosition').value;
-  const ruleScope = document.getElementById('ruleScope').value;
+  const _scopeForTest = getRuleScopeSymbols();
+  const ruleScope = _scopeForTest.length > 0 ? _scopeForTest[0] : '';
 
   if (insertSymbol) {
     const _cnMap = {
