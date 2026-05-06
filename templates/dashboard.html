@@ -50,6 +50,32 @@ h1 { text-align: left; margin: 0; font-size: 1.55em; letter-spacing: 0.4px; text
 .side-menu-item.window-open { background:rgba(74,222,128,0.15); border-left:3px solid #4ade80; }
 .side-menu-item .menu-icon { font-size:1em; width:18px; text-align:center; }
 .side-menu-item .menu-status { margin-left:auto; font-size:0.8em; opacity:0.6; }
+/* 比較テーブルパネル */
+.comp-table-section { background:transparent; border:none; border-radius:0; padding:0; overflow:visible; }
+.comp-table-header { display:flex; align-items:center; gap:6px; padding:6px 10px; background:rgba(0,0,0,0.35); cursor:grab; user-select:none; border-bottom:1px solid rgba(255,255,255,0.1); }
+.comp-table-header:active { cursor:grabbing; }
+.comp-table-title { font-size:0.85em; color:#f5f7ff; font-weight:bold; flex:1; }
+.comp-table-tf-select { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.25); color:#f5f7ff; font-size:0.8em; border-radius:4px; padding:1px 4px; cursor:pointer; }
+.comp-table-tf-select option { background:#1a2a4a; color:#f5f7ff; }
+.comp-table-del-btn { background:rgba(242,54,69,0.7); border:none; color:#fff; font-size:0.75em; border-radius:3px; padding:2px 7px; cursor:pointer; line-height:1.4; }
+.comp-table-del-btn:hover { background:rgba(242,54,69,1); }
+.comp-table-body { padding:8px; overflow-x:auto; }
+.comp-table-body table { border-collapse:collapse; font-size:0.82em; width:100%; background:transparent; }
+.comp-table-body th { background:#667eea; color:#fff; padding:3px 6px; border:1px solid rgba(255,255,255,0.1); font-weight:normal; white-space:nowrap; }
+.comp-table-body td { padding:2px 6px; border:1px solid rgba(255,255,255,0.08); color:#f0f0f0; white-space:nowrap; text-align:center; }
+.comp-table-body td.sym-cell { text-align:left; font-weight:bold; color:#fff; background:rgba(0,0,0,0.2); }
+.comp-chips-row { display:flex; flex-wrap:wrap; gap:4px; padding:6px 10px; border-top:1px solid rgba(255,255,255,0.08); }
+.comp-chip { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#f5f7ff; font-size:0.78em; padding:2px 8px; border-radius:12px; cursor:pointer; transition:background 0.15s; }
+.comp-chip.active { background:rgba(74,144,226,0.6); border-color:#4a90e2; }
+.comp-chip:hover { background:rgba(255,255,255,0.22); }
+.comp-add-sym-btn { background:rgba(74,222,128,0.25); border:1px solid rgba(74,222,128,0.5); color:#4ade80; font-size:0.78em; padding:2px 8px; border-radius:12px; cursor:pointer; }
+.comp-add-sym-btn:hover { background:rgba(74,222,128,0.4); }
+/* 設定モーダル内比較テーブル管理 */
+.comp-mgmt-list { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+.comp-mgmt-item { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.07); border-radius:6px; padding:5px 8px; font-size:0.85em; }
+.comp-mgmt-item-label { flex:1; color:#f5f7ff; }
+.comp-mgmt-edit-btn { background:rgba(74,144,226,0.5); border:none; color:#fff; font-size:0.75em; border-radius:3px; padding:2px 8px; cursor:pointer; }
+.comp-mgmt-del-btn { background:rgba(242,54,69,0.6); border:none; color:#fff; font-size:0.75em; border-radius:3px; padding:2px 8px; cursor:pointer; }
 .modal-overlay { position:fixed; left:0;top:0;right:0;bottom:0; background: rgba(0,0,0,0.4); display:none; align-items:center; justify-content:center; z-index:9999 }
   .modal { background:rgba(255,255,255,0.18); color:#f5f7ff; padding:20px 22px; border-radius:14px; min-width:280px; position:relative; cursor:move; user-select:none; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,0.35); box-shadow:0 18px 40px rgba(0,0,0,0.35); max-height:90vh; overflow:auto; resize:both; min-height:200px; }
   .modal .resize-handle { position:absolute; right:0; bottom:0; width:20px; height:20px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%); border-radius:0 0 14px 0; }
@@ -1088,6 +1114,10 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <span>バックアップ復旧</span>
       <span class="menu-status" id="statusBackupRecovery"></span>
     </button>
+    <button class="side-menu-item" id="menuManageCompTables">
+      <span class="menu-icon">📋</span>
+      <span>比較テーブル</span>
+    </button>
   </div>
 </div>
 
@@ -1187,6 +1217,15 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       </div>
   </div>
   </div>
+
+    <!-- 比較テーブル管理セクション -->
+    <div class="section-header" data-section="compTables">比較テーブル</div>
+    <div class="section-body" data-section-body="compTables">
+      <div class="row">
+        <button id="settingsAddCompTableBtn" style="background:rgba(74,222,128,0.3);border:1px solid rgba(74,222,128,0.6);color:#4ade80;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:0.85em;">＋ 比較テーブルを追加</button>
+      </div>
+      <div id="compTablesMgmtList" class="comp-mgmt-list"></div>
+    </div>
 
     <!-- 音声設定セクション（グローバル設定のみ） -->
     <div class="section-header" data-section="voice">音声設定</div>
@@ -4106,25 +4145,25 @@ const currencyNames = {
   'EURUSD': 'ユーロドル',
   'GBPUSD': 'ポンドドル',
   'GBPJPY': 'ポンド円',
-  'AUDUSD': 'オージードル',
-  'AUDJPY': 'オージー円',
+  'AUDUSD': 'オージドル',
+  'AUDJPY': 'オージ円',
   'NZDUSD': 'ニュージードル',
   'NZDJPY': 'ニュージー円',
   'CADJPY': 'カナダ円',
   'CHFJPY': 'スイス円',
   'EURJPY': 'ユーロ円',
-  'GBPAUD': 'ポンドオージー',
+  'GBPAUD': 'ポンドオージ',
   'EURGBP': 'ユーロポンド',
   'USDCAD': 'ドルカナダ',
   'USDCHF': 'ドルスイス',
-  'EURAUD': 'ユーロオージー',
+  'EURAUD': 'ユーロオージ',
   'EURCAD': 'ユーロカナダ',
   'EURCHF': 'ユーロスイス',
   'GBPCAD': 'ポンドカナダ',
   'GBPCHF': 'ポンドスイス',
-  'AUDCAD': 'オージーカナダ',
-  'AUDCHF': 'オージースイス',
-  'AUDNZD': 'オージーニュージー',
+  'AUDCAD': 'オージカナダ',
+  'AUDCHF': 'オージスイス',
+  'AUDNZD': 'オージニュージー',
   'NZDCAD': 'ニュージーカナダ',
   'NZDCHF': 'ニュージースイス',
   'CADCHF': 'カナダスイス'
@@ -5972,6 +6011,382 @@ const timeframeConfig = {
   }
 };
 
+// ============================================================
+// 比較テーブル機能
+// ============================================================
+const COMP_TF_OPTIONS = [
+  {value:'5',label:'5m'},{value:'15',label:'15m'},
+  {value:'60',label:'1H'},{value:'240',label:'4H'},
+  {value:'D',label:'D'},{value:'W',label:'W'}
+];
+// 全通貨リスト（ダッシュボードと同じソース）
+const COMP_ALL_SYMBOLS = ['USDJPY','EURUSD','GBPUSD','AUDUSD',
+  'EURJPY','GBPJPY','AUDJPY',
+  'EURGBP','EURAUD','GBPAUD'];
+// 比較テーブルの列定義（id, label）
+const COMP_COLS = [
+  { id: 'dauten',     label: 'ダウ転' },
+  { id: 'bos',        label: '突破数' },
+  { id: 'gc',         label: '雲交差' },
+  { id: 'po',         label: 'PO' },
+  { id: 'dist_prev',  label: '各雲間' },
+  { id: 'dist_price', label: '価格間' },
+  { id: 'angle',      label: '雲角度' },
+  { id: 'thickness',  label: '雲厚み' },
+  { id: 'dauten_t',   label: 'ダウ時間' },
+  { id: 'cross_t',    label: '交差時間' },
+  { id: 'po_t',       label: 'PO時間' },
+  { id: 'trend',      label: 'トレンド' },
+  { id: 'gauge',      label: '強度ゲージ' },
+  { id: 'fire',       label: '発火' },
+  { id: 'elapsed',    label: '経過時間' },
+];
+// デフォルト表示列（価格間・雲角度を除く13列）
+const COMP_COLS_DEFAULT = ['dauten','bos','gc','po','dist_prev','thickness','dauten_t','cross_t','po_t','trend','gauge','fire','elapsed'];
+// ポップアップウィンドウ管理マップ (テーブルID → Window オブジェクト)
+const _compPopupWindows = new Map();
+
+function loadComparisonTables() {
+  try {
+    return JSON.parse(localStorage.getItem('tv_comparison_tables') || '[]');
+  } catch(e) { return []; }
+}
+
+function saveComparisonTables(tables) {
+  localStorage.setItem('tv_comparison_tables', JSON.stringify(tables));
+}
+
+function getCompSymDisplayName(sym, lang) {
+  if ((lang || 'en') === 'ja') return currencyNames[sym] || sym;
+  return sym;
+}
+
+function addComparisonTable() {
+  const tables = loadComparisonTables();
+  const newId = 'COMP_' + (Date.now());
+  tables.push({ id: newId, tf: '5', symbols: ['USDJPY','EURUSD','GBPUSD'], visible: true, cols: [...COMP_COLS_DEFAULT], displayMode: 'embed', symLang: 'en' });
+  saveComparisonTables(tables);
+  renderAllComparisonTables();
+  updateCompTablesMgmtList();
+}
+
+function removeComparisonTable(id) {
+  const tables = loadComparisonTables().filter(t => t.id !== id);
+  saveComparisonTables(tables);
+  // DOMから削除
+  const el = document.querySelector(`.currency-section[data-symbol="${id}"]`);
+  if (el) el.remove();
+  // ポップアップウィンドウを閉じる
+  const _delPop = _compPopupWindows.get(id);
+  if (_delPop && !_delPop.closed) _delPop.close();
+  _compPopupWindows.delete(id);
+  // グリッド配置も削除
+  try {
+    const placement = JSON.parse(localStorage.getItem('tv_grid_placement') || '{}');
+    delete placement[id];
+    localStorage.setItem('tv_grid_placement', JSON.stringify(placement));
+  } catch(e) {}
+  updateCompTablesMgmtList();
+}
+
+function renderComparisonTable(config, allStates) {
+  const isPopup = (config.displayMode || 'embed') === 'popup';
+  const container = document.getElementById('dashboards-container');
+  if (!container) return;
+
+  let section = container.querySelector(`.currency-section[data-symbol="${config.id}"]`);
+  if (!section) {
+    section = document.createElement('div');
+    section.className = 'currency-section comp-table-section';
+    section.dataset.symbol = config.id;
+    container.appendChild(section);
+  }
+  // visible=false なら非表示にして終了（ポップアップも閉じる）
+  if (config.visible === false) {
+    section.style.display = 'none';
+    const _pop0 = _compPopupWindows.get(config.id);
+    if (_pop0 && !_pop0.closed) _pop0.close();
+    _compPopupWindows.delete(config.id);
+    return;
+  }
+  if (isPopup) {
+    // ポップアップモード: 埋め込みセクションを非表示
+    section.style.display = 'none';
+  } else {
+    // 埋め込みモード: 開いているポップアップがあれば閉じる
+    const _pop1 = _compPopupWindows.get(config.id);
+    if (_pop1 && !_pop1.closed) _pop1.close();
+    _compPopupWindows.delete(config.id);
+    section.style.display = '';
+    section._gridDragBound = false;
+    section.innerHTML = '';
+  }
+
+  // TFラベル表示マップ（既存テーブルと統一）
+  const tfDisplayMap = {'5':'5m','15':'15m','60':'1H','240':'4H','D':'D','W':'W','M':'M'};
+  const tfLabel = tfDisplayMap[config.tf] || config.tf;
+  // TF列の背景色（既存テーブルのTFラベル色と統一）
+  const tfBgMap = {'5m':'#a9e88c','15m':'#fbd0b2','1H':'#8dc7fc','4H':'#fa8dfe','D':'#dccb9c','W':'#d99ee6','M':'#c0c0c0'};
+  const symCellBg = tfBgMap[tfLabel] || '#2a2a3e';
+  const symCellTxt = (tfLabel==='5m'||tfLabel==='15m'||tfLabel==='1H'||tfLabel==='4H'||tfLabel==='D'||tfLabel==='W'||tfLabel==='M') ? '#000' : '#fff';
+
+  // テーブル本体（列フィルタリング対応）
+  const bodyDiv = document.createElement('div');
+  bodyDiv.className = 'comp-table-body';
+
+  const toNum = v => { if (v===null||v===undefined||v===''||v==='N/A'||v==='na') return null; const n=Number(v); return isNaN(n)?null:n; };
+  const timeFormat = localStorage.getItem('tv_time_format') || 'datetime';
+  const barMin = config.tf==='D' ? 1440 : (parseInt(config.tf,10)||0);
+
+  // 表示列セット（config.colsが未設定の場合はデフォルト全列）
+  const activeCols = new Set(config.cols || COMP_COLS_DEFAULT);
+  const totalCols = 1 + activeCols.size;
+
+  let html = '<div class="table-wrap"><table>';
+  // ヘッダー行1
+  html += `<tr><th class="drag-handle" colspan="${totalCols}" style="text-align:center;cursor:grab;color:#fff;">比較テーブル <span style="background:${symCellBg};color:${symCellTxt};padding:1px 6px;border-radius:3px;font-size:0.9em">${tfLabel}</span></th></tr>`;
+  // ヘッダー行2（表示列のみ）
+  html += '<tr><th class="header-black">通貨</th>';
+  COMP_COLS.forEach(col => {
+    if (activeCols.has(col.id)) {
+      const style = col.id === 'fire' ? ' style="color:#ffdd66"' : '';
+      html += `<th class="header-black"${style}>${col.label}</th>`;
+    }
+  });
+  html += '</tr>';
+
+  if (!allStates || allStates.length === 0) {
+    html += `<tr><td colspan="${totalCols}" style="text-align:center;color:#888;padding:8px">データ読込待ち...</td></tr>`;
+  } else {
+    config.symbols.forEach(sym => {
+      const state = allStates.find(s => s.symbol === sym && s.tf === config.tf);
+      const symDisplayName = getCompSymDisplayName(sym, config.symLang);
+      if (!state) {
+        html += `<tr><td class="tf-label" style="background:${symCellBg};color:${symCellTxt};font-weight:bold">${symDisplayName}</td><td colspan="${totalCols-1}" style="color:#666;text-align:center">-</td></tr>`;
+        return;
+      }
+      let clouds = [];
+      if (state.clouds_json) { try { clouds = JSON.parse(state.clouds_json); } catch(e) {} }
+      if (!clouds.length && state.clouds) clouds = state.clouds;
+      let c = clouds.find(cl => cl.label === config.tf) || clouds[0] || {};
+      c = {...c};
+      if (state.daytrade && state.daytrade.bos !== undefined) c.bos_count = state.daytrade.bos;
+
+      // 各値を事前計算
+      let dautenColor='', dautenText='-';
+      if (c.dauten==='▲Dow'||c.dauten==='up')   { dautenColor='#2962ff'; dautenText='▲Dow'; }
+      else if (c.dauten==='▼Dow'||c.dauten==='down') { dautenColor='#f23645'; dautenText='▼Dow'; }
+
+      let displayBos='-';
+      const bosVal = c.bos_count;
+      if (bosVal!==null&&bosVal!==undefined&&bosVal!=='') {
+        if (typeof bosVal==='string') displayBos=bosVal;
+        else if (typeof bosVal==='number') displayBos = bosVal===0 ? '-' : 'BOS-'+bosVal;
+      }
+
+      let gcColor='', gcText='-';
+      if (c.gc==='▲GC')  { gcColor='#2962ff'; gcText='▲GC'; }
+      else if (c.gc==='▼DC') { gcColor='#f23645'; gcText='▼DC'; }
+
+      let poText='-', poBgColor='';
+      if (c.po) {
+        poText = c.po;
+        if (String(c.po).startsWith('▲')) poBgColor='#2962ff';
+        else if (String(c.po).startsWith('▼')) poBgColor='#f23645';
+        else if (c.po==='✕') poBgColor='#9c9c9c';
+      }
+
+      const dir = state.trend_direction||'range';
+      const tScore = state.trend_score||0;
+      const pct = state.trend_percentage!==undefined ? state.trend_percentage : Math.min(100,Math.max(0,tScore));
+      let cellBg='#9c9c9c', cellContent='';
+      if (c.trend) {
+        const ls=String(c.trend);
+        cellBg = ls.startsWith('▲') ? '#06b7f9' : ls.startsWith('▼') ? '#ff57ea' : '#9c9c9c';
+        cellContent = ls;
+      } else {
+        if (dir!=='range' && tScore>=20) cellBg = dir==='up' ? '#06b7f9' : '#ff57ea';
+        else cellBg='#9c9c9c';
+        const gc2=dir!=='range'?Math.round(pct/25):0;
+        cellContent = String(pct).padStart(2,'0')+'% '+'■'.repeat(gc2)+'□'.repeat(4-gc2);
+      }
+      let gaugePct=pct;
+      if (c.trend) { const m=String(c.trend).match(/(\d{1,3})%/); if(m) gaugePct=parseInt(m[1],10); }
+
+      const fireMeta = state.last_fire||null;
+      const fireText = fireMeta ? (fireMeta.direction==='上昇'?'▲買':fireMeta.direction==='下降'?'▼売':'●') : '-';
+      const fireBg   = fireMeta ? (fireMeta.direction==='上昇'?'#2962ff':'#f23645') : '#9c9c9c';
+      const fireKey  = sym+'/'+(tfDisplayMap[config.tf]||config.tf);
+      const fireFp   = fireMeta ? ((fireMeta.rule_id||'')+'|'+(fireMeta.fired_at||'')) : '';
+
+      html += '<tr>';
+      html += `<td class="tf-label" style="background:${symCellBg};color:${symCellTxt};font-weight:bold">${symDisplayName}</td>`;
+
+      if (activeCols.has('dauten')) {
+        html += dautenColor ? `<td style="background:${dautenColor};color:#fff">${dautenText}</td>` : `<td>${dautenText}</td>`;
+      }
+      if (activeCols.has('bos')) {
+        html += dautenColor ? `<td style="background:${dautenColor};color:#fff">${displayBos}</td>` : `<td>${displayBos}</td>`;
+      }
+      if (activeCols.has('gc')) {
+        html += gcColor ? `<td style="background:${gcColor};color:#fff">${gcText}</td>` : `<td>${gcText}</td>`;
+      }
+      if (activeCols.has('po')) {
+        html += poBgColor ? `<td style="background:${poBgColor};color:#fff">${poText}</td>` : `<td>${poText}</td>`;
+      }
+      if (activeCols.has('dist_prev')) {
+        const prev=toNum(c.distance_from_prev), prevC=prev!==null?(prev>0?'#2962ff':prev<0?'#f23645':''):'';
+        html += prevC ? `<td style="background:${prevC};color:#fff">${prev.toFixed(1)}</td>` : `<td>${prev!==null?prev.toFixed(1):'-'}</td>`;
+      }
+      if (activeCols.has('dist_price')) {
+        const dp=toNum(c.distance_from_price), dpC=dp!==null?(dp>0?'#2962ff':dp<0?'#f23645':''):'';
+        html += dpC ? `<td style="background:${dpC};color:#fff">${dp.toFixed(1)}</td>` : `<td>${dp!==null?dp.toFixed(1):'-'}</td>`;
+      }
+      if (activeCols.has('angle')) {
+        const ang=toNum(c.angle), angC=ang!==null?(ang>0?'#2962ff':ang<0?'#f23645':''):'';
+        html += angC ? `<td style="background:${angC};color:#fff">${ang.toFixed(1)}°</td>` : `<td>${ang!==null?ang.toFixed(1)+'°':'-'}</td>`;
+      }
+      if (activeCols.has('thickness')) {
+        const th=toNum(c.thickness);
+        html += gcColor ? `<td style="background:${gcColor};color:#fff">${th!==null?th.toFixed(1):'-'}</td>` : `<td>${th!==null?th.toFixed(1):'-'}</td>`;
+      }
+      if (activeCols.has('dauten_t')) {
+        const dautenTimeFmt = (typeof formatElapsedTime==='function') ? formatElapsedTime(c.dauten_start_time_str||'-', timeFormat) : (c.dauten_start_time_str||'-');
+        let dautenBg = dautenColor;
+        const dautenMin = (typeof parseElapsedMin==='function') ? parseElapsedMin(c.dauten_start_time_str||'-') : null;
+        if (dautenMin!==null && barMin>0 && dautenMin<=barMin*10)
+          dautenBg = dautenColor==='#2962ff' ? '#06b7f9' : dautenColor==='#f23645' ? '#ff57ea' : dautenColor;
+        html += dautenBg ? `<td style="background:${dautenBg};color:#fff">${dautenTimeFmt}</td>` : `<td>${dautenTimeFmt}</td>`;
+      }
+      if (activeCols.has('cross_t')) {
+        const crossTimeFmt = (typeof formatElapsedTime==='function') ? formatElapsedTime(c.cross_start_time_str||'-', timeFormat) : (c.cross_start_time_str||'-');
+        let crossBg = gcColor;
+        const crossMin = (typeof parseElapsedMin==='function') ? parseElapsedMin(c.cross_start_time_str||'-') : null;
+        if (crossMin!==null && barMin>0 && crossMin<=barMin*10)
+          crossBg = gcColor==='#2962ff' ? '#06b7f9' : gcColor==='#f23645' ? '#ff57ea' : gcColor;
+        html += crossBg ? `<td style="background:${crossBg};color:#fff">${crossTimeFmt}</td>` : `<td>${crossTimeFmt}</td>`;
+      }
+      if (activeCols.has('po_t')) {
+        const poTimeFmt = (typeof formatElapsedTime==='function') ? formatElapsedTime(c.po_fire_time_str||'-', timeFormat) : (c.po_fire_time_str||'-');
+        let poFinalBg = poBgColor;
+        const poMin = (typeof parseElapsedMin==='function') ? parseElapsedMin(c.po_fire_time_str||'-') : null;
+        if (poMin!==null && barMin>0 && poMin<=barMin*10)
+          poFinalBg = poBgColor==='#2962ff' ? '#06b7f9' : poBgColor==='#f23645' ? '#ff57ea' : poBgColor;
+        html += poFinalBg ? `<td style="background:${poFinalBg};color:#fff">${poTimeFmt}</td>` : `<td>${poTimeFmt}</td>`;
+      }
+      if (activeCols.has('trend')) {
+        html += `<td style="background:${cellBg};color:#fff;font-weight:bold;font-size:0.95em;font-family:monospace;letter-spacing:0.1em">${cellContent}</td>`;
+      }
+      if (activeCols.has('gauge')) {
+        const sepBg=`repeating-linear-gradient(to right,transparent 0%,transparent calc(20% - 0.5px),${cellBg} calc(20% - 0.5px),${cellBg} calc(20% + 0.5px))`;
+        html += `<td class="gauge-cell" style="background:${cellBg};padding:2px 3px;"><div class="gauge-wrapper" title="強度:${gaugePct}%"><div class="gauge-fill" style="transform:scaleX(${Math.max(0,Math.min(100,gaugePct))/100})"></div><div class="gauge-sep" style="background:${sepBg}"></div></div></td>`;
+      }
+      if (activeCols.has('fire')) {
+        html += `<td class="fire-cell" data-fire-key="${fireKey}" data-fire-fp="${fireFp}" style="background:${fireBg};color:#fff">${fireText}</td>`;
+      }
+      if (activeCols.has('elapsed')) {
+        let timeDiffBg='#9c9c9c', timeDiffStr='-';
+        if (fireMeta) {
+          const defaultBg = fireMeta.direction==='上昇' ? '#2962ff' : '#f23645';
+          timeDiffBg = defaultBg;
+          const elapsedRuleId = fireMeta.rule_id || null;
+          const ruleFields = (typeof getRuleConditionFieldsForSymbol==='function') ? getRuleConditionFieldsForSymbol(sym, elapsedRuleId) : [];
+          const timeDiffResult = (typeof getAlignedTimeDiffForFire==='function') ? getAlignedTimeDiffForFire(c, ruleFields, fireMeta.direction) : null;
+          if (timeDiffResult) {
+            const tenBarsMin = barMin * 10;
+            if (barMin > 0 && timeDiffResult.diff <= tenBarsMin) {
+              timeDiffBg = (fireMeta.direction==='上昇') ? '#06b7f9' : '#ff57ea';
+            }
+            if (timeFormat === 'datetime') {
+              timeDiffStr = timeDiffResult.alignedAtStr || '-';
+            } else {
+              timeDiffStr = (typeof formatTimeDiff==='function') ? formatTimeDiff(timeDiffResult.diff, timeFormat) : String(timeDiffResult.diff)+'分';
+            }
+          }
+        }
+        html += `<td style="background:${timeDiffBg};color:#fff">${timeDiffStr}</td>`;
+      }
+      html += '</tr>';
+    });
+  }
+  html += '</table></div>';
+  if (isPopup) {
+    _renderCompTablePopup(config.id, html, config.popupFontSize);
+  } else {
+    bodyDiv.innerHTML = html;
+    section.appendChild(bodyDiv);
+    try { applyGridPlacement(); } catch(e) {}
+    try { initGridDragDrop(); } catch(e) {}
+    try { const sz = localStorage.getItem('tv_font_size') || '14'; applyFontSize(sz); } catch(e) {}
+  }
+}
+
+function _renderCompTablePopup(id, tableHtml, fontSize) {
+  let popup = _compPopupWindows.get(id);
+  if (!popup || popup.closed) {
+    popup = window.open('', 'comp_popup_' + id, 'width=760,height=380,resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no');
+    if (!popup) { console.warn('[COMP_POPUP] ポップアップがブロックされました'); return; }
+    _compPopupWindows.set(id, popup);
+  }
+  const fs = (fontSize || 14) + 'px';
+  const css = [
+    'body{margin:0;padding:8px;background:#0d1117;color:#f0f0f0;font-family:\'Segoe UI\',sans-serif;font-size:' + fs + ';}',
+    '.table-wrap{overflow-x:auto;}',
+    'table{border-collapse:collapse;font-size:0.82em;width:100%;background:transparent;}',
+    'th{background:#667eea;color:#fff;padding:3px 6px;border:1px solid rgba(255,255,255,0.1);font-weight:normal;white-space:nowrap;}',
+    'th.header-black{background:#000!important;}',
+    'td{padding:2px 6px;border:1px solid rgba(255,255,255,0.08);color:#f0f0f0;white-space:nowrap;text-align:center;}',
+    'td.tf-label{text-align:left;font-weight:bold;}',
+    'td.sym-cell{text-align:left;font-weight:bold;color:#fff;background:rgba(0,0,0,0.2);}',
+    '.gauge-cell{width:150px;min-width:150px;max-width:150px;padding:2px 3px;}',
+    '.gauge-wrapper{position:relative;height:10px;border:1px solid rgba(255,255,255,0.9);border-radius:3px;overflow:hidden;padding:2px;}',
+    '.gauge-fill{position:absolute;top:2px;left:2px;right:2px;bottom:2px;background:rgba(255,255,255,0.98);border-radius:2px;transform-origin:left center;transform:scaleX(0);}',
+    '.gauge-sep{position:absolute;top:2px;left:2px;right:2px;bottom:2px;pointer-events:none;}',
+  ].join('');
+  popup.document.open();
+  popup.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>比較テーブル</title><style>' + css + '</style></head><body>' + tableHtml + '</body></html>');
+  popup.document.close();
+}
+
+function renderAllComparisonTables() {
+  const tables = loadComparisonTables();
+  // currentDashboardData は data.states の配列
+  const allStates = Array.isArray(currentDashboardData) ? currentDashboardData : null;
+  tables.forEach(config => renderComparisonTable(config, allStates));
+  // 削除されたテーブルのパネルを取り消す（IDが一致しないもの）
+  const ids = tables.map(t => t.id);
+  document.querySelectorAll('.comp-table-section').forEach(el => {
+    if (!ids.includes(el.dataset.symbol)) el.remove();
+  });
+}
+
+function updateCompTablesMgmtList() {
+  updateCompTablesMgmtListModal();
+  // settingsModal内のリストも更新（存在する場合）
+  const list = document.getElementById('compTablesMgmtList');
+  if (!list) return;
+  const tables = loadComparisonTables();
+  list.innerHTML = '';
+  if (tables.length === 0) {
+    list.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:0.85em;padding:4px 0;">比較テーブルはありません</div>';
+    return;
+  }
+  tables.forEach((t, i) => {
+    const item = document.createElement('div');
+    item.className = 'comp-mgmt-item';
+    const tfLabel = COMP_TF_OPTIONS.find(o => o.value === t.tf)?.label || t.tf;
+    item.innerHTML = `
+      <span class="comp-mgmt-item-label">テーブル${i+1}（${tfLabel} / ${t.symbols.length}通貨）</span>
+      <button class="comp-mgmt-del-btn" data-comp-mgmt-del="${t.id}">削除</button>
+    `;
+    item.querySelector('.comp-mgmt-del-btn').addEventListener('click', () => {
+      removeComparisonTable(t.id);
+    });
+    list.appendChild(item);
+  });
+}
+// ============================================================
+
 async function load() {
   const update_at = new Date().toISOString();
   console.log('[CLIENT UPDATE START]', update_at);
@@ -6160,6 +6575,8 @@ async function load() {
       
       // ドラッグ&ドロップの初期化
       setTimeout(initCurrencySortable, 200);
+      // 比較テーブルを再描画
+      try { renderAllComparisonTables(); } catch(e) { console.warn('renderAllComparisonTables failed', e); }
     } else {
       document.getElementById('dashboards-container').innerHTML = '<div class="loading">データなし</div>';
     }
@@ -8934,6 +9351,20 @@ setTimeout(showAudioEnableOverlay, 500);
 })();
 </script>
 
+<!-- 比較テーブル管理モーダル -->
+<div class="modal-overlay" id="compTablesMgmtModal" style="display:none;">
+  <div class="modal" role="dialog" aria-modal="true" style="min-width:360px;max-width:480px;width:420px;max-height:70vh;display:flex;flex-direction:column;">
+    <div id="compTablesMgmtHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;cursor:grab;user-select:none;">
+      <h3 style="margin:0;">📋 比較テーブル管理</h3>
+      <button id="closeCompTablesMgmt" style="background:#333;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;">閉じる</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;">
+      <button id="modalAddCompTableBtn" style="width:100%;background:rgba(74,222,128,0.3);border:1px solid rgba(74,222,128,0.6);color:#4ade80;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:0.88em;margin-bottom:10px;">＋ 比較テーブルを追加</button>
+      <div id="compTablesMgmtListModal" class="comp-mgmt-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- バックアップ復旧モーダル -->
 <div class="modal-overlay" id="backupRecoveryModal" style="display:none;">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="backupRecoveryTitle" style="min-width:650px;max-width:800px;width:700px;height:700px;max-height:90vh;display:flex;flex-direction:column;resize:both;overflow:hidden;position:relative;">
@@ -9209,6 +9640,185 @@ document.getElementById('menuBackupRecovery').addEventListener('click', function
   document.getElementById('sideMenu').classList.remove('active');
   document.getElementById('sideMenuOverlay').classList.remove('active');
 });
+
+document.getElementById('menuManageCompTables').addEventListener('click', function() {
+  openCompTablesMgmtModal();
+  document.getElementById('sideMenu').classList.remove('active');
+  document.getElementById('sideMenuOverlay').classList.remove('active');
+});
+
+// 設定モーダル「比較テーブルを追加」ボタン
+document.getElementById('settingsAddCompTableBtn').addEventListener('click', function() {
+  addComparisonTable();
+});
+
+document.getElementById('closeCompTablesMgmt').addEventListener('click', function() {
+  document.getElementById('compTablesMgmtModal').style.display = 'none';
+});
+document.getElementById('compTablesMgmtModal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+// 比較テーブル管理モーダル ドラッグ移動
+(function() {
+  let isDragging = false, ox = 0, oy = 0;
+  const modal = document.querySelector('#compTablesMgmtModal .modal');
+  const header = document.getElementById('compTablesMgmtHeader');
+  header.addEventListener('mousedown', function(e) {
+    if (e.target.tagName === 'BUTTON') return;
+    isDragging = true;
+    const rect = modal.getBoundingClientRect();
+    ox = e.clientX - rect.left;
+    oy = e.clientY - rect.top;
+    header.style.cursor = 'grabbing';
+    modal.style.position = 'fixed';
+    modal.style.margin = '0';
+    modal.style.left = rect.left + 'px';
+    modal.style.top = rect.top + 'px';
+    modal.style.transform = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!isDragging) return;
+    modal.style.left = (e.clientX - ox) + 'px';
+    modal.style.top  = (e.clientY - oy) + 'px';
+  });
+  document.addEventListener('mouseup', function() {
+    if (isDragging) { isDragging = false; header.style.cursor = 'grab'; }
+  });
+})();
+document.getElementById('modalAddCompTableBtn').addEventListener('click', function() {
+  addComparisonTable();
+  updateCompTablesMgmtListModal();
+});
+
+function openCompTablesMgmtModal() {
+  updateCompTablesMgmtListModal();
+  document.getElementById('compTablesMgmtModal').style.display = 'flex';
+}
+
+function updateCompTablesMgmtListModal() {
+  const list = document.getElementById('compTablesMgmtListModal');
+  if (!list) return;
+  const tables = loadComparisonTables();
+  list.innerHTML = '';
+  if (tables.length === 0) {
+    list.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:0.85em;padding:8px 0;">比較テーブルはありません<br>上の「＋追加」ボタンで追加できます</div>';
+    return;
+  }
+  tables.forEach((t, i) => {
+    const item = document.createElement('div');
+    item.style.cssText = 'border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:8px;margin-bottom:8px;background:rgba(0,0,0,0.2)';
+
+    // ── ヘッダー行（3行レイアウト）
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:6px';
+    const isVisible = t.visible !== false;
+    const isEmbed = (t.displayMode || 'embed') === 'embed';
+    const isJa = (t.symLang||'en') === 'ja';
+    // 1行目: [ 比較テーブルN ]
+    const row1 = document.createElement('div');
+    row1.style.cssText = 'display:flex;align-items:center';
+    row1.innerHTML = `<span style="color:#f5f7ff;font-size:0.85em;font-weight:bold">比較テーブル${i+1}</span>`;
+    // 2行目: [表示中/非表示] [埋込/別窓] [14px]
+    const row2 = document.createElement('div');
+    row2.style.cssText = 'display:flex;align-items:center;gap:5px';
+    row2.innerHTML = `
+      <button class="comp-vis-btn" data-visible="${isVisible}" style="background:${isVisible?'rgba(41,98,255,0.5)':'rgba(255,255,255,0.12)'};border:1px solid ${isVisible?'rgba(41,98,255,0.8)':'rgba(255,255,255,0.25)'};color:#fff;font-size:0.75em;border-radius:3px;padding:2px 8px;cursor:pointer;min-width:52px">${isVisible?'表示中':'非表示'}</button>
+      <button class="comp-mode-btn" title="表示場所を切替" style="background:${isEmbed?'rgba(255,255,255,0.12)':'rgba(255,140,0,0.5)'};border:1px solid ${isEmbed?'rgba(255,255,255,0.25)':'rgba(255,140,0,0.8)'};color:#fff;font-size:0.75em;border-radius:3px;padding:2px 8px;cursor:pointer;white-space:nowrap">${isEmbed?'埋込':'別窓'}</button>
+      <label style="display:flex;align-items:center;gap:2px;color:#f5f7ff;font-size:0.72em;white-space:nowrap"><input type="number" class="comp-popup-fs" min="8" max="32" value="${t.popupFontSize||14}" style="width:38px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.25);color:#f5f7ff;font-size:1em;border-radius:3px;padding:1px 3px;text-align:center">px</label>
+    `;
+    // 3行目: [EN/JP] [TF選択] [削除]
+    const row3 = document.createElement('div');
+    row3.style.cssText = 'display:flex;align-items:center;gap:5px';
+    row3.innerHTML = `
+      <button class="comp-symlang-btn" title="通貨名の言語切替" style="background:${isJa?'rgba(0,180,100,0.5)':'rgba(255,255,255,0.12)'};border:1px solid ${isJa?'rgba(0,180,100,0.8)':'rgba(255,255,255,0.25)'};color:#fff;font-size:0.75em;border-radius:3px;padding:2px 8px;cursor:pointer;white-space:nowrap">${isJa?'JP':'EN'}</button>
+      <select style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.25);color:#f5f7ff;font-size:0.8em;border-radius:4px;padding:1px 4px">
+        ${COMP_TF_OPTIONS.map(o=>`<option value="${o.value}"${o.value===t.tf?' selected':''}>${o.label}</option>`).join('')}
+      </select>
+      <button class="comp-del-btn" style="background:rgba(242,54,69,0.6);border:none;color:#fff;font-size:0.75em;border-radius:3px;padding:2px 8px;cursor:pointer">削除</button>
+    `;
+    hdr.appendChild(row1);
+    hdr.appendChild(row2);
+    hdr.appendChild(row3);
+    row2.querySelector('.comp-vis-btn').addEventListener('click', function() {
+      const ts=loadComparisonTables(), t2=ts.find(x=>x.id===t.id);
+      if (t2) { t2.visible = t2.visible === false; saveComparisonTables(ts); renderAllComparisonTables(); updateCompTablesMgmtListModal(); }
+    });
+    row2.querySelector('.comp-mode-btn').addEventListener('click', function() {
+      const ts=loadComparisonTables(), t2=ts.find(x=>x.id===t.id);
+      if (t2) { t2.displayMode = (t2.displayMode||'embed')==='embed' ? 'popup' : 'embed'; saveComparisonTables(ts); renderAllComparisonTables(); updateCompTablesMgmtListModal(); }
+    });
+    row2.querySelector('.comp-popup-fs').addEventListener('change', function() {
+      const ts=loadComparisonTables(), t2=ts.find(x=>x.id===t.id);
+      if (t2) { t2.popupFontSize = Math.max(8, Math.min(32, parseInt(this.value,10)||14)); saveComparisonTables(ts); renderAllComparisonTables(); }
+    });
+    row3.querySelector('.comp-symlang-btn').addEventListener('click', function() {
+      const ts=loadComparisonTables(), t2=ts.find(x=>x.id===t.id);
+      if (t2) { t2.symLang = (t2.symLang||'en')==='en' ? 'ja' : 'en'; saveComparisonTables(ts); renderAllComparisonTables(); updateCompTablesMgmtListModal(); }
+    });
+    row3.querySelector('select').addEventListener('change', function() {
+      const ts=loadComparisonTables(), t2=ts.find(x=>x.id===t.id);
+      if (t2) { t2.tf=this.value; saveComparisonTables(ts); renderAllComparisonTables(); updateCompTablesMgmtListModal(); }
+    });
+    row3.querySelector('.comp-del-btn').addEventListener('click', () => {
+      removeComparisonTable(t.id);
+      updateCompTablesMgmtListModal();
+    });
+    item.appendChild(hdr);
+
+    // ── 通貨チップ（クリックで選択/解除）
+    const chipsDiv = document.createElement('div');
+    chipsDiv.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px';
+    COMP_ALL_SYMBOLS.forEach(sym => {
+      const chip = document.createElement('span');
+      chip.className = 'comp-chip'+(t.symbols.includes(sym)?' active':'');
+      chip.style.cssText = 'font-size:0.72em;padding:1px 5px';
+      chip.textContent = sym;
+      chip.addEventListener('click', () => {
+        const ts=loadComparisonTables(), t2=ts.find(x=>x.id===t.id);
+        if (!t2) return;
+        if (t2.symbols.includes(sym)) t2.symbols=t2.symbols.filter(s=>s!==sym); else t2.symbols.push(sym);
+        saveComparisonTables(ts);
+        renderAllComparisonTables();
+        updateCompTablesMgmtListModal();
+      });
+      chipsDiv.appendChild(chip);
+    });
+    item.appendChild(chipsDiv);
+
+    // ── 列選択チェックボックス
+    const colsTitle = document.createElement('div');
+    colsTitle.style.cssText = 'color:rgba(255,255,255,0.45);font-size:0.72em;margin-top:6px;margin-bottom:3px';
+    colsTitle.textContent = '表示列:';
+    item.appendChild(colsTitle);
+    const colsDiv = document.createElement('div');
+    colsDiv.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px';
+    const activeCols = new Set(t.cols || COMP_COLS_DEFAULT);
+    COMP_COLS.forEach(col => {
+      const lbl = document.createElement('label');
+      lbl.style.cssText = 'display:flex;align-items:center;gap:2px;color:#f5f7ff;font-size:0.72em;cursor:pointer;white-space:nowrap;padding:2px 5px;border-radius:3px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05)';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = activeCols.has(col.id);
+      cb.style.cssText = 'cursor:pointer;margin:0;width:11px;height:11px';
+      cb.addEventListener('change', () => {
+        const ts=loadComparisonTables(), t2=ts.find(x=>x.id===t.id);
+        if (!t2) return;
+        const cur = new Set(t2.cols || COMP_COLS_DEFAULT);
+        if (cb.checked) cur.add(col.id); else cur.delete(col.id);
+        t2.cols = [...cur];
+        saveComparisonTables(ts);
+        renderAllComparisonTables();
+      });
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(col.label));
+      colsDiv.appendChild(lbl);
+    });
+    item.appendChild(colsDiv);
+
+    list.appendChild(item);
+  });
+}
 
 // Gmail から手動取得（バックグラウンドジョブ方式 - サーバーをブロックしない）
 async function fetchBackupFromGmail() {
