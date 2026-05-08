@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-09T14:08:01.560802+09:00",
+  "exported_at": "2026-05-08T20:31:00.352029+09:00",
   "count": 10,
   "rules": [
     {
@@ -212,17 +212,26 @@
       "name": "ダウ+PO_5m",
       "enabled": true,
       "scope": {
-        "symbol": ""
+        "symbols": [
+          "AUDJPY",
+          "USDJPY",
+          "EURJPY",
+          "GBPJPY",
+          "AUDUSD",
+          "GBPUSD",
+          "EURUSD"
+        ],
+        "match_all_symbols": false
       },
       "created_at": "2026-03-01T19:17:41.647666",
-      "updated_at": "2026-03-09T14:08:01.542594",
+      "updated_at": "2026-05-08T20:31:00.333142",
       "sort_order": 5,
       "voice": {
-        "message": "5分でダウとPOが揃いました。",
+        "message": "5分でPOです。",
         "insertSymbol": true,
         "symbolInsertPosition": "both",
         "directionBased": true,
-        "messagePosition": "suffix",
+        "messagePosition": "both",
         "messageUp": "上昇です。",
         "messageDown": "下降です。",
         "playChimeFirst": true,
@@ -238,10 +247,6 @@
       "conditions": [
         {
           "timeframe": "5m",
-          "field": "dauten"
-        },
-        {
-          "timeframe": "5m",
           "field": "po"
         }
       ],
@@ -250,7 +255,7 @@
     {
       "id": "rule_1772021360194_lx6yyk4at",
       "name": "ダウ+PO_15m",
-      "enabled": true,
+      "enabled": false,
       "scope": {
         "symbol": ""
       },
@@ -291,7 +296,7 @@
     {
       "id": "rule_1772022729543_bb10kg6hu",
       "name": "ダウ+PO_1H",
-      "enabled": true,
+      "enabled": false,
       "scope": {
         "symbol": ""
       },
@@ -332,7 +337,7 @@
     {
       "id": "rule_1772022808888_almzwy1zb",
       "name": "ダウ+PO_4H",
-      "enabled": true,
+      "enabled": false,
       "scope": {
         "symbol": ""
       },
@@ -373,7 +378,7 @@
     {
       "id": "rule_1772022859637_k9yxj8j7q",
       "name": "ダウ+PO_D",
-      "enabled": true,
+      "enabled": false,
       "scope": {
         "symbol": ""
       },

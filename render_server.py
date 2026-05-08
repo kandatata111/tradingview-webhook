@@ -4679,6 +4679,75 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
         # 表の視覚的内容を正確に反映するため、各TFのDBレコードから取得
         tf_cloud_data = {}
         
+        def build_tf_cloud_data_from_states(tf_states_local):
+            local_clouds = {}
+            for tf_label_norm, tf_state in tf_states_local.items():
+                clouds_json_str = tf_state.get('clouds_json', '[]')
+                try:
+                    clouds_list = json.loads(clouds_json_str)
+                    for cloud in clouds_list:
+                        raw_label2 = cloud.get('label')
+                        norm_label2 = normalize_tf_label(raw_label2)
+                        if norm_label2 and norm_label2 not in local_clouds:
+                            local_clouds[norm_label2] = cloud.copy()
+                except Exception:
+                    pass
+            return local_clouds
+
+        def _match_value(value, expected):
+            if expected is None or expected == '' or (isinstance(expected, str) and expected.strip() == ''):
+                return value is not None
+            return str(value) == str(expected)
+
+        def _direction_from_field(field, value):
+            if value is None:
+                return None
+            if field == 'dauten':
+                v = str(value)
+                if '上昇' in v or 'up' in v.lower():
+                    return '上昇'
+                if '下降' in v or 'down' in v.lower():
+                    return '下降'
+            elif field == 'gc':
+                if value is True or str(value).upper() == 'TRUE' or str(value).startswith('▲'):
+                    return '上昇'
+                if value is False or str(value).upper() == 'FALSE' or str(value).startswith('▼'):
+                    return '下降'
+            elif field == 'bos_count':
+                try:
+                    n = float(value)
+                    return '上昇' if n > 0 else '下降' if n < 0 else None
+                except Exception:
+                    return None
+            elif field == 'po':
+                v = str(value)
+                if '▲' in v or 'up' in v.lower():
+                    return '上昇'
+                if '▼' in v or 'down' in v.lower():
+                    return '下降'
+            return None
+
+        def _evaluate_conditions_on_cloud_data(cloud_data_map, conditions):
+            local_directions = []
+            for cond in conditions:
+                tf_label = cond.get('timeframe') or cond.get('label')
+                field = cond.get('field')
+                expected = cond.get('value')
+                cloud_data = cloud_data_map.get(tf_label)
+                if cloud_data is None:
+                    return False, None
+                found_value = cloud_data.get(field)
+                if not _match_value(found_value, expected):
+                    return False, None
+                dir_val = _direction_from_field(field, found_value)
+                if dir_val:
+                    local_directions.append(dir_val)
+            if not local_directions:
+                return True, None
+            if len(set(local_directions)) == 1:
+                return True, local_directions[0]
+            return True, None
+
         wlog(f'[DEBUG] all_clouds={list(all_clouds.keys()) if all_clouds else None}, current_tf={current_tf}')
         
         # ===== Step1: 主体時間足のDBレコードから全TFの雲情報（gc, thickness等）を取得 =====
@@ -4815,11 +4884,65 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 _scope_symbols = scope.get('symbols') or []
                 if not _scope_symbols and scope.get('symbol'):
                     _scope_symbols = [scope['symbol']]
+                require_all_symbols = bool(scope.get('match_all_symbols'))
                 if _scope_symbols and symbol not in _scope_symbols:
                     wlog(f'[RULE] Rule "{rule_name}" skipped: {symbol} not in scope {_scope_symbols}')
                     continue
-                
-                wlog(f'[RULE] Testing rule "{rule_name}" for {symbol}')
+
+                rule_identity_symbol = symbol
+                multi_symbol_mode = require_all_symbols and len(_scope_symbols) > 1
+                if multi_symbol_mode:
+                    ordered_symbols = sorted(_scope_symbols)
+                    rule_identity_symbol = ','.join(ordered_symbols)
+                    symbol_cloud_data_map = {}
+                    for target_symbol in ordered_symbols:
+                        if target_symbol == symbol:
+                            symbol_cloud_data_map[target_symbol] = build_tf_cloud_data_from_states(tf_states)
+                        else:
+                            conn_sym = sqlite3.connect(DB_PATH)
+                            c_sym = conn_sym.cursor()
+                            c_sym.execute('SELECT * FROM states WHERE symbol = ? ORDER BY rowid DESC', (target_symbol,))
+                            rows_sym = c_sym.fetchall()
+                            cols_sym = [d[0] for d in c_sym.description] if c_sym.description else []
+                            conn_sym.close()
+                            if not rows_sym:
+                                symbol_cloud_data_map = {}
+                                break
+                            target_tf_states = {}
+                            for row_sym in rows_sym:
+                                ts = dict(zip(cols_sym, row_sym))
+                                raw_tf = str(ts.get('tf', ''))
+                                norm_lbl = normalize_tf_label(raw_tf)
+                                if norm_lbl and norm_lbl not in target_tf_states:
+                                    target_tf_states[norm_lbl] = ts
+                            symbol_cloud_data_map[target_symbol] = build_tf_cloud_data_from_states(target_tf_states)
+                    if len(symbol_cloud_data_map) != len(ordered_symbols):
+                        wlog(f'[RULE] Multi-symbol rule "{rule_name}" skipped because some symbol data missing: {_scope_symbols}')
+                        continue
+                    cross_match = True
+                    cross_directions = []
+                    for target_symbol, target_cloud_data in symbol_cloud_data_map.items():
+                        matched, direction = _evaluate_conditions_on_cloud_data(target_cloud_data, rule.get('conditions', []))
+                        if not matched:
+                            cross_match = False
+                            break
+                        if direction:
+                            cross_directions.append(direction)
+                    if not cross_match:
+                        wlog(f'[RULE] Multi-symbol rule "{rule_name}" not matched across all symbols: {_scope_symbols}')
+                        continue
+                    if cross_directions and len(set(cross_directions)) > 1:
+                        wlog(f'[RULE] Multi-symbol rule "{rule_name}" directions differ across symbols: {cross_directions}')
+                        continue
+                    wlog(f'[RULE] Multi-symbol rule "{rule_name}" matched across all symbols: {_scope_symbols}')
+                    if cross_directions:
+                        condition_directions = ['up' if cross_directions[0] == '上昇' else 'down']
+                    else:
+                        condition_directions = []
+                else:
+                    condition_directions = []
+
+                wlog(f'[RULE] Testing rule "{rule_name}" for {symbol} with identity {rule_identity_symbol}')
                 
                 # ルール条件を評価（AND条件：すべての条件が満たされる必要がある）
                 conditions = rule.get('conditions', [])
@@ -5107,8 +5230,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 # _restart_baseline にこのルールの値が記録されている場合はそれを使う
                 # (再起動直後の初回比較を正しく行うため)
-                if last_state is None and (rule_id, symbol) in _restart_baseline:
-                    last_state = _restart_baseline.get((rule_id, symbol))
+                if last_state is None and (rule_id, rule_identity_symbol) in _restart_baseline:
+                    last_state = _restart_baseline.get((rule_id, rule_identity_symbol))
                 
                 # ===== 現在の値を収集（正規化済み）=====
                 current_values = {}
@@ -5136,7 +5259,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     elif conditions:
                         _display_tf_rule = conditions[0].get('timeframe') or conditions[0].get('label') or None
                 if _display_tf_rule:
-                    _fire_key = (symbol, _display_tf_rule)
+                    _fire_key = (rule_identity_symbol, _display_tf_rule)
                     if all_matched:
                         _fire_dir = None
                         if alignment_direction:
@@ -5210,9 +5333,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 # (active_fires 更新は上で完了済み → セル表示は即時復元される)
                 if _server_just_started:
                     wlog(f'[RULE] サーバー起動直後モード: "{rule_name}" の現在値を初期状態として記録（発火しない）')
-                    _restart_baseline[(rule_id, symbol)] = current_values
-                    continue  # 通知・音は出さず次のルールへ
-
+                    _restart_baseline[(rule_id, rule_identity_symbol)] = current_values
                 # ===== 初回受信（履歴なし）は値を記録するだけで発火しない =====
                 if last_state is None:
                     wlog(f'[RULE] No history found, recording initial state without firing')
@@ -5222,7 +5343,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         c_init.execute('''INSERT INTO fire_history 
                                          (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
                                          VALUES (?, ?, ?, ?, ?, ?)''',
-                                      (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                      (rule_id, rule_identity_symbol, '', datetime.now(jst).isoformat(),
                                        json.dumps({'initial': True}, ensure_ascii=False),
                                        json.dumps(current_values, ensure_ascii=False)))
                         conn_init.commit()
@@ -5230,7 +5351,6 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     except Exception as e:
                         wlog(f'[RULE] Error recording initial state: {e}')
                     continue
-                
                 # ===== セルが変化したかチェック =====
                 has_change = False
                 _unknown_to_known = False  # None→値への遷移(不明→既知)フラグ
@@ -5256,7 +5376,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         c_unk.execute('''INSERT INTO fire_history
                                          (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
                                          VALUES (?, ?, ?, ?, ?, ?)''',
-                                      (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                      (rule_id, rule_identity_symbol, '', datetime.now(jst).isoformat(),
                                        json.dumps({'no_fire': True}, ensure_ascii=False),
                                        json.dumps(current_values, ensure_ascii=False)))
                         conn_unk.commit()
@@ -5278,7 +5398,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         c_nc.execute('''INSERT INTO fire_history 
                                          (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
                                          VALUES (?, ?, ?, ?, ?, ?)''',
-                                      (rule_id, symbol, '', datetime.now(jst).isoformat(),
+                                      (rule_id, rule_identity_symbol, '', datetime.now(jst).isoformat(),
                                        json.dumps({'no_fire': True}, ensure_ascii=False),
                                        json.dumps(current_values, ensure_ascii=False)))
                         conn_nc.commit()
@@ -5375,7 +5495,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         c_fire.execute('''INSERT INTO fire_history 
                                          (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot, direction)
                                          VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                                      (rule_id, symbol, '', fired_at,
+                                      (rule_id, rule_identity_symbol, '', fired_at,
                                        json.dumps(conditions, ensure_ascii=False),
                                        json.dumps(current_values, ensure_ascii=False),
                                        direction))

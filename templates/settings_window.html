@@ -571,6 +571,14 @@
             </div>
           </div>
 
+          <div class="row" style="align-items:center;">
+            <label style="padding-top:0;">発火条件</label>
+            <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <input type="checkbox" id="matchAllSymbols" style="width:18px;height:18px;">
+              <span>選択した通貨ペアすべてで条件が成立したときのみ発火</span>
+            </label>
+          </div>
+
           <div class="row">
             <label title="発火時にダッシュボードのこの時間足の行に表示します">発火表示足</label>
             <select id="displayTf" style="min-width:140px;">
@@ -610,6 +618,7 @@
               <select id="voiceMessagePosition">
                 <option value="prefix">先頭</option>
                 <option value="suffix">最後</option>
+                <option value="both">先頭と最後</option>
               </select>
             </div>
             <div id="directionMessages" style="display:none;margin-top:8px;">
@@ -1248,6 +1257,7 @@ function selectRule(ruleId) {
   const _restoreSyms = (rule.scope && rule.scope.symbols) ? rule.scope.symbols
     : (rule.scope && rule.scope.symbol) ? [rule.scope.symbol] : [];
   setRuleScopeSymbols(_restoreSyms);
+  document.getElementById('matchAllSymbols').checked = Boolean(rule.scope && rule.scope.match_all_symbols);
   
   // 音声設定
   const voice = rule.voice || {};
@@ -1325,7 +1335,7 @@ async function saveRule() {
     id: currentRuleId || 'rule_' + Date.now(),
     name: document.getElementById('ruleName').value,
     displayTf: document.getElementById('displayTf').value,
-    scope: (function() { const syms = getRuleScopeSymbols(); return syms.length > 0 ? { symbols: syms } : {}; })(),
+    scope: (function() { const syms = getRuleScopeSymbols(); return syms.length > 0 ? { symbols: syms, match_all_symbols: document.getElementById('matchAllSymbols').checked } : {}; })(),
     voice: {
       message: document.getElementById('voiceMessage').value,
       insertSymbol: document.getElementById('insertSymbol').checked,
@@ -1767,8 +1777,13 @@ function testVoice() {
   if (directionBased) {
     const messagePosition = document.getElementById('voiceMessagePosition').value;
     const directionMsg = document.getElementById('voiceMessageUp').value || '上昇';
-    if (messagePosition === 'prefix') message = directionMsg + '、' + message;
-    else message = message + '、' + directionMsg;
+    if (messagePosition === 'prefix') {
+      message = directionMsg + '、' + message;
+    } else if (messagePosition === 'suffix') {
+      message = message + '、' + directionMsg;
+    } else if (messagePosition === 'both') {
+      message = directionMsg + '、' + message + '、' + directionMsg;
+    }
   }
 
   console.log('[音声テスト] メッセージ:', message);
