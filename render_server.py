@@ -4891,6 +4891,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
 
                 rule_identity_symbol = symbol
                 multi_symbol_mode = require_all_symbols and len(_scope_symbols) > 1
+                _multi_result = None  # None=シングルシンボル, True/False=マルチシンボル評価結果
                 if multi_symbol_mode:
                     ordered_symbols = sorted(_scope_symbols)
                     rule_identity_symbol = ','.join(ordered_symbols)
@@ -4930,15 +4931,20 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             cross_directions.append(direction)
                     if not cross_match:
                         wlog(f'[RULE] Multi-symbol rule "{rule_name}" not matched across all symbols: {_scope_symbols}')
-                        continue
-                    if cross_directions and len(set(cross_directions)) > 1:
-                        wlog(f'[RULE] Multi-symbol rule "{rule_name}" directions differ across symbols: {cross_directions}')
-                        continue
-                    wlog(f'[RULE] Multi-symbol rule "{rule_name}" matched across all symbols: {_scope_symbols}')
-                    if cross_directions:
-                        condition_directions = ['up' if cross_directions[0] == '上昇' else 'down']
-                    else:
+                        # continueせず all_matched=False として状態保存ロジックに流す（条件が崩れた状態を記録し再整合時に発火するため）
+                        _multi_result = False
                         condition_directions = []
+                    elif cross_directions and len(set(cross_directions)) > 1:
+                        wlog(f'[RULE] Multi-symbol rule "{rule_name}" directions differ across symbols: {cross_directions}')
+                        _multi_result = False
+                        condition_directions = []
+                    else:
+                        wlog(f'[RULE] Multi-symbol rule "{rule_name}" matched across all symbols: {_scope_symbols}')
+                        _multi_result = True
+                        if cross_directions:
+                            condition_directions = ['up' if cross_directions[0] == '上昇' else 'down']
+                        else:
+                            condition_directions = []
                 else:
                     condition_directions = []
 
@@ -5054,6 +5060,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         wlog(f'[RULE] Single direction: {valid_directions[0]}')
                     else:
                         wlog(f'[RULE] No direction info available')
+                
+                # マルチシンボルモードの場合、単一シンボル評価結果を上書き
+                # （単一シンボルのtf_cloud_dataだけで判定すると「他シンボルが条件不成立」を見落とす）
+                if multi_symbol_mode and _multi_result is not None:
+                    all_matched = _multi_result
+                    wlog(f'[RULE] Multi-symbol override: all_matched={all_matched}')
                 
                 # ===== Alignment チェック =====
                 # ルールに alignment 設定がある場合、cloud_order の並び順をチェック
@@ -5183,12 +5195,14 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 # ===== 前回の発火状態を取得 =====
                 # 発火した記録のみがfire_historyに保存されているため、最新の発火時の状態と比較
+                # マルチシンボルルールは rule_identity_symbol（例: AUDJPY,EURJPY,GBPJPY）で保存されているため
+                # SELECT も同じキーで検索しないと常に None になり毎回「初回受信」扱いになる
                 conn_check = sqlite3.connect(DB_PATH)
                 c_check = conn_check.cursor()
                 c_check.execute('''SELECT last_state_snapshot FROM fire_history 
                                    WHERE rule_id = ? AND symbol = ? AND tf = ?
                                    ORDER BY id DESC LIMIT 1''', 
-                               (rule_id, symbol, ''))
+                               (rule_id, rule_identity_symbol, ''))
                 last_fire = c_check.fetchone()
                 conn_check.close()
                 
@@ -5237,6 +5251,17 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 current_values = {}
                 if alignment_is_active:
                     current_values['tf_order'] = current_tf_order
+                elif multi_symbol_mode:
+                    # マルチシンボルモード: 全シンボルの状態を収集
+                    # （単一シンボルだけでは「他シンボルが条件を崩した」状態変化を検知できないため）
+                    for _ts, _tcd in symbol_cloud_data_map.items():
+                        for cond in conditions:
+                            _tf = cond.get('timeframe') or cond.get('label')
+                            _fld = cond.get('field')
+                            _raw = _tcd.get(_tf, {}).get(_fld)
+                            _norm = normalize_value_for_comparison(_raw, _fld)
+                            current_values[f'{_ts}.{_tf}.{_fld}'] = _norm
+                            wlog(f'[RULE] Multi current: {_ts}.{_tf}.{_fld} = {_raw} → {_norm}')
                 else:
                     for cond in conditions:
                         tf_label = cond.get('timeframe') or cond.get('label')
@@ -5334,9 +5359,7 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 if _server_just_started:
                     wlog(f'[RULE] サーバー起動直後モード: "{rule_name}" の現在値を初期状態として記録（発火しない）')
                     _restart_baseline[(rule_id, rule_identity_symbol)] = current_values
-                # ===== 初回受信（履歴なし）は値を記録するだけで発火しない =====
-                if last_state is None:
-                    wlog(f'[RULE] No history found, recording initial state without firing')
+                    # 起動直後は初回受信即発火ロジックをスキップするため continue
                     try:
                         conn_init = sqlite3.connect(DB_PATH)
                         c_init = conn_init.cursor()
@@ -5349,8 +5372,34 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         conn_init.commit()
                         conn_init.close()
                     except Exception as e:
-                        wlog(f'[RULE] Error recording initial state: {e}')
+                        wlog(f'[RULE] Error recording startup state: {e}')
                     continue
+                # ===== 初回受信（履歴なし）=====
+                if last_state is None:
+                    if not _server_just_started and all_matched:
+                        # 初回受信かつ条件成立 → 即発火（サーバー起動直後は除く）
+                        wlog(f'[RULE] 初回受信かつ条件成立 → 即発火')
+                        should_fire = True
+                        # last_state を current_values と同値にして has_change=False にする
+                        # (should_fire=True は保持されるため fire ブロックへ到達する)
+                        last_state = current_values
+                    else:
+                        # 条件不成立 or サーバー起動直後 → 現在値を記録するだけ
+                        wlog(f'[RULE] No history found, recording initial state without firing')
+                        try:
+                            conn_init = sqlite3.connect(DB_PATH)
+                            c_init = conn_init.cursor()
+                            c_init.execute('''INSERT INTO fire_history 
+                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                             VALUES (?, ?, ?, ?, ?, ?)''',
+                                          (rule_id, rule_identity_symbol, '', datetime.now(jst).isoformat(),
+                                           json.dumps({'initial': True}, ensure_ascii=False),
+                                           json.dumps(current_values, ensure_ascii=False)))
+                            conn_init.commit()
+                            conn_init.close()
+                        except Exception as e:
+                            wlog(f'[RULE] Error recording initial state: {e}')
+                        continue
                 # ===== セルが変化したかチェック =====
                 has_change = False
                 _unknown_to_known = False  # None→値への遷移(不明→既知)フラグ
