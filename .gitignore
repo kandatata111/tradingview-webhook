@@ -10,6 +10,10 @@ token.json
 *.db-wal
 dynamic_backup.json
 
+# ルールバックアップ（ローカル開発用の設定が本番に混入しないよう除外）
+# Render側は PERSISTENT_STORAGE_PATH のディスクに独自の rules_backup.json を持つ
+rules_backup.json
+
 # ログファイル（ローカル生成物）
 webhook_error.log
 webhook_log.txt

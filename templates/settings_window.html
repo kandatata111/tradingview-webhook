@@ -540,7 +540,12 @@
   <div class="section" style="flex:1;display:flex;flex-direction:column;min-height:0;">
     <div class="section-header" data-section="rules">発火ルール</div>
     <div class="section-body" data-section-body="rules" style="flex:1;display:flex;flex-direction:column;min-height:0;">
-      <button id="newRuleBtn" class="btn btn-primary" style="margin-bottom:10px">新規ルール作成</button>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+        <button id="newRuleBtn" class="btn btn-primary">新規ルール作成</button>
+        <button id="exportRulesBtn" class="btn btn-primary" style="font-size:13px;">書出</button>
+        <button id="importRulesBtn" class="btn btn-primary" style="font-size:13px;">読込</button>
+        <input type="file" id="importRulesFile" accept=".json" style="display:none;">
+      </div>
       
       <div class="rules-container">
         <!-- 左側: 保存済みルール -->
@@ -1743,6 +1748,103 @@ function setupEventHandlers() {
   document.getElementById('testRuleBtn').addEventListener('click', testRule);
   document.getElementById('saveRuleBtn').addEventListener('click', saveRule);
   document.getElementById('testVoiceBtn').addEventListener('click', testVoice);
+
+  // エクスポート/インポートボタン
+  document.getElementById('exportRulesBtn').addEventListener('click', exportRules);
+  document.getElementById('importRulesBtn').addEventListener('click', () => document.getElementById('importRulesFile').click());
+  document.getElementById('importRulesFile').addEventListener('change', importRules);
+}
+
+// ===== ルールエクスポート =====
+async function exportRules() {
+  try {
+    updateStatus('エクスポート中...');
+    const resp = await fetch('/api/rules/export');
+    if (!resp.ok) throw new Error('エクスポート失敗');
+    const blob = await resp.blob();
+    const now = new Date();
+    const ts = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2)
+              + '_' + ('0'+now.getHours()).slice(-2) + ('0'+now.getMinutes()).slice(-2);
+    const defaultName = `rules_${ts}.json`;
+
+    if (window.showSaveFilePicker) {
+      // File System Access API が使える場合 → 保存先ダイアログを表示
+      try {
+        const fileHandle = await window.showSaveFilePicker({
+          suggestedName: defaultName,
+          types: [{ description: 'JSONファイル', accept: { 'application/json': ['.json'] } }]
+        });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        updateStatus(`エクスポート完了 (${allRules.length}件)`);
+      } catch (pickerErr) {
+        // キャンセル時は何もしない
+        if (pickerErr.name !== 'AbortError') throw pickerErr;
+        updateStatus('エクスポートをキャンセルしました');
+      }
+    } else {
+      // フォールバック: 通常ダウンロード
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = defaultName;
+      a.click();
+      URL.revokeObjectURL(url);
+      updateStatus(`エクスポート完了 (${allRules.length}件)`);
+    }
+  } catch (e) {
+    console.error('[EXPORT]', e);
+    updateStatus('エクスポート失敗: ' + e.message);
+  }
+}
+
+// ===== ルールインポート =====
+async function importRules(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  // ファイル選択をリセット（同じファイルを再選択できるように）
+  event.target.value = '';
+
+  try {
+    const text = await file.text();
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      updateStatus('ファイルの形式が正しくありません');
+      return;
+    }
+
+    const rulesList = parsed.rules || (Array.isArray(parsed) ? parsed : null);
+    if (!rulesList || rulesList.length === 0) {
+      updateStatus('インポートできるルールが見つかりません');
+      return;
+    }
+
+    const mode = confirm(
+      `${rulesList.length}件のルールをインポートします。\n\n` +
+      `[OK]   → 置換モード（既存ルールをすべて削除して置換）\n` +
+      `[キャンセル] → マージモード（既存IDは保持・新規IDのみ追加）`
+    ) ? 'replace' : 'merge';
+
+    updateStatus('インポート中...');
+    const resp = await fetch('/api/rules/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rules: rulesList, mode })
+    });
+    const result = await resp.json();
+    if (result.status === 'success') {
+      updateStatus(`インポート完了 (追加:${result.imported}件 スキップ:${result.skipped}件)`);
+      await loadRules();
+    } else {
+      updateStatus('インポート失敗: ' + result.msg);
+    }
+  } catch (e) {
+    console.error('[IMPORT]', e);
+    updateStatus('インポート失敗: ' + e.message);
+  }
 }
 
 function testVoice() {
