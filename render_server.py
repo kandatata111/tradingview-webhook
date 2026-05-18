@@ -922,6 +922,20 @@ def dashboard():
         print(f'[ERROR] Dashboard error: {e}')
         return f'Error: {e}', 500
 
+@app.route('/symbol/<symbol>')
+def symbol_window(symbol):
+    print(f'[ACCESS] Symbol window request: {symbol}')
+    symbol = symbol.upper()
+    try:
+        response = make_response(render_template('symbol_window.html', symbol=symbol))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except Exception as e:
+        print(f'[ERROR] Symbol window error: {e}')
+        return f'Error: {e}', 500
+
 @app.route('/test')
 def test():
     return render_template('test.html')

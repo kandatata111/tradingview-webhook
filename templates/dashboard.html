@@ -5390,6 +5390,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           case 'fire_history_visibility_changed':
             applyFireHistoryVisibility();
             break;
+          case 'update_time_visibility_changed':
+            await load();
+            break;
           case 'row_order_mode_changed':
             // ユーザーが表示順モードを切替えた → localStorage を参照して再描画
             console.log('[DASHBOARD] row_order_mode_changed received:', data);
@@ -6894,7 +6897,10 @@ function renderCurrencyTable(symbol, allStates, container) {
     // 全角括弧に変更して文字間を稼ぐ
     displayName += '［' + currencyNames[baseState.symbol] + '］';
   }
-  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="16" style="text-align: center; cursor: grab; color: white;">' + displayName + ' - ' + baseState.price + '<span style="float: right;">更新 ' + updateTime + '</span></th></tr>'; 
+  const _showUpdateTime = localStorage.getItem('tv_show_update_time') !== 'false';
+  const _updateTimeSpan = _showUpdateTime ? '<span style="float: right;">更新 ' + updateTime + '</span>' : '';
+  const _popupBtn = '<button onmousedown="event.stopPropagation();" onclick="event.stopPropagation(); window.open(\'/symbol/' + baseState.symbol + '\', \'sw_' + baseState.symbol + '\', \'width=1400,height=340,resizable=yes,scrollbars=yes\');" style="float:left;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:1px 5px;border-radius:4px;cursor:pointer;font-size:0.8em;line-height:1.4;" title="別ウィンドウで開く">⧉</button>';
+  let html = '<div class="table-wrap"><table data-symbol="' + baseState.symbol + '"><tr><th class="drag-handle" colspan="16" style="text-align: center; cursor: grab; color: white;">' + _popupBtn + displayName + ' - ' + baseState.price + _updateTimeSpan + '</th></tr>'; 
   html += '<tr><th class="header-black">雲整列</th><th class="header-black">ダウ転</th><th class="header-black">突破数</th><th class="header-black">雲交差</th><th class="header-black">PO</th><th class="header-black">各雲間</th><th class="header-black">価格間</th><th class="header-black">雲角度</th><th class="header-black">雲厚み</th><th class="header-black">ダウ時間</th><th class="header-black">交差時間</th><th class="header-black">PO時間</th><th class="header-black">トレンド</th><th class="header-black">強度ゲージ</th><th class="header-black" style="color:#ffdd66">発火</th><th class="header-black">経過時間</th></tr>'; 
 
   orderedRows.forEach(row => {

@@ -451,6 +451,11 @@
           <input type="checkbox" id="showFireHistoryToggle" checked> 発火履歴ウィンドウを表示
         </label>
       </div>
+      <div class="row">
+        <label style="min-width:auto;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="showUpdateTimeToggle" checked> ヘッダーの更新時間を表示
+        </label>
+      </div>
 
 
       <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;">
@@ -844,6 +849,10 @@ function loadSettingsFromLocalStorage() {
   const showFireHistory = localStorage.getItem('tv_show_fire_history') !== 'false';
   const showFireHistoryToggle = document.getElementById('showFireHistoryToggle');
   if (showFireHistoryToggle) showFireHistoryToggle.checked = showFireHistory;
+
+  const showUpdateTime = localStorage.getItem('tv_show_update_time') !== 'false';
+  const showUpdateTimeToggle = document.getElementById('showUpdateTimeToggle');
+  if (showUpdateTimeToggle) showUpdateTimeToggle.checked = showUpdateTime;
 
 
   // 列の表示
@@ -1677,6 +1686,16 @@ function setupEventHandlers() {
       const show = !!e.target.checked;
       localStorage.setItem('tv_show_fire_history', show.toString());
       notifyParent('fire_history_visibility_changed', { show });
+    });
+  }
+
+  // ヘッダー更新時間表示トグル
+  const showUpdateTimeToggle = document.getElementById('showUpdateTimeToggle');
+  if (showUpdateTimeToggle) {
+    showUpdateTimeToggle.addEventListener('change', (e) => {
+      const show = !!e.target.checked;
+      localStorage.setItem('tv_show_update_time', show.toString());
+      notifyParent('update_time_visibility_changed', { show });
     });
   }
 
