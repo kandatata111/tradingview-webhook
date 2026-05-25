@@ -6767,22 +6767,38 @@ function renderCurrencyTable(symbol, allStates, container) {
       console.log(`[DATA] TF=${tf} has ${sourceState.clouds.length} clouds:`, sourceState.clouds);
       
       // clouds配列から該当labelのデータを探す（雲情報用）
-      // 重要：各時間足のダウ転情報は、その時間足自身のチャートから送信されたclouds配列に含まれている
-      // 例：label=60のダウ転情報は、upperStates[60].cloudsのlabel=60の雲に含まれる
+      // 重要：angle/thickness/distance_*/elapsed/gc 等の数値は常に baseState.clouds（5m JSON）から取得する
+      // ダウ転情報（dauten, dauten_start_time_str）のみ個別TFの clouds から上書きする
       let cloud = null;
       
       if (tf === baseTimeframe) {
         // 主体時間足の場合はbaseState.cloudsから取得
         cloud = sourceState.clouds.find(c => c.label === jsonLabel);
       } else {
-        // 上位足の場合は、その時間足自身のclouds配列から取得（ダウ転情報が正しく含まれている）
-        if (upperStates[tf] && upperStates[tf].clouds) {
+        // 上位足の場合も常に baseState.clouds（5m JSON）から取得する
+        // これにより angle/thickness/distance_* 等の値がインジケーター表と一致する
+        cloud = baseState.clouds.find(c => c.label === jsonLabel);
+        console.log(`[DATA] TF=${tf} - Searching in baseState.clouds for label ${jsonLabel}:`, cloud);
+        // 5m JSONに該当labelがない場合のみ、個別TF clouds をフォールバックとして使用
+        if (!cloud && upperStates[tf] && upperStates[tf].clouds) {
           cloud = upperStates[tf].clouds.find(c => c.label === jsonLabel);
-          console.log(`[DATA] TF=${tf} - Searching in upperStates[${tf}].clouds for label ${jsonLabel}:`, cloud);
+          console.log(`[DATA] TF=${tf} - Fallback to upperStates[${tf}].clouds:`, cloud);
         }
-        // 見つからない場合はbaseState.cloudsから取得（フォールバック）
-        if (!cloud) {
-          cloud = sourceState.clouds.find(c => c.label === jsonLabel);
+        // 個別TF clouds から時間足依存フィールドを上書き
+        // angle/thickness/distance_*/elapsed/gc は 5m JSON（baseState）の値を使う
+        // ダウ転換・PO・トレンド・突破数は個別TF の値が正しいため上書きする
+        if (cloud && upperStates[tf] && upperStates[tf].clouds) {
+          const upperCloud = upperStates[tf].clouds.find(c => c.label === jsonLabel);
+          if (upperCloud) {
+            cloud = { ...cloud };
+            if (upperCloud.dauten !== undefined) cloud.dauten = upperCloud.dauten;
+            if (upperCloud.dauten_start_time_str !== undefined) cloud.dauten_start_time_str = upperCloud.dauten_start_time_str;
+            if (upperCloud.po !== undefined) cloud.po = upperCloud.po;
+            if (upperCloud.po_fire_time_str !== undefined) cloud.po_fire_time_str = upperCloud.po_fire_time_str;
+            if (upperCloud.trend !== undefined) cloud.trend = upperCloud.trend;
+            if (upperCloud.bos_count !== undefined) cloud.bos_count = upperCloud.bos_count;
+            console.log(`[DATA] TF=${tf} - Overlaid from upperStates: dauten=${cloud.dauten}, po=${cloud.po}, trend=${cloud.trend}`);
+          }
         }
       }
       
@@ -6792,7 +6808,7 @@ function renderCurrencyTable(symbol, allStates, container) {
         cloud = { ...sourceState.clouds[0], label: jsonLabel };
       } else {
         console.log(`[DATA] TF=${tf} - Found cloud with label ${jsonLabel}:`, cloud);
-        cloud = { ...cloud };
+        if (tf === baseTimeframe) cloud = { ...cloud };
       }
       
       // cloudオブジェクトには既に各時間足のダウ転情報（dauten, dauten_start_time_str）が含まれている
