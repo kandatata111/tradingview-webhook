@@ -5252,12 +5252,11 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 should_fire = False
                 
                 # ===== 前回の発火状態を取得 =====
-                # 発火した記録のみがfire_historyに保存されているため、最新の発火時の状態と比較
-                # マルチシンボルルールは rule_identity_symbol（例: AUDJPY,EURJPY,GBPJPY）で保存されているため
-                # SELECT も同じキーで検索しないと常に None になり毎回「初回受信」扱いになる
+                # 最新の fire_history から直前の状態を読み出す。
+                # no_fire/initial 行も含めれば、条件が崩れた後の再発火判定が正しくなる。
                 conn_check = sqlite3.connect(DB_PATH)
                 c_check = conn_check.cursor()
-                c_check.execute('''SELECT last_state_snapshot FROM fire_history 
+                c_check.execute('''SELECT last_state_snapshot, conditions_snapshot FROM fire_history 
                                    WHERE rule_id = ? AND symbol = ? AND tf = ?
                                    ORDER BY id DESC LIMIT 1''', 
                                (rule_id, rule_identity_symbol, ''))
@@ -5265,24 +5264,32 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 conn_check.close()
                 
                 last_state = None
+                last_all_matched = False
                 
                 if last_fire and last_fire[0]:
                     try:
                         _ls_raw = json.loads(last_fire[0])
-                        # restart/initial/no_fire フラグ形式のスナップショットは比較に使わない
-                        if isinstance(_ls_raw, dict) and not any(k in _ls_raw for k in ('restart', 'initial', 'no_fire')):
-                            # V3形式かチェック: キーが "tf.field" 形式 or "tf_order" (alignment)
+                        _cs_raw = None
+                        if last_fire[1]:
+                            try:
+                                _cs_raw = json.loads(last_fire[1])
+                            except:
+                                _cs_raw = None
+                        # no_fire/initial/restart 行は直前の条件成立が false だったとみなす
+                        if isinstance(_cs_raw, dict) and any(k in _cs_raw for k in ('restart', 'initial', 'no_fire')):
+                            last_all_matched = False
+                        else:
+                            last_all_matched = True
+                        # restart/initial/no_fire フラグ形式でも現在値は保存されている可能性があるため、比較用に復元
+                        if isinstance(_ls_raw, dict):
                             _has_v3_format = any('.' in k for k in _ls_raw.keys()) or 'tf_order' in _ls_raw
                             if _has_v3_format:
-                                # V3形式: 旧フォーマット値("▲Dow"等) → 正規化形式("up"等)に変換
                                 normalized_last = {}
                                 for _k, _v in _ls_raw.items():
                                     _field_for_norm = _k.rsplit('.', 1)[-1] if '.' in _k else _k
                                     normalized_last[_k] = normalize_value_for_comparison(_v, _field_for_norm)
                                 last_state = normalized_last
                             elif not alignment_is_active and conditions:
-                                # 旧形式 {"dauten":"▲Dow"}: ルールのconditionsを使って
-                                # "tf.field" 形式にマッピングして再起動後の誤発火を防ぐ
                                 _mapped_last = {}
                                 for _cond in conditions:
                                     _c_tf = _cond.get('timeframe') or _cond.get('label')
@@ -5294,11 +5301,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 if last_state:
                                     wlog(f'[RULE] 旧フォーマットDB → V3キーにマッピング: {last_state}')
                             else:
-                                last_state = None
+                                last_state = _ls_raw
                         else:
-                            last_state = None  # フラグ形式は比較に使わない
+                            last_state = None
                     except:
                         last_state = None
+                        last_all_matched = False
                 
                 # _restart_baseline にこのルールの値が記録されている場合はそれを使う
                 # (再起動直後の初回比較を正しく行うため)
@@ -5328,6 +5336,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         normalized_val = normalize_value_for_comparison(raw_value, field)
                         current_values[f'{tf_label}.{field}'] = normalized_val
                         wlog(f'[RULE] Current value: {tf_label}.{field} = {raw_value} → {normalized_val}')
+                
+                current_values['__all_matched__'] = all_matched
                 
                 # ===== 発火表示足のアクティブ状態更新（常に実行・起動直後も含む） =====
                 # all_matched=True: 条件維持中 → 表示フラグをセット（サーバー再起動後も即時復元）
@@ -5492,10 +5502,25 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         wlog(f'[RULE] Error saving initial-known state: {e}')
                     continue
 
-                # ===== 発火判定: セル変化 AND 条件を満たす =====
-                if has_change and all_matched:
+                # ===== 発火判定: 前回条件不成立から成立に遷移したタイミングのみ発火 =====
+                if all_matched and not last_all_matched:
                     should_fire = True
-                    wlog(f'[RULE] Cell changed AND conditions met → FIRE')
+                    wlog(f'[RULE] Conditions became met after previous false → FIRE')
+                elif all_matched and last_all_matched and has_change:
+                    wlog(f'[RULE] Conditions still met but state changed → update matched state without firing')
+                    try:
+                        conn_mc = sqlite3.connect(DB_PATH)
+                        c_mc = conn_mc.cursor()
+                        c_mc.execute('''INSERT INTO fire_history 
+                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                         VALUES (?, ?, ?, ?, ?, ?)''',
+                                      (rule_id, rule_identity_symbol, '', datetime.now(jst).isoformat(),
+                                       json.dumps({'matched': True}, ensure_ascii=False),
+                                       json.dumps(current_values, ensure_ascii=False)))
+                        conn_mc.commit()
+                        conn_mc.close()
+                    except Exception as e:
+                        wlog(f'[RULE] Error saving matched state: {e}')
                 elif has_change:
                     wlog(f'[RULE] Cell changed but conditions not met → no fire')
                     # 値が変化したので次回比較用に状態を更新
