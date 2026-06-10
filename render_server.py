@@ -4972,6 +4972,14 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 # ルール条件を評価（AND条件：すべての条件が満たされる必要がある）
                 conditions = rule.get('conditions', [])
+                current_tf_label = normalize_tf_label(str(current_tf)) if current_tf is not None else None
+                rule_timeframes = [normalize_tf_label(str(cond.get('timeframe') or cond.get('label'))) for cond in conditions if cond.get('timeframe') or cond.get('label')]
+                rule_timeframes = [tf for tf in rule_timeframes if tf]
+                rule_timeframes_set = set(rule_timeframes)
+                if current_tf_label and len(rule_timeframes_set) == 1 and current_tf_label != next(iter(rule_timeframes_set)) and not multi_symbol_mode:
+                    wlog(f'[RULE] Skipping single-timeframe rule "{rule_name}" because webhook TF={current_tf_label} does not match rule TF={next(iter(rule_timeframes_set))}')
+                    continue
+                
                 all_matched = True
                 matched_conditions = []
                 
