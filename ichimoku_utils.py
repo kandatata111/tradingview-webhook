@@ -451,10 +451,24 @@ def _evaluate_rule_match(rule, cloud_data):
                             condition_met = bos_num > 0
                         except:
                             condition_met = False
+                    elif field == 'angle':
+                        try:
+                            float(found_value)
+                            condition_met = found_value is not None and found_value != ''
+                        except:
+                            condition_met = False
                     else:
                         condition_met = found_value is not None and found_value != ''
                 else:
-                    condition_met = found_value == value
+                    if field == 'angle':
+                        try:
+                            angle_val = float(found_value)
+                            threshold = float(value)
+                            condition_met = abs(angle_val) >= threshold
+                        except:
+                            condition_met = False
+                    else:
+                        condition_met = found_value == value
                 
                 if not condition_met:
                     all_matched = False
@@ -481,6 +495,15 @@ def _evaluate_rule_match(rule, cloud_data):
                         cond_direction = 'up'
                     elif dauten_for_bos in ('down', '▼Dow'):
                         cond_direction = 'down'
+                elif field == 'angle':
+                    try:
+                        angle_num = float(found_value)
+                        if angle_num > 0:
+                            cond_direction = 'up'
+                        elif angle_num < 0:
+                            cond_direction = 'down'
+                    except:
+                        cond_direction = None
                 
                 condition_directions.append(cond_direction)
         

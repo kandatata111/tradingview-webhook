@@ -631,6 +631,16 @@
                 <option value="both">先頭と最後</option>
               </select>
             </div>
+            <div class="voice-row">
+              <label style="min-width:auto;display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" id="insertCloudAngle"> 雲角度挿入
+              </label>
+              <select id="cloudAnglePosition">
+                <option value="prefix">先頭</option>
+                <option value="suffix">最後</option>
+                <option value="both">先頭と最後</option>
+              </select>
+            </div>
             <div id="directionMessages" style="display:none;margin-top:8px;">
               <div class="voice-row">
                 <label style="min-width:50px;">上昇</label>
@@ -1280,6 +1290,8 @@ function selectRule(ruleId) {
   document.getElementById('symbolInsertPosition').value = voice.symbolInsertPosition || 'prefix';
   document.getElementById('voiceDirectionBased').checked = voice.directionBased || false;
   document.getElementById('voiceMessagePosition').value = voice.messagePosition || 'prefix';
+  document.getElementById('insertCloudAngle').checked = voice.insertCloudAngle || false;
+  document.getElementById('cloudAnglePosition').value = voice.cloudAnglePosition || 'suffix';
   document.getElementById('voiceMessageUp').value = voice.messageUp || '';
   document.getElementById('voiceMessageDown').value = voice.messageDown || '';
   document.getElementById('playChimeFirst').checked = voice.playChimeFirst || false;
@@ -1335,9 +1347,41 @@ function addConditionRow(cond = {}) {
       <option value="dauten" ${cond.field === 'dauten' ? 'selected' : ''}>ダウ転</option>
       <option value="gc" ${cond.field === 'gc' ? 'selected' : ''}>雲交差</option>
       <option value="po" ${cond.field === 'po' ? 'selected' : ''}>PO</option>
+      <option value="angle" ${cond.field === 'angle' ? 'selected' : ''}>雲角度</option>
+    </select>
+    <select class="cond-value" style="display:none;min-width:90px;margin-left:6px;">
+      <option value="">閾値</option>
+      <option value="10" ${cond.value === '10' ? 'selected' : ''}>10</option>
+      <option value="15" ${cond.value === '15' ? 'selected' : ''}>15</option>
+      <option value="20" ${cond.value === '20' ? 'selected' : ''}>20</option>
+      <option value="25" ${cond.value === '25' ? 'selected' : ''}>25</option>
+      <option value="30" ${cond.value === '30' ? 'selected' : ''}>30</option>
+      <option value="35" ${cond.value === '35' ? 'selected' : ''}>35</option>
+      <option value="40" ${cond.value === '40' ? 'selected' : ''}>40</option>
+      <option value="45" ${cond.value === '45' ? 'selected' : ''}>45</option>
+      <option value="50" ${cond.value === '50' ? 'selected' : ''}>50</option>
+      <option value="55" ${cond.value === '55' ? 'selected' : ''}>55</option>
+      <option value="60" ${cond.value === '60' ? 'selected' : ''}>60</option>
+      <option value="65" ${cond.value === '65' ? 'selected' : ''}>65</option>
+      <option value="70" ${cond.value === '70' ? 'selected' : ''}>70</option>
     </select>
     <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;">削除</button>
   `;
+  
+  const fieldSelect = row.querySelector('.cond-field');
+  const valueSelect = row.querySelector('.cond-value');
+  fieldSelect.addEventListener('change', () => {
+    if (fieldSelect.value === 'angle') {
+      valueSelect.style.display = 'inline-block';
+    } else {
+      valueSelect.style.display = 'none';
+      valueSelect.value = '';
+    }
+  });
+  // 初期状態更新
+  if (fieldSelect.value === 'angle') {
+    valueSelect.style.display = 'inline-block';
+  }
   
   row.querySelector('.btn-danger').addEventListener('click', () => row.remove());
   
@@ -1356,6 +1400,8 @@ async function saveRule() {
       symbolInsertPosition: document.getElementById('symbolInsertPosition').value,
       directionBased: document.getElementById('voiceDirectionBased').checked,
       messagePosition: document.getElementById('voiceMessagePosition').value,
+      insertCloudAngle: document.getElementById('insertCloudAngle').checked,
+      cloudAnglePosition: document.getElementById('cloudAnglePosition').value,
       messageUp: document.getElementById('voiceMessageUp').value,
       messageDown: document.getElementById('voiceMessageDown').value,
       playChimeFirst: document.getElementById('playChimeFirst').checked,
@@ -1370,7 +1416,8 @@ async function saveRule() {
     },
     conditions: Array.from(document.querySelectorAll('.cond-row')).map(row => ({
       timeframe: row.querySelector('.cond-tf')?.value,
-      field: row.querySelector('.cond-field')?.value
+      field: row.querySelector('.cond-field')?.value,
+      value: row.querySelector('.cond-value')?.value || ''
     })).filter(c => c.timeframe && c.field),
     enabled: currentRuleId ? (allRules.find(r => r.id === currentRuleId)?.enabled !== false) : true
   };
@@ -1572,7 +1619,13 @@ function clearRuleForm() {
   setRuleScopeSymbols([]);
   document.getElementById('voiceMessage').value = '';
   document.getElementById('insertSymbol').checked = false;
+  document.getElementById('symbolInsertPosition').value = 'prefix';
   document.getElementById('voiceDirectionBased').checked = false;
+  document.getElementById('voiceMessagePosition').value = 'prefix';
+  document.getElementById('insertCloudAngle').checked = false;
+  document.getElementById('cloudAnglePosition').value = 'suffix';
+  document.getElementById('voiceMessageUp').value = '';
+  document.getElementById('voiceMessageDown').value = '';
   document.getElementById('playChimeFirst').checked = false;
   (() => { const sel = document.getElementById('voiceSelect'); sel.value = sel.options[0]?.value || ''; })(); // デフォルト: 先頭の音声
   document.getElementById('chimeSelect').value = '';
@@ -1904,6 +1957,18 @@ function testVoice() {
       message = message + '、' + directionMsg;
     } else if (messagePosition === 'both') {
       message = directionMsg + '、' + message + '、' + directionMsg;
+    }
+  }
+
+  const insertCloudAngle = document.getElementById('insertCloudAngle').checked;
+  const cloudAnglePosition = document.getElementById('cloudAnglePosition').value;
+  const anglePhrase = '角度は35°です';
+  if (insertCloudAngle) {
+    if (cloudAnglePosition === 'prefix' || cloudAnglePosition === 'both') {
+      message = anglePhrase + '、' + message;
+    }
+    if (cloudAnglePosition === 'suffix' || cloudAnglePosition === 'both') {
+      message = message + '、' + anglePhrase;
     }
   }
 

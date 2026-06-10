@@ -4881,6 +4881,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 # messagePosition -> message_position
                 if voice_settings.get('messagePosition') and not voice_settings.get('message_position'):
                     voice_settings['message_position'] = voice_settings['messagePosition']
+                # insertCloudAngle -> insert_cloud_angle
+                if voice_settings.get('insertCloudAngle') and not voice_settings.get('insert_cloud_angle'):
+                    voice_settings['insert_cloud_angle'] = voice_settings['insertCloudAngle']
+                # cloudAnglePosition -> cloud_angle_position
+                if voice_settings.get('cloudAnglePosition') and not voice_settings.get('cloud_angle_position'):
+                    voice_settings['cloud_angle_position'] = voice_settings['cloudAnglePosition']
                 # messageUp -> message_up
                 if voice_settings.get('messageUp') and not voice_settings.get('message_up'):
                     voice_settings['message_up'] = voice_settings['messageUp']
@@ -5006,11 +5012,28 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         elif field == 'po':
                             # POは▲か▼で始まる値が有効（P2/P3問わず方向のみ判定、'-'は無効）
                             condition_met = isinstance(found_value, str) and (found_value.startswith('▲') or found_value.startswith('▼'))
+                        elif field == 'angle':
+                            if found_value is None:
+                                condition_met = False
+                            else:
+                                try:
+                                    angle_val = float(found_value)
+                                    condition_met = True
+                                except Exception:
+                                    condition_met = False
                         else:
                             condition_met = found_value is not None and found_value != ''
                     else:
                         # Value check: 値が一致するかチェック
-                        condition_met = found_value == value
+                        if field == 'angle':
+                            try:
+                                angle_val = float(found_value)
+                                threshold = float(value)
+                                condition_met = abs(angle_val) >= threshold
+                            except Exception:
+                                condition_met = False
+                        else:
+                            condition_met = found_value == value
                     
                     if condition_met:
                         matched_conditions.append(cond)
@@ -5039,6 +5062,16 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             elif dauten_for_bos == '▼Dow':
                                 direction = 'down'
                             wlog(f'[RULE] bos_count direction from dauten: {dauten_for_bos} -> {direction}')
+                        elif field == 'angle':
+                            try:
+                                angle_num = float(found_value)
+                                if angle_num > 0:
+                                    direction = 'up'
+                                elif angle_num < 0:
+                                    direction = 'down'
+                            except Exception:
+                                direction = None
+                            wlog(f'[RULE] angle direction: {found_value} -> {direction}')
                         elif field == 'po':
                             # POは先頭の▲/▼で方向判定（P2/P3は無視）
                             if isinstance(found_value, str):
@@ -5192,6 +5225,17 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             if val == '▼Dow': return 'down'
                             if val in ('up', 'down'): return val  # 既正規化値はそのまま
                         return None  # 無効値(・など)はNoneに統一
+
+                    # angle の場合: 小数点以下を切り捨てて整数化
+                    if field_name == 'angle':
+                        if isinstance(val, (int, float)):
+                            return int(val)
+                        if isinstance(val, str):
+                            try:
+                                return int(float(val))
+                            except Exception:
+                                return None
+                        return None
 
                     # po の場合: 方向のみに統一（P2/P3を無視して先頭の▲/▼のみで判定）
                     if field_name == 'po':
@@ -5591,6 +5635,26 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     else:
                         final_message = common_message
                     
+                    # 雲角度挿入が指定されている場合は角度文を追加
+                    if voice_settings.get('insert_cloud_angle'):
+                        angle_phrase = ''
+                        angle_condition = next((c for c in conditions if c.get('field') == 'angle'), None)
+                        if angle_condition:
+                            angle_tf = angle_condition.get('timeframe') or angle_condition.get('label')
+                            if angle_tf and tf_cloud_data.get(angle_tf) is not None:
+                                angle_value = tf_cloud_data.get(angle_tf, {}).get('angle')
+                                try:
+                                    angle_num = float(angle_value)
+                                    angle_phrase = f'角度は{abs(int(angle_num))}°です'
+                                except Exception:
+                                    angle_phrase = ''
+                        if angle_phrase:
+                            pos = voice_settings.get('cloud_angle_position', 'suffix')
+                            if pos == 'prefix' or pos == 'both':
+                                final_message = (angle_phrase + ' ' + final_message).strip()
+                            if pos == 'suffix' or pos == 'both':
+                                final_message = (final_message + ' ' + angle_phrase).strip()
+
                     # メッセージが空の場合はルール名を使用
                     if not final_message:
                         final_message = rule_name
