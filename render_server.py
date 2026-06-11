@@ -5312,6 +5312,8 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                                 last_state = _ls_raw
                         else:
                             last_state = None
+                        if last_state is not None:
+                            last_state['__all_matched__'] = last_all_matched
                     except:
                         last_state = None
                         last_all_matched = False
@@ -5672,15 +5674,22 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     if voice_settings.get('insert_cloud_angle'):
                         angle_phrase = ''
                         angle_condition = next((c for c in conditions if c.get('field') == 'angle'), None)
+                        angle_tf = None
                         if angle_condition:
                             angle_tf = angle_condition.get('timeframe') or angle_condition.get('label')
-                            if angle_tf and tf_cloud_data.get(angle_tf) is not None:
-                                angle_value = tf_cloud_data.get(angle_tf, {}).get('angle')
-                                try:
-                                    angle_num = float(angle_value)
-                                    angle_phrase = f'角度は{abs(int(angle_num))}°です'
-                                except Exception:
-                                    angle_phrase = ''
+                        elif _display_tf_rule:
+                            angle_tf = _display_tf_rule
+                        elif current_tf is not None:
+                            angle_tf = normalize_tf_label(str(current_tf))
+                        if not angle_tf:
+                            angle_tf = next((tf for tf, data in tf_cloud_data.items() if data.get('angle') is not None), None)
+                        if angle_tf and tf_cloud_data.get(angle_tf) is not None:
+                            angle_value = tf_cloud_data.get(angle_tf, {}).get('angle')
+                            try:
+                                angle_num = float(angle_value)
+                                angle_phrase = f'角度は{abs(int(angle_num))}°です'
+                            except Exception:
+                                angle_phrase = ''
                         if angle_phrase:
                             pos = voice_settings.get('cloud_angle_position', 'suffix')
                             if pos == 'prefix' or pos == 'both':
