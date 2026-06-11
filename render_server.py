@@ -5073,10 +5073,10 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         elif field == 'angle':
                             try:
                                 angle_num = float(found_value)
-                                if angle_num > 0:
-                                    direction = 'up'
-                                elif angle_num < 0:
-                                    direction = 'down'
+                                # Angle threshold condition is sign-agnostic in current rule format.
+                                # Only store a direction if angle is used as a direction-specific condition,
+                                # but the current UI/conditions do not encode that explicitly.
+                                direction = None
                             except Exception:
                                 direction = None
                             wlog(f'[RULE] angle direction: {found_value} -> {direction}')
