@@ -4985,8 +4985,41 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 
                 # 複数条件の場合、各条件から方向を収集
                 condition_directions = []
-                
-                wlog(f'[RULE][V4_FIXED] Evaluating {len(conditions)} conditions')
+
+                # angle と他方向条件の組み合わせでは、PO/GC/DC/ダウ転などから角度の向きを補完する
+                rule_expected_direction = None
+                for cond in conditions:
+                    field = cond.get('field')
+                    if field not in ['po', 'gc', 'dauten', 'bos_count']:
+                        continue
+                    tf_label = cond.get('timeframe') or cond.get('label')
+                    cloud_data = tf_cloud_data.get(tf_label)
+                    if cloud_data is None:
+                        continue
+                    found_value = cloud_data.get(field)
+                    if field == 'po' and isinstance(found_value, str):
+                        if found_value.startswith('▲'):
+                            rule_expected_direction = 'up'
+                        elif found_value.startswith('▼'):
+                            rule_expected_direction = 'down'
+                    elif field == 'gc':
+                        if found_value == '▲GC':
+                            rule_expected_direction = 'up'
+                        elif found_value == '▼DC':
+                            rule_expected_direction = 'down'
+                    elif field == 'dauten':
+                        if found_value == '▲Dow':
+                            rule_expected_direction = 'up'
+                        elif found_value == '▼Dow':
+                            rule_expected_direction = 'down'
+                    elif field == 'bos_count':
+                        dauten_for_bos = cloud_data.get('dauten')
+                        if dauten_for_bos == '▲Dow':
+                            rule_expected_direction = 'up'
+                        elif dauten_for_bos == '▼Dow':
+                            rule_expected_direction = 'down'
+
+                wlog(f'[RULE][V4_FIXED] Evaluating {len(conditions)} conditions (expected_direction={rule_expected_direction})')
                 
                 for cond in conditions:
                     tf_label = cond.get('timeframe') or cond.get('label')  # '5m', '15m', '1H', '4H'
@@ -5037,7 +5070,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             try:
                                 angle_val = float(found_value)
                                 threshold = float(value)
-                                condition_met = abs(angle_val) >= threshold
+                                if rule_expected_direction == 'up':
+                                    condition_met = angle_val >= threshold
+                                elif rule_expected_direction == 'down':
+                                    condition_met = angle_val <= -threshold
+                                else:
+                                    condition_met = abs(angle_val) >= threshold
                             except Exception:
                                 condition_met = False
                         else:
@@ -5073,10 +5111,12 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                         elif field == 'angle':
                             try:
                                 angle_num = float(found_value)
-                                # Angle threshold condition is sign-agnostic in current rule format.
-                                # Only store a direction if angle is used as a direction-specific condition,
-                                # but the current UI/conditions do not encode that explicitly.
-                                direction = None
+                                if angle_num > 0:
+                                    direction = 'up'
+                                elif angle_num < 0:
+                                    direction = 'down'
+                                else:
+                                    direction = None
                             except Exception:
                                 direction = None
                             wlog(f'[RULE] angle direction: {found_value} -> {direction}')
@@ -5687,7 +5727,13 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                             angle_value = tf_cloud_data.get(angle_tf, {}).get('angle')
                             try:
                                 angle_num = float(angle_value)
-                                angle_phrase = f'角度は{abs(int(angle_num))}°です'
+                                if angle_num > 0:
+                                    signed_angle_text = f'プラス{abs(int(round(angle_num)))}°'
+                                elif angle_num < 0:
+                                    signed_angle_text = f'マイナス{abs(int(round(angle_num)))}°'
+                                else:
+                                    signed_angle_text = '0°'
+                                angle_phrase = f'角度は{signed_angle_text}です'
                             except Exception:
                                 angle_phrase = ''
                         if angle_phrase:
