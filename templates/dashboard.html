@@ -1341,6 +1341,17 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
                   <!-- 音声リストは動的に追加 -->
                 </select>
               </div>
+              <div style="font-size:0.9em;display:flex;align-items:center">
+                <div style="display:flex;align-items:center;gap:6px;flex:1">
+                  <label>雲角度挿入</label>
+                </div>
+                <select id="angleInsertion" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(15,27,65,0.7);color:inherit;min-width:104px">
+                  <option value="">なし</option>
+                  <option value="prefix">先頭</option>
+                  <option value="suffix">最後</option>
+                  <option value="both">先頭と最後</option>
+                </select>
+              </div>
             </div>
           </div>
           
@@ -1924,6 +1935,9 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
       document.getElementById('voiceSelect').value = '';
       document.getElementById('playChimeFirst').checked = false;
       document.getElementById('chimeSelect').value = '';
+      document.getElementById('insertSymbol').checked = false;
+      document.getElementById('symbolInsertPosition').value = 'prefix';
+      document.getElementById('angleInsertion').value = '';
     });
   }
 
@@ -2039,14 +2053,17 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
       const conditions = condRows.map(r => {
         const tf = r.querySelector('.cond-tf').value;
         const fld = r.querySelector('.cond-field').value;
-        const valEl = r.querySelector('.cond-value');
-        const valVal = valEl ? valEl.value : null;
+        const angleSelect = r.querySelector('.cond-angle-value');
+        const valVal = (fld === 'angle' && angleSelect) ? angleSelect.value : null;
         return { label: tf, field: fld, value: valVal };
       });
       const alignment = getAlignmentSettingsFromUI();
       const ruleObj = { conditions: conditions };
       // include alignment only if TFs selected
-      if(alignment.tfs && alignment.tfs.length > 0){ ruleObj.alignment = alignment; }
+      if(alignment.tfs && alignment.tfs.length > 0){
+        ruleObj.alignment = alignment;
+        ruleObj.cloudAlign = alignment;
+      }
 
       // include voice settings
       const isDirectionBased = document.getElementById('voiceDirectionBased').checked;
@@ -2091,6 +2108,14 @@ if (noteOverlay) noteOverlay.addEventListener('click', (e) => {
         } else {
           delete ruleObj.voice.insert_symbol;
           delete ruleObj.voice.symbol_insert_position;
+        }
+
+        // Save angle insertion setting
+        const angleInsertion = document.getElementById('angleInsertion').value;
+        if (angleInsertion) {
+          ruleObj.voice.angle_insertion = angleInsertion;
+        } else {
+          delete ruleObj.voice.angle_insertion;
         }
       }
 
@@ -7750,9 +7775,13 @@ function openRuleEditor(rule) {
   setRuleScopeSymbols(_restoreSyms);
   // clear conditions
   const condCont = document.getElementById('conditionsContainer'); condCont.innerHTML = '';
-  const conds = (rule.rule && rule.rule.conditions) || [];
-  const align = rule.rule && rule.rule.alignment;
-  const hasAlignment = align && align.tfs && align.tfs.length >= 2;
+  const conds = Array.isArray(rule.conditions) ? rule.conditions
+               : (rule.rule && Array.isArray(rule.rule.conditions) ? rule.rule.conditions : []);
+  const align = rule.cloudAlign || rule.alignment || (rule.rule && (rule.rule.cloudAlign || rule.rule.alignment));
+  if (align && !Array.isArray(align.tfs) && Array.isArray(align.timeframes)) {
+    align.tfs = align.timeframes;
+  }
+  const hasAlignment = align && Array.isArray(align.tfs) && align.tfs.length >= 2;
   
   // 雲整列条件が2つ以上ある場合は、条件行を自動追加しない
   if (conds.length === 0 && !hasAlignment) addConditionRow();
@@ -7762,15 +7791,15 @@ function openRuleEditor(rule) {
   });
     // populate alignment UI if present
   try {
-    const align = rule.rule && rule.rule.alignment;
-    if (align) {
+    const alignUi = align;
+    if (alignUi) {
       // clear all
       document.querySelectorAll('.align-tf').forEach(cb=> cb.checked = false);
-      (align.tfs || []).forEach(tf => {
+      (alignUi.tfs || []).forEach(tf => {
         const el = document.querySelector('.align-tf[data-tf="' + tf + '"]');
         if(el) el.checked = true;
       });
-      if (align.missing) document.getElementById('alignMissing').value = align.missing;
+      if (alignUi.missing) document.getElementById('alignMissing').value = alignUi.missing;
     } else {
       // reset to defaults
       document.querySelectorAll('.align-tf').forEach(cb=> cb.checked = false);
@@ -7779,7 +7808,7 @@ function openRuleEditor(rule) {
   } catch(e) { /* ignore */ }
   
   // populate voice settings
-  const voice = rule.rule && rule.rule.voice;
+  const voice = rule.voice || (rule.rule && rule.rule.voice);
   const isDirectionBased = voice && (voice.message_up !== undefined || voice.message_down !== undefined);
   document.getElementById('voiceDirectionBased').checked = isDirectionBased;
   document.getElementById('directionMessages').style.display = isDirectionBased ? 'flex' : 'none';
@@ -7790,14 +7819,14 @@ function openRuleEditor(rule) {
   
   // Populate direction-based messages if present
   if (isDirectionBased) {
-    document.getElementById('voiceMessageUp').value = (voice && voice.message_up) || '';
-    document.getElementById('voiceMessageDown').value = (voice && voice.message_down) || '';
+    document.getElementById('voiceMessageUp').value = (voice && (voice.message_up || voice.messageUp)) || '';
+    document.getElementById('voiceMessageDown').value = (voice && (voice.message_down || voice.messageDown)) || '';
   } else {
     document.getElementById('voiceMessageUp').value = '';
     document.getElementById('voiceMessageDown').value = '';
   }
   
-  document.getElementById('voiceSelect').value = (voice && voice.voice_name) || '';
+  document.getElementById('voiceSelect').value = (voice && (voice.voice_name || voice.voiceName || voice.voiceFile || voice.voice_file)) || '';
   
   // Populate chime settings
   document.getElementById('playChimeFirst').checked = !!(voice && voice.chime_file);
@@ -7807,6 +7836,9 @@ function openRuleEditor(rule) {
   document.getElementById('insertSymbol').checked = !!(voice && voice.insert_symbol);
   document.getElementById('symbolInsertPosition').value = (voice && voice.symbol_insert_position) || 'prefix';
   
+  // Populate angle insertion setting
+  document.getElementById('angleInsertion').value = (voice && voice.angle_insertion) || '';
+  
   // store editing id on save button
   document.getElementById('saveRuleBtn').dataset.editing = rule.id;
 }
@@ -7815,7 +7847,7 @@ function openRuleEditor(rule) {
 function getAlignmentSettingsFromUI(){
   const tfs = Array.from(document.querySelectorAll('.align-tf')).filter(cb=>cb.checked).map(cb=>cb.dataset.tf);
   const missing = document.getElementById('alignMissing').value; // 'ignore' or 'fail'
-  return { tfs, missing };
+  return { tfs, timeframes: tfs, missing };
 }
 
 function validateAlignmentForSave(){
@@ -7839,15 +7871,40 @@ function validateAlignmentForSave(){
 function createConditionRow(c) {
   const div = document.createElement('div'); div.className = 'cond-row'; div.style.display='flex'; div.style.gap='6px'; div.style.alignItems='center';
   const tf = document.createElement('select'); tf.className='cond-tf'; tf.style.padding='6px'; tf.style.borderRadius='6px'; tf.style.background='rgba(15,27,65,0.7)'; tf.style.color='inherit'; tf.style.border='1px solid rgba(255,255,255,0.12)'; tf.innerHTML = '<option value="5m">5m</option><option value="15m">15m</option><option value="1H">1H</option><option value="4H">4H</option>';
-  const field = document.createElement('select'); field.className='cond-field'; field.style.padding='6px'; field.style.borderRadius='6px'; field.style.background='rgba(15,27,65,0.7)'; field.style.color='inherit'; field.style.border='1px solid rgba(255,255,255,0.12)'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="gc">雲交差</option><option value="po">PO</option>';
+  const field = document.createElement('select'); field.className='cond-field'; field.style.padding='6px'; field.style.borderRadius='6px'; field.style.background='rgba(15,27,65,0.7)'; field.style.color='inherit'; field.style.border='1px solid rgba(255,255,255,0.12)'; field.innerHTML = '<option value="dauten">ダウ転</option><option value="gc">雲交差</option><option value="po">PO</option><option value="angle">雲角度</option>';
   const rem = document.createElement('button'); rem.className='removeCond'; rem.textContent='削除'; rem.style.padding='6px 12px';
   rem.addEventListener('click', () => div.remove());
-  div.append(tf, field, rem);
+  
+  // value 入力フィールド（angle フィールドの場合のみ表示）
+  const valueContainer = document.createElement('span'); valueContainer.className='cond-value-container'; valueContainer.style.display='none';
+  
+  // angle フィールドの値選択プルダウン
+  const angleSelect = document.createElement('select'); angleSelect.className='cond-value cond-angle-value';
+  angleSelect.style.padding='6px'; angleSelect.style.borderRadius='6px'; angleSelect.style.background='rgba(15,27,65,0.7)'; angleSelect.style.color='inherit'; angleSelect.style.border='1px solid rgba(255,255,255,0.12)';
+  angleSelect.innerHTML = '<option value="">選択してください</option><option value="10">10°</option><option value="15">15°</option><option value="20">20°</option><option value="25">25°</option><option value="30">30°</option><option value="35">35°</option><option value="40">40°</option><option value="45">45°</option><option value="50">50°</option><option value="55">55°</option><option value="60">60°</option><option value="65">65°</option><option value="70">70°</option>';
+  valueContainer.appendChild(angleSelect);
+  
+  // field 変更時に値入力フィールドを表示/隠蔽
+  field.addEventListener('change', (e) => {
+    if (e.target.value === 'angle') {
+      valueContainer.style.display = 'inline';
+    } else {
+      valueContainer.style.display = 'none';
+      angleSelect.value = '';
+    }
+  });
+  
+  div.append(tf, field, valueContainer, rem);
 
-  // no value input needed for dauten/gc/po only
+  // 既存条件データを復元
   if (c) {
-    tf.value = c.label || tf.value;
+    tf.value = c.label || c.timeframe || tf.value;
     field.value = c.field || field.value;
+    // angle フィールドの場合は値を復元
+    if (c.field === 'angle' && c.value) {
+      valueContainer.style.display = 'inline';
+      angleSelect.value = c.value;
+    }
   }
   return div;
 }
@@ -8739,9 +8796,13 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
   }
   
   // 音声リストをフィルタ
-  const availableVoices = voices.filter(v => !blockedVoiceNames.includes(v.name));
+  let availableVoices = voices.filter(v => !blockedVoiceNames.includes(v.name));
   
   console.log('[VOICE_MESSAGE] Total voices:', voices.length, 'After blocking:', availableVoices.length);
+  if (availableVoices.length === 0 && voices.length > 0) {
+    console.warn('[VOICE_MESSAGE] ⚠️ All voices are blocked by name filter. Falling back to full voice list.');
+    availableVoices = voices;
+  }
   
   // Set voice if specified（名前で検索、allowedリストによるブロックを廃止）
   const findJapaneseVoice = (name) => {
@@ -8751,7 +8812,11 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
     if (v) return v;
     // 部分一致（七海・圭太などキーワード）
     v = availableVoices.find(v => v.name.includes(name) && v.lang.startsWith('ja'));
-    return v || null;
+    if (v) return v;
+    // それでも見つからなければ全リストから探す
+    v = voices.find(v => v.name === name);
+    if (v) return v;
+    return voices.find(v => v.name.includes(name) && v.lang.startsWith('ja')) || null;
   };
 
   // マイグレーション: 旧ルールは voiceFile に数値インデックスを保存していた
@@ -8773,21 +8838,20 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
       utterance.voice = selectedVoice;
       console.log('[VOICE_MESSAGE] ✓ Using voice:', selectedVoice.name);
     } else {
-      console.warn('[VOICE_MESSAGE] ⚠️ Voice not found:', voiceSettings.voice_name, '— using Japanese fallback');
-      const fallback = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
-                    || availableVoices.find(v => v.lang.startsWith('ja'));
-      if (fallback) {
-        utterance.voice = fallback;
-        console.warn('[VOICE_MESSAGE] ⚠️ Fallback voice:', fallback.name);
-      }
+      console.warn('[VOICE_MESSAGE] ⚠️ Voice not found:', voiceSettings.voice_name, '— using fallback');
     }
-  } else {
-    console.warn('[VOICE_MESSAGE] ⚠️ No voice settings — using Japanese fallback');
+  }
+
+  if (!utterance.voice) {
     const fallback = availableVoices.find(v => v.lang.startsWith('ja') && v.name.toLowerCase().includes('online'))
-                  || availableVoices.find(v => v.lang.startsWith('ja'));
+                  || availableVoices.find(v => v.lang.startsWith('ja'))
+                  || availableVoices[0]
+                  || null;
     if (fallback) {
       utterance.voice = fallback;
-      console.log('[VOICE_MESSAGE] Fallback voice:', fallback.name);
+      console.log('[VOICE_MESSAGE] ✓ Fallback voice:', fallback.name);
+    } else {
+      console.warn('[VOICE_MESSAGE] ⚠️ No suitable voice found. Using browser default voice.');
     }
   }
   

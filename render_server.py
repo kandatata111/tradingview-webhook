@@ -5795,12 +5795,18 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
             # 各通知を個別に送信
             for notification in fired_notifications:
                 try:
+                    # Debug: Log the notification content
+                    wlog(f'[FIRE] [DEBUG] Notification object: {json.dumps(notification, ensure_ascii=False, default=str)}')
+                    print(f'[FIRE] [DEBUG] Notification object: {json.dumps(notification, ensure_ascii=False, default=str)}')
+                    
                     socketio.emit('new_notification', notification)
                     wlog(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}"')
                     print(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}"')
                 except Exception as emit_error:
                     wlog(f'[FIRE] ERROR emitting notification: {emit_error}')
                     print(f'[FIRE] ERROR emitting notification: {emit_error}')
+                    import traceback
+                    wlog(f'[FIRE] [TRACEBACK] {traceback.format_exc()}')
             wlog(f'[FIRE] Total {len(fired_notifications)} notifications sent')
             print(f'[FIRE] Total {len(fired_notifications)} notifications sent')
         
