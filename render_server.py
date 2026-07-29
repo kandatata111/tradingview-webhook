@@ -4865,10 +4865,10 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                 # フロントエンド互換のためキー名を統一（camelCase -> snake_case）
                 # chime -> chime_file
                 if voice_settings.get('chime') and not voice_settings.get('chime_file'):
-                    voice_settings['chime_file'] = voice_settings['chime']
+                    voice_settings['chime_file'] = str(voice_settings['chime']).strip()
                 # voiceFile -> voice_file
                 if voice_settings.get('voiceFile') and not voice_settings.get('voice_file'):
-                    voice_settings['voice_file'] = voice_settings['voiceFile']
+                    voice_settings['voice_file'] = str(voice_settings['voiceFile']).strip()
                 # insertSymbol -> insert_symbol
                 if voice_settings.get('insertSymbol') and not voice_settings.get('insert_symbol'):
                     voice_settings['insert_symbol'] = voice_settings['insertSymbol']
@@ -5799,9 +5799,9 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     wlog(f'[FIRE] [DEBUG] Notification object: {json.dumps(notification, ensure_ascii=False, default=str)}')
                     print(f'[FIRE] [DEBUG] Notification object: {json.dumps(notification, ensure_ascii=False, default=str)}')
                     
-                    socketio.emit('new_notification', notification)
-                    wlog(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}"')
-                    print(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}"')
+                    socketio.emit('new_notification', notification, broadcast=True, namespace='/')
+                    wlog(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}" (broadcast)')
+                    print(f'[FIRE] Emitted new_notification event for rule "{notification["rule_name"]}" (broadcast)')
                 except Exception as emit_error:
                     wlog(f'[FIRE] ERROR emitting notification: {emit_error}')
                     print(f'[FIRE] ERROR emitting notification: {emit_error}')
@@ -6414,8 +6414,8 @@ def _evaluate_rules_with_state(base_state):
                 
                 # Socket.IOで新しい通知を送信
                 for notification in fired_notifications:
-                    socketio.emit('new_notification', notification)
-                    print(f'[SOCKET.IO] Notification sent: {notification.get("rule_name")}')
+                    socketio.emit('new_notification', notification, broadcast=True, namespace='/')
+                    print(f'[SOCKET.IO] Notification sent: {notification.get("rule_name")}(broadcast)')
             
             except Exception as e:
                 print(f'[ERROR] Saving notifications: {e}')

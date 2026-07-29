@@ -5186,6 +5186,16 @@ function setupBaseTimeframeListener() {
 }
 
 // 初期化: 設定を読み込み、UI を配線
+console.log('[INIT] dashboard script loaded');
+
+window.addEventListener('error', event => {
+  console.error('[GLOBAL ERROR] message=', event.message, 'source=', event.filename, 'line=', event.lineno, 'col=', event.colno, 'error=', event.error);
+});
+
+window.addEventListener('unhandledrejection', event => {
+  console.error('[GLOBAL PROMISE REJECTION] reason=', event.reason);
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     // IndexedDB を初期化（失敗しても続行）
@@ -5239,6 +5249,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // Update timestamp to prevent duplicate processing
       lastNotificationTimestamp = notification.timestamp;
+      
+      if (!audioUnlocked) {
+        console.log('[SOCKET] Audio not unlocked yet, attempting unlock before playing notification');
+        unlockAudio();
+      }
       
       // 通知を即座に再生
       await playNotification(notification);
@@ -7935,6 +7950,12 @@ async function playNotification(notification) {
   
   console.log('[PLAY_NOTIFICATION] Extracted - message:', message, 'voiceSettings:', voiceSettings, 'symbol:', symbol);
   
+  if (!audioUnlocked) {
+    console.log('[PLAY_NOTIFICATION] Audio not unlocked, attempting unlock before playback');
+    unlockAudio();
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+  
   // チャイム音と音声を再生
   playVoiceAlert(message, voiceSettings, symbol);
 }
@@ -8516,6 +8537,7 @@ function unlockAudio() {
   if (audioUnlocked) return;
   
   console.log('[AUDIO_UNLOCK] Attempting to unlock audio...');
+  audioUnlocked = true; // ユーザー操作でオーディオ許可とみなす
   
   // AudioContext を作成してアンロック
   if (!audioContext) {
@@ -8628,19 +8650,18 @@ function preloadVoices() {
 preloadVoices();
 
 function playVoiceAlert(message, voiceSettings = null, symbol = null) {
-  console.log('[VOICE_ALERT] Called with message:', message, 'chime:', voiceSettings?.chime_file);
+  const chimeFileRaw = (voiceSettings?.chime_file || voiceSettings?.chime || '') + '';
+  const chimeFile = chimeFileRaw.trim();
+  console.log('[VOICE_ALERT] Called with message:', message, 'chime:', chimeFile);
   
   // 同じ警報ファイルの重複再生を防ぐ
-  const chimeFile = voiceSettings?.chime_file;
-  
-  // 同じ警報が100ms以内に連続して再生されようとしている場合はスキップ
   if (chimeFile && chimeFile === lastChimeFile && chimeReplayTimeout) {
     console.log('[VOICE_QUEUE] Skipping duplicate chime:', chimeFile);
     return;
   }
   
   // キューに追加
-  voiceQueue.push({ message, voiceSettings, symbol });
+  voiceQueue.push({ message, voiceSettings, symbol, chimeFile });
   console.log('[VOICE_QUEUE] Added to queue. Queue length:', voiceQueue.length, 'Chime:', chimeFile);
   
   // 再生中でなければ次を再生
@@ -8669,17 +8690,18 @@ function playNextInQueue() {
     }
     
     // Play chime first if specified
-    if (item.voiceSettings && item.voiceSettings.chime_file) {
-      const chimeFile = item.voiceSettings.chime_file;
+    const chimeFile = item.chimeFile || (item.voiceSettings && (item.voiceSettings.chime_file || item.voiceSettings.chime));
+    if (chimeFile) {
+      const normalizedChimeFile = String(chimeFile).trim();
       
       // プリロードされたチャイムを使用、なければ新規作成
       let chimeAudio;
-      if (preloadedChimes[chimeFile]) {
-        chimeAudio = preloadedChimes[chimeFile].cloneNode();  // クローンして同時再生可能に
-        console.log('[VOICE_QUEUE] Using preloaded chime:', chimeFile);
+      if (preloadedChimes[normalizedChimeFile]) {
+        chimeAudio = preloadedChimes[normalizedChimeFile].cloneNode();  // クローンして同時再生可能に
+        console.log('[VOICE_QUEUE] Using preloaded chime:', normalizedChimeFile);
       } else {
-        chimeAudio = new Audio('/Alarm/' + chimeFile);
-        console.log('[VOICE_QUEUE] Creating new Audio for chime:', chimeFile);
+        chimeAudio = new Audio('/Alarm/' + normalizedChimeFile);
+        console.log('[VOICE_QUEUE] Creating new Audio for chime:', normalizedChimeFile);
       }
       
       chimeAudio.volume = parseFloat(localStorage.getItem('tv_voice_volume') || '0.8');
@@ -8688,12 +8710,12 @@ function playNextInQueue() {
       if (chimeReplayTimeout) clearTimeout(chimeReplayTimeout);
       
       // 警報ファイルを記録
-      lastChimeFile = chimeFile;
-      console.log('[VOICE_QUEUE] Playing chime:', chimeFile, 'audioUnlocked:', audioUnlocked);
+      lastChimeFile = normalizedChimeFile;
+      console.log('[VOICE_QUEUE] Playing chime:', normalizedChimeFile, 'audioUnlocked:', audioUnlocked);
       
       // 再生完了時のハンドラ
       const onChimeEnd = () => {
-        console.log('[VOICE_QUEUE] Chime ended:', chimeFile);
+        console.log('[VOICE_QUEUE] Chime ended:', normalizedChimeFile);
         playVoiceMessage(item.message, item.voiceSettings, item.symbol, () => {
           // 音声再生完了後、次を再生
           playNextInQueue();
@@ -8989,10 +9011,13 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
     
     // 音声が明示的に設定されているか確認
     if (!utterance.voice) {
-      console.error('[VOICE_MESSAGE] ❌ ERROR: No voice set! This should never happen!');
-      console.error('[VOICE_MESSAGE] ❌ Available voices:', speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja')).map(v => v.name));
-      if (onComplete) onComplete();
-      return;
+      console.warn('[VOICE_MESSAGE] ⚠️ No voice selected, using browser default voice');
+      console.warn('[VOICE_MESSAGE] ⚠️ Available voices:', speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja')).map(v => v.name));
+    }
+    
+    if (!audioUnlocked) {
+      console.log('[VOICE_MESSAGE] Audio not unlocked yet, attempting unlock');
+      unlockAudio();
     }
     
     speechSynthesis.speak(utterance);
