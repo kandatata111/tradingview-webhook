@@ -5216,14 +5216,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Socket.IO イベントハンドラー
     socket.on('connect', () => {
       console.log('[SOCKET] Connected:', socket.id);
+      try {
+        console.log('[SOCKET] Triggering immediate notification refresh on connect');
+        checkNotifications();
+      } catch (e) {
+        console.warn('[SOCKET] Failed to refresh notifications on connect:', e);
+      }
     });
     
-    socket.on('disconnect', () => {
-      console.log('[SOCKET] Disconnected');
+    socket.on('disconnect', (reason) => {
+      console.log('[SOCKET] Disconnected:', reason);
     });
     
-    socket.on('reconnect', () => {
-      console.log('[SOCKET] Reconnected');
+    socket.on('reconnect_attempt', (attempt) => {
+      console.log('[SOCKET] Reconnect attempt:', attempt);
+    });
+    
+    socket.on('reconnect', (attempt) => {
+      console.log('[SOCKET] Reconnected:', attempt);
+    });
+    
+    socket.on('connect_error', (error) => {
+      console.error('[SOCKET] Connect error:', error);
+    });
+    
+    socket.on('error', (error) => {
+      console.error('[SOCKET] Socket error:', error);
     });
     
     // リアルタイムデータ更新イベント（複数のイベント名に対応）
@@ -5610,19 +5628,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Notification polling initialization (moved from separate DOMContentLoaded listener)
     const REQUIRED_VERSION = '2025-12-05-v3';
     const currentVersion = localStorage.getItem('app_version');
-    if (currentVersion === REQUIRED_VERSION && !notificationPollingStarted) {
+    if (!notificationPollingStarted) {
       notificationPollingStarted = true;
       
       const instanceId = Math.random().toString(36).substr(2, 9);
-      console.log('[NOTIFICATIONS] Instance ID: ' + instanceId + ' - Page loaded - Version: ' + REQUIRED_VERSION);
+      console.log('[NOTIFICATIONS] Instance ID: ' + instanceId + ' - Page loaded - Required version: ' + REQUIRED_VERSION + ' (currentVersion=' + currentVersion + ')');
+      if (currentVersion !== REQUIRED_VERSION) {
+        console.warn('[NOTIFICATIONS] Version mismatch detected, but polling will start anyway');
+      }
       
       // Function to get current polling interval (in milliseconds)
-      // Base interval: 5 minutes (300 seconds) + update delay offset
       const getPollingInterval = () => {
-        const delaySecs = parseInt(localStorage.getItem('tv_update_delay') || '10');
-        const baseInterval = 300; // 5 minutes in seconds
-        const totalSeconds = baseInterval + delaySecs;
-        return totalSeconds * 1000; // Convert to milliseconds
+        // Use a dedicated notification poll interval when configured.
+        const pollSecs = parseInt(localStorage.getItem('tv_notification_poll_interval_seconds') || '5', 10);
+        return Math.max(2000, pollSecs * 1000); // minimum 2 seconds
       };
       
       // Function to start polling
@@ -5634,6 +5653,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const intervalMs = getPollingInterval();
+        console.log('[NOTIFICATIONS] Instance ' + instanceId + ' - Notification polling will start with interval ' + intervalMs + 'ms');
         const intervalSecs = intervalMs / 1000;
         const mins = Math.floor(intervalSecs / 60);
         const secs = Math.floor(intervalSecs % 60);
@@ -7957,7 +7977,9 @@ async function playNotification(notification) {
   }
   
   // チャイム音と音声を再生
+  console.log('[PLAY_NOTIFICATION] Calling playVoiceAlert with message:', message);
   playVoiceAlert(message, voiceSettings, symbol);
+  console.log('[PLAY_NOTIFICATION] playVoiceAlert returned');
 }
 
 // 単一の通知を発火履歴に追加する関数
@@ -8110,12 +8132,16 @@ async function checkNotifications() {
   console.log('[NOTIFICATIONS] Call stack:', stackTrace);
   
   try {
+    console.log('[NOTIFICATIONS] checkNotifications() fetching /api/notifications');
     const res = await fetch('/api/notifications');
+    console.log('[NOTIFICATIONS] checkNotifications() response status:', res.status);
     if (!res.ok) return;
     const data = await res.json();
+    console.log('[NOTIFICATIONS] checkNotifications() response data:', data);
     if (data.status !== 'success') return;
     
     const notifications = data.notifications || [];
+    console.log('[NOTIFICATIONS] checkNotifications() notifications count:', notifications.length);
     if (notifications.length === 0) return;
     
     // Update fire history display
@@ -8137,10 +8163,15 @@ async function checkNotifications() {
     if (lastNotificationTimestamp !== latestTimestamp) {
       lastNotificationTimestamp = latestTimestamp;
       
+      console.log('[NOTIFICATION] New notification detected, playing voice');
+      console.log('[NOTIFICATION] Latest notification:', latest);
+      
       // Play notification with voice settings
       await playNotification(latest);
       
-      console.log('[NOTIFICATION]', latest);
+      console.log('[NOTIFICATION] playNotification invoked for latest notification');
+    } else {
+      console.log('[NOTIFICATIONS] No new notification since lastTimestamp:', lastNotificationTimestamp);
     }
   } catch (e) {
     console.log('checkNotifications error', e);
@@ -8742,6 +8773,8 @@ function playNextInQueue() {
             playNextInQueue();
           });
         });
+      } else {
+        console.log('[VOICE_QUEUE] play() returned undefined for chime audio');
       }
       
       // 警報再生後、100msのリプレイ防止タイマーをセット
@@ -9020,9 +9053,10 @@ function playVoiceMessage(message, voiceSettings = null, symbol = null, onComple
       unlockAudio();
     }
     
+    console.log('[VOICE_MESSAGE] About to call speechSynthesis.speak()');
     speechSynthesis.speak(utterance);
     
-    console.log('[VOICE_MESSAGE] Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate);
+    console.log('[VOICE_MESSAGE] Playing voice message:', message, 'volume:', utterance.volume, 'rate:', utterance.rate, 'voice:', utterance.voice ? utterance.voice.name : 'none');
   }
 }
 

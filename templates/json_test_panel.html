@@ -136,6 +136,12 @@
             padding: 2px;
             text-align: center;
         }
+        /* PO時間の幅を他項目に揃える */
+        td input[data-field="po_fire_time_str"] {
+            width: 100px;
+            padding: 2px;
+            text-align: center;
+        }
         /* ヘッダーの幅を内容に合わせる */
         th:nth-child(1) { padding: 2px 4px; } /* 整列雲 */
         th:nth-child(2), th:nth-child(3), th:nth-child(4) { padding: 2px 5px; } /* ダウ転・突破数・雲交差 */
@@ -148,6 +154,14 @@
         .red-bg {
             background-color: #f23645;
             color: white;
+        }
+        input.blue-bg {
+            background-color: #2962ff !important;
+            color: white !important;
+        }
+        input.red-bg {
+            background-color: #f23645 !important;
+            color: white !important;
         }
         .time-display-toggle {
             margin-bottom: 10px;
@@ -245,7 +259,13 @@
         
         <div class="form-group">
             <label for="price">Price:</label>
-            <input type="number" id="price" step="0.01" value="150.00" required>
+            <input type="number" id="price" step="0.00001" value="150.00" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="sentTime">Sent Time:</label>
+            <input type="text" id="sentTime" placeholder="26/07/30/18:25">
+            <button onclick="setCurrentTime()" style="margin-left: 10px; padding: 5px 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">現在時刻を設定</button>
         </div>
         
         <div class="form-group">
@@ -315,13 +335,14 @@
                     <th>ダウ転</th>
                     <th>突破数</th>
                     <th>雲交差</th>
+                    <th>PO</th>
                     <th>各雲間</th>
                     <th>価格間</th>
                     <th>雲角度</th>
                     <th>雲厚み</th>
                     <th>ダウ時間</th>
                     <th>交差時間</th>
-                    <th>時間差</th>
+                    <th>PO時間</th>
                 </tr>
             </thead>
             <tbody>
@@ -330,55 +351,60 @@
                     <td class="editable" onclick="toggleDauten(this)" data-value="up">▲Dow</td>
                     <td class="editable" onclick="cycleBos(this)" oncontextmenu="cycleBosReverse(this); return false;" data-value="-">-</td>
                     <td class="editable" onclick="toggleGc(this)" data-value="true">▲GC</td>
+                    <td class="editable" onclick="cyclePo(this, true)" oncontextmenu="cyclePo(this); return false;" data-field="po">-</td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_prev"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_price"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="angle"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="thickness"></td>
                     <td><input type="text" onchange="updateTimeBg(this)" data-field="dauten_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
-                    <td><input type="text" onchange="updateTimeBg(this)" data-field="elapsed_str" placeholder="YY/MM/DD/HH:mm"></td>
-                    <td class="time-diff">-</td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="cross_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="po_fire_time_str" placeholder="YY/MM/DD/HH:mm"></td>
                 </tr>
                 <tr data-tf="15m">
                     <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" style="background-color: #fbd0b2;">15m</td>
                     <td class="editable" onclick="toggleDauten(this)" data-value="down">▼Dow</td>
                     <td class="editable" onclick="cycleBos(this)" oncontextmenu="cycleBosReverse(this); return false;" data-value="-">-</td>
                     <td class="editable" onclick="toggleGc(this)" data-value="false">▼DC</td>
+                    <td class="editable" onclick="cyclePo(this, true)" oncontextmenu="cyclePo(this); return false;" data-field="po">-</td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_prev"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_price"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="angle"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="thickness"></td>
                     <td><input type="text" onchange="updateTimeBg(this)" data-field="dauten_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
-                    <td><input type="text" onchange="updateTimeBg(this)" data-field="elapsed_str" placeholder="YY/MM/DD/HH:mm"></td>
-                    <td class="time-diff">-</td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="cross_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="po_fire_time_str" placeholder="YY/MM/DD/HH:mm"></td>
                 </tr>
                 <tr data-tf="1H">
                     <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" style="background-color: #8dc7fc;">1H</td>
                     <td class="editable" onclick="toggleDauten(this)" data-value="up">▲Dow</td>
                     <td class="editable" onclick="cycleBos(this)" oncontextmenu="cycleBosReverse(this); return false;" data-value="-">-</td>
                     <td class="editable" onclick="toggleGc(this)" data-value="true">▲GC</td>
+                    <td class="editable" onclick="cyclePo(this, true)" oncontextmenu="cyclePo(this); return false;" data-field="po">-</td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_prev"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_price"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="angle"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="thickness"></td>
                     <td><input type="text" onchange="updateTimeBg(this)" data-field="dauten_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
-                    <td><input type="text" onchange="updateTimeBg(this)" data-field="elapsed_str" placeholder="YY/MM/DD/HH:mm"></td>
-                    <td class="time-diff">-</td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="cross_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="po_fire_time_str" placeholder="YY/MM/DD/HH:mm"></td>
                 </tr>
                 <tr data-tf="4H">
                     <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" style="background-color: #fa8dfe;">4H</td>
                     <td class="editable" onclick="toggleDauten(this)" data-value="down">▼Dow</td>
                     <td class="editable" onclick="cycleBos(this)" oncontextmenu="cycleBosReverse(this); return false;" data-value="-">-</td>
                     <td class="editable" onclick="toggleGc(this)" data-value="false">▼DC</td>
+                    <td class="editable" onclick="cyclePo(this, true)" oncontextmenu="cyclePo(this); return false;" data-field="po">-</td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_prev"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="distance_from_price"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="angle"></td>
                     <td><input type="number" step="0.1" onchange="updateNumericBg(this)" data-field="thickness"></td>
                     <td><input type="text" onchange="updateTimeBg(this)" data-field="dauten_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
-                    <td><input type="text" onchange="updateTimeBg(this)" data-field="elapsed_str" placeholder="YY/MM/DD/HH:mm"></td>
-                    <td class="time-diff">-</td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="cross_start_time_str" placeholder="YY/MM/DD/HH:mm"></td>
+                    <td><input type="text" onchange="updateTimeBg(this)" data-field="po_fire_time_str" placeholder="YY/MM/DD/HH:mm"></td>
                 </tr>
                 <tr data-tf="price">
                     <td class="tf-label" draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)">価格</td>
+                    <td></td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -565,18 +591,20 @@
                     const bosCell = cells[2];     // 突破数
                     const gcCell = cells[3];      // 雲交差
                     
-                    const inputs = row.querySelectorAll('input');
+                    const getInput = field => row.querySelector(`input[data-field="${field}"]`);
                     
                     data.tableData[tf] = {
-                        dauten: dautenCell?.getAttribute('data-value') || 'up',
+                        dauten: dautenCell?.textContent.trim() || '▲Dow',
                         bos: bosCell?.getAttribute('data-value') || '-',
-                        gc: gcCell?.getAttribute('data-value') || 'true',
-                        distance_from_prev: inputs[0]?.value || '',
-                        distance_from_price: inputs[1]?.value || '',
-                        angle: inputs[2]?.value || '',
-                        thickness: inputs[3]?.value || '',
-                        dauten_start_time_str: inputs[4]?.value || '',
-                        elapsed_str: inputs[5]?.value || ''
+                        gc: gcCell?.textContent.trim() || '▲GC',
+                        po: getInput('po')?.value || '',
+                        distance_from_prev: getInput('distance_from_prev')?.value || '',
+                        distance_from_price: getInput('distance_from_price')?.value || '',
+                        angle: getInput('angle')?.value || '',
+                        thickness: getInput('thickness')?.value || '',
+                        dauten_start_time_str: getInput('dauten_start_time_str')?.value || '',
+                        cross_start_time_str: getInput('cross_start_time_str')?.value || '',
+                        po_fire_time_str: getInput('po_fire_time_str')?.value || ''
                     };
                     console.log(`tableData for ${tf}:`, data.tableData[tf]);
                 } catch (e) {
@@ -693,7 +721,10 @@
                     row.querySelector('input[data-field="angle"]').value = rowData.angle || '';
                     row.querySelector('input[data-field="thickness"]').value = rowData.thickness || '';
                     row.querySelector('input[data-field="dauten_start_time_str"]').value = rowData.dauten_start_time_str || '';
-                    row.querySelector('input[data-field="elapsed_str"]').value = rowData.elapsed_str || '';
+                    row.querySelector('input[data-field="cross_start_time_str"]').value = rowData.cross_start_time_str || '';
+                    const poCell = row.querySelector('td[data-field="po"]');
+                    if (poCell) poCell.textContent = rowData.po || '-';
+                    row.querySelector('input[data-field="po_fire_time_str"]').value = rowData.po_fire_time_str || '';
                 }
             });
 
@@ -825,7 +856,9 @@
                     angle: row.querySelector('input[data-field="angle"]').value,
                     thickness: row.querySelector('input[data-field="thickness"]').value,
                     dauten_start_time_str: row.querySelector('input[data-field="dauten_start_time_str"]').value,
-                    elapsed_str: row.querySelector('input[data-field="elapsed_str"]').value
+                    cross_start_time_str: row.querySelector('input[data-field="cross_start_time_str"]').value,
+                    po: row.querySelector('td[data-field="po"]').textContent.trim(),
+                    po_fire_time_str: row.querySelector('input[data-field="po_fire_time_str"]').value
                 };
             });
 
@@ -853,14 +886,18 @@
                         row.querySelector('td[onclick*="cycleBos"]').textContent = rowData.bos;
                         row.querySelector('td[onclick*="toggleGc"]').setAttribute('data-value', rowData.gc);
                         row.querySelector('td[onclick*="toggleGc"]').textContent = rowData.gc === 'true' ? '▲GC' : '▼DC';
+                        const poCell = row.querySelector('td[data-field="po"]');
+                        if (poCell) poCell.textContent = rowData.po || '-';
                         row.querySelector('input[data-field="distance_from_prev"]').value = rowData.distance_from_prev || '';
                         row.querySelector('input[data-field="distance_from_price"]').value = rowData.distance_from_price || '';
                         row.querySelector('input[data-field="angle"]').value = rowData.angle || '';
                         row.querySelector('input[data-field="thickness"]').value = rowData.thickness || '';
                         row.querySelector('input[data-field="dauten_start_time_str"]').value = rowData.dauten_start_time_str || '';
-                        row.querySelector('input[data-field="elapsed_str"]').value = rowData.elapsed_str || '';
+                        row.querySelector('input[data-field="cross_start_time_str"]').value = rowData.cross_start_time_str || '';
+                        row.querySelector('input[data-field="po_fire_time_str"]').value = rowData.po_fire_time_str || '';
                     }
                 });
+
 
                 // 背景色と計算を更新
                 document.querySelectorAll('td[data-value]').forEach(cell => {
@@ -893,6 +930,21 @@
             updateAllTimeDisplays();
         }
 
+        function setCurrentTime() {
+            const now = new Date();
+            const jst = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // JST（UTC+9）
+            
+            const yy = String(jst.getUTCFullYear()).slice(-2);
+            const mm = String(jst.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(jst.getUTCDate()).padStart(2, '0');
+            const hh = String(jst.getUTCHours()).padStart(2, '0');
+            const mn = String(jst.getUTCMinutes()).padStart(2, '0');
+            
+            const timeStr = `${yy}/${mm}/${dd}/${hh}:${mn}`;
+            document.getElementById('sentTime').value = timeStr;
+        }
+
+
         function updateAllTimeDisplays() {
             document.querySelectorAll('#dataTable tbody tr').forEach(row => {
                 const tf = row.getAttribute('data-tf');
@@ -903,26 +955,31 @@
                 }
                 
                 const dautenInput = row.querySelector('input[data-field="dauten_start_time_str"]');
-                const elapsedInput = row.querySelector('input[data-field="elapsed_str"]');
+                const crossInput = row.querySelector('input[data-field="cross_start_time_str"]');
                 const diffCell = row.querySelector('.time-diff');
+                
+                // diffCell が存在しない場合はスキップ
+                if (!diffCell) {
+                    return;
+                }
                 
                 // 元の時刻データがなければ現在の値を保存（測定開始日時形式として）
                 if (!originalTimeData[tf]) {
                     originalTimeData[tf] = {
                         dauten: dautenInput.value,
-                        elapsed: elapsedInput.value
+                        cross: crossInput.value
                     };
                 }
                 
                 if (timeFormat === 'original') {
                     // 「測定開始日時」形式 - 元の値を表示、時間差は「－」
                     dautenInput.value = originalTimeData[tf].dauten || '';
-                    elapsedInput.value = originalTimeData[tf].elapsed || '';
+                    crossInput.value = originalTimeData[tf].cross || '';
                     diffCell.textContent = '-';
                 } else {
                     // 他の形式 - 経過時間を計算して表示
                     const dautenTime = parseTime(originalTimeData[tf].dauten);
-                    const elapsedTime = parseTime(originalTimeData[tf].elapsed);
+                    const elapsedTime = parseTime(originalTimeData[tf].cross);
                     
                     if (dautenTime) {
                         const now = new Date();
@@ -939,9 +996,9 @@
                         const elapsedMs = now - elapsedTime;
                         const elapsedMinutes = Math.floor(elapsedMs / 60000);
                         const roundedElapsedMinutes = Math.floor(elapsedMinutes / 5) * 5;
-                        elapsedInput.value = formatElapsedMinutes(roundedElapsedMinutes, timeFormat);
+                        crossInput.value = formatElapsedMinutes(roundedElapsedMinutes, timeFormat);
                     } else {
-                        elapsedInput.value = originalTimeData[tf].elapsed || '';
+                        crossInput.value = originalTimeData[tf].cross || '';
                     }
                     
                     // 時間差の計算
@@ -973,13 +1030,6 @@
                     dautenInput.classList.add('blue-bg');
                 } else if (dautenCell && dautenCell.getAttribute('data-value') === 'down') {
                     dautenInput.classList.add('red-bg');
-                }
-                
-                elapsedInput.classList.remove('blue-bg', 'red-bg');
-                if (gcCell && gcCell.getAttribute('data-value') === 'true') {
-                    elapsedInput.classList.add('blue-bg');
-                } else if (gcCell && gcCell.getAttribute('data-value') === 'false') {
-                    elapsedInput.classList.add('red-bg');
                 }
             });
         }
@@ -1048,7 +1098,7 @@
                 cell.classList.add('blue-bg');
             }
             updateTimeBg(cell.closest('tr').querySelector('input[data-field="dauten_start_time_str"]'));
-            updateTimeBg(cell.closest('tr').querySelector('input[data-field="elapsed_str"]'));
+            updateTimeBg(cell.closest('tr').querySelector('input[data-field="cross_start_time_str"]'));
             calculateTimeDiff(cell.closest('tr'));
         }
 
@@ -1072,6 +1122,23 @@
             cell.textContent = values[index];
             cell.setAttribute('data-value', values[index]);
             updateBosBg(cell);
+        }
+
+        function cyclePo(cell, reverse = false) {
+            const values = ['▲P2', '▲P3', '▼P2', '▼P3'];
+            let current = cell.textContent.trim();
+            let index = values.indexOf(current);
+            if (index === -1) {
+                index = reverse ? values.length - 1 : 0;
+            } else {
+                index = reverse ? (index - 1 + values.length) % values.length : (index + 1) % values.length;
+            }
+            cell.textContent = values[index];
+            updateTimeBg(cell);
+            const poFireInput = cell.closest('tr').querySelector('input[data-field="po_fire_time_str"]');
+            if (poFireInput) {
+                updateTimeBg(poFireInput);
+            }
         }
 
         function updateBosBg(cell) {
@@ -1100,7 +1167,7 @@
                 cell.classList.remove('red-bg');
                 cell.classList.add('blue-bg');
             }
-            updateTimeBg(cell.closest('tr').querySelector('input[data-field="elapsed_str"]'));
+            updateTimeBg(cell.closest('tr').querySelector('input[data-field="cross_start_time_str"]'));
             // 雲厚みの背景色も更新
             const thicknessInput = cell.closest('tr').querySelector('input[data-field="thickness"]');
             if (thicknessInput) {
@@ -1138,8 +1205,9 @@
 
         function updateTimeBg(input) {
             const row = input.closest('tr');
-            const dautenCell = row.querySelector('td[data-value]');
+            const dautenCell = row.querySelector('td[onclick*="toggleDauten"]');
             const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+            const poCell = row.querySelector('td[data-field="po"]');
             
             input.classList.remove('blue-bg', 'red-bg');
             if (input.getAttribute('data-field') === 'dauten_start_time_str') {
@@ -1148,10 +1216,23 @@
                 } else if (dautenCell && dautenCell.getAttribute('data-value') === 'down') {
                     input.classList.add('red-bg');
                 }
-            } else if (input.getAttribute('data-field') === 'elapsed_str') {
+            } else if (input.getAttribute('data-field') === 'cross_start_time_str') {
                 if (gcCell && gcCell.getAttribute('data-value') === 'true') {
                     input.classList.add('blue-bg');
                 } else if (gcCell && gcCell.getAttribute('data-value') === 'false') {
+                    input.classList.add('red-bg');
+                }
+            } else if (input.getAttribute('data-field') === 'po') {
+                const text = input.textContent.trim();
+                if (text.startsWith('▲')) {
+                    input.classList.add('blue-bg');
+                } else if (text.startsWith('▼')) {
+                    input.classList.add('red-bg');
+                }
+            } else if (input.getAttribute('data-field') === 'po_fire_time_str') {
+                if (poCell && poCell.textContent.trim().startsWith('▲')) {
+                    input.classList.add('blue-bg');
+                } else if (poCell && poCell.textContent.trim().startsWith('▼')) {
                     input.classList.add('red-bg');
                 }
             }
@@ -1163,8 +1244,8 @@
                 }
                 if (input.getAttribute('data-field') === 'dauten_start_time_str') {
                     originalTimeData[tf].dauten = input.value;
-                } else if (input.getAttribute('data-field') === 'elapsed_str') {
-                    originalTimeData[tf].elapsed = input.value;
+                } else if (input.getAttribute('data-field') === 'cross_start_time_str') {
+                    originalTimeData[tf].cross = input.value;
                 }
             }
             calculateTimeDiff(row);
@@ -1172,7 +1253,7 @@
 
         function calculateTimeDiff(row) {
             const dautenTimeInput = row.querySelector('input[data-field="dauten_start_time_str"]');
-            const elapsedTimeInput = row.querySelector('input[data-field="elapsed_str"]');
+            const elapsedTimeInput = row.querySelector('input[data-field="cross_start_time_str"]');
             const diffCell = row.querySelector('.time-diff');
             
             // nullチェック
@@ -1243,8 +1324,12 @@
         }
 
         function generateJson() {
+            // JSON生成時に自動的に sentTime を現在時刻に更新
+            setCurrentTime();
+            
             const symbol = document.getElementById('symbol').value;
             const price = parseFloat(document.getElementById('price').value);
+            const sentTimeStr = document.getElementById('sentTime').value.trim();
             const time = Math.floor(Date.now() / 1000) * 1000; // ミリ秒単位
             
             const rows = document.querySelectorAll('#dataTable tbody tr');
@@ -1256,17 +1341,22 @@
                 if (tf === 'price') return; // 価格の行はスキップ
                 
                 try {
-                    const dauten = row.querySelector('td[data-value]').getAttribute('data-value');
+                    // ダウ転セルを正確に取得（最初のセルで、onclick属性を確認）
+                    const dautenCell = row.querySelector('td[onclick*="toggleDauten"]');
+                    const dauten = dautenCell ? dautenCell.getAttribute('data-value') : 'up';
+                    
                     const bosCount = row.querySelector('td[onclick*="cycleBos"]').getAttribute('data-value');
                     const gc = row.querySelector('td[onclick*="toggleGc"]').getAttribute('data-value') === 'true';
                     
+                    const poValue = (row.querySelector('td[data-field="po"]')?.textContent || '').trim() || '';
                     const distanceFromPrev = parseFloat(row.querySelector('input[data-field="distance_from_prev"]').value) || 0;
                     const distanceFromPrice = parseFloat(row.querySelector('input[data-field="distance_from_price"]').value) || 0;
                     const angle = parseFloat(row.querySelector('input[data-field="angle"]').value) || 0;
                     const thickness = parseFloat(row.querySelector('input[data-field="thickness"]').value) || 0;
                     
                     const dautenStartTimeStr = row.querySelector('input[data-field="dauten_start_time_str"]').value || '';
-                    const elapsedStr = row.querySelector('input[data-field="elapsed_str"]').value || '';
+                    const crossStartTimeStr = row.querySelector('input[data-field="cross_start_time_str"]').value || '';
+                    const poFireTimeStr = row.querySelector('input[data-field="po_fire_time_str"]').value || '';
                     
                     rowDataMap[tf] = {
                         dauten: dauten,
@@ -1277,60 +1367,87 @@
                         angle: angle,
                         thickness: thickness,
                         dauten_start_time_str: dautenStartTimeStr,
-                        elapsed_str: elapsedStr
+                        cross_start_time_str: crossStartTimeStr,
+                        po: poValue,
+                        po_fire_time_str: poFireTimeStr
                     };
                 } catch (e) {
                     console.error(`Error processing row for ${tf}:`, e);
                 }
             });
             
-            // 現在の表の順序に基づいてcloud_orderを生成
-            const cloudOrder = Array.from(document.querySelectorAll('#dataTable tbody tr')).map(row => row.getAttribute('data-tf'));
+            // TF値をマッピング（5m→5, 15m→15, 1H→60, 4H→240）
+            const tfToValue = {'5m': '5', '15m': '15', '1H': '60', '4H': '240'};
+            
+            // 現在の表の順序に基づいてrow_orderを生成（TF値を正規化）
+            const allRowOrder = Array.from(document.querySelectorAll('#dataTable tbody tr'))
+                .map(row => {
+                    const tf = row.getAttribute('data-tf');
+                    if (tf === 'price') return 'price';
+                    return tfToValue[tf] || tf;
+                });
             
             // row_orderを動的に生成（ドラッグ&ドロップ後の現在の順序から）
-            const rowOrderFull = cloudOrder;  // 5m用：全時間足の順序
-            const rowOrder15m = cloudOrder.filter(tf => tf === 'price' || tf === '15m');
-            const rowOrder1H = cloudOrder.filter(tf => tf === 'price' || tf === '1H');
-            const rowOrder4H = cloudOrder.filter(tf => tf === 'price' || tf === '4H');
+            const rowOrderFull = allRowOrder;  // 5m用：全行の順序（priceを含む）
+            const rowOrder15m = allRowOrder.filter(v => v === 'price' || v === '15');
+            const rowOrder1H = allRowOrder.filter(v => v === 'price' || v === '60');
+            const rowOrder4H = allRowOrder.filter(v => v === 'price' || v === '240');
             
             // 4つのJSONコードを生成
             const jsonConfigs = {
                 '5m': {
-                    label: '5m',
                     tf: '5',
                     bos: rowDataMap['5m'] ? rowDataMap['5m'].bos_count : null,
                     rowOrder: rowOrderFull
                 },
                 '15m': {
-                    label: '15m',
                     tf: '15',
                     bos: rowDataMap['15m'] ? rowDataMap['15m'].bos_count : null,
                     rowOrder: rowOrder15m
                 },
                 '1H': {
-                    label: '1H',
                     tf: '60',
                     bos: rowDataMap['1H'] ? rowDataMap['1H'].bos_count : null,
                     rowOrder: rowOrder1H
                 },
                 '4H': {
-                    label: '4H',
                     tf: '240',
                     bos: rowDataMap['4H'] ? rowDataMap['4H'].bos_count : null,
                     rowOrder: rowOrder4H
                 }
             };
             
+            // トップレベルのpo情報を取得（5m）
+            const po5mData = rowDataMap['5m'];
+            let poObj = {"status": "-", "fire_time_str": ""};
+            if (po5mData) {
+                const poStatus = po5mData.po || '-';
+                const poFireTime = po5mData.po_fire_time_str || '';
+                if (poStatus !== '-') {
+                    poObj = {"status": poStatus, "fire_time_str": poFireTime};
+                }
+            }
+            
             // 各タイムフレームのJSONコードを生成
             for (const [key, config] of Object.entries(jsonConfigs)) {
                 const clouds = [];
-                const tfLabel = config.label;
-                const tfData = rowDataMap[tfLabel];
+                const tfKey = key; // 5m, 15m, 1H, 4H
+                const tfData = rowDataMap[tfKey];
                 
-                if (!tfData) {
-                    console.error(`No data found for ${tfLabel}, skipping...`);
-                    continue;
-                }
+                // データがない場合でもJSONを生成（空のデータを使用）
+                const safeData = tfData || {
+                    dauten: 'up',
+                    bos_count: 0,
+                    gc: false,
+                    distance_from_prev: 0,
+                    distance_from_price: 0,
+                    angle: 0,
+                    thickness: 0,
+                    dauten_start_time_str: '',
+                    cross_start_time_str: '',
+                    po: '-',
+                    po_fire_time_str: ''
+                };
                 
                 // daytrade.bosの値を設定（bos_countに基づいて）
                 let daytradeBos = "-";
@@ -1338,104 +1455,90 @@
                     daytradeBos = "BOS-" + config.bos;
                 }
                 
-                // Parse dauten_start_time_str to get milliseconds
-                let dautenStartTimeMs = time;
-                if (tfData.dauten_start_time_str) {
-                    const parsedTime = parseTime(tfData.dauten_start_time_str);
-                    if (parsedTime) {
-                        dautenStartTimeMs = parsedTime.getTime();
-                    }
-                }
-                
-                // Parse elapsed_str to get milliseconds for cross_start_time
-                let crossStartTimeMs = time;
-                if (tfData.elapsed_str) {
-                    const parsedTime = parseTime(tfData.elapsed_str);
-                    if (parsedTime) {
-                        crossStartTimeMs = parsedTime.getTime();
-                    }
-                }
-                
-                // Calculate elapsed in seconds from dauten_start_time
-                const elapsedSeconds = Math.round((time - dautenStartTimeMs) / 1000);
-                
                 if (key === '5m') {
                     // 5m用：すべてのタイムフレームを含める
-                    ['5m', '15m', '1H', '4H'].forEach(tf => {
-                        const data = rowDataMap[tf];
+                    ['5m', '15m', '1H', '4H'].forEach(tfKey => {
+                        const data = rowDataMap[tfKey];
                         
+                        // データがない場合はスキップ（5m用は各TFのデータが不要な場合はスキップ）
                         if (!data) {
-                            console.error(`No data for ${tf} in 5m generation, skipping...`);
                             return;
                         }
                         
-                        // Parse dauten_start_time_str
-                        let dautenMs = time;
-                        if (data.dauten_start_time_str) {
-                            const parsedTime = parseTime(data.dauten_start_time_str);
-                            if (parsedTime) {
-                                dautenMs = parsedTime.getTime();
-                            }
+                        // dauten値を正規化（▲Dow→▲Dow, ▼Dow→▼Dow, up→▲Dow, down→▼Dow, -→-）
+                        let dautenValue;
+                        const dautenText = String(data.dauten).trim();
+                        if (dautenText.includes('▼') || dautenText === 'down') {
+                            dautenValue = '▼Dow';
+                        } else if (dautenText.includes('▲') || dautenText === 'up') {
+                            dautenValue = '▲Dow';
+                        } else if (dautenText === '-') {
+                            dautenValue = '-';
+                        } else {
+                            dautenValue = '▲Dow'; // デフォルト
                         }
                         
-                        // Parse elapsed_str
-                        let crossMs = time;
-                        if (data.elapsed_str) {
-                            const parsedTime = parseTime(data.elapsed_str);
-                            if (parsedTime) {
-                                crossMs = parsedTime.getTime();
-                            }
-                        }
+                        // gc値を正規化（true→▲GC, false→▼DC）
+                        const gcValue = data.gc ? '▲GC' : '▼DC';
                         
-                        const elapsed = Math.round((time - dautenMs) / 1000);
+                        // TF値を数値文字列に
+                        const tfValue = tfToValue[tfKey];
                         
                         clouds.push({
-                            label: tf,
-                            tf: tf,
-                            gc: data.gc,
-                            thickness: data.thickness,
-                            angle: data.angle,
-                            elapsed: elapsed,
-                            cross_start_time: crossMs,
-                            elapsed_str: data.elapsed_str,
-                            in_cloud: false,
-                            star: false,
-                            distance_from_price: data.distance_from_price,
-                            distance_from_prev: data.distance_from_prev,
-                            topPrice: price,
-                            bottomPrice: price,
-                            dauten: data.dauten,
-                            bos_count: data.bos_count,
-                            dauten_start_time: dautenMs,
-                            dauten_start_time_str: data.dauten_start_time_str
+                            label: tfValue,
+                            gc: gcValue,
+                            thickness: Math.round(data.thickness * 10) / 10,
+                            angle: Math.round(data.angle * 10) / 10,
+                            distance_from_price: Math.round(data.distance_from_price * 10) / 10,
+                            distance_from_prev: Math.round(data.distance_from_prev * 10) / 10,
+                            cross_start_time_str: data.cross_start_time_str || '',
+                            dauten: dautenValue,
+                            dauten_start_time_str: data.dauten_start_time_str || '',
+                            po: data.po || '-',
+                            po_fire_time_str: data.po_fire_time_str || ''
                         });
                     });
                 } else {
                     // 15m、1H、4H用：対応するタイムフレームのみ
+                    // dauten値を正規化
+                    let dautenValue;
+                    const dautenText = String(safeData.dauten).trim();
+                    if (dautenText.includes('▼') || dautenText === 'down') {
+                        dautenValue = '▼Dow';
+                    } else if (dautenText.includes('▲') || dautenText === 'up') {
+                        dautenValue = '▲Dow';
+                    } else if (dautenText === '-') {
+                        dautenValue = '-';
+                    } else {
+                        dautenValue = '▲Dow'; // デフォルト
+                    }
+                    
+                    // gc値を正規化
+                    const gcValue = safeData.gc ? '▲GC' : '▼DC';
+                    
                     clouds.push({
-                        label: tfLabel,
-                        tf: tfLabel,
-                        gc: tfData.gc,
-                        topPrice: price,
-                        bottomPrice: price,
-                        dauten: tfData.dauten,
-                        bos_count: tfData.bos_count,
-                        dauten_start_time: dautenStartTimeMs,
-                        dauten_start_time_str: tfData.dauten_start_time_str
+                        label: config.tf,
+                        gc: gcValue,
+                        thickness: Math.round(safeData.thickness * 10) / 10,
+                        angle: Math.round(safeData.angle * 10) / 10,
+                        distance_from_price: Math.round(safeData.distance_from_price * 10) / 10,
+                        distance_from_prev: Math.round(safeData.distance_from_prev * 10) / 10,
+                        cross_start_time_str: safeData.cross_start_time_str || '',
+                        dauten: dautenValue,
+                        dauten_start_time_str: safeData.dauten_start_time_str || '',
+                        po: safeData.po || '-',
+                        po_fire_time_str: safeData.po_fire_time_str || ''
                     });
                 }
                 
                 const jsonData = {
                     symbol: symbol,
                     tf: config.tf,
-                    time: time,
-                    state: {"flag": "", "word": ""},
-                    daytrade: {"status": "active", "bos": daytradeBos, "time": "25/11/12/14:30"},
-                    swing: {"status": "inactive", "bos": 0, "time": ""},
+                    sent_time: sentTimeStr,
+                    daytrade: {"bos": daytradeBos},
+                    po: poObj,
                     row_order: config.rowOrder,
-                    cloud_order: key === '5m' ? cloudOrder : [tfLabel],
                     clouds: clouds,
-                    meta: {},
                     price: price
                 };
                 
@@ -1447,12 +1550,17 @@
                 document.getElementById(outputId).textContent = JSON.stringify(jsonData, null, 2);
             }
             
-            // 最初のタブ（5m）を表示
-            switchJsonView('5m');
+            // 現在選択されているタブを保持して表示（currentJsonViewTfグローバル変数を使用）
+            switchJsonView(currentJsonViewTf || '5m');
         }
+        
+        // 現在選択されているJSON表示タブを保持する
+        let currentJsonViewTf = '5m';
         
         function switchJsonView(tf) {
             console.log('switchJsonView called with:', tf);
+            currentJsonViewTf = tf; // 現在選択中のタイムフレームを保存
+            
             // すべてのJSON出力欄を非表示
             document.getElementById('jsonOutput5m').style.display = 'none';
             document.getElementById('jsonOutput15m').style.display = 'none';
@@ -1531,13 +1639,6 @@
         async function sendJson() {
             console.log('sendJson() called');
             
-            // JSONが生成されているかチェック
-            if (!window.jsonData_5m || !window.jsonData_15m || !window.jsonData_1H || !window.jsonData_4H) {
-                console.warn('JSON data not found');
-                alert('まずJSONを生成してください');
-                return;
-            }
-            
             const selectedTf = document.querySelector('input[name="selected_tf"]:checked').value;
             const target = document.querySelector('input[name="target"]:checked').value;
             console.log('selected tf:', selectedTf, 'target:', target);
@@ -1551,7 +1652,15 @@
             };
             
             const tfsToSend = tfHierarchy[selectedTf];
-            console.log('tfs to send:', tfsToSend);
+            
+            // 存在する JSON をチェック
+            const availableTfs = tfsToSend.filter(tf => window[`jsonData_${tf}`]);
+            if (availableTfs.length === 0) {
+                alert('JSONが生成されていません。先にJSON生成ボタンをクリックしてください。');
+                return;
+            }
+            
+            console.log('available tfs:', availableTfs, 'tfs to send:', tfsToSend);
             
             let url;
             if (target === 'test') {
@@ -1569,7 +1678,8 @@
             
             const results = [];
             
-            for (const tf of tfsToSend) {
+            // tfsToSend ではなく availableTfs を使用（存在する JSON だけ送信）
+            for (const tf of availableTfs) {
                 try {
                     console.log(`sending ${tf}...`);
                     const response = await fetch(url, {
@@ -1651,7 +1761,7 @@
         // targetTf: 指定されたTFのcloudのみを処理する（nullの場合は全てのcloudを処理）
         function applySingleJsonToTable(jsonText, applyOrder = false, targetTf = null) {
             const data = JSON.parse(jsonText);
-            
+
             // Symbol と Price を設定
             if (data.symbol) {
                 document.getElementById('symbol').value = data.symbol;
@@ -1659,41 +1769,50 @@
             if (data.price) {
                 document.getElementById('price').value = data.price;
             }
-            
-            // cloud_order または row_order から雲整列の順序を反映（applyOrder=trueの場合のみ）
+            if (data.sent_time) {
+                document.getElementById('sentTime').value = data.sent_time;
+            }
+
+            const normalizeTfLabel = raw => {
+                const value = String(raw || '').trim();
+                if (value === '5' || value.toLowerCase() === '5m') return '5m';
+                if (value === '15' || value.toLowerCase() === '15m') return '15m';
+                if (value === '60' || value.toLowerCase() === '1h' || value.toLowerCase() === '60m') return '1H';
+                if (value === '240' || value.toLowerCase() === '4h') return '4H';
+                return value;
+            };
+
+            const normalizeOrderArray = arr => {
+                if (!Array.isArray(arr)) return [];
+                return arr
+                    .map(item => normalizeTfLabel(item))
+                    .filter(item => ['5m', '15m', '1H', '4H', 'price'].includes(item));
+            };
+
+            // row_order から雲整列の順序を反映（applyOrder=trueの場合のみ）
             if (applyOrder) {
-                // row_order を優先（実際の表示順序）、なければ cloud_order を使用
                 let orderSource = null;
                 if (data.row_order && data.row_order.length > 0) {
-                    orderSource = data.row_order;
+                    orderSource = normalizeOrderArray(data.row_order);
                     console.log('[ORDER] Using row_order:', orderSource);
-                } else if (data.cloud_order && data.cloud_order.length > 0) {
-                    orderSource = data.cloud_order;
-                    console.log('[ORDER] Using cloud_order:', orderSource);
                 }
-                
+
                 if (orderSource && orderSource.length > 0) {
                     const tbody = document.querySelector('#dataTable tbody');
-                    
-                    // 全TFのリスト
                     const allTfs = ['5m', '15m', '1H', '4H', 'price'];
                     const orderedTfs = [];
-                    
-                    // orderSource の順序で追加
+
                     orderSource.forEach(tf => {
                         if (allTfs.includes(tf) && !orderedTfs.includes(tf)) {
                             orderedTfs.push(tf);
                         }
                     });
-                    
-                    // orderSourceに含まれていないTFを追加
+
                     allTfs.forEach(tf => {
                         if (!orderedTfs.includes(tf)) {
-                            // price は最後に追加
                             if (tf === 'price') {
                                 orderedTfs.push(tf);
                             } else {
-                                // 他のTFはpriceの前に追加
                                 const priceIndex = orderedTfs.indexOf('price');
                                 if (priceIndex >= 0) {
                                     orderedTfs.splice(priceIndex, 0, tf);
@@ -1703,10 +1822,8 @@
                             }
                         }
                     });
-                    
+
                     console.log('[ORDER] Final order:', orderedTfs);
-                    
-                    // 行を並べ替え
                     orderedTfs.forEach(tf => {
                         const row = tbody.querySelector(`tr[data-tf="${tf}"]`);
                         if (row) {
@@ -1715,53 +1832,80 @@
                     });
                 }
             }
-            
+
             // daytrade から突破数(bos)とタイムフレームを取得
             let daytradeBos = null;
             let daytradeTf = null;
             if (data.daytrade && data.daytrade.bos) {
                 daytradeBos = data.daytrade.bos;
-                // daytrade.tf があればそのTFにのみ適用、なければclouds[0]のTFを使用
                 if (data.daytrade.tf) {
                     daytradeTf = data.daytrade.tf;
                 } else if (data.clouds && data.clouds.length > 0) {
                     daytradeTf = data.clouds[0].label || data.clouds[0].tf;
                 }
             }
-            
-            // clouds 配列から表に反映
-            let clouds = data.clouds || [];
-            
-            // targetTfが指定されている場合、そのTFのcloudのみを処理
-            if (targetTf) {
-                clouds = clouds.filter(cloud => {
-                    const tfLabel = cloud.label || cloud.tf;
-                    return tfLabel === targetTf;
-                });
+
+            const normalizeDauten = raw => {
+                if (raw === undefined || raw === null) return 'up';
+                const value = String(raw).trim();
+                if (value.includes('▼') || value.toLowerCase().includes('down')) return 'down';
+                return 'up';
+            };
+
+            const normalizeGc = raw => {
+                if (raw === true || raw === 'true') return true;
+                const value = String(raw).trim();
+                return value.includes('▲') || value.toLowerCase() === 'gc' || value.toLowerCase() === 'true';
+            };
+
+            if (daytradeTf) {
+                daytradeTf = normalizeTfLabel(daytradeTf);
             }
-            
+            if (targetTf) {
+                targetTf = normalizeTfLabel(targetTf);
+            }
+
+            const clouds = Array.isArray(data.clouds) ? data.clouds.slice() : [];
+            const cloudMap = {};
             clouds.forEach(cloud => {
-                const tfLabel = cloud.label || cloud.tf;
+                const tfLabel = normalizeTfLabel(cloud.label || cloud.tf);
+                if (!['5m', '15m', '1H', '4H', 'price'].includes(tfLabel)) {
+                    return;
+                }
+                if (targetTf && tfLabel !== targetTf) {
+                    return;
+                }
+                cloudMap[tfLabel] = cloud;
+            });
+
+            Object.keys(cloudMap).forEach(tfLabel => {
+                const cloud = cloudMap[tfLabel];
                 const row = document.querySelector(`#dataTable tbody tr[data-tf="${tfLabel}"]`);
                 if (!row) return;
-                
-                // ダウ転
+
                 const dautenCell = row.querySelector('td[onclick*="toggleDauten"]');
+                const bosCell = row.querySelector('td[onclick*="cycleBos"]');
+                const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+                const distPrevInput = row.querySelector('input[data-field="distance_from_prev"]');
+                const distPriceInput = row.querySelector('input[data-field="distance_from_price"]');
+                const angleInput = row.querySelector('input[data-field="angle"]');
+                const thicknessInput = row.querySelector('input[data-field="thickness"]');
+                const dautenTimeInput = row.querySelector('input[data-field="dauten_start_time_str"]');
+                const crossInput = row.querySelector('input[data-field="cross_start_time_str"]');
+                const poCell = row.querySelector('td[data-field="po"]');
+                const poFireInput = row.querySelector('input[data-field="po_fire_time_str"]');
+
                 if (dautenCell && cloud.dauten !== undefined) {
-                    const isUp = cloud.dauten === 'up';
+                    const isUp = normalizeDauten(cloud.dauten) === 'up';
                     dautenCell.setAttribute('data-value', isUp ? 'up' : 'down');
                     dautenCell.textContent = isUp ? '▲Dow' : '▼Dow';
                     dautenCell.classList.remove('blue-bg', 'red-bg');
                     dautenCell.classList.add(isUp ? 'blue-bg' : 'red-bg');
                 }
-                
-                // 突破数 - daytrade.bos は該当TFにのみ適用、それ以外は cloud.bos_count を使用
-                const bosCell = row.querySelector('td[onclick*="cycleBos"]');
+
                 if (bosCell) {
                     let bosValue = '-';
-                    // daytrade.bos は daytradeTf と一致するTFにのみ適用
                     if (daytradeBos && daytradeBos !== '-' && tfLabel === daytradeTf) {
-                        // daytrade.bos を使用（例: "BOS-1" → そのまま使用）
                         bosValue = daytradeBos;
                     } else if (cloud.bos_count !== undefined && cloud.bos_count !== null && cloud.bos_count !== 0) {
                         bosValue = `BOS-${cloud.bos_count}`;
@@ -1770,72 +1914,61 @@
                     bosCell.textContent = bosValue;
                     updateBosBg(bosCell);
                 }
-                
-                // 雲交差 (gc)
-                const gcCell = row.querySelector('td[onclick*="toggleGc"]');
+
                 if (gcCell && cloud.gc !== undefined) {
-                    const isGc = cloud.gc === true;
+                    const isGc = normalizeGc(cloud.gc);
                     gcCell.setAttribute('data-value', isGc ? 'true' : 'false');
                     gcCell.textContent = isGc ? '▲GC' : '▼DC';
                     gcCell.classList.remove('blue-bg', 'red-bg');
                     gcCell.classList.add(isGc ? 'blue-bg' : 'red-bg');
                 }
-                
-                // 各雲間 (distance_from_prev) - 小数点1桁に四捨五入
-                const distPrevInput = row.querySelector('input[data-field="distance_from_prev"]');
+
                 if (distPrevInput && cloud.distance_from_prev !== undefined) {
                     distPrevInput.value = Math.round(cloud.distance_from_prev * 10) / 10;
                     updateNumericBg(distPrevInput);
                 }
-                
-                // 価格間 (distance_from_price) - 小数点1桁に四捨五入
-                const distPriceInput = row.querySelector('input[data-field="distance_from_price"]');
                 if (distPriceInput && cloud.distance_from_price !== undefined) {
                     distPriceInput.value = Math.round(cloud.distance_from_price * 10) / 10;
                     updateNumericBg(distPriceInput);
                 }
-                
-                // 雲角度 (angle) - 小数点1桁に四捨五入
-                const angleInput = row.querySelector('input[data-field="angle"]');
                 if (angleInput && cloud.angle !== undefined) {
                     angleInput.value = Math.round(cloud.angle * 10) / 10;
                     updateNumericBg(angleInput);
                 }
-                
-                // 雲厚み (thickness) - 小数点1桁に四捨五入
-                const thicknessInput = row.querySelector('input[data-field="thickness"]');
                 if (thicknessInput && cloud.thickness !== undefined) {
                     thicknessInput.value = Math.round(cloud.thickness * 10) / 10;
                     updateNumericBg(thicknessInput);
                 }
-                
-                // ダウ時間 (dauten_start_time_str)
-                const dautenTimeInput = row.querySelector('input[data-field="dauten_start_time_str"]');
-                if (dautenTimeInput && cloud.dauten_start_time_str) {
-                    dautenTimeInput.value = cloud.dauten_start_time_str;
-                    if (!originalTimeData[tfLabel]) {
-                        originalTimeData[tfLabel] = {};
-                    }
-                    originalTimeData[tfLabel].dauten = cloud.dauten_start_time_str;
+
+                if (dautenTimeInput && cloud.dauten_start_time_str !== undefined) {
+                    dautenTimeInput.value = cloud.dauten_start_time_str || '';
+                    if (!originalTimeData[tfLabel]) originalTimeData[tfLabel] = {};
+                    originalTimeData[tfLabel].dauten = cloud.dauten_start_time_str || '';
                     updateTimeBg(dautenTimeInput);
                 }
-                
-                // 交差時間 (elapsed_str)
-                const elapsedInput = row.querySelector('input[data-field="elapsed_str"]');
-                if (elapsedInput && cloud.elapsed_str) {
-                    elapsedInput.value = cloud.elapsed_str;
-                    if (!originalTimeData[tfLabel]) {
-                        originalTimeData[tfLabel] = {};
-                    }
-                    originalTimeData[tfLabel].elapsed = cloud.elapsed_str;
-                    updateTimeBg(elapsedInput);
+                if (crossInput && cloud.cross_start_time_str !== undefined) {
+                    crossInput.value = cloud.cross_start_time_str || '';
+                    if (!originalTimeData[tfLabel]) originalTimeData[tfLabel] = {};
+                    originalTimeData[tfLabel].cross = cloud.cross_start_time_str || '';
+                    updateTimeBg(crossInput);
                 }
-                
-                // 時間差を再計算
+
+                const poValue = cloud.po !== undefined ? cloud.po : (data.po && data.po.status ? data.po.status : undefined);
+                const poFireValue = cloud.po_fire_time_str !== undefined ? cloud.po_fire_time_str : (data.po && data.po.fire_time_str ? data.po.fire_time_str : undefined);
+
+                if (poCell && poValue !== undefined) {
+                    poCell.textContent = poValue || '-';
+                    updateTimeBg(poCell);
+                }
+                if (poFireInput && poFireValue !== undefined) {
+                    poFireInput.value = poFireValue || '';
+                    updateTimeBg(poFireInput);
+                }
+
                 calculateTimeDiff(row);
             });
-            
-            return clouds.length;
+
+            return Object.keys(cloudMap).length;
         }
         
         // ペーストしたJSONを表に反映（複数タイムフレーム対応）
@@ -1852,22 +1985,30 @@
             };
             
             const tfsToApply = tfHierarchy[selectedTf];
+            
+            // 最初に5mのJSONテキストを取得（フォールバック用）
+            const defaultJsonText = document.getElementById('indicatorJsonPaste5m').value.trim();
+            
             let totalClouds = 0;
             let errors = [];
             
             for (const tf of tfsToApply) {
                 const textarea = document.getElementById(`indicatorJsonPaste${tf}`);
-                const jsonText = textarea.value.trim();
+                let jsonText = textarea.value.trim();
+                
+                // 空の場合は5mのJSONを使用（フォールバック）
+                if (!jsonText) {
+                    jsonText = defaultJsonText;
+                }
                 
                 if (!jsonText) {
-                    continue; // 空の場合はスキップ
+                    continue; // 5mも空ならスキップ
                 }
                 
                 try {
-                    // 5m JSONのみ雲整列順序を適用（全TFのcloud_orderを含むため）
                     const applyOrder = (tf === '5m');
-                    // 各TFのJSONはそのTFのcloudのみを処理する
-                    const count = applySingleJsonToTable(jsonText, applyOrder, tf);
+                    const targetTf = tf === '5m' ? null : tf;
+                    const count = applySingleJsonToTable(jsonText, applyOrder, targetTf);
                     totalClouds += count;
                 } catch (e) {
                     errors.push(`${tf}: ${e.message}`);
@@ -1917,12 +2058,20 @@
             const results = [];
             let hasData = false;
             
+            // 最初に5mのJSONテキストを取得（フォールバック用）
+            const defaultJsonText = document.getElementById('indicatorJsonPaste5m').value.trim();
+            
             for (const tf of tfsToSend) {
                 const textarea = document.getElementById(`indicatorJsonPaste${tf}`);
-                const jsonText = textarea.value.trim();
+                let jsonText = textarea.value.trim();
+                
+                // 空の場合は5mのJSONを使用（フォールバック）
+                if (!jsonText) {
+                    jsonText = defaultJsonText;
+                }
                 
                 if (!jsonText) {
-                    continue; // 空の場合はスキップ
+                    continue; // 5mも空ならスキップ
                 }
                 
                 hasData = true;
@@ -2013,6 +2162,11 @@
             
             // オートセーブデータを読み込み
             loadAutoSave();
+            
+            // 現在時刻を自動設定（sentTimeが空の場合のみ）
+            if (!document.getElementById('sentTime').value) {
+                setCurrentTime();
+            }
             
             // Initialize background colors
             document.querySelectorAll('td[data-value]').forEach(cell => {

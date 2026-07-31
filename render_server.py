@@ -5557,20 +5557,54 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
                     should_fire = True
                     wlog(f'[RULE] Conditions became met after previous false → FIRE')
                 elif all_matched and last_all_matched and has_change:
-                    wlog(f'[RULE] Conditions still met but state changed → update matched state without firing')
-                    try:
-                        conn_mc = sqlite3.connect(DB_PATH)
-                        c_mc = conn_mc.cursor()
-                        c_mc.execute('''INSERT INTO fire_history 
-                                         (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
-                                         VALUES (?, ?, ?, ?, ?, ?)''',
-                                      (rule_id, rule_identity_symbol, '', datetime.now(jst).isoformat(),
-                                       json.dumps({'matched': True}, ensure_ascii=False),
-                                       json.dumps(current_values, ensure_ascii=False)))
-                        conn_mc.commit()
-                        conn_mc.close()
-                    except Exception as e:
-                        wlog(f'[RULE] Error saving matched state: {e}')
+                    # 条件は成立中だが、状態が変化した（たとえば買い→売り、売り→買いなど）場合は発火
+                    primary_keys = []
+                    if conditions:
+                        for cond in conditions:
+                            primary_tf = cond.get('timeframe') or cond.get('label')
+                            primary_field = cond.get('field')
+                            if primary_tf and primary_field:
+                                primary_keys.append(f'{primary_tf}.{primary_field}')
+
+                    direction_changed = False
+                    changed_keys = []
+                    if last_state is not None:
+                        for key in primary_keys:
+                            prev_val = last_state.get(key)
+                            curr_val = current_values.get(key)
+                            if prev_val in ('up', 'down') and curr_val in ('up', 'down') and prev_val != curr_val:
+                                direction_changed = True
+                                changed_keys.append((key, prev_val, curr_val))
+
+                        if not direction_changed:
+                            for key, prev_val in last_state.items():
+                                if key == '__all_matched__':
+                                    continue
+                                curr_val = current_values.get(key)
+                                if prev_val in ('up', 'down') and curr_val in ('up', 'down') and prev_val != curr_val:
+                                    direction_changed = True
+                                    changed_keys.append((key, prev_val, curr_val))
+                                    break
+
+                    if direction_changed:
+                        should_fire = True
+                        wlog(f'[RULE] Direction flip detected on keys: {changed_keys}')
+                        wlog(f'[RULE] Conditions still met but direction flipped → FIRE')
+                    else:
+                        wlog(f'[RULE] Conditions still met but state changed → update matched state without firing')
+                        try:
+                            conn_mc = sqlite3.connect(DB_PATH)
+                            c_mc = conn_mc.cursor()
+                            c_mc.execute('''INSERT INTO fire_history 
+                                             (rule_id, symbol, tf, fired_at, conditions_snapshot, last_state_snapshot)
+                                             VALUES (?, ?, ?, ?, ?, ?)''',
+                                          (rule_id, rule_identity_symbol, '', datetime.now(jst).isoformat(),
+                                           json.dumps({'matched': True}, ensure_ascii=False),
+                                           json.dumps(current_values, ensure_ascii=False)))
+                            conn_mc.commit()
+                            conn_mc.close()
+                        except Exception as e:
+                            wlog(f'[RULE] Error saving matched state: {e}')
                 elif has_change:
                     wlog(f'[RULE] Cell changed but conditions not met → no fire')
                     # 値が変化したので次回比較用に状態を更新
