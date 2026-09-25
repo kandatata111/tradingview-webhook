@@ -11,6 +11,7 @@
 エンドポイント
   POST /ohlc          TradingViewから受信(本文JSONの "key" で認証)
   GET  /ohlc/pull     PCが取得(ヘッダ X-API-Key で認証)  ?after=<前回のseq>&limit=<件数>
+                      応答の db_id は「DBの世代ID」。再起動で作り直されると変わる
   GET  /ohlc/status   保管状況の確認(ヘッダ X-API-Key で認証)
 
 環境変数(Renderの Environment に設定)
@@ -23,6 +24,7 @@ import re
 import time
 import hmac
 import sqlite3
+import uuid
 from flask import Blueprint, request, jsonify
 
 ohlc_bp = Blueprint('ohlc', __name__)
@@ -75,6 +77,14 @@ def _init_db():
                 UNIQUE(symbol, tf, t)
             )""")
         c.execute("CREATE INDEX IF NOT EXISTS idx_ohlc_received ON ohlc_buffer(received_at)")
+        # 世代ID: DBが新しく作られる(=再起動でデータが消える)たびに変わる。PCはこれで作り直しを検知する
+        c.execute("CREATE TABLE IF NOT EXISTS ohlc_meta (k TEXT PRIMARY KEY, v TEXT)")
+        c.execute("INSERT OR IGNORE INTO ohlc_meta(k, v) VALUES ('db_id', ?)", (uuid.uuid4().hex,))
+
+
+def _db_id():
+    with _conn() as c:
+        return c.execute("SELECT v FROM ohlc_meta WHERE k='db_id'").fetchone()[0]
 
 
 def _purge_if_due():
@@ -146,7 +156,7 @@ def ohlc_pull():
     has_more = len(rows) > limit
     rows = rows[:limit]
     last_seq = rows[-1][0] if rows else after
-    return jsonify({'status': 'ok', 'rows': [list(r) for r in rows],
+    return jsonify({'status': 'ok', 'db_id': _db_id(), 'rows': [list(r) for r in rows],
                     'last_seq': last_seq, 'has_more': has_more})
 
 
@@ -160,7 +170,7 @@ def ohlc_status():
             "GROUP BY symbol, tf ORDER BY symbol, tf").fetchall()
         total, max_seq = conn.execute("SELECT COUNT(*), COALESCE(MAX(seq),0) FROM ohlc_buffer").fetchone()
     return jsonify({
-        'status': 'ok', 'total': total, 'max_seq': max_seq,
+        'status': 'ok', 'db_id': _db_id(), 'total': total, 'max_seq': max_seq,
         'retention_days': _retention_days(),
         'series': [{'symbol': s, 'tf': tf, 'count': n, 'first_t': a, 'last_t': b}
                    for s, tf, n, a, b in per]})
