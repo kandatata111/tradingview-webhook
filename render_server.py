@@ -89,6 +89,10 @@ if not os.path.exists(PERSISTENT_DIR):
     except Exception as e:
         print(f"[STORAGE ERROR] Failed to create directory: {e}")
 
+# ローソク足の受け箱(/ohlc)を追加。既存の /webhook・webhook_data.db には影響しない
+from ohlc_blueprint import register_ohlc
+register_ohlc(app, PERSISTENT_DIR)
+
 # 表示用ルール発火状態を保持するインメモリマップ
 # key: (symbol, display_tf_normalized)  例: ('USDJPY', '1H')
 # value: {'rule_id': ..., 'rule_name': ..., 'direction': '上昇' or '下降'}
