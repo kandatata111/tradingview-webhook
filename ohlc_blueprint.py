@@ -112,7 +112,11 @@ def _parse_bar(data):
         raise ValueError('t')
     o, h, l, c = (float(data[k]) for k in ('o', 'h', 'l', 'c'))
     v = float(data.get('v', 0) or 0)
-    if min(o, h, l, c) <= 0 or h < l or h < max(o, c) or l > min(o, c):
+    # 実データには、終値が高値/安値を数pipsはみ出す足がまれにある(FXTFの5分足で過去に7本)。
+    # 取りこぼさないよう、そのまま受け入れる。弾くのは「0以下・非数・高値<安値」だけ。
+    if not all(x == x and x not in (float('inf'), float('-inf')) for x in (o, h, l, c, v)):
+        raise ValueError('nan')
+    if min(o, h, l, c) <= 0 or h < l:
         raise ValueError('ohlc')
     return symbol, tf, t, o, h, l, c, v
 
