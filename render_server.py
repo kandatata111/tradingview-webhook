@@ -1,4 +1,4 @@
-﻿from flask import Flask, request, jsonify, render_template, send_from_directory, make_response, Response
+from flask import Flask, request, jsonify, render_template, send_from_directory, make_response, Response
 import os, sqlite3, json, base64, hashlib, shutil
 from datetime import datetime
 import threading
@@ -6677,7 +6677,9 @@ if __name__ == '__main__':
     
     try:
         print('[DEBUG] Calling socketio.run...')
-        socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True, use_reloader=False)
+        # threaded=True: 既定では1件ずつしかリクエストを処理できず、アラートが集中する時間帯に
+        # PC側の単純な取得(/ohlc/pull)まで数十秒待たされていたため、同時並行で処理できるようにする
+        socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True, use_reloader=False, threaded=True)
         print('[DEBUG] socketio.run completed')
     except Exception as e:
         error_msg = f'[CRITICAL ERROR] Server crashed: {str(e)}'
