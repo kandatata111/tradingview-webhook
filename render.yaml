@@ -3,7 +3,7 @@ services:
     name: tradingview-webhook
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -k eventlet -w 1 render_server:app
+    startCommand: gunicorn render_server:app
     envVars:
       - key: PERSISTENT_STORAGE_PATH
         value: /var/data
