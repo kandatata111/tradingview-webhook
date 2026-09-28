@@ -31,6 +31,7 @@ ohlc_bp = Blueprint('ohlc', __name__)
 
 _DB_PATH = None
 _last_purge = 0.0
+_socketio = None   # PC側へ即時通知するためのSocketIO(register_ohlcで渡される。無ければ通知しない)
 _SYMBOL_RE = re.compile(r'^[A-Z]{6}$')
 _MIN_T = 946684800000    # 2000-01-01 (ms)
 _MAX_T = 4102444800000   # 2100-01-01 (ms)
@@ -141,6 +142,12 @@ def ohlc_receive():
             (symbol, tf, t, o, h, l, c, v, int(time.time())))
         seq = cur.lastrowid
     _purge_if_due()
+    if _socketio is not None:
+        # PCの取り込み(pull_from_cloud.py)へ「新しい足が来た」と即座に知らせる(60秒ポーリングを待たせない)
+        try:
+            _socketio.emit('ohlc_new', {'symbol': symbol, 'tf': tf, 't': t, 'seq': seq}, namespace='/')
+        except Exception as e:
+            print(f'[OHLC] socketio emit failed (継続します): {e}')
     return jsonify({'status': 'ok', 'seq': seq})
 
 
@@ -180,12 +187,14 @@ def ohlc_status():
                    for s, tf, n, a, b in per]})
 
 
-def register_ohlc(app, persistent_dir):
-    """render_server.py から呼ぶ。専用DBを用意して入口を登録する。"""
-    global _DB_PATH
+def register_ohlc(app, persistent_dir, socketio=None):
+    """render_server.py から呼ぶ。専用DBを用意して入口を登録する。
+    socketio を渡すと、新しい足を受信するたびに 'ohlc_new' イベントを即座に発信する(PC側のポーリング待ちを無くすため)。"""
+    global _DB_PATH, _socketio
     os.makedirs(persistent_dir, exist_ok=True)
     _DB_PATH = os.path.join(persistent_dir, 'ohlc_buffer.db')
+    _socketio = socketio
     _init_db()
     app.register_blueprint(ohlc_bp)
     print(f'[OHLC] registered. db={_DB_PATH} retention={_retention_days()}d tf={sorted(_allowed_tf())} '
-          f'key_set={bool(_api_key())}')
+          f'key_set={bool(_api_key())} push={bool(socketio)}')

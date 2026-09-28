@@ -91,7 +91,7 @@ if not os.path.exists(PERSISTENT_DIR):
 
 # ローソク足の受け箱(/ohlc)を追加。既存の /webhook・webhook_data.db には影響しない
 from ohlc_blueprint import register_ohlc
-register_ohlc(app, PERSISTENT_DIR)
+register_ohlc(app, PERSISTENT_DIR, socketio)
 
 # 表示用ルール発火状態を保持するインメモリマップ
 # key: (symbol, display_tf_normalized)  例: ('USDJPY', '1H')
