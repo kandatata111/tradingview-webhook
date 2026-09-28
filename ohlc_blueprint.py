@@ -145,7 +145,10 @@ def ohlc_receive():
     if _socketio is not None:
         # PCの取り込み(pull_from_cloud.py)へ「新しい足が来た」と即座に知らせる(60秒ポーリングを待たせない)
         try:
-            _socketio.emit('ohlc_new', {'symbol': symbol, 'tf': tf, 't': t, 'seq': seq}, namespace='/')
+            # o,h,l,c,v も一緒に送ることで、PC側は2回目の通信(/ohlc/pull)をせずその場で保存できる
+            # (ダッシュボード側と同じ「1回で完結する」仕組みにして、遅延を縮める)
+            _socketio.emit('ohlc_new', {'symbol': symbol, 'tf': tf, 't': t, 'seq': seq,
+                                         'o': o, 'h': h, 'l': l, 'c': c, 'v': v}, namespace='/')
         except Exception as e:
             print(f'[OHLC] socketio emit failed (継続します): {e}')
     return jsonify({'status': 'ok', 'seq': seq})
