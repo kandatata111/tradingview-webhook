@@ -2079,30 +2079,33 @@ def webhook():
             print(f'[DEBUG] update_table emitted successfully for {symbol_val}/{tf_val}')
             
             # 通貨強弱データを計算してemit
-            try:
-                currency_data = calculate_currency_strength_data()
-                
-                # 変更を検出してDBに記録（エラーが発生してもWebhook処理を継続）
+            # (重い計算のため、Webhookの応答や他の通知(/ohlcの即時通知など)を遅らせないよう、裏スレッドで実行する)
+            def _calc_and_emit_currency_strength():
                 try:
-                    detect_and_record_extreme_changes(currency_data)
-                except Exception as history_error:
-                    print(f'[ERROR] Change history recording failed (continuing): {history_error}')
+                    currency_data = calculate_currency_strength_data()
+                    
+                    # 変更を検出してDBに記録（エラーが発生してもWebhook処理を継続）
+                    try:
+                        detect_and_record_extreme_changes(currency_data)
+                    except Exception as history_error:
+                        print(f'[ERROR] Change history recording failed (continuing): {history_error}')
+                        import traceback
+                        traceback.print_exc()
+                        with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
+                            f.write(f'{datetime.now(jst).isoformat()} - [HISTORY_ERROR] {history_error}\n')
+                            f.write(traceback.format_exc())
+                    
+                    socketio.emit('currency_strength_update', {
+                        'status': 'success',
+                        'data': currency_data,
+                        'timestamp': datetime.now(jst).isoformat()
+                    })
+                    print(f'[CURRENCY_STRENGTH] Emitted update via SocketIO')
+                except Exception as e:
+                    print(f'[ERROR] Failed to emit currency strength: {e}')
                     import traceback
                     traceback.print_exc()
-                    with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                        f.write(f'{datetime.now(jst).isoformat()} - [HISTORY_ERROR] {history_error}\n')
-                        f.write(traceback.format_exc())
-                
-                socketio.emit('currency_strength_update', {
-                    'status': 'success',
-                    'data': currency_data,
-                    'timestamp': datetime.now(jst).isoformat()
-                })
-                print(f'[CURRENCY_STRENGTH] Emitted update via SocketIO')
-            except Exception as e:
-                print(f'[ERROR] Failed to emit currency strength: {e}')
-                import traceback
-                traceback.print_exc()
+            threading.Thread(target=_calc_and_emit_currency_strength, daemon=True).start()
             
             # 市場ステータス更新通知
             market_open = is_fx_market_open()
