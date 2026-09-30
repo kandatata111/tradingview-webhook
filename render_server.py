@@ -75,24 +75,6 @@ def _load_alert_voice_settings():
     return dict(DEFAULT_ALERT_VOICE_SETTINGS)
 
 
-@app.route('/api/alert_voice_settings', methods=['GET'])
-def api_get_alert_voice_settings():
-    return jsonify(_load_alert_voice_settings())
-
-
-@app.route('/api/alert_voice_settings', methods=['POST'])
-def api_save_alert_voice_settings():
-    try:
-        body = request.get_json(force=True, silent=True) or {}
-        merged = dict(DEFAULT_ALERT_VOICE_SETTINGS)
-        merged.update(_load_alert_voice_settings())
-        merged.update(body)
-        with open(ALERT_VOICE_SETTINGS_PATH, 'w', encoding='utf-8') as f:
-            json.dump(merged, f, ensure_ascii=False, indent=2)
-        return jsonify({'status': 'ok', 'settings': merged})
-    except Exception as e:      # noqa
-        return jsonify({'status': 'error', 'msg': str(e)}), 400
-
 PAIR_JP = {
     'USDJPY': 'ドル円', 'EURJPY': 'ユーロ円', 'GBPJPY': 'ポンド円', 'AUDJPY': 'オージー円',
     'EURUSD': 'ユーロドル', 'GBPUSD': 'ポンドドル', 'AUDUSD': 'オージードル',
@@ -128,6 +110,25 @@ with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as
     _f.write(f'====== BASE_DIR: {BASE_DIR} ======\n\n')
 
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
+
+@app.route('/api/alert_voice_settings', methods=['GET'])
+def api_get_alert_voice_settings():
+    return jsonify(_load_alert_voice_settings())
+
+
+@app.route('/api/alert_voice_settings', methods=['POST'])
+def api_save_alert_voice_settings():
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        merged = dict(DEFAULT_ALERT_VOICE_SETTINGS)
+        merged.update(_load_alert_voice_settings())
+        merged.update(body)
+        with open(ALERT_VOICE_SETTINGS_PATH, 'w', encoding='utf-8') as f:
+            json.dump(merged, f, ensure_ascii=False, indent=2)
+        return jsonify({'status': 'ok', 'settings': merged})
+    except Exception as e:      # noqa
+        return jsonify({'status': 'error', 'msg': str(e)}), 400
+
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 app.jinja_env.auto_reload = True
