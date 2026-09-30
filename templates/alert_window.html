@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>ダウ転換・角度アラート</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body{margin:0;font-family:"Yu Gothic","Meiryo",system-ui,sans-serif;background:#1a1033;color:#ffffff}
+  .wrap{padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:100vh}
+  .hdr{display:flex;flex-direction:column;gap:2px}
+  .hdr h1{font-size:19px;font-weight:700;margin:0;color:#ffffff}
+  .hdr .sub{font-size:11px;color:#ffffff;opacity:0.8}
+  .tabs{display:flex;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:999px;padding:6px;width:fit-content}
+  .tab{padding:6px 14px;border-radius:999px;font-size:12px;color:#ffffff;cursor:pointer;opacity:0.6;user-select:none}
+  .tab.on{background:linear-gradient(135deg,#8b5cf6,#6366f1);opacity:1;box-shadow:0 4px 14px rgba(139,92,246,0.4)}
+  .card{background:linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.08);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.25)}
+  table{border-collapse:separate;border-spacing:4px;width:100%}
+  th{text-align:center;font-weight:600;color:#ffffff;font-size:11px;padding:2px}
+  .hm{border-radius:8px;padding:7px 4px;text-align:center;font-size:11px;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+  .hm.dim{opacity:0.4;box-shadow:none}
+  .hm.focus{outline:2px solid #fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,0.25)}
+  .hm.na{opacity:0.25}
+  .pairname{color:#ffffff;font-weight:700;font-size:12px;text-align:left;padding-left:4px;white-space:nowrap}
+  .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:#ffffff;flex-wrap:wrap}
+  .sw{width:12px;height:12px;border-radius:4px;display:inline-block}
+  .group{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .bars{display:flex;align-items:flex-end;gap:5px;height:110px}
+  .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}
+  .track{width:100%;height:88px;display:flex;align-items:flex-end}
+  .fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s ease}
+  .tfLabel{font-size:9px;color:#c4b5fd}
+  .valLabel{font-size:9px;color:#ffffff;font-weight:700}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(255,255,255,0.1);color:#ffffff}
+  .histrow{display:flex;align-items:center;gap:10px;font-size:12px;color:#ffffff;padding:2px 0}
+  .histrow .t{width:52px;color:#ffffff;opacity:0.7;font-size:10px;flex-shrink:0}
+  .flash{animation:flash 1.2s ease-out 2}
+  @keyframes flash{0%{outline:2px solid #fbbf24}100%{outline:2px solid transparent}}
+  .muteBtn{margin-left:auto;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer}
+  .muteBtn.on{background:rgba(139,92,246,0.4)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hdr" style="flex-direction:row;align-items:flex-start;justify-content:space-between">
+    <div>
+      <h1>ダウ転換・角度アラート状況</h1>
+      <div class="sub">上部タブは全体マトリクスの強調列を切替える。下の比較グラフは常に全時間足(5分/15分/1時間/4時間)を同時表示し、タブに左右されない</div>
+    </div>
+    <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab" data-tf="5">5分</div>
+    <div class="tab on" data-tf="15">15分</div>
+    <div class="tab" data-tf="60">1時間</div>
+    <div class="tab" data-tf="240">4時間</div>
+  </div>
+
+  <div class="card" style="padding:10px 14px">
+    <div style="font-size:10px;color:#ffffff;opacity:0.8;margin-bottom:5px">全体マトリクス(選択中の時間足の列だけ強調)</div>
+    <table id="matrixTable">
+      <thead><tr><th style="text-align:left">ペア</th><th>5分</th><th>15分</th><th>1時間</th><th>4時間</th></tr></thead>
+      <tbody id="matrixBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="flex:1;padding:10px 14px;display:flex;flex-direction:column;min-height:220px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:10px;color:#ffffff;opacity:0.8">角度の強さ比較(全時間足を同時表示・棒の高さ=強さ)</div>
+      <div class="legend"><span class="sw" style="background:#10b981"></span>上昇<span class="sw" style="background:#e11d48;margin-left:6px"></span>下降</div>
+    </div>
+    <div id="barsWrap" style="flex:1;display:flex;justify-content:space-around;align-items:flex-end;overflow-x:auto;overflow-y:hidden"></div>
+  </div>
+
+  <div class="card" style="padding:8px 14px;overflow:auto;max-height:160px;display:flex;flex-direction:column;gap:4px">
+    <div style="font-size:11px;color:#ffffff;opacity:0.8;margin-bottom:2px">発火履歴</div>
+    <div id="histWrap"></div>
+  </div>
+
+</div>
+
+<script>
+const PAIRS = ['USDJPY','EURJPY','GBPJPY','AUDJPY','EURUSD','GBPUSD','AUDUSD','EURGBP','EURAUD','GBPAUD'];
+const PAIR_JP = {USDJPY:'ドル円',EURJPY:'ユーロ円',GBPJPY:'ポンド円',AUDJPY:'オージー円',EURUSD:'ユーロドル',GBPUSD:'ポンドドル',AUDUSD:'オージードル',EURGBP:'ユーロポンド',EURAUD:'ユーロオージー',GBPAUD:'ポンドオージー'};
+const TFS = ['5','15','60','240'];
+const TF_JP = {'5':'5分','15':'15分','60':'1時間','240':'4時間'};
+const MAX_ANGLE = 90;   // 棒の高さの正規化に使う上限(度)
+
+let selectedTf = '15';
+let angleData = {};     // { pair: { tf: {angle, direction, updated_at} } }
+let muted = false;
+
+function $(id){ return document.getElementById(id); }
+
+function dirColor(direction, strong){
+  if (direction === 'up') return strong ? '#047857' : '#34d399';
+  if (direction === 'down') return strong ? '#be123c' : '#fb7185';
+  return '#5c5f66';
+}
+
+function renderMatrix(){
+  const body = $('matrixBody');
+  body.innerHTML = PAIRS.map(pair => {
+    const cells = TFS.map(tf => {
+      const d = (angleData[pair] || {})[tf];
+      const focus = tf === selectedTf;
+      if (!d || d.angle === null || d.angle === undefined) {
+        return `<td><div class="hm na">--</div></td>`;
+      }
+      const strong = Math.abs(d.angle) >= 45;
+      const bg = dirColor(d.direction, strong);
+      const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
+      const cls = 'hm' + (focus ? ' focus' : ' dim');
+      return `<td><div class="${cls}" style="background:${bg}">${arrow}${Math.abs(Math.round(d.angle))}</div></td>`;
+    }).join('');
+    return `<tr><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
+  }).join('');
+}
+
+function renderBars(){
+  const wrap = $('barsWrap');
+  wrap.innerHTML = PAIRS.map(pair => {
+    const cols = TFS.map(tf => {
+      const d = (angleData[pair] || {})[tf];
+      const angle = d && d.angle !== null && d.angle !== undefined ? d.angle : 0;
+      const height = Math.max(4, Math.min(100, Math.abs(angle) / MAX_ANGLE * 100));
+      const strong = Math.abs(angle) >= 45;
+      const color = d && d.direction ? dirColor(d.direction, strong) : '#3a3d44';
+      const label = d && d.angle !== null && d.angle !== undefined ? Math.abs(Math.round(d.angle)) : '-';
+      return `<div class="barcol"><div class="valLabel">${label}</div><div class="track"><div class="fill" style="height:${height}%;background:${color}"></div></div><div class="tfLabel">${TF_JP[tf]}</div></div>`;
+    }).join('');
+    return `<div class="group"><div class="bars">${cols}</div><div style="font-size:12px;font-weight:700;color:#ffffff">${PAIR_JP[pair] || pair}</div></div>`;
+  }).join('');
+}
+
+function renderAll(){ renderMatrix(); renderBars(); }
+
+$('tabs').addEventListener('click', (e) => {
+  const t = e.target.closest('.tab');
+  if (!t) return;
+  document.querySelectorAll('#tabs .tab').forEach(el => el.classList.remove('on'));
+  t.classList.add('on');
+  selectedTf = t.dataset.tf;
+  renderMatrix();
+});
+
+function addHistoryRow(entry, isNew){
+  const wrap = $('histWrap');
+  const arrow = entry.direction === 'up' ? '▲' : '▼';
+  const row = document.createElement('div');
+  row.className = 'histrow' + (isNew ? ' flash' : '');
+  row.innerHTML = `<span class="t">${entry.time || ''}</span><span class="badge">${arrow}</span><span>${PAIR_JP[entry.pair] || entry.pair} ${TF_JP[entry.tf] || entry.tf} ダウ転換 ${entry.direction === 'up' ? '上昇' : '下降'}です</span>`;
+  wrap.insertBefore(row, wrap.firstChild);
+  while (wrap.children.length > 30) wrap.removeChild(wrap.lastChild);
+}
+
+// ---- 音声 ----
+let jpVoice = null;
+function pickVoice(){
+  if (!('speechSynthesis' in window)) return;
+  const voices = speechSynthesis.getVoices();
+  jpVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ja')) || null;
+}
+if ('speechSynthesis' in window){
+  pickVoice();
+  if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = pickVoice;
+}
+function speak(text){
+  if (muted || !('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP';
+  if (jpVoice) u.voice = jpVoice;
+  speechSynthesis.speak(u);
+}
+
+$('muteBtn').addEventListener('click', () => {
+  muted = !muted;
+  $('muteBtn').textContent = muted ? '🔇 音声OFF' : '🔊 音声ON';
+  $('muteBtn').classList.toggle('on', !muted);
+});
+
+// ---- 初期データ取得 ----
+fetch('/api/angle_data').then(r => r.json()).then(data => { angleData = data || {}; renderAll(); }).catch(() => renderAll());
+fetch('/api/dow_alert_history').then(r => r.json()).then(list => {
+  (list || []).slice().reverse().forEach(e => addHistoryRow(e, false));
+}).catch(() => {});
+
+// ---- リアルタイム更新 ----
+const socket = io();
+socket.on('angle_update', (msg) => {
+  angleData = (msg && msg.data) || angleData;
+  renderAll();
+});
+socket.on('new_dow_alert', (entry) => {
+  addHistoryRow(entry, true);
+  speak(entry.text || `${PAIR_JP[entry.pair] || entry.pair} ${TF_JP[entry.tf] || entry.tf} ダウ転換です`);
+});
+
+renderAll();
+</script>
+</body>
+</html>

@@ -37,6 +37,28 @@ SERVER_START_TIME = None
 # job_id -> {'status': 'running'|'completed'|'error', 'output': str, 'started_at': str}
 _backup_jobs = {}
 
+# 角度・ダウ転換 一覧表示用データストア(ダウ雲チャートPC側からのPUSHを保持するだけ)
+# 構造: { "USDJPY": { "5": {"angle": 28.4, "direction": "up", "dow": "up", "updated_at": "..."}, "15": {...}, ... }, ... }
+_angle_lock = threading.Lock()
+_angle_data = {}
+ANGLE_PUSH_KEY = os.environ.get('ANGLE_PUSH_KEY', '')  # PC側と共有する合言葉。未設定なら認証なし(開発用)
+
+# ダウ転換(角度アラート機能)の発火履歴。ペア問わず新しい順に最大30件保持するだけ(表示用。DB永続化はしない)
+_dow_alert_lock = threading.Lock()
+_dow_alert_history = []
+DOW_ALERT_HISTORY_MAX = 30
+
+# ジグザグ_V03(TradingView)のWebhookアラート受信で使う設定(履歴は既存の_dow_alert_historyに合流させる)
+ZIGZAG_ALERT_KEY = os.environ.get('ZIGZAG_ALERT_KEY', '')  # ジグザグ_V03のPine側inputと同じ文字列。未設定なら認証なし(開発用)
+ZIGZAG_TF_MAP = {'5M': '5', '15M': '15', '1H': '60', '4H': '240', '1M': '1', 'D': 'D', 'W': 'W', 'M': 'M'}
+
+PAIR_JP = {
+    'USDJPY': 'ドル円', 'EURJPY': 'ユーロ円', 'GBPJPY': 'ポンド円', 'AUDJPY': 'オージー円',
+    'EURUSD': 'ユーロドル', 'GBPUSD': 'ポンドドル', 'AUDUSD': 'オージードル',
+    'EURGBP': 'ユーロポンド', 'EURAUD': 'ユーロオージー', 'GBPAUD': 'ポンドオージー',
+}
+TF_JP = {'5': '5分', '15': '15分', '60': '1時間', '240': '4時間'}
+
 # 各タイムフレームの初回受信フラグ（再起動時の誤発火防止）
 # True = 既に受信済み（通常評価）、False = 未受信（初回は状態記録のみ）
 FIRST_RECEIVE_FLAGS = {}
@@ -1036,6 +1058,161 @@ def currency_strength_final():
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
+@app.route('/alert_window')
+def alert_window():
+    """ダウ転換・角度アラート専用ウィンドウ"""
+    response = make_response(render_template('alert_window.html'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
+@app.route('/api/angle_push', methods=['POST'])
+def api_angle_push():
+    """ダウ雲チャート(PC側)から、計算済みの角度・ダウ転換の値を受け取る。
+    表示専用データの更新のみを行う軽い処理。重い計算はしない。
+    受信のたびに接続中のalert_windowへ即座に配信する(表示の反映用。速さが必要なアラート音声とは別経路)。"""
+    if ANGLE_PUSH_KEY:
+        if request.headers.get('X-Angle-Key', '') != ANGLE_PUSH_KEY:
+            return jsonify({'error': 'unauthorized'}), 401
+
+    data = request.get_json(force=True, silent=True) or {}
+    items = data.get('items') or []    # [{pair, tf, angle, direction}, ...] 常時の表示更新用
+    alerts = data.get('alerts') or []  # [{pair, tf, direction, angle}, ...] たった今ダウ転換が確定した分(通知用)
+    if not isinstance(items, list) or not isinstance(alerts, list):
+        return jsonify({'error': 'items/alerts must be a list'}), 400
+
+    now_iso = datetime.utcnow().isoformat()
+    with _angle_lock:
+        for it in items:
+            pair = it.get('pair')
+            tf = it.get('tf')
+            if not pair or not tf:
+                continue
+            _angle_data.setdefault(pair, {})[tf] = {
+                'angle': it.get('angle'),
+                'direction': it.get('direction'),
+                'updated_at': now_iso,
+            }
+        snapshot = {k: dict(v) for k, v in _angle_data.items()}
+
+    try:
+        socketio.emit('angle_update', {'data': snapshot})
+    except Exception as e:      # noqa
+        print(f'[ANGLE] socketio配信エラー(継続します): {e}')
+
+    fired = []
+    if alerts:
+        jst = pytz.timezone('Asia/Tokyo')
+        with _dow_alert_lock:
+            for al in alerts:
+                pair = al.get('pair'); tf = al.get('tf'); direction = al.get('direction')
+                if not pair or not tf or direction not in ('up', 'down'):
+                    continue
+                pair_jp = PAIR_JP.get(pair, pair)
+                tf_jp = TF_JP.get(tf, tf)
+                dir_jp = '上昇' if direction == 'up' else '下降'
+                text = f'{pair_jp}、{tf_jp}、ダウ転換、{dir_jp}です。{pair_jp}'
+                entry = {
+                    'pair': pair, 'tf': tf, 'direction': direction,
+                    'angle': al.get('angle'),
+                    'text': text,
+                    'time': datetime.now(jst).strftime('%H:%M'),
+                    'received_at': now_iso,
+                }
+                _dow_alert_history.insert(0, entry)
+                fired.append(entry)
+            del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
+
+        for entry in fired:
+            try:
+                socketio.emit('new_dow_alert', entry)
+            except Exception as e:      # noqa
+                print(f'[ANGLE] ダウ転換通知の配信エラー(継続します): {e}')
+
+    return jsonify({'status': 'ok', 'count': len(items), 'fired': len(fired)})
+
+
+@app.route('/api/angle_data', methods=['GET'])
+def api_angle_data():
+    """alert_window読み込み時の初期値取得用"""
+    with _angle_lock:
+        snapshot = {k: dict(v) for k, v in _angle_data.items()}
+    return jsonify(snapshot)
+
+
+@app.route('/api/dow_alert_history', methods=['GET'])
+def api_dow_alert_history():
+    """alert_window読み込み時の、ダウ転換 発火履歴の初期値取得用"""
+    with _dow_alert_lock:
+        return jsonify(list(_dow_alert_history))
+
+
+@app.route('/api/zigzag_alert', methods=['POST'])
+def api_zigzag_alert():
+    """ジグザグ_V03(TradingView)のインジケーターアラートWebhookを受け取る。
+    既存の「ダウ転換・角度アラート」画面(alert_window.html)が使っている発火履歴・音声通知の
+    仕組み(_dow_alert_history / socketio 'new_dow_alert')にそのまま合流させる。
+    画面のマトリクス/棒グラフ(角度の値そのもの)は今まで通りPC側(/api/angle_push)が担当するため、
+    ここでは変更しない。ダウ転換(CHOCH)だけを流し、BOS(継続シグナル)は無視する(頻発するため)。"""
+    raw_text = request.get_data(as_text=True) or ''
+    data = request.get_json(force=True, silent=True)
+    if data is None:
+        try:
+            data = json.loads(raw_text)
+        except Exception:
+            return jsonify({'status': 'error', 'msg': 'invalid json'}), 400
+
+    if ZIGZAG_ALERT_KEY:
+        if (data.get('key') or '') != ZIGZAG_ALERT_KEY:
+            return jsonify({'status': 'error', 'msg': 'unauthorized'}), 401
+
+    symbol = data.get('symbol', '')
+    sg = data.get('sg', '')
+    if not symbol or not sg:
+        return jsonify({'status': 'error', 'msg': 'symbol/sg required'}), 400
+
+    tf_raw = data.get('tf', '')
+    tf = ZIGZAG_TF_MAP.get(tf_raw, tf_raw)
+
+    is_external = sg.endswith('+')          # 末尾"+"= スイング(External)側の信号
+    sg_base = sg[:-1] if is_external else sg
+    direction = 'up' if sg_base.startswith('bull') else ('down' if sg_base.startswith('bear') else None)
+    is_choch = sg_base.endswith('choch')    # "_choch"系だけがダウ転換。"_bos"系は継続シグナルなので無視
+
+    if not (is_choch and direction and symbol in PAIR_JP and tf in TF_JP):
+        # 対象外(BOS、未対応ペア/時間足など)は記録もせず素通り
+        return jsonify({'status': 'ok', 'spoken': False})
+
+    jst = pytz.timezone('Asia/Tokyo')
+    now_iso = datetime.utcnow().isoformat()
+    pair_jp = PAIR_JP.get(symbol, symbol)
+    tf_jp = TF_JP.get(tf, tf)
+    dir_jp = '上昇' if direction == 'up' else '下降'
+    scope_jp = 'スイング' if is_external else 'デイトレ'
+    text = f'{pair_jp}、{tf_jp}、{scope_jp}、ダウ転換、{dir_jp}です。{pair_jp}'
+
+    entry = {
+        'pair': symbol, 'tf': tf, 'direction': direction,
+        'angle': None,
+        'text': text,
+        'time': datetime.now(jst).strftime('%H:%M'),
+        'received_at': now_iso,
+    }
+
+    with _dow_alert_lock:
+        _dow_alert_history.insert(0, entry)
+        del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
+
+    try:
+        socketio.emit('new_dow_alert', entry)
+    except Exception as e:      # noqa
+        print(f'[ZIGZAG_ALERT] 配信エラー(継続します): {e}')
+
+    return jsonify({'status': 'ok', 'spoken': True})
+
 
 @app.route('/test_api')
 def test_api():

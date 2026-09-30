@@ -1109,6 +1109,11 @@ table th:nth-child(9), table th:nth-child(10), table th:nth-child(11) {
       <span>通貨強弱</span>
       <span class="menu-status" id="statusCurrencyStrength"></span>
     </button>
+    <button class="side-menu-item" id="menuAlert">
+      <span class="menu-icon">🔔</span>
+      <span>アラート</span>
+      <span class="menu-status" id="statusAlert"></span>
+    </button>
     <button class="side-menu-item" id="menuBackupRecovery">
       <span class="menu-icon">💾</span>
       <span>バックアップ復旧</span>
@@ -1527,6 +1532,7 @@ let economicCalendarWindowRef = null;
 let shepherdColumnWindowRef = null;
 let timerWindowRef = null;
 let currencyStrengthWindowRef = null;
+let alertWindowRef = null;
 
 // 利用可能な通貨リスト（子ウィンドウと共有用）
 let availableCurrenciesGlobal = [];
@@ -1559,7 +1565,8 @@ async function setupAllEventListeners() {
       { id: 'menuEconomicCalendar', ref: economicCalendarWindowRef, statusId: 'statusEconomicCalendar' },
       { id: 'menuShepherdColumn', ref: shepherdColumnWindowRef, statusId: 'statusShepherdColumn' },
       { id: 'menuTimer', ref: timerWindowRef, statusId: 'statusTimer' },
-      { id: 'menuCurrencyStrength', ref: currencyStrengthWindowRef, statusId: 'statusCurrencyStrength' }
+      { id: 'menuCurrencyStrength', ref: currencyStrengthWindowRef, statusId: 'statusCurrencyStrength' },
+      { id: 'menuAlert', ref: alertWindowRef, statusId: 'statusAlert' }
     ];
 
     menuItems.forEach(item => {
@@ -1652,6 +1659,17 @@ async function setupAllEventListeners() {
       currencyStrengthWindowRef.focus();
     } else {
       currencyStrengthWindowRef = window.open('/currency_strength_window', 'currency_strength_window', 'width=1400,height=800,left=350,top=150,resizable=yes,scrollbars=yes');
+    }
+    updateMenuStatus();
+  });
+
+  // アラートメニュー項目: 子ウィンドウを開く/前面に出す
+  const menuAlert = document.getElementById('menuAlert');
+  if (menuAlert) menuAlert.addEventListener('click', () => {
+    if (alertWindowRef && !alertWindowRef.closed) {
+      alertWindowRef.focus();
+    } else {
+      alertWindowRef = window.open('/alert_window', 'alert_window', 'width=1000,height=760,left=400,top=100,resizable=yes,scrollbars=yes');
     }
     updateMenuStatus();
   });
