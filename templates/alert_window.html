@@ -11,7 +11,7 @@
   .hdr{display:flex;flex-direction:column;gap:2px}
   .hdr h1{font-size:19px;font-weight:700;margin:0;color:#ffffff}
   .hdr .sub{font-size:11px;color:#ffffff;opacity:0.8}
-  .tabs{display:flex;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:999px;padding:6px;width:fit-content}
+  .tabs{display:flex;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:999px;padding:6px;width:fit-content;flex-wrap:wrap}
   .tab{padding:6px 14px;border-radius:999px;font-size:12px;color:#ffffff;cursor:pointer;opacity:0.6;user-select:none}
   .tab.on{background:linear-gradient(135deg,#8b5cf6,#6366f1);opacity:1;box-shadow:0 4px 14px rgba(139,92,246,0.4)}
   .card{background:linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.08);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.25)}
@@ -36,8 +36,23 @@
   .histrow .t{width:52px;color:#ffffff;opacity:0.7;font-size:10px;flex-shrink:0}
   .flash{animation:flash 1.2s ease-out 2}
   @keyframes flash{0%{outline:2px solid #fbbf24}100%{outline:2px solid transparent}}
-  .muteBtn{margin-left:auto;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer}
+  .headerBtns{display:flex;gap:8px;flex-shrink:0}
+  .muteBtn,.gearBtn,.saveBtn,.testBtn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer}
   .muteBtn.on{background:rgba(139,92,246,0.4)}
+  .saveBtn{background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;font-weight:700;padding:7px 18px}
+  .settingsPanel{display:none;flex-direction:column;gap:14px;padding:14px 16px}
+  .settingsPanel.open{display:flex}
+  .settingsSection h3{font-size:12px;margin:0 0 8px 0;color:#c4b5fd}
+  .voiceRow{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
+  .voiceRow textarea{flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:12px;padding:6px 8px;resize:vertical;min-height:38px;font-family:inherit}
+  .hint{font-size:10px;color:#ffffff;opacity:0.55;margin:-4px 0 8px 0}
+  .chipGrid{display:flex;flex-wrap:wrap;gap:6px}
+  .muteChip{display:flex;align-items:center;gap:4px;font-size:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:999px;padding:4px 10px;cursor:pointer;user-select:none}
+  .muteChip input{accent-color:#8b5cf6}
+  .muteChip.muted{background:rgba(190,18,60,0.25);border-color:rgba(190,18,60,0.5)}
+  .settingsFooter{display:flex;justify-content:flex-end;align-items:center;gap:10px}
+  .saveStatus{font-size:11px;color:#4ade80;opacity:0;transition:opacity 0.3s}
+  .saveStatus.show{opacity:1}
 </style>
 </head>
 <body>
@@ -46,12 +61,44 @@
   <div class="hdr" style="flex-direction:row;align-items:flex-start;justify-content:space-between">
     <div>
       <h1>ダウ転換・角度アラート状況</h1>
-      <div class="sub">上部タブは全体マトリクスの強調列を切替える。下の比較グラフは常に全時間足(5分/15分/1時間/4時間)を同時表示し、タブに左右されない</div>
+      <div class="sub">上部タブは全体マトリクスの強調列を切替える(「全て」は全列を強調)。下の比較グラフは常に5分/15分/1時間/4時間を同時表示(1分は角度計算が無いため対象外)</div>
     </div>
-    <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
+    <div class="headerBtns">
+      <button class="gearBtn" id="gearBtn">⚙ 個別設定</button>
+      <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
+    </div>
+  </div>
+
+  <div class="card settingsPanel" id="settingsPanel">
+    <div class="settingsSection">
+      <h3>読み上げ文言(上昇・下降を別々に設定できます)</h3>
+      <div class="hint">{pair}=通貨ペア名 / {tf}=時間足名 / {scope}=デイトレ・スイング(TradingViewアラート由来の時だけ入ります) が使えます</div>
+      <div class="voiceRow">
+        <textarea id="tmplUp" rows="2"></textarea>
+        <button class="testBtn" id="testUpBtn">▲上昇テスト</button>
+      </div>
+      <div class="voiceRow">
+        <textarea id="tmplDown" rows="2"></textarea>
+        <button class="testBtn" id="testDownBtn">▼下降テスト</button>
+      </div>
+    </div>
+    <div class="settingsSection">
+      <h3>通貨ペアごとの消音</h3>
+      <div class="chipGrid" id="mutePairGrid"></div>
+    </div>
+    <div class="settingsSection">
+      <h3>時間足ごとの消音</h3>
+      <div class="chipGrid" id="muteTfGrid"></div>
+    </div>
+    <div class="settingsFooter">
+      <span class="saveStatus" id="saveStatus">保存しました</span>
+      <button class="saveBtn" id="saveSettingsBtn">保存</button>
+    </div>
   </div>
 
   <div class="tabs" id="tabs">
+    <div class="tab" data-tf="all">全て</div>
+    <div class="tab" data-tf="1">1分</div>
     <div class="tab" data-tf="5">5分</div>
     <div class="tab on" data-tf="15">15分</div>
     <div class="tab" data-tf="60">1時間</div>
@@ -59,16 +106,16 @@
   </div>
 
   <div class="card" style="padding:10px 14px">
-    <div style="font-size:10px;color:#ffffff;opacity:0.8;margin-bottom:5px">全体マトリクス(選択中の時間足の列だけ強調)</div>
+    <div style="font-size:10px;color:#ffffff;opacity:0.8;margin-bottom:5px">全体マトリクス(選択中の時間足の列だけ強調。「全て」選択時は全列強調)</div>
     <table id="matrixTable">
-      <thead><tr><th style="text-align:left">ペア</th><th>5分</th><th>15分</th><th>1時間</th><th>4時間</th></tr></thead>
+      <thead><tr><th style="text-align:left">ペア</th><th>1分</th><th>5分</th><th>15分</th><th>1時間</th><th>4時間</th></tr></thead>
       <tbody id="matrixBody"></tbody>
     </table>
   </div>
 
   <div class="card" style="flex:1;padding:10px 14px;display:flex;flex-direction:column;min-height:220px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:10px;color:#ffffff;opacity:0.8">角度の強さ比較(全時間足を同時表示・棒の高さ=強さ)</div>
+      <div style="font-size:10px;color:#ffffff;opacity:0.8">角度の強さ比較(5分/15分/1時間/4時間を同時表示・棒の高さ=強さ)</div>
       <div class="legend"><span class="sw" style="background:#10b981"></span>上昇<span class="sw" style="background:#e11d48;margin-left:6px"></span>下降</div>
     </div>
     <div id="barsWrap" style="flex:1;display:flex;justify-content:space-around;align-items:flex-end;overflow-x:auto;overflow-y:hidden"></div>
@@ -84,13 +131,20 @@
 <script>
 const PAIRS = ['USDJPY','EURJPY','GBPJPY','AUDJPY','EURUSD','GBPUSD','AUDUSD','EURGBP','EURAUD','GBPAUD'];
 const PAIR_JP = {USDJPY:'ドル円',EURJPY:'ユーロ円',GBPJPY:'ポンド円',AUDJPY:'オージー円',EURUSD:'ユーロドル',GBPUSD:'ポンドドル',AUDUSD:'オージードル',EURGBP:'ユーロポンド',EURAUD:'ユーロオージー',GBPAUD:'ポンドオージー'};
-const TFS = ['5','15','60','240'];
-const TF_JP = {'5':'5分','15':'15分','60':'1時間','240':'4時間'};
+const TF_ALL = ['1','5','15','60','240'];   // マトリクス(ヒートマップ)の列。1分はアラームのみ(角度なし)
+const BAR_TFS = ['5','15','60','240'];      // 角度の強さ比較グラフの列(1分は角度計算が無いので対象外)
+const TF_JP = {'1':'1分','5':'5分','15':'15分','60':'1時間','240':'4時間'};
 const MAX_ANGLE = 90;   // 棒の高さの正規化に使う上限(度)
 
 let selectedTf = '15';
 let angleData = {};     // { pair: { tf: {angle, direction, updated_at} } }
 let muted = false;
+let voiceSettings = {
+  template_up: '{pair}、{tf}、ダウ転換、上昇です。{pair}',
+  template_down: '{pair}、{tf}、ダウ転換、下降です。{pair}',
+  mute_pairs: {},
+  mute_tfs: {},
+};
 
 function $(id){ return document.getElementById(id); }
 
@@ -103,16 +157,21 @@ function dirColor(direction, strong){
 function renderMatrix(){
   const body = $('matrixBody');
   body.innerHTML = PAIRS.map(pair => {
-    const cells = TFS.map(tf => {
+    const cells = TF_ALL.map(tf => {
       const d = (angleData[pair] || {})[tf];
-      const focus = tf === selectedTf;
-      if (!d || d.angle === null || d.angle === undefined) {
+      const focus = selectedTf === 'all' || tf === selectedTf;
+      const cls = 'hm' + (focus ? ' focus' : ' dim');
+      if (!d || (d.direction === null || d.direction === undefined)) {
         return `<td><div class="hm na">--</div></td>`;
+      }
+      const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
+      if (d.angle === null || d.angle === undefined) {
+        // 角度の値が無い(1分など): 方向だけ表示
+        const bg = dirColor(d.direction, false);
+        return `<td><div class="${cls}" style="background:${bg}">${arrow}</div></td>`;
       }
       const strong = Math.abs(d.angle) >= 45;
       const bg = dirColor(d.direction, strong);
-      const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
-      const cls = 'hm' + (focus ? ' focus' : ' dim');
       return `<td><div class="${cls}" style="background:${bg}">${arrow}${Math.abs(Math.round(d.angle))}</div></td>`;
     }).join('');
     return `<tr><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
@@ -122,7 +181,7 @@ function renderMatrix(){
 function renderBars(){
   const wrap = $('barsWrap');
   wrap.innerHTML = PAIRS.map(pair => {
-    const cols = TFS.map(tf => {
+    const cols = BAR_TFS.map(tf => {
       const d = (angleData[pair] || {})[tf];
       const angle = d && d.angle !== null && d.angle !== undefined ? d.angle : 0;
       const height = Math.max(4, Math.min(100, Math.abs(angle) / MAX_ANGLE * 100));
@@ -151,7 +210,8 @@ function addHistoryRow(entry, isNew){
   const arrow = entry.direction === 'up' ? '▲' : '▼';
   const row = document.createElement('div');
   row.className = 'histrow' + (isNew ? ' flash' : '');
-  row.innerHTML = `<span class="t">${entry.time || ''}</span><span class="badge">${arrow}</span><span>${PAIR_JP[entry.pair] || entry.pair} ${TF_JP[entry.tf] || entry.tf} ダウ転換 ${entry.direction === 'up' ? '上昇' : '下降'}です</span>`;
+  const scopeTxt = entry.scope_jp ? (' ' + entry.scope_jp) : '';
+  row.innerHTML = `<span class="t">${entry.time || ''}</span><span class="badge">${arrow}</span><span>${PAIR_JP[entry.pair] || entry.pair} ${TF_JP[entry.tf] || entry.tf}${scopeTxt} ダウ転換 ${entry.direction === 'up' ? '上昇' : '下降'}です</span>`;
   wrap.insertBefore(row, wrap.firstChild);
   while (wrap.children.length > 30) wrap.removeChild(wrap.lastChild);
 }
@@ -175,10 +235,80 @@ function speak(text){
   speechSynthesis.speak(u);
 }
 
+function buildSpeechText(entry){
+  const tmpl = entry.direction === 'up' ? voiceSettings.template_up : voiceSettings.template_down;
+  const pairJp = PAIR_JP[entry.pair] || entry.pair;
+  const tfJp = TF_JP[entry.tf] || entry.tf;
+  const scopeJp = entry.scope_jp || '';
+  return (tmpl || '')
+    .split('{pair}').join(pairJp)
+    .split('{tf}').join(tfJp)
+    .split('{scope}').join(scopeJp);
+}
+
+function isMuted(entry){
+  if (voiceSettings.mute_pairs && voiceSettings.mute_pairs[entry.pair]) return true;
+  if (voiceSettings.mute_tfs && voiceSettings.mute_tfs[entry.tf]) return true;
+  return false;
+}
+
 $('muteBtn').addEventListener('click', () => {
   muted = !muted;
   $('muteBtn').textContent = muted ? '🔇 音声OFF' : '🔊 音声ON';
   $('muteBtn').classList.toggle('on', !muted);
+});
+
+// ---- 個別設定パネル ----
+function renderSettingsPanel(){
+  $('tmplUp').value = voiceSettings.template_up || '';
+  $('tmplDown').value = voiceSettings.template_down || '';
+
+  const pairGrid = $('mutePairGrid');
+  pairGrid.innerHTML = PAIRS.map(p => {
+    const on = !!(voiceSettings.mute_pairs && voiceSettings.mute_pairs[p]);
+    return `<label class="muteChip${on ? ' muted' : ''}" data-kind="pair" data-key="${p}"><input type="checkbox" ${on ? 'checked' : ''}>${PAIR_JP[p]}</label>`;
+  }).join('');
+
+  const tfGrid = $('muteTfGrid');
+  tfGrid.innerHTML = TF_ALL.map(tf => {
+    const on = !!(voiceSettings.mute_tfs && voiceSettings.mute_tfs[tf]);
+    return `<label class="muteChip${on ? ' muted' : ''}" data-kind="tf" data-key="${tf}"><input type="checkbox" ${on ? 'checked' : ''}>${TF_JP[tf]}</label>`;
+  }).join('');
+}
+
+document.addEventListener('change', (e) => {
+  const chip = e.target.closest('.muteChip');
+  if (!chip) return;
+  const kind = chip.dataset.kind, key = chip.dataset.key;
+  const store = kind === 'pair' ? (voiceSettings.mute_pairs = voiceSettings.mute_pairs || {}) : (voiceSettings.mute_tfs = voiceSettings.mute_tfs || {});
+  if (e.target.checked) { store[key] = true; chip.classList.add('muted'); }
+  else { delete store[key]; chip.classList.remove('muted'); }
+});
+
+$('gearBtn').addEventListener('click', () => {
+  $('settingsPanel').classList.toggle('open');
+});
+
+$('testUpBtn').addEventListener('click', () => {
+  speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'up', scope_jp:'デイトレ'}));
+});
+$('testDownBtn').addEventListener('click', () => {
+  speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'down', scope_jp:'デイトレ'}));
+});
+
+$('saveSettingsBtn').addEventListener('click', () => {
+  voiceSettings.template_up = $('tmplUp').value;
+  voiceSettings.template_down = $('tmplDown').value;
+  fetch('/api/alert_voice_settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(voiceSettings)
+  }).then(r => r.json()).then(res => {
+    if (res && res.settings) voiceSettings = res.settings;
+    const st = $('saveStatus');
+    st.classList.add('show');
+    setTimeout(() => st.classList.remove('show'), 1800);
+  }).catch(() => {});
 });
 
 // ---- 初期データ取得 ----
@@ -186,6 +316,10 @@ fetch('/api/angle_data').then(r => r.json()).then(data => { angleData = data || 
 fetch('/api/dow_alert_history').then(r => r.json()).then(list => {
   (list || []).slice().reverse().forEach(e => addHistoryRow(e, false));
 }).catch(() => {});
+fetch('/api/alert_voice_settings').then(r => r.json()).then(s => {
+  voiceSettings = Object.assign({}, voiceSettings, s || {});
+  renderSettingsPanel();
+}).catch(() => { renderSettingsPanel(); });
 
 // ---- リアルタイム更新 ----
 const socket = io();
@@ -195,7 +329,10 @@ socket.on('angle_update', (msg) => {
 });
 socket.on('new_dow_alert', (entry) => {
   addHistoryRow(entry, true);
-  speak(entry.text || `${PAIR_JP[entry.pair] || entry.pair} ${TF_JP[entry.tf] || entry.tf} ダウ転換です`);
+  // 読み上げ文言は「個別設定」で保存したテンプレートを優先する(未保存でも既定値が入っている)
+  if (!isMuted(entry)) {
+    speak(buildSpeechText(entry) || entry.text);
+  }
 });
 
 renderAll();

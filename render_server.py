@@ -52,12 +52,53 @@ DOW_ALERT_HISTORY_MAX = 30
 ZIGZAG_ALERT_KEY = os.environ.get('ZIGZAG_ALERT_KEY', '')  # ジグザグ_V03のPine側inputと同じ文字列。未設定なら認証なし(開発用)
 ZIGZAG_TF_MAP = {'5M': '5', '15M': '15', '1H': '60', '4H': '240', '1M': '1', 'D': 'D', 'W': 'W', 'M': 'M'}
 
+# ダウ転換アラートの読み上げ文言・ミュート設定(alert_window.htmlの「個別設定」パネル用)
+ALERT_VOICE_SETTINGS_PATH = os.path.join(BASE_DIR, 'alert_voice_settings.json')
+DEFAULT_ALERT_VOICE_SETTINGS = {
+    'template_up': '{pair}、{tf}、ダウ転換、上昇です。{pair}',
+    'template_down': '{pair}、{tf}、ダウ転換、下降です。{pair}',
+    'mute_pairs': {},
+    'mute_tfs': {},
+}
+
+
+def _load_alert_voice_settings():
+    try:
+        if os.path.exists(ALERT_VOICE_SETTINGS_PATH):
+            with open(ALERT_VOICE_SETTINGS_PATH, encoding='utf-8') as f:
+                data = json.load(f) or {}
+            merged = dict(DEFAULT_ALERT_VOICE_SETTINGS)
+            merged.update(data)
+            return merged
+    except Exception as e:      # noqa
+        print(f'[ALERT_VOICE_SETTINGS] 読み込みエラー(既定値を使用します): {e}')
+    return dict(DEFAULT_ALERT_VOICE_SETTINGS)
+
+
+@app.route('/api/alert_voice_settings', methods=['GET'])
+def api_get_alert_voice_settings():
+    return jsonify(_load_alert_voice_settings())
+
+
+@app.route('/api/alert_voice_settings', methods=['POST'])
+def api_save_alert_voice_settings():
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        merged = dict(DEFAULT_ALERT_VOICE_SETTINGS)
+        merged.update(_load_alert_voice_settings())
+        merged.update(body)
+        with open(ALERT_VOICE_SETTINGS_PATH, 'w', encoding='utf-8') as f:
+            json.dump(merged, f, ensure_ascii=False, indent=2)
+        return jsonify({'status': 'ok', 'settings': merged})
+    except Exception as e:      # noqa
+        return jsonify({'status': 'error', 'msg': str(e)}), 400
+
 PAIR_JP = {
     'USDJPY': 'ドル円', 'EURJPY': 'ユーロ円', 'GBPJPY': 'ポンド円', 'AUDJPY': 'オージー円',
     'EURUSD': 'ユーロドル', 'GBPUSD': 'ポンドドル', 'AUDUSD': 'オージードル',
     'EURGBP': 'ユーロポンド', 'EURAUD': 'ユーロオージー', 'GBPAUD': 'ポンドオージー',
 }
-TF_JP = {'5': '5分', '15': '15分', '60': '1時間', '240': '4時間'}
+TF_JP = {'1': '1分', '5': '5分', '15': '15分', '60': '1時間', '240': '4時間'}
 
 # 各タイムフレームの初回受信フラグ（再起動時の誤発火防止）
 # True = 既に受信済み（通常評価）、False = 未受信（初回は状態記録のみ）
@@ -1191,12 +1232,14 @@ def api_zigzag_alert():
     pair_jp = PAIR_JP.get(symbol, symbol)
     tf_jp = TF_JP.get(tf, tf)
     dir_jp = '上昇' if direction == 'up' else '下降'
+    scope = 'swing' if is_external else 'daytrade'
     scope_jp = 'スイング' if is_external else 'デイトレ'
     text = f'{pair_jp}、{tf_jp}、{scope_jp}、ダウ転換、{dir_jp}です。{pair_jp}'
 
     entry = {
         'pair': symbol, 'tf': tf, 'direction': direction,
         'angle': None,
+        'scope': scope, 'scope_jp': scope_jp,
         'text': text,
         'time': datetime.now(jst).strftime('%H:%M'),
         'received_at': now_iso,
@@ -1205,6 +1248,23 @@ def api_zigzag_alert():
     with _dow_alert_lock:
         _dow_alert_history.insert(0, entry)
         del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
+
+    # マトリクス(ヒートマップ)側にも反映する(特に1分足はPC側の角度計算が無いため、
+    # このTradingViewアラート経由の方向だけがマトリクスの唯一の情報源になる)
+    with _angle_lock:
+        # 既にPC側(角度_push)からの角度値が入っている場合はそれを消さず、方向とダウ転換時刻だけ更新する。
+        # PC側が対応していない時間足(1分など)は angle が無いままで、マトリクスには方向のみ表示される。
+        existing = (_angle_data.get(symbol) or {}).get(tf) or {}
+        _angle_data.setdefault(symbol, {})[tf] = {
+            'angle': existing.get('angle'),
+            'direction': direction,
+            'updated_at': now_iso,
+        }
+        snapshot = {k: dict(v) for k, v in _angle_data.items()}
+    try:
+        socketio.emit('angle_update', {'data': snapshot})
+    except Exception as e:      # noqa
+        print(f'[ZIGZAG_ALERT] マトリクス配信エラー(継続します): {e}')
 
     try:
         socketio.emit('new_dow_alert', entry)
