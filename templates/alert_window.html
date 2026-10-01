@@ -87,6 +87,17 @@
   .saveStatus{font-size:11px;color:#4ade80;opacity:0;transition:opacity 0.3s}
   .saveStatus.show{opacity:1}
   .sectionDivider{height:1px;background:var(--divider);margin:4px 0}
+  .layoutBtn{font-size:11px}
+  .vGrid{display:grid;gap:3px}
+  .vRowLabel{display:flex;align-items:center;justify-content:flex-end;color:var(--text-dim);font-size:11px;font-weight:600;padding-right:4px}
+  .vPairHead{display:flex;align-items:center;justify-content:center;color:var(--text);font-size:12px;font-weight:800;padding:2px 0 8px;white-space:nowrap}
+  .vBarWrap{display:flex;flex-direction:column;align-items:center;width:100%}
+  .vBarRow{display:flex;gap:3px;align-items:flex-end;height:72px;width:100%;justify-content:center;border-top:1px dashed var(--card-border);padding-top:4px}
+  .vBar{flex:1 1 0;max-width:12px;border-radius:3px 3px 0 0;position:relative}
+  .vNum{position:absolute;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:var(--text);font-family:ui-monospace,monospace}
+  .vNumIn{position:absolute;top:1px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.7);font-family:ui-monospace,monospace}
+  .vTfLabels{display:flex;gap:3px;margin-top:2px;justify-content:center}
+  .vTfLabels span{flex:1 1 0;max-width:12px;text-align:center;font-size:8px;color:var(--text-dim)}
 </style>
 </head>
 <body>
@@ -98,6 +109,7 @@
     </div>
     <div class="headerBtns">
       <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
+      <button class="layoutBtn" id="layoutBtn" title="縦型/横型レイアウト切替">📐 横型</button>
       <button class="gearBtn" id="gearBtn">⚙ 個別設定</button>
       <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
     </div>
@@ -150,7 +162,7 @@
     </div>
   </div>
 
-  <div class="card" style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">
+  <div class="card" id="horizCard" style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">
     <div>
       <table id="matrixTable">
         <thead><tr id="matrixHeadRow"><th style="text-align:left">ペア</th></tr></thead>
@@ -167,6 +179,13 @@
     </div>
   </div>
 
+  <div class="card" id="vertCard" style="padding:12px 14px;display:none;flex-direction:column;gap:10px">
+    <div style="font-size:10px;color:var(--text-dim)">ヒートマップ(時間足×通貨ペア)+ 角度の強さ比較(列幅を通貨ペアに合わせた棒グラフ)</div>
+    <div class="vGrid" id="vertGrid"></div>
+    <div class="sectionDivider"></div>
+    <div class="vGrid" id="vertBarGrid"></div>
+  </div>
+
   <div class="card" style="padding:8px 14px;overflow:auto;max-height:160px;display:flex;flex-direction:column;gap:4px">
     <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">発火履歴</div>
     <div id="histWrap"></div>
@@ -180,10 +199,11 @@ const PAIR_JP = {USDJPY:'ドル円',EURJPY:'ユーロ円',GBPJPY:'ポンド円',
 const TF_ALL = ['1','5','15','60','240'];   // マトリクス(ヒートマップ)の列。1分はアラームのみ(角度なし)
 const BAR_TFS = ['5','15','60','240'];      // 角度の強さ比較グラフの列(1分は角度計算が無いので対象外)
 const TF_JP = {'1':'1分','5':'5分','15':'15分','60':'1時間','240':'4時間'};
-const TF_JP_BAR = {'5':'5','15':'15','60':'1h','240':'4h'};
+const TF_JP_BAR = {'1':'1m','5':'5','15':'15','60':'1h','240':'4h'};
 const MAX_ANGLE = 90;   // 棒の高さの正規化に使う上限(度)
 
 let selectedTf = 'all';   // タブUIを廃止したため常に全列を同等に強調する
+let layoutMode = 'horizontal';   // 'horizontal'=現行(ペア=行) / 'vertical'=入替(ペア=列)
 let angleData = {};     // { pair: { tf: {angle, direction, updated_at} } }
 let muted = false;
 let activeAlerts = {};   // 点滅中のセル。key="ペア_時間足"→true (セルを左クリックすると解除)
@@ -212,56 +232,60 @@ function dirColor(direction, strong){
   return '#5c5f66';
 }
 
+// 1セル分のヒートマップmarkupを作る共通処理(横型・縦型どちらのレイアウトからも呼ばれる)
+function heatCellMarkup(pair, tf){
+  const d = (angleData[pair] || {})[tf];
+  const blinking = !!activeAlerts[cellKey(pair, tf)];
+  const cls = 'hm focus' + (blinking ? ' alerting' : '');
+  const attrs = `data-pair="${pair}" data-tf="${tf}"`;
+  if (!d || (d.direction === null || d.direction === undefined)) {
+    return `<div class="hm na" ${attrs}>--</div>`;
+  }
+  const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
+  // 経過バー数: PC側が計算して送ってくる値(5分・15分・60分・240分)があればそれを使う。
+  // 1分足はPC側にローソク足データが無く本数を直接数えられないため、
+  // 代わりに「最後にダウ転換を検知した時刻」からの経過分数で見た目上の本数を推定する
+  // (1分足=1本1分なので、経過分数がそのまま本数の目安になる。土日や通信断の間は目安が多少ずれる)
+  let barsVal = d.bars_elapsed;
+  if ((barsVal === null || barsVal === undefined) && d.updated_at) {
+    const updatedMs = Date.parse(d.updated_at.endsWith('Z') || d.updated_at.includes('+') ? d.updated_at : d.updated_at + 'Z');
+    if (!isNaN(updatedMs)) {
+      barsVal = Math.max(0, Math.floor((Date.now() - updatedMs) / 60000));
+    }
+  }
+  const barsTxt = (barsVal !== null && barsVal !== undefined) ? ` [${String(barsVal).padStart(2,'0')}]` : '';
+  if (d.angle === null || d.angle === undefined) {
+    const bg = dirColor(d.direction, false);
+    return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div>`;
+  }
+  const strong = Math.abs(d.angle) >= 45;
+  const bg = dirColor(d.direction, strong);
+  return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${Math.abs(Math.round(d.angle))}${barsTxt}</div>`;
+}
+
 function renderMatrix(){
   const visTfs = TF_ALL.filter(isTfVisible);
   const headRow = $('matrixHeadRow');
   headRow.innerHTML = '<th style="text-align:left">ペア</th>' + visTfs.map(tf => `<th>${TF_JP[tf]}</th>`).join('');
   const body = $('matrixBody');
   body.innerHTML = PAIRS.filter(isVisible).map(pair => {
-    const cells = visTfs.map(tf => {
-      const d = (angleData[pair] || {})[tf];
-      const focus = selectedTf === 'all' || tf === selectedTf;
-      const blinking = !!activeAlerts[cellKey(pair, tf)];
-      const cls = 'hm' + (focus ? ' focus' : ' dim') + (blinking ? ' alerting' : '');
-      const attrs = `data-pair="${pair}" data-tf="${tf}"`;
-      if (!d || (d.direction === null || d.direction === undefined)) {
-        return `<td><div class="hm na" ${attrs}>--</div></td>`;
-      }
-      const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
-      // 経過バー数: PC側が計算して送ってくる値(5分・15分・60分・240分)があればそれを使う。
-      // 1分足はPC側にローソク足データが無く本数を直接数えられないため、
-      // 代わりに「最後にダウ転換を検知した時刻」からの経過分数で見た目上の本数を推定する
-      // (1分足=1本1分なので、経過分数がそのまま本数の目安になる。土日や通信断の間は目安が多少ずれる)
-      let barsVal = d.bars_elapsed;
-      if ((barsVal === null || barsVal === undefined) && d.updated_at) {
-        const updatedMs = Date.parse(d.updated_at.endsWith('Z') || d.updated_at.includes('+') ? d.updated_at : d.updated_at + 'Z');
-        if (!isNaN(updatedMs)) {
-          barsVal = Math.max(0, Math.floor((Date.now() - updatedMs) / 60000));
-        }
-      }
-      const barsTxt = (barsVal !== null && barsVal !== undefined) ? ` [${String(barsVal).padStart(2,'0')}]` : '';
-      if (d.angle === null || d.angle === undefined) {
-        const bg = dirColor(d.direction, false);
-        return `<td><div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div></td>`;
-      }
-      const strong = Math.abs(d.angle) >= 45;
-      const bg = dirColor(d.direction, strong);
-      return `<td><div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${Math.abs(Math.round(d.angle))}${barsTxt}</div></td>`;
-    }).join('');
-    return `<tr><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
+    const cells = visTfs.map(tf => `<td>${heatCellMarkup(pair, tf)}</td>`).join('');
+    return `<tr><td class="pairname">${pair}</td>${cells}</tr>`;
   }).join('');
 }
 
-// 経過バー数(特に1分足の推定値)を時間経過に合わせて見た目だけ更新する
-setInterval(renderMatrix, 15000);
-
-// ヒートマップのセルを左クリックすると、点滅(アラーム通知)を解除する
-$('matrixBody').addEventListener('click', (e) => {
+// ヒートマップのセルを左クリックすると、点滅(アラーム通知)を解除する(横型・縦型共通)
+function onHeatCellClick(e){
   const cell = e.target.closest('.hm.alerting');
   if (!cell) return;
   delete activeAlerts[cellKey(cell.dataset.pair, cell.dataset.tf)];
-  renderMatrix();
-});
+  renderAll();
+}
+$('matrixBody').addEventListener('click', onHeatCellClick);
+$('vertGrid').addEventListener('click', onHeatCellClick);
+
+// 経過バー数(特に1分足の推定値)を時間経過に合わせて見た目だけ更新する
+setInterval(() => { if (layoutMode === 'vertical') renderVertical(); else renderMatrix(); }, 15000);
 
 function renderBars(){
   const wrap = $('barsWrap');
@@ -283,12 +307,55 @@ function renderBars(){
       const insideLabel = fitsInBar ? `<div class="fillLabel">${label}</div>` : '';
       return `<div class="barcol"><div class="track">${aboveLabel}<div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
     }).join('');
-    return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName">${PAIR_JP[pair] || pair}</div></div>`;
+    return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName">${pair}</div></div>`;
   }).join('');
 }
 
+// 縦型レイアウト用: 1ペア分の細い棒グラフ(4本・ヒートマップの列幅に合わせる)
+function verticalBarCellMarkup(pair){
+  const TRACK_PX = 72, LABEL_MIN_PX = 20;
+  const visBarTfs = BAR_TFS.filter(isTfVisible);
+  const bars = visBarTfs.map(tf => {
+    const d = (angleData[pair] || {})[tf];
+    const angle = d && d.angle !== null && d.angle !== undefined ? d.angle : 0;
+    const height = Math.max(6, Math.min(100, Math.abs(angle) / MAX_ANGLE * 100));
+    const strong = Math.abs(angle) >= 45;
+    const color = d && d.direction ? dirColor(d.direction, strong) : '#3a3d44';
+    const label = d && d.angle !== null && d.angle !== undefined ? Math.abs(Math.round(d.angle)) : '-';
+    const fits = (height / 100 * TRACK_PX) >= LABEL_MIN_PX;
+    const above = fits ? '' : `<span class="vNum" style="bottom:calc(${height}% + 2px)">${label}</span>`;
+    const inside = fits ? `<span class="vNumIn">${label}</span>` : '';
+    return `<div class="vBar" style="height:${height}%;background:${color}">${above}${inside}</div>`;
+  }).join('');
+  const tfLabels = visBarTfs.map(tf => `<span>${TF_JP_BAR[tf]}</span>`).join('');
+  return `<div class="vBarWrap"><div class="vBarRow">${bars}</div><div class="vTfLabels">${tfLabels}</div></div>`;
+}
+
+// 縦型レイアウト: 通貨ペア=列、時間足=行。ペア名は英語表記、角度グラフ側にはペア名を出さない
+// (列ヘッダーが兼ねるため)。ヒートマップと棒グラフで同じ列数・同じgrid-template-columnsを使って
+// 列幅を完全に一致させている。
+function renderVertical(){
+  const visTfs = TF_ALL.filter(isTfVisible);
+  const visPairs = PAIRS.filter(isVisible);
+  const colTemplate = `50px repeat(${visPairs.length}, 1fr)`;
+
+  const grid = $('vertGrid');
+  grid.style.gridTemplateColumns = colTemplate;
+  let html = '<div></div>' + visPairs.map(p => `<div class="vPairHead">${p}</div>`).join('');
+  visTfs.forEach(tf => {
+    html += `<div class="vRowLabel">${TF_JP_BAR[tf] || tf}</div>`;
+    visPairs.forEach(p => { html += heatCellMarkup(p, tf); });
+  });
+  grid.innerHTML = html;
+
+  const barGrid = $('vertBarGrid');
+  barGrid.style.gridTemplateColumns = colTemplate;
+  barGrid.innerHTML = '<div></div>' + visPairs.map(p => verticalBarCellMarkup(p)).join('');
+}
+
 function renderAll(){
-  renderMatrix(); renderBars();
+  if (layoutMode === 'vertical') { renderVertical(); }
+  else { renderMatrix(); renderBars(); }
 }
 
 
@@ -392,6 +459,25 @@ $('themeBtn').addEventListener('click', () => {
   const next = cur === 'light' ? 'dark' : 'light';
   applyTheme(next);
   try { localStorage.setItem('alertWindowTheme', next); } catch (e) { /* no-op */ }
+});
+
+// ---- 縦型/横型レイアウト切替(端末ごとの好みなのでlocalStorageに保存) ----
+function setLayoutVisibility(mode){
+  $('horizCard').style.display = mode === 'horizontal' ? '' : 'none';
+  $('vertCard').style.display = mode === 'vertical' ? '' : 'none';
+  $('layoutBtn').textContent = mode === 'vertical' ? '📐 縦型' : '📐 横型';
+}
+(function initLayout(){
+  let saved = 'horizontal';
+  try { saved = localStorage.getItem('alertWindowLayout') || 'horizontal'; } catch (e) { /* no-op */ }
+  layoutMode = saved;
+  setLayoutVisibility(layoutMode);
+})();
+$('layoutBtn').addEventListener('click', () => {
+  layoutMode = layoutMode === 'vertical' ? 'horizontal' : 'vertical';
+  setLayoutVisibility(layoutMode);
+  try { localStorage.setItem('alertWindowLayout', layoutMode); } catch (e) { /* no-op */ }
+  renderAll();
 });
 
 // ---- ヒートマップの文字サイズ ----
