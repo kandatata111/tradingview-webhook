@@ -91,13 +91,8 @@
   .vGrid{display:grid;gap:3px}
   .vRowLabel{display:flex;align-items:center;justify-content:flex-end;color:var(--text-dim);font-size:11px;font-weight:600;padding-right:4px}
   .vPairHead{display:flex;align-items:center;justify-content:center;color:var(--text);font-size:12px;font-weight:800;padding:2px 0 8px;white-space:nowrap}
-  .vBarWrap{display:flex;flex-direction:column;align-items:center;width:100%}
-  .vBarRow{display:flex;gap:3px;align-items:flex-end;height:72px;width:100%;justify-content:center;border-top:1px dashed var(--card-border);padding-top:4px}
-  .vBar{flex:1 1 0;border-radius:3px 3px 0 0;position:relative}
-  .vNum{position:absolute;left:0;right:0;text-align:center;font-size:12px;font-weight:700;color:var(--text);font-family:ui-monospace,monospace}
-  .vNumIn{position:absolute;top:1px;left:0;right:0;text-align:center;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.75);font-family:ui-monospace,monospace}
-  .vTfLabels{display:flex;gap:3px;margin-top:2px;justify-content:center}
-  .vTfLabels span{flex:1 1 0;text-align:center;font-size:10px;color:var(--text-dim)}
+  .vBarCell{padding:0 7px}
+  .barcolFlex{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1 1 0;min-width:0}
 </style>
 </head>
 <body>
@@ -306,24 +301,25 @@ function renderBars(){
   }).join('');
 }
 
-// 縦型レイアウト用: 1ペア分の細い棒グラフ(4本・ヒートマップの列幅に合わせる)
+// 縦型レイアウト用: 1ペア分の棒グラフ(4本)。横型のrenderBars()と全く同じ部品(track/fill/
+// fillLabel/valLabel/tfLabel)を使うことで、数値の位置・重なり回避・文字サイズを横型と完全に揃える。
+// 幅だけヒートマップの列幅に合わせて可変にしている(.barcolFlex)。
 function verticalBarCellMarkup(pair){
-  const TRACK_PX = 72, LABEL_MIN_PX = 20;
+  const TRACK_PX = 78, LABEL_MIN_PX = 24;   // 横型(renderBars)と同じ値
   const visBarTfs = BAR_TFS.filter(isTfVisible);
-  const bars = visBarTfs.map(tf => {
+  const cols = visBarTfs.map(tf => {
     const d = (angleData[pair] || {})[tf];
     const angle = d && d.angle !== null && d.angle !== undefined ? d.angle : 0;
-    const height = Math.max(6, Math.min(100, Math.abs(angle) / MAX_ANGLE * 100));
+    const height = Math.max(4, Math.min(100, Math.abs(angle) / MAX_ANGLE * 100));
     const strong = Math.abs(angle) >= 45;
     const color = d && d.direction ? dirColor(d.direction, strong) : '#3a3d44';
     const label = d && d.angle !== null && d.angle !== undefined ? Math.abs(Math.round(d.angle)) : '-';
-    const fits = (height / 100 * TRACK_PX) >= LABEL_MIN_PX;
-    const above = fits ? '' : `<span class="vNum" style="bottom:calc(${height}% + 2px)">${label}</span>`;
-    const inside = fits ? `<span class="vNumIn">${label}</span>` : '';
-    return `<div class="vBar" style="height:${height}%;background:${color}">${above}${inside}</div>`;
+    const fitsInBar = (height / 100 * TRACK_PX) >= LABEL_MIN_PX;
+    const aboveLabel = fitsInBar ? '' : `<div class="valLabel" style="position:absolute;left:0;right:0;bottom:calc(${height}% + 3px);text-align:center;">${label}</div>`;
+    const insideLabel = fitsInBar ? `<div class="fillLabel">${label}</div>` : '';
+    return `<div class="barcolFlex"><div class="track">${aboveLabel}<div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
   }).join('');
-  const tfLabels = visBarTfs.map(tf => `<span>${TF_JP_BAR[tf]}</span>`).join('');
-  return `<div class="vBarWrap"><div class="vBarRow">${bars}</div><div class="vTfLabels">${tfLabels}</div></div>`;
+  return `<div class="vBarCell"><div class="bars">${cols}</div></div>`;
 }
 
 // 縦型レイアウト: 通貨ペア=列、時間足=行。ペア名は英語表記、角度グラフ側にはペア名を出さない
