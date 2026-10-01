@@ -45,7 +45,7 @@
   .hm.focus{outline:none;box-shadow:none}
   .hm.na{opacity:0.25}
   .hm.alerting{cursor:pointer;animation:hmBlink 1s ease-in-out infinite}
-  @keyframes hmBlink{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,0.25)}50%{box-shadow:0 0 0 4px rgba(251,191,36,0.95),0 2px 8px rgba(0,0,0,0.25)}}
+  @keyframes hmBlink{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,0.25);transform:scale(1)}50%{box-shadow:0 0 0 4px rgba(251,191,36,0.95),0 2px 8px rgba(0,0,0,0.25);transform:scale(1.08)}}
   .pairname{color:var(--text);font-weight:700;font-size:12px;text-align:right;padding-right:6px;white-space:nowrap}
   .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text);flex-wrap:wrap}
   .sw{width:12px;height:12px;border-radius:4px;display:inline-block}
@@ -54,12 +54,13 @@
   .bars{display:flex;align-items:flex-end;gap:5px;height:100px}
   .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}
   .track{width:100%;height:78px;display:flex;align-items:flex-end}
-  .fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s ease}
+  .fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s ease;position:relative}
+  .fillLabel{position:absolute;top:2px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.65)}
   .tfLabel{font-size:9px;color:var(--text)}
   .valLabel{font-size:9px;color:var(--text);font-weight:700}
   .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip-bg);color:var(--text)}
   .histrow{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text);padding:2px 0}
-  .histrow .t{width:52px;color:var(--text-dim);font-size:10px;flex-shrink:0}
+  .histrow .t{width:68px;color:var(--text-dim);font-size:10px;flex-shrink:0}
   .flash{animation:flash 1.2s ease-out 2}
   @keyframes flash{0%{outline:2px solid #fbbf24}100%{outline:2px solid transparent}}
   .headerBtns{display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap}
@@ -140,6 +141,10 @@
       <h3>表示する通貨ペア(チェックを外すと、その通貨ペアのヒートマップ・角度グラフを非表示にします)</h3>
       <div class="chipGrid" id="visiblePairGrid"></div>
     </div>
+    <div class="settingsSection">
+      <h3>表示する時間足(チェックを外すと、その時間足のヒートマップ列・角度グラフ列を非表示にします)</h3>
+      <div class="chipGrid" id="visibleTfGrid"></div>
+    </div>
     <div class="settingsFooter">
       <span class="saveStatus" id="saveStatus">保存しました</span>
       <button class="saveBtn" id="saveSettingsBtn">保存</button>
@@ -159,7 +164,7 @@
     <div>
       <div style="font-size:10px;color:var(--text-dim);margin-bottom:5px">全体マトリクス(選択中の時間足の列だけ強調。「全て」選択時は全列強調)</div>
       <table id="matrixTable">
-        <thead><tr><th style="text-align:left">ペア</th><th>1分</th><th>5分</th><th>15分</th><th>1時間</th><th>4時間</th></tr></thead>
+        <thead><tr id="matrixHeadRow"><th style="text-align:left">ペア</th></tr></thead>
         <tbody id="matrixBody"></tbody>
       </table>
     </div>
@@ -198,6 +203,7 @@ let voiceSettings = {
   enabled_pairs: {},   // 省略 or true = 鳴らす。false = 鳴らさない
   enabled_tfs: {},
   visible_pairs: {},   // 省略 or true = 表示。false = 非表示
+  visible_tfs: {},      // 省略 or true = 表示。false = 非表示(ヒートマップの列・角度グラフの列ごと)
   voice_name: '',
   hm_font_size: 15,
 };
@@ -205,6 +211,7 @@ let voiceSettings = {
 function $(id){ return document.getElementById(id); }
 function cellKey(pair, tf){ return pair + '_' + tf; }
 function isVisible(pair){ return voiceSettings.visible_pairs[pair] !== false; }
+function isTfVisible(tf){ return voiceSettings.visible_tfs[tf] !== false; }
 function isSoundEnabled(entry){
   return voiceSettings.enabled_pairs[entry.pair] !== false && voiceSettings.enabled_tfs[entry.tf] !== false;
 }
@@ -216,9 +223,12 @@ function dirColor(direction, strong){
 }
 
 function renderMatrix(){
+  const visTfs = TF_ALL.filter(isTfVisible);
+  const headRow = $('matrixHeadRow');
+  headRow.innerHTML = '<th style="text-align:left">ペア</th>' + visTfs.map(tf => `<th>${TF_JP[tf]}</th>`).join('');
   const body = $('matrixBody');
   body.innerHTML = PAIRS.filter(isVisible).map(pair => {
-    const cells = TF_ALL.map(tf => {
+    const cells = visTfs.map(tf => {
       const d = (angleData[pair] || {})[tf];
       const focus = selectedTf === 'all' || tf === selectedTf;
       const blinking = !!activeAlerts[cellKey(pair, tf)];
@@ -265,21 +275,35 @@ $('matrixBody').addEventListener('click', (e) => {
 
 function renderBars(){
   const wrap = $('barsWrap');
+  const TRACK_PX = 78;        // .trackの高さ(CSSと合わせる)
+  const LABEL_MIN_PX = 16;    // 数値が棒の中に収まるとみなす最低の棒の高さ(px)
+  const visBarTfs = BAR_TFS.filter(isTfVisible);
   wrap.innerHTML = PAIRS.filter(isVisible).map(pair => {
-    const cols = BAR_TFS.map(tf => {
+    const cols = visBarTfs.map(tf => {
       const d = (angleData[pair] || {})[tf];
       const angle = d && d.angle !== null && d.angle !== undefined ? d.angle : 0;
       const height = Math.max(4, Math.min(100, Math.abs(angle) / MAX_ANGLE * 100));
       const strong = Math.abs(angle) >= 45;
       const color = d && d.direction ? dirColor(d.direction, strong) : '#3a3d44';
       const label = d && d.angle !== null && d.angle !== undefined ? Math.abs(Math.round(d.angle)) : '-';
-      return `<div class="barcol"><div class="valLabel">${label}</div><div class="track"><div class="fill" style="height:${height}%;background:${color}"></div></div><div class="tfLabel">${TF_JP[tf]}</div></div>`;
+      const fitsInBar = (height / 100 * TRACK_PX) >= LABEL_MIN_PX;
+      // 棒の中に入るならダーク/ライト問わず白抜き文字(.fillLabel)。入らない場合は棒の上に、
+      // テーマに応じた色(ダーク=白文字/ライト=黒文字、どちらも.valLabelのvar(--text)で自動切替)で表示する。
+      const aboveLabel = fitsInBar ? '' : `<div class="valLabel">${label}</div>`;
+      const insideLabel = fitsInBar ? `<div class="fillLabel">${label}</div>` : '';
+      return `<div class="barcol">${aboveLabel}<div class="track"><div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP[tf]}</div></div>`;
     }).join('');
     return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName">${PAIR_JP[pair] || pair}</div></div>`;
   }).join('');
 }
 
-function renderAll(){ renderMatrix(); renderBars(); }
+function renderAll(){
+  renderMatrix(); renderBars();
+  document.querySelectorAll('#tabs .tab[data-tf]').forEach(el => {
+    const tf = el.dataset.tf;
+    el.style.display = (tf === 'all' || isTfVisible(tf)) ? '' : 'none';
+  });
+}
 
 $('tabs').addEventListener('click', (e) => {
   const t = e.target.closest('.tab');
@@ -419,6 +443,7 @@ function renderSettingsPanel(){
   $('enablePairGrid').innerHTML = PAIRS.map(p => mk('pair', p, PAIR_JP[p], voiceSettings.enabled_pairs[p] !== false)).join('');
   $('enableTfGrid').innerHTML = TF_ALL.map(tf => mk('tf', tf, TF_JP[tf], voiceSettings.enabled_tfs[tf] !== false)).join('');
   $('visiblePairGrid').innerHTML = PAIRS.map(p => mk('visible', p, PAIR_JP[p], voiceSettings.visible_pairs[p] !== false)).join('');
+  $('visibleTfGrid').innerHTML = TF_ALL.map(tf => mk('visibletf', tf, TF_JP[tf], voiceSettings.visible_tfs[tf] !== false)).join('');
 
   renderVoiceSelect();
 }
@@ -427,11 +452,11 @@ document.addEventListener('change', (e) => {
   const chip = e.target.closest('.toggleChip');
   if (!chip) return;
   const kind = chip.dataset.kind, key = chip.dataset.key;
-  const storeKey = kind === 'pair' ? 'enabled_pairs' : kind === 'tf' ? 'enabled_tfs' : 'visible_pairs';
+  const storeKey = kind === 'pair' ? 'enabled_pairs' : kind === 'tf' ? 'enabled_tfs' : kind === 'visibletf' ? 'visible_tfs' : 'visible_pairs';
   voiceSettings[storeKey] = voiceSettings[storeKey] || {};
   if (e.target.checked) { delete voiceSettings[storeKey][key]; chip.classList.add('on'); }
   else { voiceSettings[storeKey][key] = false; chip.classList.remove('on'); }
-  if (kind === 'visible') renderAll();
+  if (kind === 'visible' || kind === 'visibletf') renderAll();
 });
 
 $('hmFontSizeSelect').addEventListener('change', () => {
@@ -480,6 +505,7 @@ fetch('/api/alert_voice_settings').then(r => r.json()).then(s => {
   voiceSettings.enabled_pairs = voiceSettings.enabled_pairs || {};
   voiceSettings.enabled_tfs = voiceSettings.enabled_tfs || {};
   voiceSettings.visible_pairs = voiceSettings.visible_pairs || {};
+  voiceSettings.visible_tfs = voiceSettings.visible_tfs || {};
   renderSettingsPanel();
   renderAll();
   pickVoice();

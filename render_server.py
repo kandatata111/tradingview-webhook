@@ -64,6 +64,8 @@ DEFAULT_ALERT_VOICE_SETTINGS = {
     'enabled_tfs': {},
     # visible_pairs: キーが無い、または true = ヒートマップ・角度グラフに表示。false を明示した通貨ペアだけ非表示
     'visible_pairs': {},
+    # visible_tfs: 同上。時間足(ヒートマップの列・角度グラフの列)ごとの表示/非表示
+    'visible_tfs': {},
     'voice_name': '',
     'hm_font_size': 15,   # ヒートマップ(▲67等)の文字サイズ(px)
 }
@@ -1311,7 +1313,7 @@ def api_angle_push():
                     'pair': pair, 'tf': tf, 'direction': direction,
                     'angle': al.get('angle'),
                     'text': text,
-                    'time': datetime.now(jst).strftime('%H:%M'),
+                    'time': datetime.now(jst).strftime('%H:%M:%S'),
                     'received_at': now_iso,
                 }
                 _dow_alert_history.insert(0, entry)
@@ -1394,7 +1396,7 @@ def api_zigzag_alert():
         'angle': None,
         'scope': scope, 'scope_jp': scope_jp,
         'text': text,
-        'time': datetime.now(jst).strftime('%H:%M'),
+        'time': datetime.now(jst).strftime('%H:%M:%S'),
         'received_at': now_iso,
     }
 
