@@ -2727,6 +2727,23 @@ def current_states():
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 
+@app.route('/download_alert_voice_settings')
+def download_alert_voice_settings():
+    """個別設定ファイル(alert_voice_settings.json: 音声・表示・ヒートマップ文字サイズ等)を
+    ダウンロードするエンドポイント。angle_state.json 等と同じ理由・同じ使い方
+    (これまでこのファイルはGit管理外だったため、デプロイのたびに個別設定が
+    リセットされていた。deploy.bat からダウンロード→コミットする運用に合わせる)。
+    """
+    try:
+        if not os.path.exists(ALERT_VOICE_SETTINGS_PATH):
+            return jsonify({'status': 'error', 'msg': 'alert_voice_settings.json not found'}), 404
+        directory = os.path.dirname(ALERT_VOICE_SETTINGS_PATH)
+        filename = os.path.basename(ALERT_VOICE_SETTINGS_PATH)
+        return send_from_directory(directory, filename, as_attachment=True)
+    except Exception as e:      # noqa
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
 @app.route('/download_angle_state')
 def download_angle_state():
     """ヒートマップの状態ファイル(angle_state.json)をダウンロードするエンドポイント。
