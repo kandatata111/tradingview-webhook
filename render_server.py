@@ -258,8 +258,49 @@ def _save_dow_alert_history_state():
         print(f'[DOW_ALERT] 履歴保存エラー(継続します): {e}')
 
 
+def _backfill_angle_data_from_history():
+    """二重の安全策: angle_state.json の復元が何らかの理由で失敗していても、
+    別ファイル(dow_alert_history.json、既に _load_dow_alert_history_state() で復元済み)
+    に残っている「最後にダウ転換を検知した時の情報」から、_angle_data の
+    抜けている通貨ペア×時間足を補完する。
+
+    特に1分足は角度の定期送信が無く、ダウ転換イベントが来た時だけ値が更新されるため、
+    再起動直後に angle_state.json の復元が失敗すると「本物のダウ転換が起きるまで
+    永久に空欄のまま」になってしまう。発火履歴は新しい順(先頭が最新)に並んでいるので、
+    先頭から見ていけば各ペア×時間足の「最後に分かっていた情報」を自然に拾える。
+    """
+    try:
+        with _dow_alert_lock:
+            history_snapshot = list(_dow_alert_history)
+        if not history_snapshot:
+            return
+        filled = 0
+        with _angle_lock:
+            for entry in history_snapshot:
+                pair = entry.get('pair')
+                tf = entry.get('tf')
+                if not pair or not tf:
+                    continue
+                existing = _angle_data.get(pair, {}).get(tf)
+                if existing:
+                    # すでに情報があるペア×時間足はそのまま(新しい方を優先するため、
+                    # 履歴ループ中に後から来る古いエントリで上書きしない)
+                    continue
+                _angle_data.setdefault(pair, {})[tf] = {
+                    'angle': entry.get('angle'),
+                    'direction': entry.get('direction'),
+                    'updated_at': entry.get('received_at'),
+                }
+                filled += 1
+        if filled:
+            print(f'[ANGLE] 発火履歴から{filled}件のマトリクス情報を補完しました(安全策)')
+    except Exception as e:      # noqa
+        print(f'[ANGLE] 履歴からの補完エラー(継続します): {e}')
+
+
 _load_angle_state()
 _load_dow_alert_history_state()
+_backfill_angle_data_from_history()
 
 # ローソク足の受け箱(/ohlc)を追加。既存の /webhook・webhook_data.db には影響しない
 from ohlc_blueprint import register_ohlc
