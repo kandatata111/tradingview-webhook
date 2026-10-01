@@ -7,6 +7,7 @@
 <style>
   * { box-sizing: border-box; }
   :root{
+    --hm-font-size:15px;
     --bg:#1a1033; --text:#ffffff; --text-dim:rgba(255,255,255,0.8); --hint:rgba(255,255,255,0.55);
     --card-bg:linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));
     --card-border:rgba(255,255,255,0.08);
@@ -39,10 +40,12 @@
   .card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.18)}
   table{border-collapse:separate;border-spacing:2px 2px;width:100%}
   th{text-align:center;font-weight:600;color:var(--text);font-size:11px;padding:2px}
-  .hm{border-radius:8px;padding:7px 4px;text-align:center;font-size:11px;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+  .hm{border-radius:8px;padding:5px 4px;text-align:center;font-size:var(--hm-font-size);line-height:1.2;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
   .hm.dim{opacity:0.4;box-shadow:none}
-  .hm.focus{outline:2px solid #fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,0.25)}
+  .hm.focus{outline:none;box-shadow:none}
   .hm.na{opacity:0.25}
+  .hm.alerting{cursor:pointer;animation:hmBlink 1s ease-in-out infinite}
+  @keyframes hmBlink{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,0.25)}50%{box-shadow:0 0 0 4px rgba(251,191,36,0.95),0 2px 8px rgba(0,0,0,0.25)}}
   .pairname{color:var(--text);font-weight:700;font-size:12px;text-align:right;padding-right:6px;white-space:nowrap}
   .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text);flex-wrap:wrap}
   .sw{width:12px;height:12px;border-radius:4px;display:inline-block}
@@ -52,8 +55,7 @@
   .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}
   .track{width:100%;height:78px;display:flex;align-items:flex-end}
   .fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s ease}
-  .tfLabel{font-size:9px;color:#a78bfa}
-  [data-theme="light"] .tfLabel{color:#7c3aed}
+  .tfLabel{font-size:9px;color:var(--text)}
   .valLabel{font-size:9px;color:var(--text);font-weight:700}
   .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip-bg);color:var(--text)}
   .histrow{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text);padding:2px 0}
@@ -61,14 +63,13 @@
   .flash{animation:flash 1.2s ease-out 2}
   @keyframes flash{0%{outline:2px solid #fbbf24}100%{outline:2px solid transparent}}
   .headerBtns{display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap}
-  .muteBtn,.gearBtn,.saveBtn,.testBtn,.themeBtn,.bellBtn{background:var(--btn-bg);border:1px solid var(--btn-border);color:var(--text);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer}
-  .muteBtn.on,.bellBtn.on{background:rgba(139,92,246,0.4)}
+  .muteBtn,.gearBtn,.saveBtn,.testBtn,.themeBtn{background:var(--btn-bg);border:1px solid var(--btn-border);color:var(--text);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer}
+  .muteBtn.on{background:rgba(139,92,246,0.4)}
   .themeBtn{font-size:15px;padding:4px 8px;line-height:1}
   .saveBtn{background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;font-weight:700;padding:7px 18px;color:#fff}
   .settingsPanel{display:none;flex-direction:column;gap:14px;padding:14px 16px}
   .settingsPanel.open{display:flex}
-  .settingsSection h3{font-size:12px;margin:0 0 8px 0;color:#a78bfa}
-  [data-theme="light"] .settingsSection h3{color:#7c3aed}
+  .settingsSection h3{font-size:12px;margin:0 0 8px 0;color:var(--text)}
   .voiceRow{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
   .voiceRow textarea{flex:1;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;color:var(--text);font-size:12px;padding:6px 8px;resize:vertical;min-height:38px;font-family:inherit}
   .hint{font-size:10px;color:var(--hint);margin:-4px 0 8px 0}
@@ -77,6 +78,10 @@
   .toggleChip.on{opacity:1;background:var(--chip-on-bg);border-color:var(--chip-on-border)}
   .toggleChip input{accent-color:#8b5cf6}
   .voiceSelectRow select{background:var(--input-bg);border:1px solid var(--input-border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit}
+  .voiceSelectRow select option{color:#333333;background:#ffffff}
+  .hmFontSizeRow{display:flex;align-items:center;gap:10px}
+  .hmFontSizeRow select{background:var(--input-bg);border:1px solid var(--input-border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit}
+  .hmFontSizeRow select option{color:#333333;background:#ffffff}
   .settingsFooter{display:flex;justify-content:flex-end;align-items:center;gap:10px}
   .saveStatus{font-size:11px;color:#4ade80;opacity:0;transition:opacity 0.3s}
   .saveStatus.show{opacity:1}
@@ -94,12 +99,16 @@
     <div class="headerBtns">
       <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
       <button class="gearBtn" id="gearBtn">⚙ 個別設定</button>
-      <button class="bellBtn on" id="bellBtn">🔔 ベルON</button>
       <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
     </div>
   </div>
 
   <div class="card settingsPanel" id="settingsPanel">
+    <div class="settingsSection">
+      <h3>ヒートマップの文字サイズ</h3>
+      <div class="hmFontSizeRow"><select id="hmFontSizeSelect"></select></div>
+    </div>
+    <div class="sectionDivider"></div>
     <div class="settingsSection">
       <h3>読み上げに使う声(日本語のみ)</h3>
       <div class="voiceSelectRow"><select id="voiceSelect"></select></div>
@@ -182,7 +191,7 @@ const MAX_ANGLE = 90;   // 棒の高さの正規化に使う上限(度)
 let selectedTf = '15';
 let angleData = {};     // { pair: { tf: {angle, direction, updated_at} } }
 let muted = false;
-let bellEnabled = true;
+let activeAlerts = {};   // 点滅中のセル。key="ペア_時間足"→true (セルを左クリックすると解除)
 let voiceSettings = {
   template_up: '{pair}、{tf}、ダウ転換、上昇です。{pair}',
   template_down: '{pair}、{tf}、ダウ転換、下降です。{pair}',
@@ -190,9 +199,11 @@ let voiceSettings = {
   enabled_tfs: {},
   visible_pairs: {},   // 省略 or true = 表示。false = 非表示
   voice_name: '',
+  hm_font_size: 15,
 };
 
 function $(id){ return document.getElementById(id); }
+function cellKey(pair, tf){ return pair + '_' + tf; }
 function isVisible(pair){ return voiceSettings.visible_pairs[pair] !== false; }
 function isSoundEnabled(entry){
   return voiceSettings.enabled_pairs[entry.pair] !== false && voiceSettings.enabled_tfs[entry.tf] !== false;
@@ -210,22 +221,33 @@ function renderMatrix(){
     const cells = TF_ALL.map(tf => {
       const d = (angleData[pair] || {})[tf];
       const focus = selectedTf === 'all' || tf === selectedTf;
-      const cls = 'hm' + (focus ? ' focus' : ' dim');
+      const blinking = !!activeAlerts[cellKey(pair, tf)];
+      const cls = 'hm' + (focus ? ' focus' : ' dim') + (blinking ? ' alerting' : '');
+      const attrs = `data-pair="${pair}" data-tf="${tf}"`;
       if (!d || (d.direction === null || d.direction === undefined)) {
-        return `<td><div class="hm na">--</div></td>`;
+        return `<td><div class="hm na" ${attrs}>--</div></td>`;
       }
       const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
+      const barsTxt = (d.bars_elapsed !== null && d.bars_elapsed !== undefined) ? ` [${String(d.bars_elapsed).padStart(2,'0')}]` : '';
       if (d.angle === null || d.angle === undefined) {
         const bg = dirColor(d.direction, false);
-        return `<td><div class="${cls}" style="background:${bg}">${arrow}</div></td>`;
+        return `<td><div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div></td>`;
       }
       const strong = Math.abs(d.angle) >= 45;
       const bg = dirColor(d.direction, strong);
-      return `<td><div class="${cls}" style="background:${bg}">${arrow}${Math.abs(Math.round(d.angle))}</div></td>`;
+      return `<td><div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${Math.abs(Math.round(d.angle))}${barsTxt}</div></td>`;
     }).join('');
     return `<tr><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
   }).join('');
 }
+
+// ヒートマップのセルを左クリックすると、点滅(アラーム通知)を解除する
+$('matrixBody').addEventListener('click', (e) => {
+  const cell = e.target.closest('.hm.alerting');
+  if (!cell) return;
+  delete activeAlerts[cellKey(cell.dataset.pair, cell.dataset.tf)];
+  renderMatrix();
+});
 
 function renderBars(){
   const wrap = $('barsWrap');
@@ -308,7 +330,6 @@ function speak(text){
 }
 
 function playBell(){
-  if (!bellEnabled) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const o = ctx.createOscillator();
@@ -340,12 +361,6 @@ $('muteBtn').addEventListener('click', () => {
   $('muteBtn').classList.toggle('on', !muted);
 });
 
-$('bellBtn').addEventListener('click', () => {
-  bellEnabled = !bellEnabled;
-  $('bellBtn').textContent = bellEnabled ? '🔔 ベルON' : '🔕 ベルOFF';
-  $('bellBtn').classList.toggle('on', bellEnabled);
-});
-
 // ---- ダーク/ライト切替(端末ごとの好みなのでlocalStorageに保存) ----
 function applyTheme(theme){
   document.documentElement.setAttribute('data-theme', theme);
@@ -363,10 +378,26 @@ $('themeBtn').addEventListener('click', () => {
   try { localStorage.setItem('alertWindowTheme', next); } catch (e) { /* no-op */ }
 });
 
+// ---- ヒートマップの文字サイズ ----
+function applyHmFontSize(px){
+  document.documentElement.style.setProperty('--hm-font-size', px + 'px');
+}
+
 // ---- 個別設定パネル ----
 function renderSettingsPanel(){
   $('tmplUp').value = voiceSettings.template_up || '';
   $('tmplDown').value = voiceSettings.template_down || '';
+  const hmSize = voiceSettings.hm_font_size || 15;
+  if (!$('hmFontSizeSelect').options.length) {
+    for (let px = 10; px <= 22; px++) {
+      const opt = document.createElement('option');
+      opt.value = String(px);
+      opt.textContent = px + 'px';
+      $('hmFontSizeSelect').appendChild(opt);
+    }
+  }
+  $('hmFontSizeSelect').value = hmSize;
+  applyHmFontSize(hmSize);
 
   const mk = (kind, key, label, on) =>
     `<label class="toggleChip${on ? ' on' : ''}" data-kind="${kind}" data-key="${key}"><input type="checkbox" ${on ? 'checked' : ''}>${label}</label>`;
@@ -389,17 +420,23 @@ document.addEventListener('change', (e) => {
   if (kind === 'visible') renderAll();
 });
 
+$('hmFontSizeSelect').addEventListener('change', () => {
+  const v = parseInt($('hmFontSizeSelect').value, 10);
+  voiceSettings.hm_font_size = v;
+  applyHmFontSize(v);
+});
+
 $('gearBtn').addEventListener('click', () => {
   $('settingsPanel').classList.toggle('open');
 });
 
 $('testUpBtn').addEventListener('click', () => {
-  if (bellEnabled) playBell();
-  setTimeout(() => speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'up', scope_jp:'デイトレ'})), bellEnabled ? 450 : 0);
+  playBell();
+  setTimeout(() => speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'up', scope_jp:'デイトレ'})), 450);
 });
 $('testDownBtn').addEventListener('click', () => {
-  if (bellEnabled) playBell();
-  setTimeout(() => speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'down', scope_jp:'デイトレ'})), bellEnabled ? 450 : 0);
+  playBell();
+  setTimeout(() => speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'down', scope_jp:'デイトレ'})), 450);
 });
 
 $('saveSettingsBtn').addEventListener('click', () => {
@@ -442,9 +479,11 @@ socket.on('angle_update', (msg) => {
 });
 socket.on('new_dow_alert', (entry) => {
   addHistoryRow(entry, true);
+  activeAlerts[cellKey(entry.pair, entry.tf)] = true;
+  renderMatrix();
   if (isSoundEnabled(entry)) {
-    if (bellEnabled) playBell();
-    setTimeout(() => speak(buildSpeechText(entry) || entry.text), bellEnabled ? 450 : 0);
+    playBell();
+    setTimeout(() => speak(buildSpeechText(entry) || entry.text), 450);
   }
 });
 

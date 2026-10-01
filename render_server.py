@@ -11,6 +11,8 @@ from flask_socketio import SocketIO, emit
 import traceback
 import subprocess
 import re
+import logging
+from logging.handlers import RotatingFileHandler
 
 # バックアップデータ定数をインポート
 from backup_constants import HOURLY_DATA_BACKUP, FOUR_HOURLY_DATA_BACKUP
@@ -63,6 +65,7 @@ DEFAULT_ALERT_VOICE_SETTINGS = {
     # visible_pairs: キーが無い、または true = ヒートマップ・角度グラフに表示。false を明示した通貨ペアだけ非表示
     'visible_pairs': {},
     'voice_name': '',
+    'hm_font_size': 15,   # ヒートマップ(▲67等)の文字サイズ(px)
 }
 
 
@@ -108,10 +111,55 @@ previous_extreme_currencies = {}
 # 履歴パーセント計算用の正規化基準値（クライアントの設定を受け取って更新）
 currency_norm_base = 350
 
-# IMMEDIATELY log the file path to confirm which render_server.py is running
-with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as _f:
-    _f.write(f'\n====== LOADING render_server.py FROM: {__file__} ======\n')
-    _f.write(f'====== BASE_DIR: {BASE_DIR} ======\n\n')
+# ============================================================
+# ログ設定
+#   - コンソール(標準出力): すべてのログを出力 → Renderの「Logs」ダッシュボードや
+#     ローカルのターミナルでそのまま確認できる(ファイルへの書き込みに依存しない)。
+#   - ファイル(webhook_error.log): 重要なエラー(WARNING以上)だけを保存。
+#     サイズ上限付きで自動ローテーションするため、無制限に肥大化しない。
+#     (以前は毎回のWebhook受信ごとに十数行の調査用ログをファイルへ直接書き込んでおり、
+#      これが webhook_error.log を170MB/約204万行まで肥大化させていた原因だったため、
+#      デバッグ用の詳細ログはファイルに残さずコンソール出力のみにした)
+# ============================================================
+logger = logging.getLogger('webhook')
+logger.setLevel(logging.DEBUG)
+logger.propagate = False
+
+_console_handler = logging.StreamHandler()
+_console_handler.setLevel(logging.DEBUG)
+_console_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+logger.addHandler(_console_handler)
+
+_file_handler = RotatingFileHandler(
+    os.path.join(BASE_DIR, 'webhook_error.log'),
+    maxBytes=2 * 1024 * 1024,  # 1ファイルあたり最大2MB
+    backupCount=3,              # 直近3世代まで保持（合計で最大 約8MB程度）
+    encoding='utf-8',
+)
+_file_handler.setLevel(logging.WARNING)
+_file_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+logger.addHandler(_file_handler)
+
+logger.info(f'LOADING render_server.py FROM: {__file__}')
+logger.info(f'BASE_DIR: {BASE_DIR}')
+
+WEBHOOK_LOG_PATH = os.path.join(BASE_DIR, 'webhook_log.txt')
+WEBHOOK_LOG_MAX_BYTES = 2 * 1024 * 1024   # 2MBを超えたら古い行を間引く
+WEBHOOK_LOG_KEEP_LINES = 3000              # 間引き後に残す行数
+
+def _append_webhook_log(entry: str) -> None:
+    """Webhook受信ログ(UIの『直近ログ』表示用)。サイズが増えすぎたら古い行を自動的に捨てる。"""
+    with open(WEBHOOK_LOG_PATH, 'a', encoding='utf-8') as f:
+        f.write(entry)
+    try:
+        if os.path.getsize(WEBHOOK_LOG_PATH) > WEBHOOK_LOG_MAX_BYTES:
+            with open(WEBHOOK_LOG_PATH, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            if len(lines) > WEBHOOK_LOG_KEEP_LINES:
+                with open(WEBHOOK_LOG_PATH, 'w', encoding='utf-8') as f:
+                    f.writelines(lines[-WEBHOOK_LOG_KEEP_LINES:])
+    except Exception as _trim_err:
+        logger.debug(f'webhook_log.txt のローテーションに失敗: {_trim_err}')
 
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 
@@ -675,10 +723,9 @@ def init_db():
     FIRST_RECEIVE_FLAGS = {}
     
     # ログに起動時刻を記録
-    with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-        f.write(f'\n====== SERVER_START_TIME: {SERVER_START_TIME.isoformat()} ======\n')
-        f.write(f'====== Starting init_db at {datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()} ======\n')
-        f.write(f'====== FIRST_RECEIVE_FLAGS reset ======\n\n')
+    logger.info(f'SERVER_START_TIME: {SERVER_START_TIME.isoformat()}')
+    logger.info(f'Starting init_db at {datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()}')
+    logger.info('FIRST_RECEIVE_FLAGS reset')
     
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -1196,6 +1243,7 @@ def api_angle_push():
             _angle_data.setdefault(pair, {})[tf] = {
                 'angle': it.get('angle'),
                 'direction': it.get('direction'),
+                'bars_elapsed': it.get('bars_elapsed'),  # 現在の向きが何本前から続いているか(ヒートマップの[NN]表示用)
                 'updated_at': now_iso,
             }
         snapshot = {k: dict(v) for k, v in _angle_data.items()}
@@ -1692,9 +1740,8 @@ def detect_and_record_extreme_changes(currency_data):
         import traceback
         traceback.print_exc()
         try:
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(jst).isoformat()} - [CRITICAL] detect_and_record_extreme_changes: {e}\n')
-                f.write(traceback.format_exc())
+            logger.error(f'{datetime.now(jst).isoformat()} - [CRITICAL] detect_and_record_extreme_changes: {e}\n')
+            logger.error(traceback.format_exc())
         except:
             pass
 
@@ -2003,8 +2050,7 @@ def webhook():
         if not data:
             error_msg = 'No JSON data received'
             print(f'[WEBHOOK ERROR] {error_msg}')
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()} - {error_msg}\n')
+            logger.error(f'{datetime.now(pytz.timezone("Asia/Tokyo")).isoformat()} - {error_msg}\n')
             response = jsonify({'status': 'error', 'msg': error_msg})
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response, 400
@@ -2041,16 +2087,13 @@ def webhook():
         # ログをファイルに保存
         try:
             log_entry = f'{received_at} - {symbol_val}/{tf_val} (Sent: {sent_time_val}) - {json.dumps(data, ensure_ascii=False)}\n'
-            with open(os.path.join(BASE_DIR, 'webhook_log.txt'), 'a', encoding='utf-8') as f:
-                f.write(log_entry)
+            _append_webhook_log(log_entry)
             # 同時にエラーログにも記録（トラッキング用）
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{received_at} - OK: {symbol_val}/{tf_val} (Sent: {sent_time_val})\n')
+            logger.debug(f'{received_at} - OK: {symbol_val}/{tf_val} (Sent: {sent_time_val})\n')
         except Exception as e:
             error_msg = f'[LOG ERROR] Failed to write logs: {str(e)}'
             print(error_msg)
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
+            logger.error(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
         
         # 設定から更新遅延時間を取得
         settings_path = os.path.join(BASE_DIR, 'settings.json')
@@ -2066,9 +2109,7 @@ def webhook():
         # ============================================================
         # スコア計算を実行（DB保存前）
         # ============================================================
-        with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-            f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Starting trend calculation for {symbol_val}/{tf_val}\n')
-            f.flush()
+        logger.debug(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Starting trend calculation for {symbol_val}/{tf_val}\n')
         
         try:
             tf_for_calc = tf_val
@@ -2076,9 +2117,7 @@ def webhook():
             tf_map_norm = {'5': '5m', '15': '15m', '60': '1H', '240': '4H', 'D': 'D', 'W': 'W', 'M': 'M', 'Y': 'Y'}
             tf_for_calc = tf_map_norm.get(tf_val, tf_val)
             
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] tf_for_calc={tf_for_calc}\n')
-                f.flush()
+            logger.debug(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] tf_for_calc={tf_for_calc}\n')
             
             # row_order を文字列に変換（calculate_trend_strength_v2 が string を期待）
             row_order_for_calc = data.get('row_order', [])
@@ -2089,16 +2128,12 @@ def webhook():
             calc_data = dict(data)
             calc_data['row_order'] = row_order_for_calc
             
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] row_order_for_calc={row_order_for_calc}\n')
-                f.flush()
+            logger.debug(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] row_order_for_calc={row_order_for_calc}\n')
             
             # スコア計算を実行
             trend_result = calculate_trend_strength_v2(tf_for_calc, calc_data, None)
             
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Calculation result: direction={trend_result.get("direction")}, score={trend_result.get("score")}\n')
-                f.flush()
+            logger.debug(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Calculation result: direction={trend_result.get("direction")}, score={trend_result.get("score")}\n')
             
             # 計算結果を meta に追加
             meta = data.get('meta', {})
@@ -2109,19 +2144,15 @@ def webhook():
                 meta['trend_breakdown'] = trend_result.get('breakdown', {})
                 data['meta'] = meta
                 
-                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                    f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Meta updated: {symbol_val}/{tf_val}\n')
-                    f.flush()
+                logger.debug(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND] Meta updated: {symbol_val}/{tf_val}\n')
             
         except Exception as e:
             error_msg = f"{type(e).__name__}: {str(e)}"
             tb_msg = traceback.format_exc()
             
             # log に記録
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND_ERROR] {symbol_val}/{tf_val}: {error_msg}\n')
-                f.write(f'{tb_msg}\n')
-                f.flush()
+            logger.error(f'{datetime.now(jst).isoformat()} - [DEBUG_TREND_ERROR] {symbol_val}/{tf_val}: {error_msg}\n')
+            logger.error(f'{tb_msg}\n')
             
             # meta に exception 情報を入れる
             meta = data.get('meta', {})
@@ -2237,15 +2268,11 @@ def webhook():
             # if tf_val in ['D', '240', '60']:
             #     save_dynamic_backup(symbol_val, tf_val, data)  # DISABLED
             
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{saved_at} - [CHECKPOINT 1] Before trend calculation block\n')
-                f.flush()
+            logger.debug(f'{saved_at} - [CHECKPOINT 1] Before trend calculation block\n')
             
             # トレンド強度計算v2（パターン検出含む）を実行
             try:
-                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                    f.write(f'{saved_at} - [TREND_CALC] Calculating trend for {symbol_val}/{tf_val}...\n')
-                    f.flush()
+                logger.debug(f'{saved_at} - [TREND_CALC] Calculating trend for {symbol_val}/{tf_val}...\n')
                 print(f'[TREND_CALC] Calculating trend for {symbol_val}/{tf_val}...')
                 # tf_valを正規化
                 tf_normalized = tf_val
@@ -2307,11 +2334,9 @@ def webhook():
                 # 詳細情報も出力
                 if trend_result.get('details'):
                     print(f'[TREND_DETAILS] {symbol_val}/{tf_normalized}: {trend_result["details"]}')
-                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                    f.write(f'{saved_at} - {result_msg}\n')
-                    if trend_result.get('details'):
-                        f.write(f'{saved_at} - [TREND_DETAILS] {json.dumps(trend_result["details"], ensure_ascii=False)}\n')
-                    f.flush()
+                logger.debug(f'{saved_at} - {result_msg}')
+                if trend_result.get('details'):
+                    logger.debug(f'{saved_at} - [TREND_DETAILS] {json.dumps(trend_result["details"], ensure_ascii=False)}')
                 
                 # トレンド計算結果をデータベースに保存
                 try:
@@ -2340,39 +2365,28 @@ def webhook():
             except Exception as trend_err:
                 error_msg = f'[ERROR] Trend calculation failed: {trend_err}'
                 print(error_msg)
-                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                    f.write(f'{saved_at} - {error_msg}\n')
-                    f.flush()
+                logger.error(f'{saved_at} - {error_msg}\n')
                 import traceback
                 traceback.print_exc()
             
             # トレンド計算完了マーカー
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{saved_at} - [TREND_CALC_BLOCK] Trend calculation block completed\n')
-                f.flush()
+            logger.debug(f'{saved_at} - [TREND_CALC_BLOCK] Trend calculation block completed\n')
             
             # 全てのタイムフレーム（5, 15, 60, 240）でルール評価と発火を実行
             try:
                 print(f'[DEBUG] RULE_EVAL_START for {symbol_val}/{tf_val}')
-                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                    f.write(f'{saved_at} - RULE_EVAL_START for {symbol_val}/{tf_val}\n')
-                    f.flush()
+                logger.debug(f'{saved_at} - RULE_EVAL_START for {symbol_val}/{tf_val}\n')
                 evaluate_and_fire_rules(data, symbol_val, tf_val)
                 print(f'[DEBUG] RULE_EVAL_END for {symbol_val}/{tf_val}')
                 # evaluate_all_symbols_from_db() はここでは呼ばない。
                 # evaluate_and_fire_rules() が最新Webhookデータで正確に評価済みのため、
                 # 直後に空の all_clouds={} で再評価すると active_fires が誤ってクリアされるバグを防ぐ。
                 # /current_states エンドポイントが cooldown=5.0 で再評価する。
-                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                    f.write(f'{saved_at} - RULE_EVAL_END for {symbol_val}/{tf_val}\n')
-                    f.flush()
+                logger.debug(f'{saved_at} - RULE_EVAL_END for {symbol_val}/{tf_val}\n')
             except Exception as e:
                 print(f'[ERROR] Rule evaluation failed: {str(e)}')
-                with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                    f.write(f'{saved_at} - RULE ERROR for {symbol_val}/{tf_val}: {str(e)}\n')
-                    import traceback
-                    f.write(traceback.format_exc())
-                    f.flush()
+                import traceback
+                logger.error(f'{saved_at} - RULE ERROR for {symbol_val}/{tf_val}: {str(e)}\n{traceback.format_exc()}')
             
             print(f'[DEBUG] After rule evaluation, before emit for {symbol_val}/{tf_val}')
             
@@ -2394,9 +2408,8 @@ def webhook():
                         print(f'[ERROR] Change history recording failed (continuing): {history_error}')
                         import traceback
                         traceback.print_exc()
-                        with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                            f.write(f'{datetime.now(jst).isoformat()} - [HISTORY_ERROR] {history_error}\n')
-                            f.write(traceback.format_exc())
+                        logger.error(f'{datetime.now(jst).isoformat()} - [HISTORY_ERROR] {history_error}\n')
+                        logger.error(traceback.format_exc())
                     
                     socketio.emit('currency_strength_update', {
                         'status': 'success',
@@ -2428,8 +2441,7 @@ def webhook():
         except Exception as e:
             error_msg = f'Database save failed: {str(e)}'
             print(f'[ERROR] {error_msg}')
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(jst).isoformat()} - SAVE ERROR for {symbol_val}/{tf_val}: {str(e)}\n')
+            logger.error(f'{datetime.now(jst).isoformat()} - SAVE ERROR for {symbol_val}/{tf_val}: {str(e)}\n')
             response = jsonify({'status': 'error', 'msg': error_msg})
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response, 500
@@ -2442,8 +2454,7 @@ def webhook():
         print(f'[ERROR] {error_msg}')
         jst = pytz.timezone('Asia/Tokyo')
         try:
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
+            logger.error(f'{datetime.now(jst).isoformat()} - {error_msg}\n')
         except:
             pass
         response = jsonify({'status': 'error', 'msg': error_msg})
@@ -4499,8 +4510,7 @@ def api_backup_send_to_target():
         # Diagnostic log for incoming calls from browser / UI
         try:
             origin = request.headers.get('Origin')
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as _log:
-                _log.write(f"[SEND_TO_TARGET] request from {request.remote_addr} Origin={origin} headers={dict(request.headers)}\n")
+            logger.debug(f"[SEND_TO_TARGET] request from {request.remote_addr} Origin={origin} headers={dict(request.headers)}\n")
         except Exception:
             pass
 
@@ -4824,13 +4834,8 @@ def evaluate_and_fire_rules(data, symbol, tf_val):
     - tf=15,60,240 の場合：当該時間足のダウ転・突破数・時間情報でルール評価
     """
     def wlog(msg):
-        """Debug message to both console and file"""
-        print(msg)
-        try:
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'{msg}\n')
-        except:
-            pass
+        """Debug message (console/Renderログのみ。ファイルへは残さない)"""
+        logger.debug(msg)
     
     try:
         global FIRST_RECEIVE_FLAGS, SERVER_START_TIME
@@ -4986,15 +4991,9 @@ def _evaluate_rules_with_db_state(tf_states, symbol, all_clouds=None, current_tf
     """
     global active_fires  # 発火表示状態マップへのアクセス
     global _server_just_started, _restart_baseline  # 起動直後フラグ
-    # Simple inline logging function - writes directly to file
     def wlog(msg):
-        """Write log directly to file"""
-        try:
-            with open(os.path.join(BASE_DIR, 'webhook_error.log'), 'a', encoding='utf-8') as f:
-                f.write(f'[RULE_V3] {msg}\n')
-                f.flush()
-        except:
-            pass
+        """Debug message (console/Renderログのみ。ファイルへは残さない)"""
+        logger.debug(f'[RULE_V3] {msg}')
     
     wlog('===== FUNCTION ENTRY =====')
     
