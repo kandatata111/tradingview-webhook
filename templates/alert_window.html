@@ -88,6 +88,8 @@
   .saveStatus.show{opacity:1}
   .sectionDivider{height:1px;background:var(--divider);margin:4px 0}
   .layoutBtn{font-size:11px}
+  .toggleBtn{font-size:11px}
+  .toggleBtn.off{opacity:0.45}
   .vGrid{display:grid;gap:3px}
   .vRowLabel{display:flex;align-items:center;justify-content:flex-end;color:var(--text-dim);font-size:11px;font-weight:600;padding-right:4px}
   .vPairHead{display:flex;align-items:center;justify-content:center;color:var(--text);font-size:12px;font-weight:800;padding:2px 0 8px;white-space:nowrap}
@@ -105,6 +107,8 @@
     <div class="headerBtns">
       <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
       <button class="layoutBtn" id="layoutBtn" title="縦型/横型レイアウト切替">📐 横型</button>
+      <button class="toggleBtn" id="barsToggleBtn" title="角度グラフの表示/非表示">📊 角度グラフ</button>
+      <button class="toggleBtn" id="historyToggleBtn" title="発火履歴の表示/非表示">🕒 発火履歴</button>
       <button class="gearBtn" id="gearBtn">⚙ 個別設定</button>
       <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
     </div>
@@ -164,19 +168,19 @@
         <tbody id="matrixBody"></tbody>
       </table>
     </div>
-    <div class="sectionDivider"></div>
-    <div>
+    <div class="sectionDivider" id="horizBarsDivider"></div>
+    <div id="horizBarsSection">
       <div id="barsWrap" style="display:flex;flex-wrap:wrap;gap:4px;overflow-x:auto"></div>
     </div>
   </div>
 
   <div class="card" id="vertCard" style="padding:12px 14px;display:none;flex-direction:column;gap:10px">
     <div class="vGrid" id="vertGrid"></div>
-    <div class="sectionDivider"></div>
+    <div class="sectionDivider" id="vertBarsDivider"></div>
     <div class="vGrid" id="vertBarGrid"></div>
   </div>
 
-  <div class="card" style="padding:8px 14px;overflow:auto;max-height:160px;display:flex;flex-direction:column;gap:4px">
+  <div class="card" id="historyCard" style="padding:8px 14px;overflow:auto;max-height:160px;display:flex;flex-direction:column;gap:4px">
     <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">発火履歴</div>
     <div id="histWrap"></div>
   </div>
@@ -189,7 +193,7 @@ const PAIR_JP = {USDJPY:'ドル円',EURJPY:'ユーロ円',GBPJPY:'ポンド円',
 const TF_ALL = ['1','5','15','60','240'];   // マトリクス(ヒートマップ)の列。1分はアラームのみ(角度なし)
 const BAR_TFS = ['5','15','60','240'];      // 角度の強さ比較グラフの列(1分は角度計算が無いので対象外)
 const TF_JP = {'1':'1分','5':'5分','15':'15分','60':'1時間','240':'4時間'};
-const TF_JP_BAR = {'1':'1m','5':'5','15':'15','60':'1h','240':'4h'};
+const TF_JP_BAR = {'1':'1m','5':'5m','15':'15','60':'1h','240':'4h'};
 const MAX_ANGLE = 90;   // 棒の高さの正規化に使う上限(度)
 
 let selectedTf = 'all';   // タブUIを廃止したため常に全列を同等に強調する
@@ -256,7 +260,7 @@ function heatCellMarkup(pair, tf){
 function renderMatrix(){
   const visTfs = TF_ALL.filter(isTfVisible);
   const headRow = $('matrixHeadRow');
-  headRow.innerHTML = '<th style="text-align:left">ペア</th>' + visTfs.map(tf => `<th>${TF_JP[tf]}</th>`).join('');
+  headRow.innerHTML = '<th style="text-align:left">ペア</th>' + visTfs.map(tf => `<th>${TF_JP_BAR[tf]}</th>`).join('');
   const body = $('matrixBody');
   body.innerHTML = PAIRS.filter(isVisible).map(pair => {
     const cells = visTfs.map(tf => `<td>${heatCellMarkup(pair, tf)}</td>`).join('');
@@ -469,6 +473,40 @@ $('layoutBtn').addEventListener('click', () => {
   setLayoutVisibility(layoutMode);
   try { localStorage.setItem('alertWindowLayout', layoutMode); } catch (e) { /* no-op */ }
   renderAll();
+});
+
+// ---- 角度グラフ・発火履歴の表示/非表示(端末ごとの好みなのでlocalStorageに保存) ----
+function applyBarsVisibility(visible){
+  $('horizBarsDivider').style.display = visible ? '' : 'none';
+  $('horizBarsSection').style.display = visible ? '' : 'none';
+  $('vertBarsDivider').style.display = visible ? '' : 'none';
+  $('vertBarGrid').style.display = visible ? '' : 'none';
+  const btn = $('barsToggleBtn');
+  btn.textContent = '📊 角度グラフ';
+  btn.classList.toggle('off', !visible);
+}
+function applyHistoryVisibility(visible){
+  $('historyCard').style.display = visible ? '' : 'none';
+  const btn = $('historyToggleBtn');
+  btn.textContent = '🕒 発火履歴';
+  btn.classList.toggle('off', !visible);
+}
+let barsVisible = true, historyVisible = true;
+(function initPanelVisibility(){
+  try { barsVisible = localStorage.getItem('alertWindowBarsVisible') !== '0'; } catch (e) { /* no-op */ }
+  try { historyVisible = localStorage.getItem('alertWindowHistoryVisible') !== '0'; } catch (e) { /* no-op */ }
+  applyBarsVisibility(barsVisible);
+  applyHistoryVisibility(historyVisible);
+})();
+$('barsToggleBtn').addEventListener('click', () => {
+  barsVisible = !barsVisible;
+  applyBarsVisibility(barsVisible);
+  try { localStorage.setItem('alertWindowBarsVisible', barsVisible ? '1' : '0'); } catch (e) { /* no-op */ }
+});
+$('historyToggleBtn').addEventListener('click', () => {
+  historyVisible = !historyVisible;
+  applyHistoryVisibility(historyVisible);
+  try { localStorage.setItem('alertWindowHistoryVisible', historyVisible ? '1' : '0'); } catch (e) { /* no-op */ }
 });
 
 // ---- ヒートマップの文字サイズ ----
