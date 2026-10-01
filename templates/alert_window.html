@@ -93,11 +93,11 @@
   .vPairHead{display:flex;align-items:center;justify-content:center;color:var(--text);font-size:12px;font-weight:800;padding:2px 0 8px;white-space:nowrap}
   .vBarWrap{display:flex;flex-direction:column;align-items:center;width:100%}
   .vBarRow{display:flex;gap:3px;align-items:flex-end;height:72px;width:100%;justify-content:center;border-top:1px dashed var(--card-border);padding-top:4px}
-  .vBar{flex:1 1 0;max-width:12px;border-radius:3px 3px 0 0;position:relative}
-  .vNum{position:absolute;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:var(--text);font-family:ui-monospace,monospace}
-  .vNumIn{position:absolute;top:1px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.7);font-family:ui-monospace,monospace}
+  .vBar{flex:1 1 0;border-radius:3px 3px 0 0;position:relative}
+  .vNum{position:absolute;left:0;right:0;text-align:center;font-size:12px;font-weight:700;color:var(--text);font-family:ui-monospace,monospace}
+  .vNumIn{position:absolute;top:1px;left:0;right:0;text-align:center;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.75);font-family:ui-monospace,monospace}
   .vTfLabels{display:flex;gap:3px;margin-top:2px;justify-content:center}
-  .vTfLabels span{flex:1 1 0;max-width:12px;text-align:center;font-size:8px;color:var(--text-dim)}
+  .vTfLabels span{flex:1 1 0;text-align:center;font-size:10px;color:var(--text-dim)}
 </style>
 </head>
 <body>
@@ -171,16 +171,11 @@
     </div>
     <div class="sectionDivider"></div>
     <div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div style="font-size:10px;color:var(--text-dim)">角度の強さ比較(5分/15分/1時間/4時間を同時表示・棒の高さ=強さ)</div>
-        <div class="legend"><span class="sw" style="background:#10b981"></span>上昇<span class="sw" style="background:#e11d48;margin-left:6px"></span>下降</div>
-      </div>
       <div id="barsWrap" style="display:flex;flex-wrap:wrap;gap:4px;overflow-x:auto"></div>
     </div>
   </div>
 
   <div class="card" id="vertCard" style="padding:12px 14px;display:none;flex-direction:column;gap:10px">
-    <div style="font-size:10px;color:var(--text-dim)">ヒートマップ(時間足×通貨ペア)+ 角度の強さ比較(列幅を通貨ペアに合わせた棒グラフ)</div>
     <div class="vGrid" id="vertGrid"></div>
     <div class="sectionDivider"></div>
     <div class="vGrid" id="vertBarGrid"></div>
