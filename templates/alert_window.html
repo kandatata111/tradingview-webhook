@@ -51,9 +51,9 @@
   .sw{width:12px;height:12px;border-radius:4px;display:inline-block}
   .pairBlock{display:flex;flex-direction:column;gap:2px;padding:0 4px}
   .pairBlockName{font-size:12px;font-weight:700;color:var(--text);margin-top:0}
-  .bars{display:flex;align-items:flex-end;gap:5px;min-height:112px}
+  .bars{display:flex;align-items:flex-end;gap:5px;height:100px}
   .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}
-  .track{width:100%;height:78px;display:flex;align-items:flex-end}
+  .track{width:100%;height:78px;display:flex;align-items:flex-end;position:relative}
   .fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s ease;position:relative}
   .fillLabel{position:absolute;top:2px;left:0;right:0;text-align:center;font-size:12px;font-weight:700;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,0.75)}
   .tfLabel{font-size:10px;color:var(--text)}
@@ -95,7 +95,6 @@
   <div class="hdr" style="flex-direction:row;align-items:flex-start;justify-content:space-between">
     <div>
       <h1>ダウ転換・角度アラート状況</h1>
-      <div class="sub">上部タブは全体マトリクスの強調列を切替える(「全て」は全列を強調)。下の比較グラフは常に5分/15分/1時間/4時間を同時表示(1分は角度計算が無いため対象外)</div>
     </div>
     <div class="headerBtns">
       <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
@@ -151,18 +150,8 @@
     </div>
   </div>
 
-  <div class="tabs" id="tabs">
-    <div class="tab" data-tf="all">全て</div>
-    <div class="tab" data-tf="1">1分</div>
-    <div class="tab" data-tf="5">5分</div>
-    <div class="tab on" data-tf="15">15分</div>
-    <div class="tab" data-tf="60">1時間</div>
-    <div class="tab" data-tf="240">4時間</div>
-  </div>
-
   <div class="card" style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">
     <div>
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:5px">全体マトリクス(選択中の時間足の列だけ強調。「全て」選択時は全列強調)</div>
       <table id="matrixTable">
         <thead><tr id="matrixHeadRow"><th style="text-align:left">ペア</th></tr></thead>
         <tbody id="matrixBody"></tbody>
@@ -194,7 +183,7 @@ const TF_JP = {'1':'1分','5':'5分','15':'15分','60':'1時間','240':'4時間'
 const TF_JP_BAR = {'5':'5','15':'15','60':'1h','240':'4h'};
 const MAX_ANGLE = 90;   // 棒の高さの正規化に使う上限(度)
 
-let selectedTf = '15';
+let selectedTf = 'all';   // タブUIを廃止したため常に全列を同等に強調する
 let angleData = {};     // { pair: { tf: {angle, direction, updated_at} } }
 let muted = false;
 let activeAlerts = {};   // 点滅中のセル。key="ペア_時間足"→true (セルを左クリックすると解除)
@@ -290,9 +279,9 @@ function renderBars(){
       const fitsInBar = (height / 100 * TRACK_PX) >= LABEL_MIN_PX;
       // 棒の中に入るならダーク/ライト問わず白抜き文字(.fillLabel)。入らない場合は棒の上に、
       // テーマに応じた色(ダーク=白文字/ライト=黒文字、どちらも.valLabelのvar(--text)で自動切替)で表示する。
-      const aboveLabel = fitsInBar ? '' : `<div class="valLabel">${label}</div>`;
+      const aboveLabel = fitsInBar ? '' : `<div class="valLabel" style="position:absolute;left:0;right:0;bottom:calc(${height}% + 3px);text-align:center;">${label}</div>`;
       const insideLabel = fitsInBar ? `<div class="fillLabel">${label}</div>` : '';
-      return `<div class="barcol">${aboveLabel}<div class="track"><div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
+      return `<div class="barcol"><div class="track">${aboveLabel}<div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
     }).join('');
     return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName">${PAIR_JP[pair] || pair}</div></div>`;
   }).join('');
@@ -300,20 +289,8 @@ function renderBars(){
 
 function renderAll(){
   renderMatrix(); renderBars();
-  document.querySelectorAll('#tabs .tab[data-tf]').forEach(el => {
-    const tf = el.dataset.tf;
-    el.style.display = (tf === 'all' || isTfVisible(tf)) ? '' : 'none';
-  });
 }
 
-$('tabs').addEventListener('click', (e) => {
-  const t = e.target.closest('.tab');
-  if (!t) return;
-  document.querySelectorAll('#tabs .tab').forEach(el => el.classList.remove('on'));
-  t.classList.add('on');
-  selectedTf = t.dataset.tf;
-  renderMatrix();
-});
 
 function addHistoryRow(entry, isNew){
   const wrap = $('histWrap');
