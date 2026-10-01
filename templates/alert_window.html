@@ -6,53 +6,83 @@
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <style>
   * { box-sizing: border-box; }
-  body{margin:0;font-family:"Yu Gothic","Meiryo",system-ui,sans-serif;background:#1a1033;color:#ffffff}
+  :root{
+    --bg:#1a1033; --text:#ffffff; --text-dim:rgba(255,255,255,0.8); --hint:rgba(255,255,255,0.55);
+    --card-bg:linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));
+    --card-border:rgba(255,255,255,0.08);
+    --tab-bg:rgba(255,255,255,0.04); --tab-border:rgba(255,255,255,0.08);
+    --chip-bg:rgba(255,255,255,0.05); --chip-border:rgba(255,255,255,0.14);
+    --chip-on-bg:rgba(139,92,246,0.35); --chip-on-border:#8b5cf6;
+    --input-bg:rgba(255,255,255,0.06); --input-border:rgba(255,255,255,0.15);
+    --btn-bg:rgba(255,255,255,0.08); --btn-border:rgba(255,255,255,0.2);
+    --row-alt:rgba(255,255,255,0.03); --divider:rgba(255,255,255,0.1);
+  }
+  [data-theme="light"]{
+    --bg:#f0eefa; --text:#211a3a; --text-dim:rgba(33,26,58,0.75); --hint:rgba(33,26,58,0.55);
+    --card-bg:linear-gradient(160deg,#ffffff,#f6f4fc);
+    --card-border:rgba(33,26,58,0.12);
+    --tab-bg:rgba(33,26,58,0.05); --tab-border:rgba(33,26,58,0.12);
+    --chip-bg:rgba(33,26,58,0.05); --chip-border:rgba(33,26,58,0.16);
+    --chip-on-bg:rgba(139,92,246,0.18); --chip-on-border:#8b5cf6;
+    --input-bg:#ffffff; --input-border:rgba(33,26,58,0.2);
+    --btn-bg:rgba(33,26,58,0.06); --btn-border:rgba(33,26,58,0.2);
+    --row-alt:rgba(33,26,58,0.035); --divider:rgba(33,26,58,0.12);
+  }
+  body{margin:0;font-family:"Yu Gothic","Meiryo",system-ui,sans-serif;background:var(--bg);color:var(--text)}
   .wrap{padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:100vh}
   .hdr{display:flex;flex-direction:column;gap:2px}
-  .hdr h1{font-size:19px;font-weight:700;margin:0;color:#ffffff}
-  .hdr .sub{font-size:11px;color:#ffffff;opacity:0.8}
-  .tabs{display:flex;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:999px;padding:6px;width:fit-content;flex-wrap:wrap}
-  .tab{padding:6px 14px;border-radius:999px;font-size:12px;color:#ffffff;cursor:pointer;opacity:0.6;user-select:none}
-  .tab.on{background:linear-gradient(135deg,#8b5cf6,#6366f1);opacity:1;box-shadow:0 4px 14px rgba(139,92,246,0.4)}
-  .card{background:linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.08);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.25)}
-  table{border-collapse:separate;border-spacing:4px;width:100%}
-  th{text-align:center;font-weight:600;color:#ffffff;font-size:11px;padding:2px}
+  .hdr h1{font-size:19px;font-weight:700;margin:0;color:var(--text)}
+  .hdr .sub{font-size:11px;color:var(--text-dim)}
+  .tabs{display:flex;gap:8px;background:var(--tab-bg);border:1px solid var(--tab-border);border-radius:999px;padding:6px;width:fit-content;flex-wrap:wrap}
+  .tab{padding:6px 14px;border-radius:999px;font-size:12px;color:var(--text);cursor:pointer;opacity:0.6;user-select:none}
+  .tab.on{background:linear-gradient(135deg,#8b5cf6,#6366f1);opacity:1;color:#fff;box-shadow:0 4px 14px rgba(139,92,246,0.4)}
+  .card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.18)}
+  table{border-collapse:separate;border-spacing:4px 2px;width:100%}
+  th{text-align:center;font-weight:600;color:var(--text);font-size:11px;padding:2px}
+  tr.prow:nth-child(odd){background:var(--row-alt)}
   .hm{border-radius:8px;padding:7px 4px;text-align:center;font-size:11px;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
   .hm.dim{opacity:0.4;box-shadow:none}
   .hm.focus{outline:2px solid #fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,0.25)}
   .hm.na{opacity:0.25}
-  .pairname{color:#ffffff;font-weight:700;font-size:12px;text-align:left;padding-left:4px;white-space:nowrap}
-  .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:#ffffff;flex-wrap:wrap}
+  .pairname{color:var(--text);font-weight:700;font-size:12px;text-align:left;padding-left:6px;white-space:nowrap;border-radius:8px}
+  .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text);flex-wrap:wrap}
   .sw{width:12px;height:12px;border-radius:4px;display:inline-block}
-  .group{display:flex;flex-direction:column;align-items:center;gap:6px}
-  .bars{display:flex;align-items:flex-end;gap:5px;height:110px}
+  .pairBlock{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border-radius:10px}
+  .pairBlock:nth-child(odd){background:var(--row-alt)}
+  .pairBlockName{font-size:12px;font-weight:700;color:var(--text)}
+  .bars{display:flex;align-items:flex-end;gap:5px;height:100px}
   .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}
-  .track{width:100%;height:88px;display:flex;align-items:flex-end}
+  .track{width:100%;height:78px;display:flex;align-items:flex-end}
   .fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s ease}
-  .tfLabel{font-size:9px;color:#c4b5fd}
-  .valLabel{font-size:9px;color:#ffffff;font-weight:700}
-  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(255,255,255,0.1);color:#ffffff}
-  .histrow{display:flex;align-items:center;gap:10px;font-size:12px;color:#ffffff;padding:2px 0}
-  .histrow .t{width:52px;color:#ffffff;opacity:0.7;font-size:10px;flex-shrink:0}
+  .tfLabel{font-size:9px;color:#a78bfa}
+  [data-theme="light"] .tfLabel{color:#7c3aed}
+  .valLabel{font-size:9px;color:var(--text);font-weight:700}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip-bg);color:var(--text)}
+  .histrow{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text);padding:2px 0}
+  .histrow .t{width:52px;color:var(--text-dim);font-size:10px;flex-shrink:0}
   .flash{animation:flash 1.2s ease-out 2}
   @keyframes flash{0%{outline:2px solid #fbbf24}100%{outline:2px solid transparent}}
-  .headerBtns{display:flex;gap:8px;flex-shrink:0}
-  .muteBtn,.gearBtn,.saveBtn,.testBtn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer}
-  .muteBtn.on{background:rgba(139,92,246,0.4)}
-  .saveBtn{background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;font-weight:700;padding:7px 18px}
+  .headerBtns{display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap}
+  .muteBtn,.gearBtn,.saveBtn,.testBtn,.themeBtn,.bellBtn{background:var(--btn-bg);border:1px solid var(--btn-border);color:var(--text);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer}
+  .muteBtn.on,.bellBtn.on{background:rgba(139,92,246,0.4)}
+  .themeBtn{font-size:15px;padding:4px 8px;line-height:1}
+  .saveBtn{background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;font-weight:700;padding:7px 18px;color:#fff}
   .settingsPanel{display:none;flex-direction:column;gap:14px;padding:14px 16px}
   .settingsPanel.open{display:flex}
-  .settingsSection h3{font-size:12px;margin:0 0 8px 0;color:#c4b5fd}
+  .settingsSection h3{font-size:12px;margin:0 0 8px 0;color:#a78bfa}
+  [data-theme="light"] .settingsSection h3{color:#7c3aed}
   .voiceRow{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
-  .voiceRow textarea{flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:12px;padding:6px 8px;resize:vertical;min-height:38px;font-family:inherit}
-  .hint{font-size:10px;color:#ffffff;opacity:0.55;margin:-4px 0 8px 0}
+  .voiceRow textarea{flex:1;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;color:var(--text);font-size:12px;padding:6px 8px;resize:vertical;min-height:38px;font-family:inherit}
+  .hint{font-size:10px;color:var(--hint);margin:-4px 0 8px 0}
   .chipGrid{display:flex;flex-wrap:wrap;gap:6px}
-  .muteChip{display:flex;align-items:center;gap:4px;font-size:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:999px;padding:4px 10px;cursor:pointer;user-select:none}
-  .muteChip input{accent-color:#8b5cf6}
-  .muteChip.muted{background:rgba(190,18,60,0.25);border-color:rgba(190,18,60,0.5)}
+  .toggleChip{display:flex;align-items:center;gap:4px;font-size:11px;background:var(--chip-bg);border:1px solid var(--chip-border);border-radius:999px;padding:4px 10px;cursor:pointer;user-select:none;opacity:0.45}
+  .toggleChip.on{opacity:1;background:var(--chip-on-bg);border-color:var(--chip-on-border)}
+  .toggleChip input{accent-color:#8b5cf6}
+  .voiceSelectRow select{background:var(--input-bg);border:1px solid var(--input-border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit}
   .settingsFooter{display:flex;justify-content:flex-end;align-items:center;gap:10px}
   .saveStatus{font-size:11px;color:#4ade80;opacity:0;transition:opacity 0.3s}
   .saveStatus.show{opacity:1}
+  .sectionDivider{height:1px;background:var(--divider);margin:4px 0}
 </style>
 </head>
 <body>
@@ -64,12 +94,19 @@
       <div class="sub">上部タブは全体マトリクスの強調列を切替える(「全て」は全列を強調)。下の比較グラフは常に5分/15分/1時間/4時間を同時表示(1分は角度計算が無いため対象外)</div>
     </div>
     <div class="headerBtns">
+      <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
       <button class="gearBtn" id="gearBtn">⚙ 個別設定</button>
+      <button class="bellBtn on" id="bellBtn">🔔 ベルON</button>
       <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
     </div>
   </div>
 
   <div class="card settingsPanel" id="settingsPanel">
+    <div class="settingsSection">
+      <h3>読み上げに使う声(日本語のみ)</h3>
+      <div class="voiceSelectRow"><select id="voiceSelect"></select></div>
+    </div>
+    <div class="sectionDivider"></div>
     <div class="settingsSection">
       <h3>読み上げ文言(上昇・下降を別々に設定できます)</h3>
       <div class="hint">{pair}=通貨ペア名 / {tf}=時間足名 / {scope}=デイトレ・スイング(TradingViewアラート由来の時だけ入ります) が使えます</div>
@@ -82,13 +119,19 @@
         <button class="testBtn" id="testDownBtn">▼下降テスト</button>
       </div>
     </div>
+    <div class="sectionDivider"></div>
     <div class="settingsSection">
-      <h3>通貨ペアごとの消音</h3>
-      <div class="chipGrid" id="mutePairGrid"></div>
+      <h3>鳴らす通貨ペア(チェックした通貨ペアだけ音が鳴ります)</h3>
+      <div class="chipGrid" id="enablePairGrid"></div>
     </div>
     <div class="settingsSection">
-      <h3>時間足ごとの消音</h3>
-      <div class="chipGrid" id="muteTfGrid"></div>
+      <h3>鳴らす時間足(チェックした時間足だけ音が鳴ります)</h3>
+      <div class="chipGrid" id="enableTfGrid"></div>
+    </div>
+    <div class="sectionDivider"></div>
+    <div class="settingsSection">
+      <h3>表示する通貨ペア(チェックを外すと、その通貨ペアのヒートマップ・角度グラフを非表示にします)</h3>
+      <div class="chipGrid" id="visiblePairGrid"></div>
     </div>
     <div class="settingsFooter">
       <span class="saveStatus" id="saveStatus">保存しました</span>
@@ -105,24 +148,26 @@
     <div class="tab" data-tf="240">4時間</div>
   </div>
 
-  <div class="card" style="padding:10px 14px">
-    <div style="font-size:10px;color:#ffffff;opacity:0.8;margin-bottom:5px">全体マトリクス(選択中の時間足の列だけ強調。「全て」選択時は全列強調)</div>
-    <table id="matrixTable">
-      <thead><tr><th style="text-align:left">ペア</th><th>1分</th><th>5分</th><th>15分</th><th>1時間</th><th>4時間</th></tr></thead>
-      <tbody id="matrixBody"></tbody>
-    </table>
-  </div>
-
-  <div class="card" style="flex:1;padding:10px 14px;display:flex;flex-direction:column;min-height:220px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:10px;color:#ffffff;opacity:0.8">角度の強さ比較(5分/15分/1時間/4時間を同時表示・棒の高さ=強さ)</div>
-      <div class="legend"><span class="sw" style="background:#10b981"></span>上昇<span class="sw" style="background:#e11d48;margin-left:6px"></span>下降</div>
+  <div class="card" style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">
+    <div>
+      <div style="font-size:10px;color:var(--text-dim);margin-bottom:5px">全体マトリクス(選択中の時間足の列だけ強調。「全て」選択時は全列強調)</div>
+      <table id="matrixTable">
+        <thead><tr><th style="text-align:left">ペア</th><th>1分</th><th>5分</th><th>15分</th><th>1時間</th><th>4時間</th></tr></thead>
+        <tbody id="matrixBody"></tbody>
+      </table>
     </div>
-    <div id="barsWrap" style="flex:1;display:flex;justify-content:space-around;align-items:flex-end;overflow-x:auto;overflow-y:hidden"></div>
+    <div class="sectionDivider"></div>
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:10px;color:var(--text-dim)">角度の強さ比較(5分/15分/1時間/4時間を同時表示・棒の高さ=強さ)</div>
+        <div class="legend"><span class="sw" style="background:#10b981"></span>上昇<span class="sw" style="background:#e11d48;margin-left:6px"></span>下降</div>
+      </div>
+      <div id="barsWrap" style="display:flex;flex-wrap:wrap;gap:4px;overflow-x:auto"></div>
+    </div>
   </div>
 
   <div class="card" style="padding:8px 14px;overflow:auto;max-height:160px;display:flex;flex-direction:column;gap:4px">
-    <div style="font-size:11px;color:#ffffff;opacity:0.8;margin-bottom:2px">発火履歴</div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">発火履歴</div>
     <div id="histWrap"></div>
   </div>
 
@@ -139,14 +184,21 @@ const MAX_ANGLE = 90;   // 棒の高さの正規化に使う上限(度)
 let selectedTf = '15';
 let angleData = {};     // { pair: { tf: {angle, direction, updated_at} } }
 let muted = false;
+let bellEnabled = true;
 let voiceSettings = {
   template_up: '{pair}、{tf}、ダウ転換、上昇です。{pair}',
   template_down: '{pair}、{tf}、ダウ転換、下降です。{pair}',
-  mute_pairs: {},
-  mute_tfs: {},
+  enabled_pairs: {},   // 省略 or true = 鳴らす。false = 鳴らさない
+  enabled_tfs: {},
+  visible_pairs: {},   // 省略 or true = 表示。false = 非表示
+  voice_name: '',
 };
 
 function $(id){ return document.getElementById(id); }
+function isVisible(pair){ return voiceSettings.visible_pairs[pair] !== false; }
+function isSoundEnabled(entry){
+  return voiceSettings.enabled_pairs[entry.pair] !== false && voiceSettings.enabled_tfs[entry.tf] !== false;
+}
 
 function dirColor(direction, strong){
   if (direction === 'up') return strong ? '#047857' : '#34d399';
@@ -156,7 +208,7 @@ function dirColor(direction, strong){
 
 function renderMatrix(){
   const body = $('matrixBody');
-  body.innerHTML = PAIRS.map(pair => {
+  body.innerHTML = PAIRS.filter(isVisible).map(pair => {
     const cells = TF_ALL.map(tf => {
       const d = (angleData[pair] || {})[tf];
       const focus = selectedTf === 'all' || tf === selectedTf;
@@ -166,7 +218,6 @@ function renderMatrix(){
       }
       const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
       if (d.angle === null || d.angle === undefined) {
-        // 角度の値が無い(1分など): 方向だけ表示
         const bg = dirColor(d.direction, false);
         return `<td><div class="${cls}" style="background:${bg}">${arrow}</div></td>`;
       }
@@ -174,13 +225,13 @@ function renderMatrix(){
       const bg = dirColor(d.direction, strong);
       return `<td><div class="${cls}" style="background:${bg}">${arrow}${Math.abs(Math.round(d.angle))}</div></td>`;
     }).join('');
-    return `<tr><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
+    return `<tr class="prow"><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
   }).join('');
 }
 
 function renderBars(){
   const wrap = $('barsWrap');
-  wrap.innerHTML = PAIRS.map(pair => {
+  wrap.innerHTML = PAIRS.filter(isVisible).map(pair => {
     const cols = BAR_TFS.map(tf => {
       const d = (angleData[pair] || {})[tf];
       const angle = d && d.angle !== null && d.angle !== undefined ? d.angle : 0;
@@ -190,7 +241,7 @@ function renderBars(){
       const label = d && d.angle !== null && d.angle !== undefined ? Math.abs(Math.round(d.angle)) : '-';
       return `<div class="barcol"><div class="valLabel">${label}</div><div class="track"><div class="fill" style="height:${height}%;background:${color}"></div></div><div class="tfLabel">${TF_JP[tf]}</div></div>`;
     }).join('');
-    return `<div class="group"><div class="bars">${cols}</div><div style="font-size:12px;font-weight:700;color:#ffffff">${PAIR_JP[pair] || pair}</div></div>`;
+    return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName">${PAIR_JP[pair] || pair}</div></div>`;
   }).join('');
 }
 
@@ -216,23 +267,62 @@ function addHistoryRow(entry, isNew){
   while (wrap.children.length > 30) wrap.removeChild(wrap.lastChild);
 }
 
-// ---- 音声 ----
+// ---- 音声(日本語音声の選択に対応) ----
 let jpVoice = null;
+let availableJaVoices = [];
 function pickVoice(){
   if (!('speechSynthesis' in window)) return;
   const voices = speechSynthesis.getVoices();
-  jpVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ja')) || null;
+  availableJaVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('ja'));
+  if (voiceSettings.voice_name) {
+    jpVoice = availableJaVoices.find(v => v.name === voiceSettings.voice_name) || availableJaVoices[0] || null;
+  } else {
+    jpVoice = availableJaVoices[0] || null;
+  }
+  renderVoiceSelect();
 }
 if ('speechSynthesis' in window){
   pickVoice();
   if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = pickVoice;
 }
+function renderVoiceSelect(){
+  const sel = $('voiceSelect');
+  if (!sel) return;
+  sel.innerHTML = availableJaVoices.length
+    ? availableJaVoices.map(v => `<option value="${v.name}">${v.name}</option>`).join('')
+    : '<option value="">(日本語音声が見つかりません)</option>';
+  if (jpVoice) sel.value = jpVoice.name;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = $('voiceSelect');
+  if (sel) sel.addEventListener('change', () => {
+    voiceSettings.voice_name = sel.value;
+    jpVoice = availableJaVoices.find(v => v.name === sel.value) || jpVoice;
+  });
+});
+
 function speak(text){
   if (muted || !('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'ja-JP';
   if (jpVoice) u.voice = jpVoice;
   speechSynthesis.speak(u);
+}
+
+function playBell(){
+  if (!bellEnabled) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.42);
+  } catch (e) { /* no-op */ }
 }
 
 function buildSpeechText(entry){
@@ -246,16 +336,33 @@ function buildSpeechText(entry){
     .split('{scope}').join(scopeJp);
 }
 
-function isMuted(entry){
-  if (voiceSettings.mute_pairs && voiceSettings.mute_pairs[entry.pair]) return true;
-  if (voiceSettings.mute_tfs && voiceSettings.mute_tfs[entry.tf]) return true;
-  return false;
-}
-
 $('muteBtn').addEventListener('click', () => {
   muted = !muted;
   $('muteBtn').textContent = muted ? '🔇 音声OFF' : '🔊 音声ON';
   $('muteBtn').classList.toggle('on', !muted);
+});
+
+$('bellBtn').addEventListener('click', () => {
+  bellEnabled = !bellEnabled;
+  $('bellBtn').textContent = bellEnabled ? '🔔 ベルON' : '🔕 ベルOFF';
+  $('bellBtn').classList.toggle('on', bellEnabled);
+});
+
+// ---- ダーク/ライト切替(端末ごとの好みなのでlocalStorageに保存) ----
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  $('themeBtn').textContent = theme === 'light' ? '☀️' : '🌙';
+}
+(function initTheme(){
+  let saved = 'dark';
+  try { saved = localStorage.getItem('alertWindowTheme') || 'dark'; } catch (e) { /* no-op */ }
+  applyTheme(saved);
+})();
+$('themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const next = cur === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  try { localStorage.setItem('alertWindowTheme', next); } catch (e) { /* no-op */ }
 });
 
 // ---- 個別設定パネル ----
@@ -263,26 +370,25 @@ function renderSettingsPanel(){
   $('tmplUp').value = voiceSettings.template_up || '';
   $('tmplDown').value = voiceSettings.template_down || '';
 
-  const pairGrid = $('mutePairGrid');
-  pairGrid.innerHTML = PAIRS.map(p => {
-    const on = !!(voiceSettings.mute_pairs && voiceSettings.mute_pairs[p]);
-    return `<label class="muteChip${on ? ' muted' : ''}" data-kind="pair" data-key="${p}"><input type="checkbox" ${on ? 'checked' : ''}>${PAIR_JP[p]}</label>`;
-  }).join('');
+  const mk = (kind, key, label, on) =>
+    `<label class="toggleChip${on ? ' on' : ''}" data-kind="${kind}" data-key="${key}"><input type="checkbox" ${on ? 'checked' : ''}>${label}</label>`;
 
-  const tfGrid = $('muteTfGrid');
-  tfGrid.innerHTML = TF_ALL.map(tf => {
-    const on = !!(voiceSettings.mute_tfs && voiceSettings.mute_tfs[tf]);
-    return `<label class="muteChip${on ? ' muted' : ''}" data-kind="tf" data-key="${tf}"><input type="checkbox" ${on ? 'checked' : ''}>${TF_JP[tf]}</label>`;
-  }).join('');
+  $('enablePairGrid').innerHTML = PAIRS.map(p => mk('pair', p, PAIR_JP[p], voiceSettings.enabled_pairs[p] !== false)).join('');
+  $('enableTfGrid').innerHTML = TF_ALL.map(tf => mk('tf', tf, TF_JP[tf], voiceSettings.enabled_tfs[tf] !== false)).join('');
+  $('visiblePairGrid').innerHTML = PAIRS.map(p => mk('visible', p, PAIR_JP[p], voiceSettings.visible_pairs[p] !== false)).join('');
+
+  renderVoiceSelect();
 }
 
 document.addEventListener('change', (e) => {
-  const chip = e.target.closest('.muteChip');
+  const chip = e.target.closest('.toggleChip');
   if (!chip) return;
   const kind = chip.dataset.kind, key = chip.dataset.key;
-  const store = kind === 'pair' ? (voiceSettings.mute_pairs = voiceSettings.mute_pairs || {}) : (voiceSettings.mute_tfs = voiceSettings.mute_tfs || {});
-  if (e.target.checked) { store[key] = true; chip.classList.add('muted'); }
-  else { delete store[key]; chip.classList.remove('muted'); }
+  const storeKey = kind === 'pair' ? 'enabled_pairs' : kind === 'tf' ? 'enabled_tfs' : 'visible_pairs';
+  voiceSettings[storeKey] = voiceSettings[storeKey] || {};
+  if (e.target.checked) { delete voiceSettings[storeKey][key]; chip.classList.add('on'); }
+  else { voiceSettings[storeKey][key] = false; chip.classList.remove('on'); }
+  if (kind === 'visible') renderAll();
 });
 
 $('gearBtn').addEventListener('click', () => {
@@ -290,10 +396,12 @@ $('gearBtn').addEventListener('click', () => {
 });
 
 $('testUpBtn').addEventListener('click', () => {
-  speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'up', scope_jp:'デイトレ'}));
+  if (bellEnabled) playBell();
+  setTimeout(() => speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'up', scope_jp:'デイトレ'})), bellEnabled ? 450 : 0);
 });
 $('testDownBtn').addEventListener('click', () => {
-  speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'down', scope_jp:'デイトレ'}));
+  if (bellEnabled) playBell();
+  setTimeout(() => speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'down', scope_jp:'デイトレ'})), bellEnabled ? 450 : 0);
 });
 
 $('saveSettingsBtn').addEventListener('click', () => {
@@ -305,6 +413,8 @@ $('saveSettingsBtn').addEventListener('click', () => {
     body: JSON.stringify(voiceSettings)
   }).then(r => r.json()).then(res => {
     if (res && res.settings) voiceSettings = res.settings;
+    renderSettingsPanel();
+    renderAll();
     const st = $('saveStatus');
     st.classList.add('show');
     setTimeout(() => st.classList.remove('show'), 1800);
@@ -318,7 +428,12 @@ fetch('/api/dow_alert_history').then(r => r.json()).then(list => {
 }).catch(() => {});
 fetch('/api/alert_voice_settings').then(r => r.json()).then(s => {
   voiceSettings = Object.assign({}, voiceSettings, s || {});
+  voiceSettings.enabled_pairs = voiceSettings.enabled_pairs || {};
+  voiceSettings.enabled_tfs = voiceSettings.enabled_tfs || {};
+  voiceSettings.visible_pairs = voiceSettings.visible_pairs || {};
   renderSettingsPanel();
+  renderAll();
+  pickVoice();
 }).catch(() => { renderSettingsPanel(); });
 
 // ---- リアルタイム更新 ----
@@ -329,9 +444,9 @@ socket.on('angle_update', (msg) => {
 });
 socket.on('new_dow_alert', (entry) => {
   addHistoryRow(entry, true);
-  // 読み上げ文言は「個別設定」で保存したテンプレートを優先する(未保存でも既定値が入っている)
-  if (!isMuted(entry)) {
-    speak(buildSpeechText(entry) || entry.text);
+  if (isSoundEnabled(entry)) {
+    if (bellEnabled) playBell();
+    setTimeout(() => speak(buildSpeechText(entry) || entry.text), bellEnabled ? 450 : 0);
   }
 });
 

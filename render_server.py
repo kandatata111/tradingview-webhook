@@ -57,8 +57,12 @@ ALERT_VOICE_SETTINGS_PATH = os.path.join(BASE_DIR, 'alert_voice_settings.json')
 DEFAULT_ALERT_VOICE_SETTINGS = {
     'template_up': '{pair}、{tf}、ダウ転換、上昇です。{pair}',
     'template_down': '{pair}、{tf}、ダウ転換、下降です。{pair}',
-    'mute_pairs': {},
-    'mute_tfs': {},
+    # enabled_pairs/enabled_tfs: キーが無い、または true = 鳴らす。false を明示した項目だけ鳴らさない(選択式)
+    'enabled_pairs': {},
+    'enabled_tfs': {},
+    # visible_pairs: キーが無い、または true = ヒートマップ・角度グラフに表示。false を明示した通貨ペアだけ非表示
+    'visible_pairs': {},
+    'voice_name': '',
 }
 
 
