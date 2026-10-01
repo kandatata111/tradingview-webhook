@@ -2727,6 +2727,39 @@ def current_states():
         return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 
+@app.route('/download_angle_state')
+def download_angle_state():
+    """ヒートマップの状態ファイル(angle_state.json)をダウンロードするエンドポイント。
+
+    用途: webhook_data.db と同じやり方で、デプロイのたびにこのファイルも
+    Gitへコミットして一緒にデプロイすれば、Renderの無料プラン(永続ディスク無し)
+    でも「前回デプロイ時点の状態」を引き継げる(deploy.bat から呼び出す想定)。
+    """
+    try:
+        if not os.path.exists(ANGLE_STATE_PATH):
+            return jsonify({'status': 'error', 'msg': 'angle_state.json not found'}), 404
+        directory = os.path.dirname(ANGLE_STATE_PATH)
+        filename = os.path.basename(ANGLE_STATE_PATH)
+        return send_from_directory(directory, filename, as_attachment=True)
+    except Exception as e:      # noqa
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
+@app.route('/download_dow_alert_history')
+def download_dow_alert_history():
+    """発火履歴の状態ファイル(dow_alert_history.json)をダウンロードするエンドポイント。
+    download_angle_state と同じ理由・同じ使い方。
+    """
+    try:
+        if not os.path.exists(DOW_ALERT_HISTORY_PATH):
+            return jsonify({'status': 'error', 'msg': 'dow_alert_history.json not found'}), 404
+        directory = os.path.dirname(DOW_ALERT_HISTORY_PATH)
+        filename = os.path.basename(DOW_ALERT_HISTORY_PATH)
+        return send_from_directory(directory, filename, as_attachment=True)
+    except Exception as e:      # noqa
+        return jsonify({'status': 'error', 'msg': str(e)}), 500
+
+
 @app.route('/download_db')
 def download_db():
     """データベースファイルをダウンロードするエンドポイント"""

@@ -30,6 +30,25 @@ if errorlevel 1 (
 echo    ^> Done
 timeout /t 1 /nobreak >nul
 
+REM 本番(Render)の最新のヒートマップ状態をダウンロードしてから取り込む
+REM (webhook_data.db と同じやり方: このファイルをGitにコミットして一緒にデプロイすることで、
+REM  Renderの無料プラン=永続ディスク無しでも「前回デプロイ時点の状態」を引き継げるようにする。
+REM  ダウンロードに失敗しても(本番がまだ起動していない等)デプロイ自体は続行する)
+echo [Step 4.5/7] Downloading latest heatmap state from production...
+curl -fsS -o angle_state.json https://tradingview-webhook-s5x1.onrender.com/download_angle_state
+if errorlevel 1 (
+    echo    ^> WARNING: angle_state.json のダウンロードに失敗しました(継続します)
+) else (
+    echo    ^> angle_state.json を更新しました
+)
+curl -fsS -o dow_alert_history.json https://tradingview-webhook-s5x1.onrender.com/download_dow_alert_history
+if errorlevel 1 (
+    echo    ^> WARNING: dow_alert_history.json のダウンロードに失敗しました(継続します)
+) else (
+    echo    ^> dow_alert_history.json を更新しました
+)
+timeout /t 1 /nobreak >nul
+
 REM Add all changes
 echo [Step 5/7] Adding changes to Git...
 git add .

@@ -228,7 +228,18 @@ function renderMatrix(){
         return `<td><div class="hm na" ${attrs}>--</div></td>`;
       }
       const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
-      const barsTxt = (d.bars_elapsed !== null && d.bars_elapsed !== undefined) ? ` [${String(d.bars_elapsed).padStart(2,'0')}]` : '';
+      // 経過バー数: PC側が計算して送ってくる値(5分・15分・60分・240分)があればそれを使う。
+      // 1分足はPC側にローソク足データが無く本数を直接数えられないため、
+      // 代わりに「最後にダウ転換を検知した時刻」からの経過分数で見た目上の本数を推定する
+      // (1分足=1本1分なので、経過分数がそのまま本数の目安になる。土日や通信断の間は目安が多少ずれる)
+      let barsVal = d.bars_elapsed;
+      if ((barsVal === null || barsVal === undefined) && d.updated_at) {
+        const updatedMs = Date.parse(d.updated_at.endsWith('Z') || d.updated_at.includes('+') ? d.updated_at : d.updated_at + 'Z');
+        if (!isNaN(updatedMs)) {
+          barsVal = Math.max(0, Math.floor((Date.now() - updatedMs) / 60000));
+        }
+      }
+      const barsTxt = (barsVal !== null && barsVal !== undefined) ? ` [${String(barsVal).padStart(2,'0')}]` : '';
       if (d.angle === null || d.angle === undefined) {
         const bg = dirColor(d.direction, false);
         return `<td><div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div></td>`;
@@ -240,6 +251,9 @@ function renderMatrix(){
     return `<tr><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
   }).join('');
 }
+
+// 経過バー数(特に1分足の推定値)を時間経過に合わせて見た目だけ更新する
+setInterval(renderMatrix, 15000);
 
 // ヒートマップのセルを左クリックすると、点滅(アラーム通知)を解除する
 $('matrixBody').addEventListener('click', (e) => {
