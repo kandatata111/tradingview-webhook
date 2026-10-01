@@ -55,9 +55,9 @@
   .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}
   .track{width:100%;height:78px;display:flex;align-items:flex-end}
   .fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s ease;position:relative}
-  .fillLabel{position:absolute;top:2px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.65)}
-  .tfLabel{font-size:9px;color:var(--text)}
-  .valLabel{font-size:9px;color:var(--text);font-weight:700}
+  .fillLabel{position:absolute;top:2px;left:0;right:0;text-align:center;font-size:12px;font-weight:700;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,0.75)}
+  .tfLabel{font-size:10px;color:var(--text)}
+  .valLabel{font-size:12px;color:var(--text);font-weight:700;min-height:14px;line-height:14px}
   .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip-bg);color:var(--text)}
   .histrow{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text);padding:2px 0}
   .histrow .t{width:68px;color:var(--text-dim);font-size:10px;flex-shrink:0}
@@ -191,6 +191,7 @@ const PAIR_JP = {USDJPY:'ドル円',EURJPY:'ユーロ円',GBPJPY:'ポンド円',
 const TF_ALL = ['1','5','15','60','240'];   // マトリクス(ヒートマップ)の列。1分はアラームのみ(角度なし)
 const BAR_TFS = ['5','15','60','240'];      // 角度の強さ比較グラフの列(1分は角度計算が無いので対象外)
 const TF_JP = {'1':'1分','5':'5分','15':'15分','60':'1時間','240':'4時間'};
+const TF_JP_BAR = {'5':'5','15':'15','60':'1h','240':'4h'};
 const MAX_ANGLE = 90;   // 棒の高さの正規化に使う上限(度)
 
 let selectedTf = '15';
@@ -276,7 +277,7 @@ $('matrixBody').addEventListener('click', (e) => {
 function renderBars(){
   const wrap = $('barsWrap');
   const TRACK_PX = 78;        // .trackの高さ(CSSと合わせる)
-  const LABEL_MIN_PX = 16;    // 数値が棒の中に収まるとみなす最低の棒の高さ(px)
+  const LABEL_MIN_PX = 24;    // 数値が棒の中に収まるとみなす最低の棒の高さ(px)
   const visBarTfs = BAR_TFS.filter(isTfVisible);
   wrap.innerHTML = PAIRS.filter(isVisible).map(pair => {
     const cols = visBarTfs.map(tf => {
@@ -291,7 +292,7 @@ function renderBars(){
       // テーマに応じた色(ダーク=白文字/ライト=黒文字、どちらも.valLabelのvar(--text)で自動切替)で表示する。
       const aboveLabel = fitsInBar ? '' : `<div class="valLabel">${label}</div>`;
       const insideLabel = fitsInBar ? `<div class="fillLabel">${label}</div>` : '';
-      return `<div class="barcol">${aboveLabel}<div class="track"><div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP[tf]}</div></div>`;
+      return `<div class="barcol">${aboveLabel}<div class="track"><div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
     }).join('');
     return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName">${PAIR_JP[pair] || pair}</div></div>`;
   }).join('');

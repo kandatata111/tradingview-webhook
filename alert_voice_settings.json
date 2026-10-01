@@ -1,6 +1,6 @@
 {
-  "template_up": "{pair}、{tf}、ダウ上昇。{pair}",
-  "template_down": "{pair}、{tf}、ダウ下降。{pair}",
+  "template_up": "{pair}、{tf}、上昇。{pair}。上昇",
+  "template_down": "{pair}、{tf}、下降。{pair}。下降",
   "enabled_pairs": {
     "AUDUSD": false,
     "EURAUD": false,
@@ -14,6 +14,7 @@
     "EURGBP": false,
     "GBPAUD": false
   },
+  "visible_tfs": {},
   "voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
   "hm_font_size": 13
 }
