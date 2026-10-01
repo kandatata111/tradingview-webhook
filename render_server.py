@@ -157,6 +157,62 @@ if not os.path.exists(PERSISTENT_DIR):
     except Exception as e:
         print(f"[STORAGE ERROR] Failed to create directory: {e}")
 
+# ---- ダウ転換・角度アラートの状態をRenderの永続ディスクに保存し、再起動をまたいで引き継ぐ ----
+# (再起動のたびにメモリが空になると、次に本物のダウ転換が起きるまでヒートマップが「--」に
+#  戻ってしまい非効率なため。PERSISTENT_DIRはRenderの永続ディスク、ローカルではBASE_DIRと同じ)
+ANGLE_STATE_PATH = os.path.join(PERSISTENT_DIR, 'angle_state.json')
+DOW_ALERT_HISTORY_PATH = os.path.join(PERSISTENT_DIR, 'dow_alert_history.json')
+
+
+def _load_angle_state():
+    try:
+        if os.path.exists(ANGLE_STATE_PATH):
+            with open(ANGLE_STATE_PATH, encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                with _angle_lock:
+                    _angle_data.update(data)
+                print(f'[ANGLE] 保存済みの状態を復元しました(通貨ペア数: {len(data)})')
+    except Exception as e:      # noqa
+        print(f'[ANGLE] 状態復元エラー(継続します): {e}')
+
+
+def _save_angle_state():
+    try:
+        with _angle_lock:
+            snapshot = {k: dict(v) for k, v in _angle_data.items()}
+        with open(ANGLE_STATE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(snapshot, f, ensure_ascii=False)
+    except Exception as e:      # noqa
+        print(f'[ANGLE] 状態保存エラー(継続します): {e}')
+
+
+def _load_dow_alert_history_state():
+    try:
+        if os.path.exists(DOW_ALERT_HISTORY_PATH):
+            with open(DOW_ALERT_HISTORY_PATH, encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                with _dow_alert_lock:
+                    _dow_alert_history[:] = data[:DOW_ALERT_HISTORY_MAX]
+                print(f'[DOW_ALERT] 保存済みの発火履歴を復元しました({len(_dow_alert_history)}件)')
+    except Exception as e:      # noqa
+        print(f'[DOW_ALERT] 履歴復元エラー(継続します): {e}')
+
+
+def _save_dow_alert_history_state():
+    try:
+        with _dow_alert_lock:
+            snapshot = list(_dow_alert_history)
+        with open(DOW_ALERT_HISTORY_PATH, 'w', encoding='utf-8') as f:
+            json.dump(snapshot, f, ensure_ascii=False)
+    except Exception as e:      # noqa
+        print(f'[DOW_ALERT] 履歴保存エラー(継続します): {e}')
+
+
+_load_angle_state()
+_load_dow_alert_history_state()
+
 # ローソク足の受け箱(/ohlc)を追加。既存の /webhook・webhook_data.db には影響しない
 from ohlc_blueprint import register_ohlc
 register_ohlc(app, PERSISTENT_DIR, socketio)
@@ -1143,6 +1199,7 @@ def api_angle_push():
                 'updated_at': now_iso,
             }
         snapshot = {k: dict(v) for k, v in _angle_data.items()}
+    _save_angle_state()
 
     try:
         socketio.emit('angle_update', {'data': snapshot})
@@ -1171,6 +1228,8 @@ def api_angle_push():
                 _dow_alert_history.insert(0, entry)
                 fired.append(entry)
             del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
+        if fired:
+            _save_dow_alert_history_state()
 
         for entry in fired:
             try:
@@ -1253,6 +1312,7 @@ def api_zigzag_alert():
     with _dow_alert_lock:
         _dow_alert_history.insert(0, entry)
         del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
+    _save_dow_alert_history_state()
 
     # マトリクス(ヒートマップ)側にも反映する(特に1分足はPC側の角度計算が無いため、
     # このTradingViewアラート経由の方向だけがマトリクスの唯一の情報源になる)
@@ -1266,6 +1326,7 @@ def api_zigzag_alert():
             'updated_at': now_iso,
         }
         snapshot = {k: dict(v) for k, v in _angle_data.items()}
+    _save_angle_state()
     try:
         socketio.emit('angle_update', {'data': snapshot})
     except Exception as e:      # noqa

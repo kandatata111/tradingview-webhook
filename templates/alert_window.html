@@ -37,19 +37,17 @@
   .tab{padding:6px 14px;border-radius:999px;font-size:12px;color:var(--text);cursor:pointer;opacity:0.6;user-select:none}
   .tab.on{background:linear-gradient(135deg,#8b5cf6,#6366f1);opacity:1;color:#fff;box-shadow:0 4px 14px rgba(139,92,246,0.4)}
   .card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.18)}
-  table{border-collapse:separate;border-spacing:4px 2px;width:100%}
+  table{border-collapse:separate;border-spacing:2px 2px;width:100%}
   th{text-align:center;font-weight:600;color:var(--text);font-size:11px;padding:2px}
-  tr.prow:nth-child(odd){background:var(--row-alt)}
   .hm{border-radius:8px;padding:7px 4px;text-align:center;font-size:11px;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
   .hm.dim{opacity:0.4;box-shadow:none}
   .hm.focus{outline:2px solid #fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,0.25)}
   .hm.na{opacity:0.25}
-  .pairname{color:var(--text);font-weight:700;font-size:12px;text-align:left;padding-left:6px;white-space:nowrap;border-radius:8px}
+  .pairname{color:var(--text);font-weight:700;font-size:12px;text-align:right;padding-right:6px;white-space:nowrap}
   .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text);flex-wrap:wrap}
   .sw{width:12px;height:12px;border-radius:4px;display:inline-block}
-  .pairBlock{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border-radius:10px}
-  .pairBlock:nth-child(odd){background:var(--row-alt)}
-  .pairBlockName{font-size:12px;font-weight:700;color:var(--text)}
+  .pairBlock{display:flex;flex-direction:column;gap:2px;padding:0 4px}
+  .pairBlockName{font-size:12px;font-weight:700;color:var(--text);margin-top:0}
   .bars{display:flex;align-items:flex-end;gap:5px;height:100px}
   .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}
   .track{width:100%;height:78px;display:flex;align-items:flex-end}
@@ -225,7 +223,7 @@ function renderMatrix(){
       const bg = dirColor(d.direction, strong);
       return `<td><div class="${cls}" style="background:${bg}">${arrow}${Math.abs(Math.round(d.angle))}</div></td>`;
     }).join('');
-    return `<tr class="prow"><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
+    return `<tr><td class="pairname">${PAIR_JP[pair] || pair}</td>${cells}</tr>`;
   }).join('');
 }
 
