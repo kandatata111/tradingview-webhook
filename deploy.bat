@@ -30,28 +30,28 @@ if errorlevel 1 (
 echo    ^> Done
 timeout /t 1 /nobreak >nul
 
-REM 本番(Render)の最新のヒートマップ状態をダウンロードしてから取り込む
-REM (webhook_data.db と同じやり方: このファイルをGitにコミットして一緒にデプロイすることで、
-REM  Renderの無料プラン=永続ディスク無しでも「前回デプロイ時点の状態」を引き継げるようにする。
-REM  ダウンロードに失敗しても(本番がまだ起動していない等)デプロイ自体は続行する)
+REM Download latest persisted state from production before packaging the deploy.
+REM Same technique as webhook_data.db: commit these files to Git so each deploy
+REM carries the previous state forward (Render free plan has no persistent disk).
+REM If the download fails (e.g. production not reachable), continue the deploy anyway.
 echo [Step 4.5/7] Downloading latest heatmap state from production...
 curl -fsS -o alert_voice_settings.json https://tradingview-webhook-s5x1.onrender.com/download_alert_voice_settings
 if errorlevel 1 (
-    echo    ^> WARNING: alert_voice_settings.json のダウンロードに失敗しました(継続します)
+    echo    ^> WARNING: failed to download alert_voice_settings.json, continuing
 ) else (
-    echo    ^> alert_voice_settings.json を更新しました
+    echo    ^> alert_voice_settings.json updated
 )
 curl -fsS -o angle_state.json https://tradingview-webhook-s5x1.onrender.com/download_angle_state
 if errorlevel 1 (
-    echo    ^> WARNING: angle_state.json のダウンロードに失敗しました(継続します)
+    echo    ^> WARNING: failed to download angle_state.json, continuing
 ) else (
-    echo    ^> angle_state.json を更新しました
+    echo    ^> angle_state.json updated
 )
 curl -fsS -o dow_alert_history.json https://tradingview-webhook-s5x1.onrender.com/download_dow_alert_history
 if errorlevel 1 (
-    echo    ^> WARNING: dow_alert_history.json のダウンロードに失敗しました(継続します)
+    echo    ^> WARNING: failed to download dow_alert_history.json, continuing
 ) else (
-    echo    ^> dow_alert_history.json を更新しました
+    echo    ^> dow_alert_history.json updated
 )
 timeout /t 1 /nobreak >nul
 
