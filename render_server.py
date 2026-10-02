@@ -301,9 +301,30 @@ def _backfill_angle_data_from_history():
         print(f'[ANGLE] 履歴からの補完エラー(継続します): {e}')
 
 
+def _migrate_dir_updated_at():
+    """dir_updated_at(directionが確定した時刻)は新設フィールド。
+    既存のangle_state.json(これまでの保存ファイル)にはまだこの項目が無いため、
+    追加した直後はヒートマップの「更新時刻」が全ペア×時間足で不明になってしまう。
+    directionは既に分かっているのにdir_updated_atが無いエントリだけ、
+    updated_at(無ければ起動時刻)で一度だけ補完する。
+    以後は通常通り、確定したダウ転換(/api/zigzag_alert)だけがdir_updated_atを更新していく。"""
+    changed = False
+    now_iso = datetime.utcnow().isoformat()
+    with _angle_lock:
+        for tfs in _angle_data.values():
+            for d in tfs.values():
+                if d.get('direction') is not None and not d.get('dir_updated_at'):
+                    d['dir_updated_at'] = d.get('updated_at') or now_iso
+                    changed = True
+    if changed:
+        _save_angle_state()
+        print('[ANGLE] 既存データにdir_updated_atを補完しました(初回移行)')
+
+
 _load_angle_state()
 _load_dow_alert_history_state()
 _backfill_angle_data_from_history()
+_migrate_dir_updated_at()
 
 # ローソク足の受け箱(/ohlc)を追加。既存の /webhook・webhook_data.db には影響しない
 from ohlc_blueprint import register_ohlc
