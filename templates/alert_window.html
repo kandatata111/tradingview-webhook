@@ -40,7 +40,7 @@
   .card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.18)}
   table{border-collapse:separate;border-spacing:2px 2px;width:100%}
   th{text-align:center;font-weight:600;color:var(--text);font-size:11px;padding:2px}
-  .hm{border-radius:8px;padding:5px 4px;text-align:center;font-size:var(--hm-font-size);line-height:1.2;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+  .hm{border-radius:8px;padding:5px 4px;text-align:center;font-size:var(--hm-font-size);line-height:1.2;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25);text-shadow:0 1px 3px rgba(0,0,0,0.75);cursor:pointer}
   .hm.dim{opacity:0.4;box-shadow:none}
   .hm.focus{outline:none;box-shadow:none}
   .hm.na{opacity:0.25}
@@ -52,7 +52,7 @@
   .pairBlock{display:flex;flex-direction:column;gap:2px;padding:0 4px}
   .pairBlockName{font-size:12px;font-weight:700;color:var(--text);margin-top:0}
   .bars{display:flex;align-items:flex-end;gap:5px;height:100px}
-  .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}
+  .barcol{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px;cursor:pointer}
   .track{width:100%;height:78px;display:flex;align-items:flex-end;position:relative}
   .fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s ease;position:relative}
   .fillLabel{position:absolute;top:2px;left:0;right:0;text-align:center;font-size:12px;font-weight:700;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,0.75)}
@@ -94,7 +94,9 @@
   .vRowLabel{display:flex;align-items:center;justify-content:flex-end;color:var(--text-dim);font-size:11px;font-weight:600;padding-right:4px}
   .vPairHead{display:flex;align-items:center;justify-content:center;color:var(--text);font-size:12px;font-weight:800;padding:2px 0 8px;white-space:nowrap}
   .vBarCell{padding:0 7px}
-  .barcolFlex{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1 1 0;min-width:0}
+  .barcolFlex{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1 1 0;min-width:0;cursor:pointer}
+  .clickInfo{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(6px);background:rgba(20,20,24,0.92);color:#ffffff;font-size:12px;font-weight:600;padding:8px 16px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,0.3);opacity:0;pointer-events:none;transition:opacity 0.25s ease,transform 0.25s ease;z-index:999;white-space:nowrap}
+  .clickInfo.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -187,6 +189,8 @@
 
 </div>
 
+<div class="clickInfo" id="clickInfo"></div>
+
 <script>
 const PAIRS = ['USDJPY','EURJPY','GBPJPY','AUDJPY','EURUSD','GBPUSD','AUDUSD','EURGBP','EURAUD','GBPAUD'];
 const PAIR_JP = {USDJPY:'ドル円',EURJPY:'ユーロ円',GBPJPY:'ポンド円',AUDJPY:'オージー円',EURUSD:'ユーロドル',GBPUSD:'ポンドドル',AUDUSD:'オージードル',EURGBP:'ユーロポンド',EURAUD:'ユーロオージー',GBPAUD:'ポンドオージー'};
@@ -220,10 +224,51 @@ function isSoundEnabled(entry){
   return voiceSettings.enabled_pairs[entry.pair] !== false && voiceSettings.enabled_tfs[entry.tf] !== false;
 }
 
+// セルを左クリックした時に「いつ更新されたか」を表示するためのツールチップ。
+// 2.5秒で自動的に消える(常時出続けると画面が煩雑になるため)。
+let _clickInfoTimer = null;
+function showClickInfo(text){
+  const el = $('clickInfo');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(_clickInfoTimer);
+  _clickInfoTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// updated_atはサーバー側がUTCで送ってくる(タイムゾーン表記無し)ので、他の箇所(経過バー数の推定)
+// と同じ方式でUTCとして解釈し、ブラウザのローカル時刻(=この画面を見ている人の時刻)に変換して
+// "MM/DD hh:mm:ss" 形式で返す。
+function formatUpdatedAt(iso){
+  if (!iso) return null;
+  const ms = Date.parse(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z');
+  if (isNaN(ms)) return null;
+  const dt = new Date(ms);
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(dt.getMonth() + 1)}/${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
+}
+
 function dirColor(direction, strong){
   if (direction === 'up') return strong ? '#047857' : '#34d399';
   if (direction === 'down') return strong ? '#be123c' : '#fb7185';
   return '#5c5f66';
+}
+
+// 角度グラフ専用の色付け: ダウ転換(direction)とは完全に無関係に、角度の数値そのものの符号だけで決める。
+// マイナス(下向き)=赤、プラス(上向き)=緑。色味の濃淡(strong)はdirColorと同じ基準(|角度|>=45度)を使う。
+function angleColor(angle, strong){
+  if (angle > 0) return strong ? '#047857' : '#34d399';
+  if (angle < 0) return strong ? '#be123c' : '#fb7185';
+  return '#3a3d44';
+}
+
+// ヒートマップ用: ダウ転換の向き(direction)と角度の符号が矛盾しているかどうか。
+// (上昇ダウなのに角度がマイナス / 下降ダウなのに角度がプラス)
+function isDirAngleMismatch(direction, angle){
+  if (angle === null || angle === undefined) return false;
+  if (direction === 'up' && angle < 0) return true;
+  if (direction === 'down' && angle > 0) return true;
+  return false;
 }
 
 // 1セル分のヒートマップmarkupを作る共通処理(横型・縦型どちらのレイアウトからも呼ばれる)
@@ -253,7 +298,8 @@ function heatCellMarkup(pair, tf){
     return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div>`;
   }
   const strong = Math.abs(d.angle) >= 45;
-  const bg = dirColor(d.direction, strong);
+  const mismatch = isDirAngleMismatch(d.direction, d.angle);
+  const bg = mismatch ? '#5c5f66' : dirColor(d.direction, strong);
   return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${Math.abs(Math.round(d.angle))}${barsTxt}</div>`;
 }
 
@@ -268,15 +314,37 @@ function renderMatrix(){
   }).join('');
 }
 
-// ヒートマップのセルを左クリックすると、点滅(アラーム通知)を解除する(横型・縦型共通)
+// ヒートマップのセルを左クリックすると、いつ更新されたかを表示する(横型・縦型共通)。
+// 点滅中(アラーム通知中)のセルは、表示と同時に点滅も解除する(従来通りの動作)。
 function onHeatCellClick(e){
-  const cell = e.target.closest('.hm.alerting');
+  const cell = e.target.closest('.hm');
   if (!cell) return;
-  delete activeAlerts[cellKey(cell.dataset.pair, cell.dataset.tf)];
-  renderAll();
+  const pair = cell.dataset.pair, tf = cell.dataset.tf;
+  const label = `${PAIR_JP[pair] || pair} ${TF_JP_BAR[tf] || tf}`;
+  const d = (pair && tf) ? (angleData[pair] || {})[tf] : null;
+  // ヒートマップの矢印・色(direction)が最後に確定した時刻を出す(angleの更新時刻ではない)
+  const t = d && formatUpdatedAt(d.dir_updated_at);
+  showClickInfo(t ? `${label}: 更新 ${t}` : `${label}: 更新時刻不明`);
+  if (cell.classList.contains('alerting')) {
+    delete activeAlerts[cellKey(pair, tf)];
+    renderAll();
+  }
 }
 $('matrixBody').addEventListener('click', onHeatCellClick);
 $('vertGrid').addEventListener('click', onHeatCellClick);
+
+// 角度グラフ(棒グラフ)を左クリックすると、いつ更新されたかを表示する(横型・縦型共通)
+function onBarClick(e){
+  const cell = e.target.closest('.barcol, .barcolFlex');
+  if (!cell) return;
+  const pair = cell.dataset.pair, tf = cell.dataset.tf;
+  const label = `${PAIR_JP[pair] || pair} ${TF_JP_BAR[tf] || tf}`;
+  const d = (pair && tf) ? (angleData[pair] || {})[tf] : null;
+  const t = d && formatUpdatedAt(d.updated_at);
+  showClickInfo(t ? `${label} 角度: 更新 ${t}` : `${label} 角度: 更新時刻不明`);
+}
+$('barsWrap').addEventListener('click', onBarClick);
+$('vertBarGrid').addEventListener('click', onBarClick);
 
 // 経過バー数(特に1分足の推定値)を時間経過に合わせて見た目だけ更新する
 setInterval(() => { if (layoutMode === 'vertical') renderVertical(); else renderMatrix(); }, 15000);
@@ -289,17 +357,19 @@ function renderBars(){
   wrap.innerHTML = PAIRS.filter(isVisible).map(pair => {
     const cols = visBarTfs.map(tf => {
       const d = (angleData[pair] || {})[tf];
-      const angle = d && d.angle !== null && d.angle !== undefined ? d.angle : 0;
+      const hasAngle = d && d.angle !== null && d.angle !== undefined;
+      const angle = hasAngle ? d.angle : 0;
       const height = Math.max(4, Math.min(100, Math.abs(angle) / MAX_ANGLE * 100));
       const strong = Math.abs(angle) >= 45;
-      const color = d && d.direction ? dirColor(d.direction, strong) : '#3a3d44';
-      const label = d && d.angle !== null && d.angle !== undefined ? Math.abs(Math.round(d.angle)) : '-';
+      // ダウ転換(direction)とは無関係に、角度の符号だけで色を決める(マイナス=赤/プラス=緑)
+      const color = hasAngle ? angleColor(angle, strong) : '#3a3d44';
+      const label = hasAngle ? Math.round(angle) : '-';
       const fitsInBar = (height / 100 * TRACK_PX) >= LABEL_MIN_PX;
       // 棒の中に入るならダーク/ライト問わず白抜き文字(.fillLabel)。入らない場合は棒の上に、
       // テーマに応じた色(ダーク=白文字/ライト=黒文字、どちらも.valLabelのvar(--text)で自動切替)で表示する。
       const aboveLabel = fitsInBar ? '' : `<div class="valLabel" style="position:absolute;left:0;right:0;bottom:calc(${height}% + 3px);text-align:center;">${label}</div>`;
       const insideLabel = fitsInBar ? `<div class="fillLabel">${label}</div>` : '';
-      return `<div class="barcol"><div class="track">${aboveLabel}<div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
+      return `<div class="barcol" data-pair="${pair}" data-tf="${tf}"><div class="track">${aboveLabel}<div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
     }).join('');
     return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName">${pair}</div></div>`;
   }).join('');
@@ -313,15 +383,17 @@ function verticalBarCellMarkup(pair){
   const visBarTfs = BAR_TFS.filter(isTfVisible);
   const cols = visBarTfs.map(tf => {
     const d = (angleData[pair] || {})[tf];
-    const angle = d && d.angle !== null && d.angle !== undefined ? d.angle : 0;
+    const hasAngle = d && d.angle !== null && d.angle !== undefined;
+    const angle = hasAngle ? d.angle : 0;
     const height = Math.max(4, Math.min(100, Math.abs(angle) / MAX_ANGLE * 100));
     const strong = Math.abs(angle) >= 45;
-    const color = d && d.direction ? dirColor(d.direction, strong) : '#3a3d44';
-    const label = d && d.angle !== null && d.angle !== undefined ? Math.abs(Math.round(d.angle)) : '-';
+    // ダウ転換(direction)とは無関係に、角度の符号だけで色を決める(マイナス=赤/プラス=緑)
+    const color = hasAngle ? angleColor(angle, strong) : '#3a3d44';
+    const label = hasAngle ? Math.round(angle) : '-';
     const fitsInBar = (height / 100 * TRACK_PX) >= LABEL_MIN_PX;
     const aboveLabel = fitsInBar ? '' : `<div class="valLabel" style="position:absolute;left:0;right:0;bottom:calc(${height}% + 3px);text-align:center;">${label}</div>`;
     const insideLabel = fitsInBar ? `<div class="fillLabel">${label}</div>` : '';
-    return `<div class="barcolFlex"><div class="track">${aboveLabel}<div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
+    return `<div class="barcolFlex" data-pair="${pair}" data-tf="${tf}"><div class="track">${aboveLabel}<div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
   }).join('');
   return `<div class="vBarCell"><div class="bars">${cols}</div></div>`;
 }

@@ -291,6 +291,7 @@ def _backfill_angle_data_from_history():
                 _angle_data.setdefault(pair, {})[tf] = {
                     'angle': entry.get('angle'),
                     'direction': entry.get('direction'),
+                    'dir_updated_at': entry.get('received_at'),  # この履歴エントリ自体がダウ転換確定の記録
                     'updated_at': entry.get('received_at'),
                 }
                 filled += 1
@@ -1283,11 +1284,19 @@ def api_angle_push():
             tf = it.get('tf')
             if not pair or not tf:
                 continue
+            # direction(ヒートマップの矢印・色の向き)は、TradingViewの確定ダウ転換(/api/zigzag_alert)
+            # だけが更新する唯一の情報源とする。PCからのこの定期更新(d_trend由来)はangle(角度の数値)
+            # だけを反映し、directionは既存の値をそのまま引き継ぐ(ここで上書きしない)。
+            # これにより、確定した転換がPC側の遅れた/異なる判定で後から戻されることがなくなる。
+            existing = _angle_data.get(pair, {}).get(tf) or {}
             _angle_data.setdefault(pair, {})[tf] = {
                 'angle': it.get('angle'),
-                'direction': it.get('direction'),
+                'direction': existing.get('direction'),
+                # dir_updated_at: directionが実際に最後に確定した時刻。この定期更新ではdirectionを
+                # 触らないのと同じ理由で、この値も更新しない(既存の確定時刻をそのまま引き継ぐ)。
+                'dir_updated_at': existing.get('dir_updated_at'),
                 'bars_elapsed': it.get('bars_elapsed'),  # 現在の向きが何本前から続いているか(ヒートマップの[NN]表示用)
-                'updated_at': now_iso,
+                'updated_at': now_iso,  # angle(角度)がこの時刻に更新された、という意味
             }
         snapshot = {k: dict(v) for k, v in _angle_data.items()}
     _save_angle_state()
@@ -1351,8 +1360,10 @@ def api_zigzag_alert():
     """ジグザグ_V03(TradingView)のインジケーターアラートWebhookを受け取る。
     既存の「ダウ転換・角度アラート」画面(alert_window.html)が使っている発火履歴・音声通知の
     仕組み(_dow_alert_history / socketio 'new_dow_alert')にそのまま合流させる。
-    画面のマトリクス/棒グラフ(角度の値そのもの)は今まで通りPC側(/api/angle_push)が担当するため、
-    ここでは変更しない。ダウ転換(CHOCH)だけを流し、BOS(継続シグナル)は無視する(頻発するため)。"""
+    画面の棒グラフ/マトリクスのangle(角度の値そのもの)は今まで通りPC側(/api/angle_push)が担当する。
+    一方、マトリクスのdirection(矢印・色の向き)は、この確定ダウ転換(CHOCH)だけが更新する唯一の
+    情報源であり、/api/angle_push側の定期更新(d_trend)はdirectionに一切触らない。
+    ダウ転換(CHOCH)だけを流し、BOS(継続シグナル)は無視する(頻発するため)。"""
     raw_text = request.get_data(as_text=True) or ''
     data = request.get_json(force=True, silent=True)
     if data is None:
@@ -1414,6 +1425,7 @@ def api_zigzag_alert():
         _angle_data.setdefault(symbol, {})[tf] = {
             'angle': existing.get('angle'),
             'direction': direction,
+            'dir_updated_at': now_iso,  # directionが実際に確定した時刻(ヒートマップの「更新時刻」表示用)
             'updated_at': now_iso,
         }
         snapshot = {k: dict(v) for k, v in _angle_data.items()}
