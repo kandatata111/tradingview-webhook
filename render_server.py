@@ -45,10 +45,41 @@ _angle_lock = threading.Lock()
 _angle_data = {}
 ANGLE_PUSH_KEY = os.environ.get('ANGLE_PUSH_KEY', '')  # PC側と共有する合言葉。未設定なら認証なし(開発用)
 
-# ダウ転換(角度アラート機能)の発火履歴。ペア問わず新しい順に最大30件保持するだけ(表示用。DB永続化はしない)
+# ダウ転換(角度アラート機能)の発火履歴。
+# _dow_alert_history: 全ペア・全時間足まとめて新しい順に最大DOW_ALERT_HISTORY_MAX件(表示・ダウンロード用)。
+# _dow_alert_history_by_cell: 通貨ペア×時間足の組み合わせ(例 "USDJPY|5")ごとに新しい順で最大
+#   DOW_ALERT_HISTORY_PER_CELL_MAX件を別途保持する(2026-10-05追加)。
+#   1分足・5分足は頻繁に転換する一方、15分足・1時間足・4時間足は数日に1回程度しか転換しないため、
+#   全ペア共通の1つのリストだけだと、頻繁な時間足の記録に押し出されて、たまにしか起きない時間足の
+#   記録が(実際には直す必要があるのに)重複/古いイベント判定の基準から消えてしまう問題があった。
+#   ペア×時間足ごとに専用の枠を持たせることで、他のペア/時間足がどれだけ頻発しても
+#   記録が失われないようにする。
 _dow_alert_lock = threading.Lock()
 _dow_alert_history = []
-DOW_ALERT_HISTORY_MAX = 30
+DOW_ALERT_HISTORY_MAX = 200
+_dow_alert_history_by_cell = {}
+DOW_ALERT_HISTORY_PER_CELL_MAX = 10
+
+
+def _dow_cell_key(pair, tf):
+    return f'{pair}|{tf}'
+
+
+def _record_dow_alert_cell(entry):
+    """_dow_alert_lock保持中に呼ぶこと。entryをペア×時間足専用バッファの先頭に追加する。"""
+    pair = entry.get('pair')
+    tf = entry.get('tf')
+    if not pair or not tf:
+        return
+    key = _dow_cell_key(pair, tf)
+    bucket = _dow_alert_history_by_cell.setdefault(key, [])
+    bucket.insert(0, entry)
+    del bucket[DOW_ALERT_HISTORY_PER_CELL_MAX:]
+
+
+def _dow_cell_history(pair, tf):
+    """_dow_alert_lock保持中に呼ぶこと。該当ペア×時間足の新しい順履歴を返す(無ければ空リスト)。"""
+    return _dow_alert_history_by_cell.get(_dow_cell_key(pair, tf), [])
 
 # ジグザグ_V03(TradingView)のWebhookアラート受信で使う設定(履歴は既存の_dow_alert_historyに合流させる)
 ZIGZAG_ALERT_KEY = os.environ.get('ZIGZAG_ALERT_KEY', '')  # ジグザグ_V03のPine側inputと同じ文字列。未設定なら認証なし(開発用)
@@ -238,14 +269,33 @@ def _save_angle_state():
 
 
 def _load_dow_alert_history_state():
+    """旧形式(ただのリスト)・新形式({'flat':[...], 'by_cell':{...}})の両方に対応する。
+    旧形式のファイルを読み込んだ場合は、by_cellをflatリストから作り直す(移行処理)。"""
     try:
         if os.path.exists(DOW_ALERT_HISTORY_PATH):
             with open(DOW_ALERT_HISTORY_PATH, encoding='utf-8') as f:
                 data = json.load(f)
             if isinstance(data, list):
+                # 旧形式: フラットなリストのみ
                 with _dow_alert_lock:
                     _dow_alert_history[:] = data[:DOW_ALERT_HISTORY_MAX]
-                print(f'[DOW_ALERT] 保存済みの発火履歴を復元しました({len(_dow_alert_history)}件)')
+                    _dow_alert_history_by_cell.clear()
+                    # 新しい順を保ったまま、ペア×時間足ごとに振り分け直す(移行)
+                    for entry in reversed(_dow_alert_history):
+                        _record_dow_alert_cell(entry)
+                print(f'[DOW_ALERT] 保存済みの発火履歴を復元しました({len(_dow_alert_history)}件、旧形式から移行)')
+            elif isinstance(data, dict):
+                # 新形式
+                flat = data.get('flat') if isinstance(data.get('flat'), list) else []
+                by_cell = data.get('by_cell') if isinstance(data.get('by_cell'), dict) else {}
+                with _dow_alert_lock:
+                    _dow_alert_history[:] = flat[:DOW_ALERT_HISTORY_MAX]
+                    _dow_alert_history_by_cell.clear()
+                    for key, bucket in by_cell.items():
+                        if isinstance(bucket, list):
+                            _dow_alert_history_by_cell[key] = bucket[:DOW_ALERT_HISTORY_PER_CELL_MAX]
+                print(f'[DOW_ALERT] 保存済みの発火履歴を復元しました({len(_dow_alert_history)}件、'
+                      f'ペア×時間足別バッファ{len(_dow_alert_history_by_cell)}件)')
     except Exception as e:      # noqa
         print(f'[DOW_ALERT] 履歴復元エラー(継続します): {e}')
 
@@ -253,7 +303,10 @@ def _load_dow_alert_history_state():
 def _save_dow_alert_history_state():
     try:
         with _dow_alert_lock:
-            snapshot = list(_dow_alert_history)
+            snapshot = {
+                'flat': list(_dow_alert_history),
+                'by_cell': {k: list(v) for k, v in _dow_alert_history_by_cell.items()},
+            }
         with open(DOW_ALERT_HISTORY_PATH, 'w', encoding='utf-8') as f:
             json.dump(snapshot, f, ensure_ascii=False)
     except Exception as e:      # noqa
@@ -273,30 +326,33 @@ def _backfill_angle_data_from_history():
     """
     try:
         with _dow_alert_lock:
-            history_snapshot = list(_dow_alert_history)
-        if not history_snapshot:
+            by_cell_snapshot = {k: list(v) for k, v in _dow_alert_history_by_cell.items()}
+        if not by_cell_snapshot:
             return
         filled = 0
         with _angle_lock:
-            for entry in history_snapshot:
+            for key, bucket in by_cell_snapshot.items():
+                if not bucket:
+                    continue
+                entry = bucket[0]  # ペア×時間足専用バッファなので先頭が確実に最新
                 pair = entry.get('pair')
                 tf = entry.get('tf')
                 if not pair or not tf:
                     continue
                 existing = _angle_data.get(pair, {}).get(tf)
                 if existing:
-                    # すでに情報があるペア×時間足はそのまま(新しい方を優先するため、
-                    # 履歴ループ中に後から来る古いエントリで上書きしない)
+                    # すでに情報があるペア×時間足はそのまま
                     continue
+                ts = entry.get('original_fired_at') or entry.get('received_at')
                 _angle_data.setdefault(pair, {})[tf] = {
                     'angle': entry.get('angle'),
                     'direction': entry.get('direction'),
-                    'dir_updated_at': entry.get('received_at'),  # この履歴エントリ自体がダウ転換確定の記録
-                    'updated_at': entry.get('received_at'),
+                    'dir_updated_at': ts,  # この履歴エントリ自体がダウ転換確定の記録
+                    'updated_at': ts,
                 }
                 filled += 1
         if filled:
-            print(f'[ANGLE] 発火履歴から{filled}件のマトリクス情報を補完しました(安全策)')
+            print(f'[ANGLE] 発火履歴(ペア×時間足別)から{filled}件のマトリクス情報を補完しました(安全策)')
     except Exception as e:      # noqa
         print(f'[ANGLE] 履歴からの補完エラー(継続します): {e}')
 
@@ -1341,15 +1397,16 @@ def api_angle_push():
                 # 同様に実際には起きていない転換が重複記録される恐れがあったため追加。
                 _now_dt2 = datetime.utcnow()
                 is_dup = False
-                for h in _dow_alert_history:
-                    if h.get('pair') == pair and h.get('tf') == tf and h.get('direction') == direction:
-                        try:
-                            h_dt = datetime.fromisoformat(h.get('received_at', ''))
-                        except Exception:
-                            continue
-                        if abs((h_dt - _now_dt2).total_seconds()) <= 600:
-                            is_dup = True
-                            break
+                for h in _dow_cell_history(pair, tf):
+                    if h.get('direction') != direction:
+                        continue
+                    try:
+                        h_dt = datetime.fromisoformat(h.get('received_at', ''))
+                    except Exception:
+                        continue
+                    if abs((h_dt - _now_dt2).total_seconds()) <= 600:
+                        is_dup = True
+                        break
                 if is_dup:
                     continue
                 pair_jp = PAIR_JP.get(pair, pair)
@@ -1364,6 +1421,7 @@ def api_angle_push():
                     'received_at': now_iso,
                 }
                 _dow_alert_history.insert(0, entry)
+                _record_dow_alert_cell(entry)
                 fired.append(entry)
             del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
         if fired:
@@ -1393,6 +1451,14 @@ def api_dow_alert_history():
         return jsonify(list(_dow_alert_history))
 
 
+@app.route('/api/dow_alert_history_by_cell', methods=['GET'])
+def api_dow_alert_history_by_cell():
+    """診断用: 通貨ペア×時間足ごとの発火履歴バッファ(各最大DOW_ALERT_HISTORY_PER_CELL_MAX件)を
+    そのまま返す。乖離調査の際に、特定のペア×時間足で記録が実際に残っているか確認するのに使う。"""
+    with _dow_alert_lock:
+        return jsonify({k: list(v) for k, v in _dow_alert_history_by_cell.items()})
+
+
 @app.route('/api/resync_from_history', methods=['POST'])
 def api_resync_from_history():
     """サーバーが既に受信済みの発火履歴(_dow_alert_history)だけを使い、TradingViewへの
@@ -1402,14 +1468,14 @@ def api_resync_from_history():
     サーバーが受信できていなかった分=本当の欠落は直せない。その場合は「ヒートマップダウ転換同期」
     (TradingViewログを正とする方の同期)を使う必要がある)。"""
     with _dow_alert_lock:
-        history_snapshot = list(_dow_alert_history)
+        by_cell_snapshot = {k: list(v) for k, v in _dow_alert_history_by_cell.items()}
 
-    # 同じpair×tfについて、履歴は新しい順(先頭が最新)に並んでいる前提なので、
-    # 先頭から見て最初に出てきたものがそのpair×tfの最新のダウ転換。
+    # ペア×時間足専用バッファ(先頭が必ず最新)から、各組み合わせの最新ダウ転換を取り出す。
     latest_by_key = {}
-    for entry in history_snapshot:
-        if entry.get('scope') == 'swing':
-            # スイング(External)側はヒートマップに反映しない(既存仕様)
+    for key_str, bucket in by_cell_snapshot.items():
+        entry = next((e for e in bucket if e.get('scope') != 'swing'), None)
+        # スイング(External)側はヒートマップに反映しない(既存仕様)
+        if not entry:
             continue
         pair = entry.get('pair')
         tf = entry.get('tf')
@@ -1417,8 +1483,6 @@ def api_resync_from_history():
         if not pair or not tf or not direction:
             continue
         key = (pair, tf)
-        if key in latest_by_key:
-            continue
         # 表示用の更新時刻は、バックフィルされたものは本来の発火時刻(original_fired_at)を、
         # 通常受信のものは受信時刻(received_at、ほぼ実際の発火時刻と同じ)を使う。
         ts = entry.get('original_fired_at') or entry.get('received_at')
@@ -1496,14 +1560,15 @@ def api_zigzag_alert():
     # ここでも直近履歴と突き合わせて弾く。
     _now_dt = datetime.utcnow()
     with _dow_alert_lock:
-        for h in _dow_alert_history:
-            if h.get('pair') == symbol and h.get('tf') == tf and h.get('direction') == direction:
-                try:
-                    h_dt = datetime.fromisoformat(h.get('received_at', ''))
-                except Exception:
-                    continue
-                if abs((h_dt - _now_dt).total_seconds()) <= 600:
-                    return jsonify({'status': 'ok', 'spoken': False, 'reason': 'duplicate'})
+        for h in _dow_cell_history(symbol, tf):
+            if h.get('direction') != direction:
+                continue
+            try:
+                h_dt = datetime.fromisoformat(h.get('received_at', ''))
+            except Exception:
+                continue
+            if abs((h_dt - _now_dt).total_seconds()) <= 600:
+                return jsonify({'status': 'ok', 'spoken': False, 'reason': 'duplicate'})
 
     jst = pytz.timezone('Asia/Tokyo')
     now_iso = datetime.utcnow().isoformat()
@@ -1526,6 +1591,7 @@ def api_zigzag_alert():
     with _dow_alert_lock:
         _dow_alert_history.insert(0, entry)
         del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
+        _record_dow_alert_cell(entry)
     _save_dow_alert_history_state()
 
     # マトリクス(ヒートマップ)側にも反映する(特に1分足はPC側の角度計算が無いため、
@@ -1626,9 +1692,7 @@ def api_backfill_dow_alert():
     with _dow_alert_lock:
         latest_known_dt = None
         is_exact_duplicate = False
-        for h in _dow_alert_history:
-            if h.get('pair') != symbol or h.get('tf') != tf:
-                continue
+        for h in _dow_cell_history(symbol, tf):
             h_original_fired_at = h.get('original_fired_at')
             if h_original_fired_at:
                 if fired_at and h_original_fired_at == fired_at:
@@ -1685,6 +1749,7 @@ def api_backfill_dow_alert():
     with _dow_alert_lock:
         _dow_alert_history.insert(0, entry)
         del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
+        _record_dow_alert_cell(entry)
     _save_dow_alert_history_state()
 
     # マトリクス(ヒートマップ)側にも反映する(通常のzigzag_alertと同じ扱い)。
