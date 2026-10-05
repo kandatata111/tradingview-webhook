@@ -1438,23 +1438,32 @@ def api_zigzag_alert():
     _save_dow_alert_history_state()
 
     # マトリクス(ヒートマップ)側にも反映する(特に1分足はPC側の角度計算が無いため、
-    # このTradingViewアラート経由の方向だけがマトリクスの唯一の情報源になる)
-    with _angle_lock:
-        # 既にPC側(角度_push)からの角度値が入っている場合はそれを消さず、方向とダウ転換時刻だけ更新する。
-        # PC側が対応していない時間足(1分など)は angle が無いままで、マトリクスには方向のみ表示される。
-        existing = (_angle_data.get(symbol) or {}).get(tf) or {}
-        _angle_data.setdefault(symbol, {})[tf] = {
-            'angle': existing.get('angle'),
-            'direction': direction,
-            'dir_updated_at': now_iso,  # directionが実際に確定した時刻(ヒートマップの「更新時刻」表示用)
-            'updated_at': now_iso,
-        }
-        snapshot = {k: dict(v) for k, v in _angle_data.items()}
-    _save_angle_state()
-    try:
-        socketio.emit('angle_update', {'data': snapshot})
-    except Exception as e:      # noqa
-        print(f'[ZIGZAG_ALERT] マトリクス配信エラー(継続します): {e}')
+    # このTradingViewアラート経由の方向だけがマトリクスの唯一の情報源になる)。
+    # 注意(2026-10-05修正): スイング(External)側のCHoCHは、実際には「上位足」
+    # (5分→15分/15分→1時間/1時間→4時間/4時間→日足)の構造を判定した結果だが、
+    # Webhookの"tf"は常に「今見ているチャートの時間足」のまま送られてくる。
+    # そのため従来はスイング側の方向を、チャートと同じ時間足のマトリクスのマスに
+    # そのまま上書きしてしまい、実際のそのチャート時間足の状態と食い違う(乖離)
+    # 原因になっていた。デイトレ(Internal/同一時間足の確定ダウ転換)だけが
+    # マトリクスのdirectionを更新する唯一の情報源とし、スイング側はマトリクスに
+    # 反映しない(発火履歴・音声通知には従来通り残る)。
+    if not is_external:
+        with _angle_lock:
+            # 既にPC側(角度_push)からの角度値が入っている場合はそれを消さず、方向とダウ転換時刻だけ更新する。
+            # PC側が対応していない時間足(1分など)は angle が無いままで、マトリクスには方向のみ表示される。
+            existing = (_angle_data.get(symbol) or {}).get(tf) or {}
+            _angle_data.setdefault(symbol, {})[tf] = {
+                'angle': existing.get('angle'),
+                'direction': direction,
+                'dir_updated_at': now_iso,  # directionが実際に確定した時刻(ヒートマップの「更新時刻」表示用)
+                'updated_at': now_iso,
+            }
+            snapshot = {k: dict(v) for k, v in _angle_data.items()}
+        _save_angle_state()
+        try:
+            socketio.emit('angle_update', {'data': snapshot})
+        except Exception as e:      # noqa
+            print(f'[ZIGZAG_ALERT] マトリクス配信エラー(継続します): {e}')
 
     try:
         socketio.emit('new_dow_alert', entry)
@@ -1462,6 +1471,102 @@ def api_zigzag_alert():
         print(f'[ZIGZAG_ALERT] 配信エラー(継続します): {e}')
 
     return jsonify({'status': 'ok', 'spoken': True})
+
+
+@app.route('/api/backfill_dow_alert', methods=['GET'])
+def api_backfill_dow_alert():
+    """サーバー障害などでTradingViewからの/api/zigzag_alertが届かなかった分を、
+    後からTradingView側の発火ログ(アラート履歴)を使って復元(バックフィル)するための窓口。
+    定期チェック(1時間おきのスケジュールタスク)が、GETリクエストでここを呼び出す。
+    GETにしているのは、復元チェック側が使えるツールがGET専用(WebFetch)であるため。
+    クエリ例: /api/backfill_dow_alert?symbol=USDJPY&tf=5M&sg=bull_choch&fired_at=2026-10-02T23:51:00Z
+    symbol/sg/tfは、TradingViewの発火ログに残っているメッセージの値をそのまま渡す想定。
+    同じ発火を複数回バックフィルしてしまわないよう、直近履歴に同じpair/tf/directionが
+    近い時刻(前後10分以内)で既にあれば何もせず終了する(重複防止)。"""
+    symbol = request.args.get('symbol', '')
+    sg = request.args.get('sg', '')
+    tf_raw = request.args.get('tf', '')
+    fired_at = request.args.get('fired_at', '')  # TradingViewログのfired_at(UTC ISO)。参考情報として保存するのみ
+
+    if not symbol or not sg:
+        return jsonify({'status': 'error', 'msg': 'symbol/sg required'}), 400
+
+    tf = ZIGZAG_TF_MAP.get(tf_raw, tf_raw)
+    is_external = sg.endswith('+')
+    sg_base = sg[:-1] if is_external else sg
+    direction = 'up' if sg_base.startswith('bull') else ('down' if sg_base.startswith('bear') else None)
+    is_choch = sg_base.endswith('choch')
+
+    if not (is_choch and direction and symbol in PAIR_JP and tf in TF_JP):
+        # 対象外(BOS、未対応ペア/時間足など)は記録もせず素通り
+        return jsonify({'status': 'ok', 'spoken': False, 'reason': 'not_target'})
+
+    try:
+        ref_dt = datetime.fromisoformat(fired_at.replace('Z', '+00:00')).replace(tzinfo=None) if fired_at else datetime.utcnow()
+    except Exception:
+        ref_dt = datetime.utcnow()
+
+    # 重複防止: 同じpair/tf/directionが前後10分以内に既にあれば、新規追加せず終了
+    with _dow_alert_lock:
+        for h in _dow_alert_history:
+            if h.get('pair') == symbol and h.get('tf') == tf and h.get('direction') == direction:
+                try:
+                    h_dt = datetime.fromisoformat(h.get('received_at', ''))
+                except Exception:
+                    continue
+                if abs((h_dt - ref_dt).total_seconds()) <= 600:
+                    return jsonify({'status': 'ok', 'spoken': False, 'reason': 'duplicate'})
+
+    jst = pytz.timezone('Asia/Tokyo')
+    now_iso = datetime.utcnow().isoformat()
+    pair_jp = PAIR_JP.get(symbol, symbol)
+    tf_jp = TF_JP.get(tf, tf)
+    dir_jp = '上昇' if direction == 'up' else '下降'
+    scope = 'swing' if is_external else 'daytrade'
+    scope_jp = 'スイング' if is_external else 'デイトレ'
+    text = f'{pair_jp}、{tf_jp}、{scope_jp}、ダウ転換(復元)、{dir_jp}です。{pair_jp}'
+
+    entry = {
+        'pair': symbol, 'tf': tf, 'direction': direction,
+        'angle': None,
+        'scope': scope, 'scope_jp': scope_jp,
+        'text': text,
+        'time': datetime.now(jst).strftime('%H:%M:%S'),
+        'received_at': now_iso,
+        'backfilled': True,          # 通常受信ではなく、復元チェックで後から追加されたことを示すフラグ
+        'original_fired_at': fired_at,  # TradingViewログ上の本来の発火時刻(参考情報)
+    }
+
+    with _dow_alert_lock:
+        _dow_alert_history.insert(0, entry)
+        del _dow_alert_history[DOW_ALERT_HISTORY_MAX:]
+    _save_dow_alert_history_state()
+
+    # マトリクス(ヒートマップ)側にも反映する(通常のzigzag_alertと同じ扱い)。
+    # /api/zigzag_alertと同じ理由により、スイング(External)側はマトリクスに反映しない。
+    if not is_external:
+        with _angle_lock:
+            existing = (_angle_data.get(symbol) or {}).get(tf) or {}
+            _angle_data.setdefault(symbol, {})[tf] = {
+                'angle': existing.get('angle'),
+                'direction': direction,
+                'dir_updated_at': now_iso,
+                'updated_at': existing.get('updated_at'),
+            }
+            snapshot = {k: dict(v) for k, v in _angle_data.items()}
+        _save_angle_state()
+        try:
+            socketio.emit('angle_update', {'data': snapshot})
+        except Exception as e:      # noqa
+            print(f'[BACKFILL] マトリクス配信エラー(継続します): {e}')
+
+    try:
+        socketio.emit('new_dow_alert', entry)
+    except Exception as e:      # noqa
+        print(f'[BACKFILL] 配信エラー(継続します): {e}')
+
+    print(f'[BACKFILL] 復元しました: {symbol}/{tf}/{direction} (元の発火時刻: {fired_at})')
+    return jsonify({'status': 'ok', 'spoken': True, 'backfilled': True})
 
 
 @app.route('/test_api')

@@ -299,7 +299,7 @@ function heatCellMarkup(pair, tf){
   }
   const strong = Math.abs(d.angle) >= 45;
   const mismatch = isDirAngleMismatch(d.direction, d.angle);
-  const bg = mismatch ? '#5c5f66' : dirColor(d.direction, strong);
+  const bg = mismatch ? '#ffeb3b' : dirColor(d.direction, strong);  // 矛盾時は緑/赤と見分けやすい黄色
   return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${Math.abs(Math.round(d.angle))}${barsTxt}</div>`;
 }
 
