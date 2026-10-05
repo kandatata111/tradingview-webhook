@@ -1471,6 +1471,23 @@ def api_zigzag_alert():
         # 対象外(BOS、未対応ペア/時間足など)は記録もせず素通り
         return jsonify({'status': 'ok', 'spoken': False})
 
+    # 重複防止(2026-10-05追加): TradingView側の通信再送や、ローソク足確定前の再計算等により
+    # 同じダウ転換(同一pair/tf/direction)のWebhookが短時間に複数回届くことがある。
+    # これを無条件で記録すると、実際には1回しか起きていない転換が複数回音声・履歴に記録され、
+    # 「TradingView上のアラームには無いはずの発火が頻発する」「履歴の時刻がローソク足の境界と
+    # ズレる」という症状になる。/api/backfill_dow_alertと同じ基準(前後10分以内は重複扱い)で、
+    # ここでも直近履歴と突き合わせて弾く。
+    _now_dt = datetime.utcnow()
+    with _dow_alert_lock:
+        for h in _dow_alert_history:
+            if h.get('pair') == symbol and h.get('tf') == tf and h.get('direction') == direction:
+                try:
+                    h_dt = datetime.fromisoformat(h.get('received_at', ''))
+                except Exception:
+                    continue
+                if abs((h_dt - _now_dt).total_seconds()) <= 600:
+                    return jsonify({'status': 'ok', 'spoken': False, 'reason': 'duplicate'})
+
     jst = pytz.timezone('Asia/Tokyo')
     now_iso = datetime.utcnow().isoformat()
     pair_jp = PAIR_JP.get(symbol, symbol)
@@ -1538,8 +1555,9 @@ def api_backfill_dow_alert():
     GETにしているのは、復元チェック側が使えるツールがGET専用(WebFetch)であるため。
     クエリ例: /api/backfill_dow_alert?symbol=USDJPY&tf=5M&sg=bull_choch&fired_at=2026-10-02T23:51:00Z
     symbol/sg/tfは、TradingViewの発火ログに残っているメッセージの値をそのまま渡す想定。
-    同じ発火を複数回バックフィルしてしまわないよう、直近履歴に同じpair/tf/directionが
-    近い時刻(前後10分以内)で既にあれば何もせず終了する(重複防止)。"""
+    同じ発火を複数回バックフィルしてしまわないよう、また既に追い越された古いイベントを
+    後から誤って挿入しないよう、同じpair/tfの既存履歴の本来の発火時刻(original_fired_at)
+    と比較して、完全一致(重複)または既知の最新より古い(stale)場合は何もせず終了する。"""
     symbol = request.args.get('symbol', '')
     sg = request.args.get('sg', '')
     tf_raw = request.args.get('tf', '')
@@ -1563,16 +1581,46 @@ def api_backfill_dow_alert():
     except Exception:
         ref_dt = datetime.utcnow()
 
-    # 重複防止: 同じpair/tf/directionが前後10分以内に既にあれば、新規追加せず終了
+    # 重複/古いイベント防止(2026-10-05改修):
+    # 旧方式は「同じpair/tf/directionの履歴が、直近10分以内のreceived_at(処理時刻)にあるか」
+    # だけを見ていたため、本来の発火時刻(fired_at)同士を比較しておらず、以下の2つの問題があった。
+    #   (1) 既に記録済みの同じイベントが、何時間後に再度バックフィルされても「新規」として
+    #       何度でも追加されてしまう(received_atが毎回変わるため10分以内に収まらない)。
+    #   (2) 同期タスク側が複数の(本来は古い)発火イベントを連続して送ってきた場合、
+    #       新しい/古いの順序を確認せず全部「新規アラート」として積んでしまう
+    #       (= 実際のチャートでは起きていない転換が何件も履歴に現れる原因)。
+    # 新方式は、同じpair/tfの既存履歴の中から「本来の発火時刻」の最新値を求め、
+    #   ・今回のfired_atが既存のどれかと完全一致 → 既知のイベント(重複)なので無視
+    #   ・今回のfired_atが既知の最新発火時刻より古いか同時刻 → 既に追い越された古いイベント
+    #     なので無視(これが実チャートに存在しない転換を履歴に積む主因だった)
+    # の両方を弾く。「本来の発火時刻」は、backfill由来ならoriginal_fired_at、
+    # 通常受信(zigzag_alert)由来ならreceived_atを代用値として使う。
     with _dow_alert_lock:
+        latest_known_dt = None
+        is_exact_duplicate = False
         for h in _dow_alert_history:
-            if h.get('pair') == symbol and h.get('tf') == tf and h.get('direction') == direction:
+            if h.get('pair') != symbol or h.get('tf') != tf:
+                continue
+            h_original_fired_at = h.get('original_fired_at')
+            if h_original_fired_at:
+                if fired_at and h_original_fired_at == fired_at:
+                    is_exact_duplicate = True
+                    break
                 try:
-                    h_dt = datetime.fromisoformat(h.get('received_at', ''))
+                    h_ref_dt = datetime.fromisoformat(h_original_fired_at.replace('Z', '+00:00')).replace(tzinfo=None)
                 except Exception:
-                    continue
-                if abs((h_dt - ref_dt).total_seconds()) <= 600:
-                    return jsonify({'status': 'ok', 'spoken': False, 'reason': 'duplicate'})
+                    h_ref_dt = None
+            else:
+                try:
+                    h_ref_dt = datetime.fromisoformat(h.get('received_at', ''))
+                except Exception:
+                    h_ref_dt = None
+            if h_ref_dt is not None and (latest_known_dt is None or h_ref_dt > latest_known_dt):
+                latest_known_dt = h_ref_dt
+        if is_exact_duplicate:
+            return jsonify({'status': 'ok', 'spoken': False, 'reason': 'duplicate'})
+        if fired_at and latest_known_dt is not None and ref_dt <= latest_known_dt:
+            return jsonify({'status': 'ok', 'spoken': False, 'reason': 'stale'})
 
     jst = pytz.timezone('Asia/Tokyo')
     now_iso = datetime.utcnow().isoformat()
@@ -1583,12 +1631,24 @@ def api_backfill_dow_alert():
     scope_jp = 'スイング' if is_external else 'デイトレ'
     text = f'{pair_jp}、{tf_jp}、{scope_jp}、ダウ転換(復元)、{dir_jp}です。{pair_jp}'
 
+    # 発火履歴パネルに表示する時刻は、処理(バックフィル実行)時刻ではなく、
+    # TradingViewログ上の本来の発火時刻(ref_dt, UTC)をJSTに変換したものを使う。
+    # (旧コードはdatetime.now(jst)=処理時刻を使っていたため、5分足のアラームが
+    #  34分などの候補足に無関係な時刻で表示される不具合があった)
+    if fired_at:
+        try:
+            display_time = pytz.utc.localize(ref_dt).astimezone(jst).strftime('%H:%M:%S')
+        except Exception:
+            display_time = datetime.now(jst).strftime('%H:%M:%S')
+    else:
+        display_time = datetime.now(jst).strftime('%H:%M:%S')
+
     entry = {
         'pair': symbol, 'tf': tf, 'direction': direction,
         'angle': None,
         'scope': scope, 'scope_jp': scope_jp,
         'text': text,
-        'time': datetime.now(jst).strftime('%H:%M:%S'),
+        'time': display_time,
         'received_at': now_iso,
         'backfilled': True,          # 通常受信ではなく、復元チェックで後から追加されたことを示すフラグ
         'original_fired_at': fired_at,  # TradingViewログ上の本来の発火時刻(参考情報)
