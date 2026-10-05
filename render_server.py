@@ -1376,6 +1376,63 @@ def api_dow_alert_history():
         return jsonify(list(_dow_alert_history))
 
 
+@app.route('/api/resync_from_history', methods=['POST'])
+def api_resync_from_history():
+    """サーバーが既に受信済みの発火履歴(_dow_alert_history)だけを使い、TradingViewへの
+    問い合わせ無しでヒートマップ(_angle_data)を即座に再構築する。
+    サーバー再起動等でdirection/dir_updated_atが古い値に戻ってしまった場合の、
+    手元のデータだけで完結する簡易リカバリ用(TradingView本体のログとの突き合わせは行わないため、
+    サーバーが受信できていなかった分=本当の欠落は直せない。その場合は「ヒートマップダウ転換同期」
+    (TradingViewログを正とする方の同期)を使う必要がある)。"""
+    with _dow_alert_lock:
+        history_snapshot = list(_dow_alert_history)
+
+    # 同じpair×tfについて、履歴は新しい順(先頭が最新)に並んでいる前提なので、
+    # 先頭から見て最初に出てきたものがそのpair×tfの最新のダウ転換。
+    latest_by_key = {}
+    for entry in history_snapshot:
+        if entry.get('scope') == 'swing':
+            # スイング(External)側はヒートマップに反映しない(既存仕様)
+            continue
+        pair = entry.get('pair')
+        tf = entry.get('tf')
+        direction = entry.get('direction')
+        if not pair or not tf or not direction:
+            continue
+        key = (pair, tf)
+        if key in latest_by_key:
+            continue
+        # 表示用の更新時刻は、バックフィルされたものは本来の発火時刻(original_fired_at)を、
+        # 通常受信のものは受信時刻(received_at、ほぼ実際の発火時刻と同じ)を使う。
+        ts = entry.get('original_fired_at') or entry.get('received_at')
+        latest_by_key[key] = {'direction': direction, 'dir_updated_at': ts}
+
+    updated = []
+    with _angle_lock:
+        for (pair, tf), info in latest_by_key.items():
+            if pair not in PAIR_JP or tf not in TF_JP:
+                continue
+            existing = (_angle_data.get(pair) or {}).get(tf) or {}
+            if existing.get('direction') == info['direction'] and existing.get('dir_updated_at') == info['dir_updated_at']:
+                continue  # 変化なし
+            _angle_data.setdefault(pair, {})[tf] = {
+                'angle': existing.get('angle'),
+                'direction': info['direction'],
+                'dir_updated_at': info['dir_updated_at'],
+                'updated_at': existing.get('updated_at'),
+            }
+            updated.append({'pair': pair, 'tf': tf, 'direction': info['direction']})
+        snapshot = {k: dict(v) for k, v in _angle_data.items()}
+    _save_angle_state()
+    try:
+        socketio.emit('angle_update', {'data': snapshot})
+    except Exception as e:      # noqa
+        print(f'[RESYNC_FROM_HISTORY] マトリクス配信エラー(継続します): {e}')
+
+    return jsonify({'status': 'ok', 'updated_count': len(updated), 'updated': updated})
+
+
+
 @app.route('/api/zigzag_alert', methods=['POST'])
 def api_zigzag_alert():
     """ジグザグ_V03(TradingView)のインジケーターアラートWebhookを受け取る。
@@ -1550,7 +1607,9 @@ def api_backfill_dow_alert():
             _angle_data.setdefault(symbol, {})[tf] = {
                 'angle': existing.get('angle'),
                 'direction': direction,
-                'dir_updated_at': now_iso,
+                # 復元(バックフィル)実行時刻ではなく、TradingViewログ上の本来の発火時刻(ref_dt)を使う。
+                # fired_atが無い/解析失敗の場合のみ、やむを得ず現在時刻相当(ref_dt)にフォールバックする。
+                'dir_updated_at': ref_dt.isoformat(),
                 'updated_at': existing.get('updated_at'),
             }
             snapshot = {k: dict(v) for k, v in _angle_data.items()}

@@ -111,6 +111,7 @@
       <button class="layoutBtn" id="layoutBtn" title="縦型/横型レイアウト切替">📐 横型</button>
       <button class="toggleBtn" id="barsToggleBtn" title="角度グラフの表示/非表示">📊 角度グラフ</button>
       <button class="toggleBtn" id="historyToggleBtn" title="発火履歴の表示/非表示">🕒 発火履歴</button>
+      <button class="toggleBtn" id="resyncBtn" title="サーバーが受信済みの発火履歴から、ヒートマップを即座に再構築します(TradingViewへの問い合わせは行いません)">🔄 再構築</button>
       <button class="gearBtn" id="gearBtn">⚙ 個別設定</button>
       <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
     </div>
@@ -464,6 +465,33 @@ function renderVoiceSelect(){
   if (jpVoice) sel.value = jpVoice.name;
 }
 document.addEventListener('DOMContentLoaded', () => {
+  const resyncBtn = document.getElementById('resyncBtn');
+  if (resyncBtn) {
+    resyncBtn.addEventListener('click', async () => {
+      resyncBtn.disabled = true;
+      const origText = resyncBtn.textContent;
+      resyncBtn.textContent = '🔄 再構築中...';
+      try {
+        const res = await fetch('/api/resync_from_history', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          if (data.updated_count > 0) {
+            alert(`再構築しました(${data.updated_count}件のセルを更新しました)`);
+          } else {
+            alert('再構築しました(変更はありませんでした)');
+          }
+        } else {
+          alert('再構築に失敗しました: ' + (data.msg || '不明なエラー'));
+        }
+      } catch (e) {
+        alert('再構築に失敗しました(通信エラー): ' + e);
+      } finally {
+        resyncBtn.disabled = false;
+        resyncBtn.textContent = origText;
+      }
+    });
+  }
+
   const sel = $('voiceSelect');
   if (sel) sel.addEventListener('change', () => {
     voiceSettings.voice_name = sel.value;
