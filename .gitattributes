@@ -1,0 +1,19 @@
+# 改行コード(CRLF/LF)の取り扱いを明示する。
+# これが無かったため、Windows側のCRLFとGit上のLFがいつの間にか食い違い、
+# .wavのような非テキストファイルまでテキストとして改行変換されてしまっていた。
+
+# デフォルト: テキストファイルはGit上ではLFに統一し、作業ディレクトリでは
+# 各OSのネイティブな改行(Windowsなら自動でCRLF)に変換する。
+* text=auto eol=lf
+
+# Windows専用のバッチファイルはCRLFを明示(Windowsでしか使わないため)。
+*.bat text eol=crlf
+
+# バイナリファイルは改行変換を一切行わない(これが無かったのが.wav破損の原因)。
+*.wav binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.db binary
+*.sqlite binary
