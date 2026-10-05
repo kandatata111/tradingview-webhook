@@ -1563,6 +1563,17 @@ def api_backfill_dow_alert():
     tf_raw = request.args.get('tf', '')
     fired_at = request.args.get('fired_at', '')  # TradingViewログのfired_at(UTC ISO)。参考情報として保存するのみ
 
+    # 2026-10-05判明: WebFetch経由でこのエンドポイントをコロン入りのfired_at
+    # (例: 2026-10-04T23:15:01Z)付きで呼ぶと、WebFetch側のURL解釈の問題で
+    # 404になり、バックフィルが一切反映されないまま失敗することが分かった
+    # (同期タスクが毎回動いていたのに何も直っていなかった真因)。
+    # そのため、コロンの代わりにピリオドを使った形式(2026-10-04T23.15.01Z)も
+    # 受け付けられるよう、ここで通常のISO形式に正規化する。
+    if fired_at and ':' not in fired_at:
+        m = re.match(r'^(\d{4}-\d{2}-\d{2}T\d{2})\.(\d{2})\.(\d{2})(.*)$', fired_at)
+        if m:
+            fired_at = f'{m.group(1)}:{m.group(2)}:{m.group(3)}{m.group(4)}'
+
     if not symbol or not sg:
         return jsonify({'status': 'error', 'msg': 'symbol/sg required'}), 400
 
