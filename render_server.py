@@ -1335,6 +1335,23 @@ def api_angle_push():
                 pair = al.get('pair'); tf = al.get('tf'); direction = al.get('direction')
                 if not pair or not tf or direction not in ('up', 'down'):
                     continue
+                # 重複防止(2026-10-05追加): /api/zigzag_alert・/api/backfill_dow_alertと
+                # 同じ基準で、直近10分以内に同じpair/tf/directionが既にあれば無視する。
+                # この経路(PC側アプリからの通知)には元々重複防止が無く、他の2経路と
+                # 同様に実際には起きていない転換が重複記録される恐れがあったため追加。
+                _now_dt2 = datetime.utcnow()
+                is_dup = False
+                for h in _dow_alert_history:
+                    if h.get('pair') == pair and h.get('tf') == tf and h.get('direction') == direction:
+                        try:
+                            h_dt = datetime.fromisoformat(h.get('received_at', ''))
+                        except Exception:
+                            continue
+                        if abs((h_dt - _now_dt2).total_seconds()) <= 600:
+                            is_dup = True
+                            break
+                if is_dup:
+                    continue
                 pair_jp = PAIR_JP.get(pair, pair)
                 tf_jp = TF_JP.get(tf, tf)
                 dir_jp = '上昇' if direction == 'up' else '下降'
