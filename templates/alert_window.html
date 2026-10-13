@@ -329,17 +329,43 @@ function _parseUtcMs(iso){
   if (!iso) return NaN;
   return Date.parse(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z');
 }
-// ダウ転換が起きた時刻(ミリ秒)をバー数から求める。
-//  バー数あり(5分〜4時間足): 「バー数を受け取った時刻」から、バー数×時間足の分だけ取引時間をさかのぼる(土日は数えない)。
-//  バー数なし(1分足): 記録されたダウ転換の時刻を使う。
-function dowOriginMs(d, tf){
-  if (d.bars_elapsed !== null && d.bars_elapsed !== undefined) {
+// 時間足の区切り(足の開始時刻)に切り下げる。ニューヨーク17時を基準にずらした時刻で区切るので、
+// 5分足は5分刻み・15分足は15分刻み・1時間足は1時間刻み・4時間足はTradingViewと同じ4時間の区切りになる。
+function snapBarStartMs(ms, tfMin){
+  const step = Number(tfMin) * 60000;
+  return fromShifted(Math.floor(toShifted(ms) / step) * step, ms);
+}
+// 「Renderが再起動した時に全セルへ同じ時刻が入ってしまう」記録(同じ時刻が3セル以上)は、本当のダウ転換時刻ではないので使わない。
+let _staleDirTimes = new Set();
+function rebuildStaleDirTimes(){
+  const cnt = {};
+  Object.keys(angleData || {}).forEach(pair => {
+    Object.keys(angleData[pair] || {}).forEach(tf => {
+      const t = (angleData[pair][tf] || {}).dir_updated_at;
+      if (t) cnt[t] = (cnt[t] || 0) + 1;
+    });
+  });
+  _staleDirTimes = new Set(Object.keys(cnt).filter(k => cnt[k] >= 3));
+}
+// ダウ転換の足(起点)と、そこからの経過バー数を求める。土日・休場は数えない。起点は時間足の区切りに揃える。
+//  主: TradingViewのダウ転換アラートが届いた時刻(向きの矢印と同じ情報源)。アラートは足が確定した直後に届くので、その1本前の足が転換の足。
+//  予備: 上の時刻が使えない(再起動で上書きされた)ときだけ、PC側が数えたバー数(bars_elapsed)を使う。
+//  どちらも無ければ null。
+function dowInfo(d, tf){
+  const tfMin = Number(tf), step = tfMin * 60000, now = Date.now();
+  let origin = null;
+  const t = _parseUtcMs(d.dir_updated_at);
+  if (!isNaN(t) && !_staleDirTimes.has(d.dir_updated_at)) {
+    origin = subtractTradingMs(snapBarStartMs(t, tfMin), step);
+  } else if (d.bars_elapsed !== null && d.bars_elapsed !== undefined) {
     let anchor = _parseUtcMs(d.updated_at);
-    if (isNaN(anchor)) anchor = Date.now();
-    return subtractTradingMs(anchor, Number(d.bars_elapsed) * Number(tf) * 60000);
+    if (isNaN(anchor)) anchor = now;
+    origin = subtractTradingMs(snapBarStartMs(anchor, tfMin), Math.max(0, Number(d.bars_elapsed) - 1) * step);
+  } else if (!isNaN(t)) {
+    origin = snapBarStartMs(t, tfMin);
   }
-  const t = _parseUtcMs(d.dir_updated_at || d.updated_at);
-  return isNaN(t) ? null : t;
+  if (origin === null) return null;
+  return { origin: origin, bars: Math.floor(tradingMsBetween(origin, now) / step) };
 }
 function formatLocalDateTime(ms){
   const dt = new Date(ms), pad = n => String(n).padStart(2, '0');
@@ -347,10 +373,9 @@ function formatLocalDateTime(ms){
 }
 
 // ダウ転換からの経過時間を「DD/hh/mm」(例: 05D/16h/06m)で返す。バー数から求めるので、土日・休場は数えない(1日=取引24時間)。
-function formatElapsedDHM(d, tf){
-  const origin = dowOriginMs(d, tf);
-  if (origin === null) return null;
-  const totalMin = Math.floor(tradingMsBetween(origin, Date.now()) / 60000);
+function formatElapsedDHM(info, tf){
+  if (!info) return null;
+  const totalMin = info.bars * Number(tf);            // バー数×時間足の分 → 5分足なら5分刻み、1時間足なら1時間刻み
   const pad = n => String(n).padStart(2, '0');
   const dd = Math.floor(totalMin / 1440), hh = Math.floor((totalMin % 1440) / 60), mm = totalMin % 60;
   return `${pad(dd)}D/${pad(hh)}h/${pad(mm)}m`;
@@ -366,20 +391,11 @@ function heatCellMarkup(pair, tf){
     return `<div class="hm na" ${attrs}>--</div>`;
   }
   const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
-  // 経過バー数: PC側が計算して送ってくる値(5分・15分・60分・240分)があればそれを使う。
-  // 1分足はPC側にローソク足データが無く本数を直接数えられないため、
-  // 代わりに「最後にダウ転換を検知した時刻」からの経過分数で見た目上の本数を推定する
-  // (1分足=1本1分なので、経過分数がそのまま本数の目安になる。土日や通信断の間は目安が多少ずれる)
-  let barsVal = d.bars_elapsed;
-  if ((barsVal === null || barsVal === undefined) && d.updated_at) {
-    const updatedMs = Date.parse(d.updated_at.endsWith('Z') || d.updated_at.includes('+') ? d.updated_at : d.updated_at + 'Z');
-    if (!isNaN(updatedMs)) {
-      barsVal = Math.max(0, Math.floor((Date.now() - updatedMs) / 60000));
-    }
-  }
-  let barsTxt = (barsVal !== null && barsVal !== undefined) ? ` [${String(barsVal).padStart(2,'0')}]` : '';
+  // 経過バー数・経過時間は、同じ「ダウ転換の足」から求める(dowInfo)。土日は数えない。
+  const info = dowInfo(d, tf);
+  let barsTxt = info ? ` [${String(info.bars).padStart(2,'0')}]` : '';
   if (voiceSettings.bars_display === 'elapsed') {
-    const el = formatElapsedDHM(d, tf);
+    const el = formatElapsedDHM(info, tf);
     barsTxt = el ? ` [${el}]` : '';
   }
   // 角度グラフ非表示時: 向きだけで赤/緑の2色、角度の数値は出さない(矛盾の黄色・濃淡も無し)
@@ -417,8 +433,8 @@ function onHeatCellClick(e){
   const label = `${PAIR_JP[pair] || pair} ${TF_JP_BAR[tf] || tf}`;
   const d = (pair && tf) ? (angleData[pair] || {})[tf] : null;
   // ダウ転換が起きた日時を、バー数から(土日を除いて)さかのぼって出す
-  const origin = d ? dowOriginMs(d, tf) : null;
-  showClickInfo(origin !== null ? `${label}: ダウ転換 ${formatLocalDateTime(origin)}` : `${label}: 日時不明`);
+  const info = d ? dowInfo(d, tf) : null;
+  showClickInfo(info ? `${label}: ダウ転換 ${formatLocalDateTime(info.origin)}(${info.bars}本前)` : `${label}: 日時不明`);
   if (cell.classList.contains('alerting')) {
     delete activeAlerts[cellKey(pair, tf)];
     renderAll();
@@ -515,6 +531,7 @@ function renderVertical(){
 }
 
 function renderAll(){
+  rebuildStaleDirTimes();
   if (layoutMode === 'vertical') { renderVertical(); }
   else { renderMatrix(); renderBars(); }
 }
