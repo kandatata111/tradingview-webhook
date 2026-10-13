@@ -360,12 +360,26 @@ function dowInfo(d, tf){
   } else if (d.bars_elapsed !== null && d.bars_elapsed !== undefined) {
     let anchor = _parseUtcMs(d.updated_at);
     if (isNaN(anchor)) anchor = now;
-    origin = subtractTradingMs(snapBarStartMs(anchor, tfMin), Math.max(0, Number(d.bars_elapsed) - 1) * step);
+    // PC側のバー数は「確定済みの最後の足」までを数えている。その足は区切りに揃えた時刻の1本前なので、バー数ぶんさかのぼる。
+    origin = subtractTradingMs(snapBarStartMs(anchor, tfMin), Math.max(0, Number(d.bars_elapsed)) * step);
   } else if (!isNaN(t)) {
     origin = snapBarStartMs(t, tfMin);
   }
   if (origin === null) return null;
-  return { origin: origin, bars: Math.floor(tradingMsBetween(origin, now) / step) };
+  return { origin: origin, bars: Math.max(0, Math.floor(tradingMsBetween(origin, now) / step) - missingDailyBreakBars(origin, now, tfMin)) };
+}
+// 5分足は毎日ニューヨーク16:55と17:00の足(2本)がTradingViewに無い(月曜の開始直後は17:00の1本)。その本数を返す(15分足以上は欠けない)。
+function missingDailyBreakBars(originMs, nowMs, tfMin){
+  if (Number(tfMin) !== 5) return 0;
+  const so = toShifted(originMs), sn = toShifted(nowMs), F = 5 * 60000;
+  let miss = 0;
+  for (let k = Math.floor(so / _DAY_MS); k <= Math.floor(sn / _DAY_MS); k++) {
+    const B = k * _DAY_MS, dow = new Date(B).getUTCDay();
+    if (!_isOpenDow(dow)) continue;
+    if (dow !== 1 && B - F > so && B - F < sn) miss++;
+    if (B > so && B < sn) miss++;
+  }
+  return miss;
 }
 function formatLocalDateTime(ms){
   const dt = new Date(ms), pad = n => String(n).padStart(2, '0');
