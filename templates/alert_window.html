@@ -249,6 +249,9 @@ function formatUpdatedAt(iso){
   return `${pad(dt.getMonth() + 1)}/${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
 }
 
+// 角度グラフの表示/非表示(true=表示)。非表示のときヒートマップは「ダウ転換の向きだけ」の2色・角度数値なしにする。
+let barsVisible = true, historyVisible = true;
+
 function dirColor(direction, strong){
   if (direction === 'up') return strong ? '#047857' : '#34d399';
   if (direction === 'down') return strong ? '#be123c' : '#fb7185';
@@ -294,6 +297,11 @@ function heatCellMarkup(pair, tf){
     }
   }
   const barsTxt = (barsVal !== null && barsVal !== undefined) ? ` [${String(barsVal).padStart(2,'0')}]` : '';
+  // 角度グラフ非表示時: 向きだけで赤/緑の2色、角度の数値は出さない(矛盾の黄色・濃淡も無し)
+  if (!barsVisible) {
+    const bg = dirColor(d.direction, false);
+    return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div>`;
+  }
   if (d.angle === null || d.angle === undefined) {
     const bg = dirColor(d.direction, false);
     return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div>`;
@@ -591,7 +599,6 @@ function applyHistoryVisibility(visible){
   btn.textContent = '🕒 発火履歴';
   btn.classList.toggle('off', !visible);
 }
-let barsVisible = true, historyVisible = true;
 (function initPanelVisibility(){
   try { barsVisible = localStorage.getItem('alertWindowBarsVisible') !== '0'; } catch (e) { /* no-op */ }
   try { historyVisible = localStorage.getItem('alertWindowHistoryVisible') !== '0'; } catch (e) { /* no-op */ }
@@ -601,6 +608,7 @@ let barsVisible = true, historyVisible = true;
 $('barsToggleBtn').addEventListener('click', () => {
   barsVisible = !barsVisible;
   applyBarsVisibility(barsVisible);
+  renderAll();
   try { localStorage.setItem('alertWindowBarsVisible', barsVisible ? '1' : '0'); } catch (e) { /* no-op */ }
 });
 $('historyToggleBtn').addEventListener('click', () => {
