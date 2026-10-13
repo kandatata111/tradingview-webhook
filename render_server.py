@@ -1507,6 +1507,23 @@ def api_resync_from_history():
                 'updated_at': existing.get('updated_at'),
             }
             updated.append({'pair': pair, 'tf': tf, 'direction': info['direction']})
+        # (2026-10-13追加) 上の履歴からの再構築のあと、PC側(ダウ雲チャート)の向き(pc_direction)と合わせる。
+        #  ・アラートの記録がある時間足で向きも同じ → そのまま(TradingViewの向き・時刻を使う)
+        #  ・記録が無い、またはPCの向きと食い違うセル → PCの向きに合わせ、時刻はクリアする(バー数はPC側のものを使う)
+        #  次にTradingViewのアラートが届けば、また通常どおりTradingViewの向き・時刻で更新される。
+        for pair, tfs in _angle_data.items():
+            for tf, cell in (tfs or {}).items():
+                pc_dir = (cell or {}).get('pc_direction')
+                if pc_dir not in ('up', 'down'):
+                    continue
+                if cell.get('direction') == pc_dir and (pair, tf) in latest_by_key:
+                    continue
+                if cell.get('direction') == pc_dir and cell.get('dir_updated_at') is None:
+                    continue
+                cell['direction'] = pc_dir
+                if (pair, tf) not in latest_by_key or latest_by_key[(pair, tf)]['direction'] != pc_dir:
+                    cell['dir_updated_at'] = None
+                updated.append({'pair': pair, 'tf': tf, 'direction': pc_dir, 'source': 'pc'})
         snapshot = {k: dict(v) for k, v in _angle_data.items()}
     _save_angle_state()
     try:
