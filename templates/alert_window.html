@@ -386,13 +386,24 @@ function formatLocalDateTime(ms){
   return `${pad(dt.getMonth() + 1)}/${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 }
 
-// ダウ転換からの経過時間を「DD/hh/mm」(例: 05D/16h/06m)で返す。バー数から求めるので、土日・休場は数えない(1日=取引24時間)。
+// ダウ転換からの経過時間の表示(バー数×時間足の分から求めるので、土日・休場は数えない。1日=取引24時間)。
+//  1分・5分・15分足: 「hh/mm」(例: 05h/30m)。100時間以上は3桁(例: 100h/05m)。先頭が00hのときは「00h」を透明にする(幅は残す)。
+//  1時間・4時間足   : 「DD/hh」(例: 05D/16h)。先頭が00Dのときは「00D」を透明にする(幅は残す)。
+function _hiddenZero(txt){ return `<span style="visibility:hidden">${txt}</span>`; }
 function formatElapsedDHM(info, tf){
   if (!info) return null;
-  const totalMin = info.bars * Number(tf);            // バー数×時間足の分 → 5分足なら5分刻み、1時間足なら1時間刻み
+  const tfMin = Number(tf);
+  const totalMin = info.bars * tfMin;                 // バー数×時間足の分 → 5分足なら5分刻み、1時間足なら1時間刻み
   const pad = n => String(n).padStart(2, '0');
-  const dd = Math.floor(totalMin / 1440), hh = Math.floor((totalMin % 1440) / 60), mm = totalMin % 60;
-  return `${pad(dd)}D/${pad(hh)}h/${pad(mm)}m`;
+  if (tfMin <= 15) {
+    const hh = Math.floor(totalMin / 60), mm = totalMin % 60;
+    const hTxt = `${pad(hh)}h`;
+    return `${hh === 0 ? _hiddenZero(hTxt) : hTxt}/${pad(mm)}m`;
+  }
+  const totalH = Math.floor(totalMin / 60);
+  const dd = Math.floor(totalH / 24), hh = totalH % 24;
+  const dTxt = `${pad(dd)}D`;
+  return `${dd === 0 ? _hiddenZero(dTxt) : dTxt}/${pad(hh)}h`;
 }
 
 // 1セル分のヒートマップmarkupを作る共通処理(横型・縦型どちらのレイアウトからも呼ばれる)
