@@ -124,6 +124,14 @@
     </div>
     <div class="sectionDivider"></div>
     <div class="settingsSection">
+      <h3>ダウ転換からの経過の表示(バー数 / 経過時間 DD/hh/mm)</h3>
+      <div class="hmFontSizeRow"><select id="barsDisplaySelect">
+        <option value="bars">バー数(例: ▼ [93])</option>
+        <option value="elapsed">経過時間(例: ▼ [05D/16h/06m])</option>
+      </select></div>
+    </div>
+    <div class="sectionDivider"></div>
+    <div class="settingsSection">
       <h3>読み上げに使う声(日本語のみ)</h3>
       <div class="voiceSelectRow"><select id="voiceSelect"></select></div>
     </div>
@@ -215,6 +223,7 @@ let voiceSettings = {
   visible_tfs: {},      // 省略 or true = 表示。false = 非表示(ヒートマップの列・角度グラフの列ごと)
   voice_name: '',
   hm_font_size: 15,
+  bars_display: 'bars',   // 'bars'=バー数 / 'elapsed'=経過時間(DD/hh/mm)
 };
 
 function $(id){ return document.getElementById(id); }
@@ -227,15 +236,21 @@ function isSoundEnabled(entry){
 
 // セルを左クリックした時に「いつ更新されたか」を表示するためのツールチップ。
 // 2.5秒で自動的に消える(常時出続けると画面が煩雑になるため)。
-let _clickInfoTimer = null;
+// 自動では消さない。別のセルを左クリックすると内容が入れ替わり、セル以外(表の背景など)を左クリックすると消える。
 function showClickInfo(text){
   const el = $('clickInfo');
   if (!el) return;
   el.textContent = text;
   el.classList.add('show');
-  clearTimeout(_clickInfoTimer);
-  _clickInfoTimer = setTimeout(() => el.classList.remove('show'), 2500);
 }
+function hideClickInfo(){
+  const el = $('clickInfo');
+  if (el) el.classList.remove('show');
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest && e.target.closest('.hm, .barcol, .barcolFlex')) return;
+  hideClickInfo();
+});
 
 // updated_atはサーバー側がUTCで送ってくる(タイムゾーン表記無し)ので、他の箇所(経過バー数の推定)
 // と同じ方式でUTCとして解釈し、ブラウザのローカル時刻(=この画面を見ている人の時刻)に変換して
@@ -275,6 +290,72 @@ function isDirAngleMismatch(direction, angle){
   return false;
 }
 
+// ---- 取引時間だけで数える(FXの休場=金曜17時〜日曜17時(ニューヨーク時間)を除く) ----
+// ニューヨーク時刻に+7時間ずらすと、取引日が月〜金の丸1日ずつになり、土日がそのまま休場日になる。
+const _DAY_MS = 86400000, _NY_SHIFT_MS = 7 * 3600000;
+const _nyFmt = new Intl.DateTimeFormat('en-US', {timeZone:'America/New_York', hourCycle:'h23',
+  year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit'});
+function nyOffsetMs(ms){
+  const p = {};
+  _nyFmt.formatToParts(new Date(ms)).forEach(x => { p[x.type] = x.value; });
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(ms / 1000) * 1000;
+}
+function toShifted(ms){ return ms + nyOffsetMs(ms) + _NY_SHIFT_MS; }
+function fromShifted(s, refMs){ return s - _NY_SHIFT_MS - nyOffsetMs(refMs); }
+function _isOpenDow(dow){ return dow >= 1 && dow <= 5; }
+// ずらした時刻sまでの「取引時間」の累計(ミリ秒)。1970-01-01は木曜(=4)。
+function openMsUpTo(s){
+  const d = Math.floor(s / _DAY_MS), rem = s - d * _DAY_MS;
+  let cnt = Math.floor(d / 7) * 5;
+  for (let i = 0; i < d % 7; i++) if (_isOpenDow((4 + i) % 7)) cnt++;
+  return cnt * _DAY_MS + (_isOpenDow((4 + d % 7) % 7) ? rem : 0);
+}
+// 2つの時刻の間の取引時間(ミリ秒)
+function tradingMsBetween(aMs, bMs){
+  return Math.max(0, openMsUpTo(toShifted(bMs)) - openMsUpTo(toShifted(aMs)));
+}
+// 基準時刻から取引時間でms分さかのぼった時刻(休場の時間はとばす)
+function subtractTradingMs(anchorMs, ms){
+  let s = toShifted(anchorMs), remaining = ms;
+  for (let guard = 0; guard < 2000 && remaining > 0; guard++) {
+    const dayStart = Math.floor((s - 1) / _DAY_MS) * _DAY_MS;
+    if (!_isOpenDow(new Date(dayStart).getUTCDay())) { s = dayStart; continue; }
+    const avail = s - dayStart;
+    if (remaining <= avail) { s -= remaining; remaining = 0; } else { remaining -= avail; s = dayStart; }
+  }
+  return fromShifted(s, anchorMs);
+}
+function _parseUtcMs(iso){
+  if (!iso) return NaN;
+  return Date.parse(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z');
+}
+// ダウ転換が起きた時刻(ミリ秒)をバー数から求める。
+//  バー数あり(5分〜4時間足): 「バー数を受け取った時刻」から、バー数×時間足の分だけ取引時間をさかのぼる(土日は数えない)。
+//  バー数なし(1分足): 記録されたダウ転換の時刻を使う。
+function dowOriginMs(d, tf){
+  if (d.bars_elapsed !== null && d.bars_elapsed !== undefined) {
+    let anchor = _parseUtcMs(d.updated_at);
+    if (isNaN(anchor)) anchor = Date.now();
+    return subtractTradingMs(anchor, Number(d.bars_elapsed) * Number(tf) * 60000);
+  }
+  const t = _parseUtcMs(d.dir_updated_at || d.updated_at);
+  return isNaN(t) ? null : t;
+}
+function formatLocalDateTime(ms){
+  const dt = new Date(ms), pad = n => String(n).padStart(2, '0');
+  return `${pad(dt.getMonth() + 1)}/${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+// ダウ転換からの経過時間を「DD/hh/mm」(例: 05D/16h/06m)で返す。バー数から求めるので、土日・休場は数えない(1日=取引24時間)。
+function formatElapsedDHM(d, tf){
+  const origin = dowOriginMs(d, tf);
+  if (origin === null) return null;
+  const totalMin = Math.floor(tradingMsBetween(origin, Date.now()) / 60000);
+  const pad = n => String(n).padStart(2, '0');
+  const dd = Math.floor(totalMin / 1440), hh = Math.floor((totalMin % 1440) / 60), mm = totalMin % 60;
+  return `${pad(dd)}D/${pad(hh)}h/${pad(mm)}m`;
+}
+
 // 1セル分のヒートマップmarkupを作る共通処理(横型・縦型どちらのレイアウトからも呼ばれる)
 function heatCellMarkup(pair, tf){
   const d = (angleData[pair] || {})[tf];
@@ -296,7 +377,11 @@ function heatCellMarkup(pair, tf){
       barsVal = Math.max(0, Math.floor((Date.now() - updatedMs) / 60000));
     }
   }
-  const barsTxt = (barsVal !== null && barsVal !== undefined) ? ` [${String(barsVal).padStart(2,'0')}]` : '';
+  let barsTxt = (barsVal !== null && barsVal !== undefined) ? ` [${String(barsVal).padStart(2,'0')}]` : '';
+  if (voiceSettings.bars_display === 'elapsed') {
+    const el = formatElapsedDHM(d, tf);
+    barsTxt = el ? ` [${el}]` : '';
+  }
   // 角度グラフ非表示時: 向きだけで赤/緑の2色、角度の数値は出さない(矛盾の黄色・濃淡も無し)
   if (!barsVisible) {
     const bg = dirColor(d.direction, false);
@@ -331,9 +416,9 @@ function onHeatCellClick(e){
   const pair = cell.dataset.pair, tf = cell.dataset.tf;
   const label = `${PAIR_JP[pair] || pair} ${TF_JP_BAR[tf] || tf}`;
   const d = (pair && tf) ? (angleData[pair] || {})[tf] : null;
-  // ヒートマップの矢印・色(direction)が最後に確定した時刻を出す(angleの更新時刻ではない)
-  const t = d && formatUpdatedAt(d.dir_updated_at);
-  showClickInfo(t ? `${label}: 更新 ${t}` : `${label}: 更新時刻不明`);
+  // ダウ転換が起きた日時を、バー数から(土日を除いて)さかのぼって出す
+  const origin = d ? dowOriginMs(d, tf) : null;
+  showClickInfo(origin !== null ? `${label}: ダウ転換 ${formatLocalDateTime(origin)}` : `${label}: 日時不明`);
   if (cell.classList.contains('alerting')) {
     delete activeAlerts[cellKey(pair, tf)];
     renderAll();
@@ -637,6 +722,7 @@ function renderSettingsPanel(){
   }
   $('hmFontSizeSelect').value = hmSize;
   applyHmFontSize(hmSize);
+  $('barsDisplaySelect').value = voiceSettings.bars_display === 'elapsed' ? 'elapsed' : 'bars';
 
   const mk = (kind, key, label, on) =>
     `<label class="toggleChip${on ? ' on' : ''}" data-kind="${kind}" data-key="${key}"><input type="checkbox" ${on ? 'checked' : ''}>${label}</label>`;
@@ -665,6 +751,13 @@ $('hmFontSizeSelect').addEventListener('change', () => {
   voiceSettings.hm_font_size = v;
   applyHmFontSize(v);
 });
+
+$('barsDisplaySelect').addEventListener('change', () => {
+  voiceSettings.bars_display = $('barsDisplaySelect').value;
+  renderAll();
+});
+// 経過時間表示のときは、画面を開いたままでも分が進むよう30秒ごとに描き直す
+setInterval(() => { if (voiceSettings.bars_display === 'elapsed') renderAll(); }, 30000);
 
 $('gearBtn').addEventListener('click', () => {
   $('settingsPanel').classList.toggle('open');
