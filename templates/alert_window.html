@@ -396,8 +396,16 @@ function formatElapsedDHM(info, tf){
 }
 
 // 1セル分のヒートマップmarkupを作る共通処理(横型・縦型どちらのレイアウトからも呼ばれる)
+// TradingViewのアラート時刻が無い、または再起動で上書きされたセルは、向きもPC側(ダウ雲チャート)の結果を使う。
+// (バー数と同じ情報源にそろえるため。アラートが届いていないセルの矢印が古いままになるのを防ぐ)
+function effectiveCell(d){
+  if (!d || !d.pc_direction) return d;
+  const t = d.dir_updated_at;
+  if (!t || _staleDirTimes.has(t)) return Object.assign({}, d, { direction: d.pc_direction });
+  return d;
+}
 function heatCellMarkup(pair, tf){
-  const d = (angleData[pair] || {})[tf];
+  const d = effectiveCell((angleData[pair] || {})[tf]);
   const blinking = !!activeAlerts[cellKey(pair, tf)];
   const cls = 'hm focus' + (blinking ? ' alerting' : '');
   const attrs = `data-pair="${pair}" data-tf="${tf}"`;

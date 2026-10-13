@@ -1373,6 +1373,8 @@ def api_angle_push():
                 # 触らないのと同じ理由で、この値も更新しない(既存の確定時刻をそのまま引き継ぐ)。
                 'dir_updated_at': existing.get('dir_updated_at'),
                 'bars_elapsed': it.get('bars_elapsed'),  # 現在の向きが何本前から続いているか(ヒートマップの[NN]表示用)
+                # pc_direction: PC側(ダウ雲チャート)の向き。通常は使わない。TradingViewのアラート時刻が無い/再起動で上書きされたセルの表示だけに使う(2026-10-13追加)
+                'pc_direction': it.get('direction'),
                 'updated_at': now_iso,  # angle(角度)がこの時刻に更新された、という意味
             }
         snapshot = {k: dict(v) for k, v in _angle_data.items()}
@@ -1500,6 +1502,8 @@ def api_resync_from_history():
                 'angle': existing.get('angle'),
                 'direction': info['direction'],
                 'dir_updated_at': info['dir_updated_at'],
+                'bars_elapsed': existing.get('bars_elapsed'),
+                'pc_direction': existing.get('pc_direction'),
                 'updated_at': existing.get('updated_at'),
             }
             updated.append({'pair': pair, 'tf': tf, 'direction': info['direction']})
