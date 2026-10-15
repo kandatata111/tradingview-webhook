@@ -150,6 +150,12 @@
     </div>
     <div class="sectionDivider"></div>
     <div class="settingsSection">
+      <h3>ダウ転換の向きがそろった時の発声</h3>
+      <div class="hint">ダウ転換が起きて、1分足から順に各時間足の向きが全部そろった時に鳴ります。一番大きい段階の声だけ鳴ります。{pair}=通貨ペア名 / {tfs}=そろった時間足(例: 1分・5分・15分) が使えます</div>
+      <div id="alignSettings"></div>
+    </div>
+    <div class="sectionDivider"></div>
+    <div class="settingsSection">
       <h3>鳴らす通貨ペア(チェックした通貨ペアだけ音が鳴ります)</h3>
       <div class="chipGrid" id="enablePairGrid"></div>
     </div>
@@ -224,6 +230,7 @@ let voiceSettings = {
   voice_name: '',
   hm_font_size: 15,
   bars_display: 'bars',   // 'bars'=バー数 / 'elapsed'=経過時間(DD/hh/mm)
+  align: {},              // 「ダウ転換の向きがそろった」発声の設定(段階ごと)。下のALIGN_LEVELSを参照
 };
 
 function $(id){ return document.getElementById(id); }
@@ -665,6 +672,89 @@ function playBell(){
   } catch (e) { /* no-op */ }
 }
 
+// ---- ダウ転換の向きがそろった時の発声 ----
+// 段階: 1分から順に、何本の時間足の向きがそろったか。大きい段階ほど優先(鳴るのは一番大きい段階だけ)。
+const ALIGN_ORDER = ['1','5','15','60','240'];
+const ALIGN_LEVELS = [
+  {key:'L1', n:2, on:false},   // 1分・5分(転換が多いので初期はOFF)
+  {key:'L2', n:3, on:true},    // 1分・5分・15分
+  {key:'L3', n:4, on:true},    // 1分・5分・15分・1時間
+  {key:'L4', n:5, on:true},    // 1分・5分・15分・1時間・4時間
+];
+function alignTfsText(n){ return ALIGN_ORDER.slice(0, n).map(t => TF_JP[t]).join('・'); }
+function alignConf(level){
+  const c = (voiceSettings.align || {})[level.key] || {};
+  const t = alignTfsText(level.n);
+  return {
+    enabled: c.enabled === undefined ? level.on : !!c.enabled,
+    up: (c.up !== undefined && c.up !== '') ? c.up : `{pair}、${t}、ダウ転換がそろいました、上昇です。{pair}`,
+    down: (c.down !== undefined && c.down !== '') ? c.down : `{pair}、${t}、ダウ転換がそろいました、下降です。{pair}`,
+  };
+}
+function buildAlignText(pair, level, direction){
+  const tmpl = alignConf(level)[direction === 'up' ? 'up' : 'down'];
+  return (tmpl || '').split('{pair}').join(PAIR_JP[pair] || pair).split('{tfs}').join(alignTfsText(level.n));
+}
+// 転換が起きたセル(entry)で向きがそろったか。そろった段階のうち一番大きいものを返す(なければnull)。
+function findAlignLevel(entry){
+  if (!entry || entry.scope === 'swing') return null;     // スイング側はヒートマップに入れない既存仕様
+  const idx = ALIGN_ORDER.indexOf(String(entry.tf));
+  if (idx < 0 || (entry.direction !== 'up' && entry.direction !== 'down')) return null;
+  const dirOf = tf => {
+    if (tf === String(entry.tf)) return entry.direction;
+    const d = effectiveCell(((angleData || {})[entry.pair] || {})[tf]);
+    return d ? d.direction : null;
+  };
+  for (let i = ALIGN_LEVELS.length - 1; i >= 0; i--) {
+    const lv = ALIGN_LEVELS[i];
+    if (lv.n - 1 < idx) continue;                          // 転換した時間足がこの段階に入っていない
+    let ok = true;
+    for (let k = 0; k < lv.n; k++) { if (dirOf(ALIGN_ORDER[k]) !== entry.direction) { ok = false; break; } }
+    if (ok) return lv;
+  }
+  return null;
+}
+function renderAlignSettings(){
+  const box = $('alignSettings');
+  if (!box) return;
+  box.innerHTML = ALIGN_LEVELS.map(lv => {
+    const c = alignConf(lv);
+    return `<div class="alignRow" data-level="${lv.key}">
+      <label class="toggleChip${c.enabled ? ' on' : ''}"><input type="checkbox" class="alignOn" ${c.enabled ? 'checked' : ''}>${alignTfsText(lv.n)}</label>
+      <div class="voiceRow"><textarea class="alignUp" rows="2"></textarea><button class="testBtn alignTestUp">▲テスト</button></div>
+      <div class="voiceRow"><textarea class="alignDown" rows="2"></textarea><button class="testBtn alignTestDown">▼テスト</button></div>
+    </div>`;
+  }).join('');
+  ALIGN_LEVELS.forEach(lv => {
+    const row = box.querySelector(`.alignRow[data-level="${lv.key}"]`), c = alignConf(lv);
+    row.querySelector('.alignUp').value = c.up;
+    row.querySelector('.alignDown').value = c.down;
+  });
+}
+function collectAlignSettings(){
+  const box = $('alignSettings'), out = {};
+  if (!box) return voiceSettings.align || {};
+  ALIGN_LEVELS.forEach(lv => {
+    const row = box.querySelector(`.alignRow[data-level="${lv.key}"]`);
+    if (!row) return;
+    out[lv.key] = { enabled: row.querySelector('.alignOn').checked, up: row.querySelector('.alignUp').value, down: row.querySelector('.alignDown').value };
+  });
+  return out;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.alignTestUp, .alignTestDown');
+  if (!b) return;
+  const row = b.closest('.alignRow'), lv = ALIGN_LEVELS.find(x => x.key === row.dataset.level);
+  const dir = b.classList.contains('alignTestUp') ? 'up' : 'down';
+  const tmpl = row.querySelector(dir === 'up' ? '.alignUp' : '.alignDown').value;
+  playBell();
+  setTimeout(() => speak(tmpl.split('{pair}').join('ドル円').split('{tfs}').join(alignTfsText(lv.n))), 450);
+});
+document.addEventListener('change', (e) => {
+  const cb = e.target.closest('.alignOn');
+  if (cb) cb.closest('.toggleChip').classList.toggle('on', cb.checked);
+});
+
 function buildSpeechText(entry){
   const tmpl = entry.direction === 'up' ? voiceSettings.template_up : voiceSettings.template_down;
   const pairJp = PAIR_JP[entry.pair] || entry.pair;
@@ -782,6 +872,7 @@ function renderSettingsPanel(){
   $('visiblePairGrid').innerHTML = PAIRS.map(p => mk('visible', p, PAIR_JP[p], voiceSettings.visible_pairs[p] !== false)).join('');
   $('visibleTfGrid').innerHTML = TF_ALL.map(tf => mk('visibletf', tf, TF_JP[tf], voiceSettings.visible_tfs[tf] !== false)).join('');
 
+  renderAlignSettings();
   renderVoiceSelect();
 }
 
@@ -825,6 +916,7 @@ $('testDownBtn').addEventListener('click', () => {
 $('saveSettingsBtn').addEventListener('click', () => {
   voiceSettings.template_up = $('tmplUp').value;
   voiceSettings.template_down = $('tmplDown').value;
+  voiceSettings.align = collectAlignSettings();
   fetch('/api/alert_voice_settings', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -869,6 +961,14 @@ socket.on('new_dow_alert', (entry) => {
     playBell();
     setTimeout(() => speak(buildSpeechText(entry) || entry.text), 450);
   }
+  // 向きがそろった時の発声(一番大きい段階の1つだけ。通貨ペアのオフ設定は守る)
+  try {
+    const lv = findAlignLevel(entry);
+    if (lv && alignConf(lv).enabled && voiceSettings.enabled_pairs[entry.pair] !== false) {
+      if (!isSoundEnabled(entry)) playBell();
+      setTimeout(() => speak(buildAlignText(entry.pair, lv, entry.direction)), 450);
+    }
+  } catch (err) { /* 発声の判定で失敗しても通常のアラートには影響させない */ }
 });
 
 renderAll();

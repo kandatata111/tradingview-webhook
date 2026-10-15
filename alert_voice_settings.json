@@ -1,18 +1,19 @@
 {
-  "template_up": "{pair}、{tf}、上昇。{pair}、{tf}、上昇。",
-  "template_down": "{pair}、{tf}、下降。{pair}、{tf}、下降。",
+  "template_up": "{pair}、{tf}、上昇。  {pair}。",
+  "template_down": "{pair}、{tf}、下降。{pair}。",
   "enabled_pairs": {
-    "GBPAUD": false,
+    "AUDUSD": false,
     "EURAUD": false,
     "EURGBP": false,
-    "AUDUSD": false
+    "GBPAUD": false,
+    "GBPUSD": false
   },
   "enabled_tfs": {},
   "visible_pairs": {
-    "GBPAUD": false,
     "AUDUSD": false,
+    "EURAUD": false,
     "EURGBP": false,
-    "EURAUD": false
+    "GBPAUD": false
   },
   "visible_tfs": {},
   "voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
