@@ -41,9 +41,9 @@
   table{border-collapse:separate;border-spacing:2px 2px;width:100%}
   th{text-align:center;font-weight:600;color:var(--text);font-size:11px;padding:2px}
   .hmrow{display:inline-flex;align-items:center;justify-content:center;white-space:pre}
-  .cdot{display:inline-block;flex:none;width:1.1em;height:1.1em;border-radius:50%;border:2px solid #000;box-sizing:border-box;margin:0 0.1em;position:relative;top:-0.03em;text-shadow:none}
-  .cgc{background:#3fd0ff}
-  .cdc{background:#ff7a1a}
+  .cdot{display:inline-block;flex:none;width:1.1em;height:1.1em;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.75);margin:0 0.1em;position:relative;top:-0.03em}
+  .cgc{background:#0bd5fe}
+  .cdc{background:#ff57ea}
   .hm{border-radius:8px;padding:5px 4px;text-align:center;font-size:var(--hm-font-size);line-height:1.2;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25);text-shadow:0 1px 3px rgba(0,0,0,0.75);cursor:pointer}
   .hm.dim{opacity:0.4;box-shadow:none}
   .hm.focus{outline:none;box-shadow:none}
@@ -139,7 +139,7 @@
     </div>
     <div class="sectionDivider"></div>
     <div class="settingsSection">
-      <h3>雲のGC/DCの丸(▲▼の後ろ。水色=GC / オレンジ寄りの赤=DC)</h3>
+      <h3>雲のGC/DCの丸(▲▼の後ろ。水色=GC / ピンク=DC)</h3>
       <div class="hmFontSizeRow"><select id="cloudDotSelect">
         <option value="show">表示する</option>
         <option value="hide">表示しない</option>
@@ -457,7 +457,7 @@ function heatCellMarkup(pair, tf){
   const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
   // 経過バー数・経過時間は、同じ「ダウ転換の足」から求める(dowInfo)。土日は数えない。
   const info = dowInfo(d, tf);
-  // 短期の雲のGC(水色)/DC(オレンジ寄りの赤)の丸。縁は黒(案H1)。1分足は対象外。
+  // 短期の雲のGC(水色)/DC(オレンジ寄りの赤)の丸。影つき(▲▼と同じ影)。1分足は対象外。
   const dot = (voiceSettings.cloud_dot !== 'hide' && tf !== '1' && (d.cloud === 'GC' || d.cloud === 'DC'))
     ? `<span class="cdot ${d.cloud === 'GC' ? 'cgc' : 'cdc'}"></span>` : '';
   // 丸があるときだけ、▲▼・丸・文字を1行の中で縦中央にそろえる(丸が無いときは従来どおり)
