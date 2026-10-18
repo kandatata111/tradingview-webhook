@@ -40,7 +40,7 @@
   .card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.18)}
   table{border-collapse:separate;border-spacing:2px 2px;width:100%}
   th{text-align:center;font-weight:600;color:var(--text);font-size:11px;padding:2px}
-  .cdot{display:inline-block;width:0.8em;height:0.8em;border-radius:50%;border:2px solid #000;box-sizing:border-box;vertical-align:-0.05em;margin:0 0.1em;text-shadow:none}
+  .cdot{display:inline-block;width:1.1em;height:1.1em;border-radius:50%;border:2px solid #000;box-sizing:border-box;vertical-align:-0.18em;margin:-0.3em 0.1em;text-shadow:none}
   .cgc{background:#3fd0ff}
   .cdc{background:#ff7a1a}
   .hm{border-radius:8px;padding:5px 4px;text-align:center;font-size:var(--hm-font-size);line-height:1.2;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25);text-shadow:0 1px 3px rgba(0,0,0,0.75);cursor:pointer}
@@ -134,6 +134,14 @@
       <div class="hmFontSizeRow"><select id="barsDisplaySelect">
         <option value="bars">バー数(例: ▼ [93])</option>
         <option value="elapsed">経過時間(例: ▼ [05D/16h/06m])</option>
+      </select></div>
+    </div>
+    <div class="sectionDivider"></div>
+    <div class="settingsSection">
+      <h3>雲のGC/DCの丸(▲▼の後ろ。水色=GC / オレンジ寄りの赤=DC)</h3>
+      <div class="hmFontSizeRow"><select id="cloudDotSelect">
+        <option value="show">表示する</option>
+        <option value="hide">表示しない</option>
       </select></div>
     </div>
     <div class="sectionDivider"></div>
@@ -243,6 +251,7 @@ let voiceSettings = {
   visible_tfs: {},      // 省略 or true = 表示。false = 非表示(ヒートマップの列・角度グラフの列ごと)
   voice_name: '',
   hm_font_size: 15,
+  cloud_dot: 'show',      // 'show'=GC/DCの丸を表示 / 'hide'=非表示
   bars_display: 'bars',   // 'bars'=バー数 / 'elapsed'=経過時間(DD/hh/mm)
   align: {},              // 「ダウ転換の向きがそろった」発声の設定(段階ごと)。下のALIGN_LEVELSを参照
 };
@@ -448,7 +457,7 @@ function heatCellMarkup(pair, tf){
   // 経過バー数・経過時間は、同じ「ダウ転換の足」から求める(dowInfo)。土日は数えない。
   const info = dowInfo(d, tf);
   // 短期の雲のGC(水色)/DC(オレンジ寄りの赤)の丸。縁は黒(案H1)。1分足は対象外。
-  const dot = (tf !== '1' && (d.cloud === 'GC' || d.cloud === 'DC'))
+  const dot = (voiceSettings.cloud_dot !== 'hide' && tf !== '1' && (d.cloud === 'GC' || d.cloud === 'DC'))
     ? `<span class="cdot ${d.cloud === 'GC' ? 'cgc' : 'cdc'}"></span>` : '';
   let barsTxt = info ? ` [${String(info.bars).padStart(2,'0')}]` : '';
   if (voiceSettings.bars_display === 'elapsed') {
@@ -923,6 +932,7 @@ function renderSettingsPanel(){
   $('hmFontSizeSelect').value = hmSize;
   applyHmFontSize(hmSize);
   $('barsDisplaySelect').value = voiceSettings.bars_display === 'elapsed' ? 'elapsed' : 'bars';
+  $('cloudDotSelect').value = voiceSettings.cloud_dot === 'hide' ? 'hide' : 'show';
 
   const mk = (kind, key, label, on) =>
     `<label class="toggleChip${on ? ' on' : ''}" data-kind="${kind}" data-key="${key}"><input type="checkbox" ${on ? 'checked' : ''}>${label}</label>`;
@@ -953,6 +963,10 @@ $('hmFontSizeSelect').addEventListener('change', () => {
   applyHmFontSize(v);
 });
 
+$('cloudDotSelect').addEventListener('change', () => {
+  voiceSettings.cloud_dot = $('cloudDotSelect').value;
+  renderAll();
+});
 $('barsDisplaySelect').addEventListener('change', () => {
   voiceSettings.bars_display = $('barsDisplaySelect').value;
   renderAll();
