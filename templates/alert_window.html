@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>ダウ転換・角度アラート</title>
+<title>ダウ雲アラート</title>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -46,6 +46,9 @@
   .hm.na{opacity:0.25}
   .hm.alerting{cursor:pointer;animation:hmBlink 1s ease-in-out infinite}
   @keyframes hmBlink{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,0.25);transform:scale(1)}50%{box-shadow:0 0 0 4px rgba(251,191,36,0.95),0 2px 8px rgba(0,0,0,0.25);transform:scale(1.08)}}
+  .pairname,.vPairHead,.pairBlockName{cursor:grab}
+  .dndOver{outline:2px dashed #ffd54f;outline-offset:-2px;background:rgba(255,213,79,0.18)}
+  .dndDragging{opacity:0.45}
   .pairname{color:var(--text);font-weight:700;font-size:12px;text-align:right;padding-right:6px;white-space:nowrap}
   .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text);flex-wrap:wrap}
   .sw{width:12px;height:12px;border-radius:4px;display:inline-block}
@@ -104,7 +107,7 @@
 
   <div class="hdr" style="flex-direction:row;align-items:flex-start;justify-content:space-between">
     <div>
-      <h1>ダウ転換・角度アラート状況</h1>
+      <h1>ダウ雲アラート</h1>
     </div>
     <div class="headerBtns">
       <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
@@ -208,6 +211,14 @@
 
 <script>
 const PAIRS = ['USDJPY','EURJPY','GBPJPY','AUDJPY','EURUSD','GBPUSD','AUDUSD','EURGBP','EURAUD','GBPAUD'];
+// 通貨ペアの並び順(ドラッグ&ドロップで変更。voiceSettings.pair_orderに保存し、どの端末でも同じ並びになる)
+function orderedPairs(){
+  const saved = Array.isArray(voiceSettings && voiceSettings.pair_order) ? voiceSettings.pair_order : [];
+  const out = saved.filter(p => PAIRS.indexOf(p) >= 0 && saved.indexOf(p) === saved.lastIndexOf(p));
+  PAIRS.forEach(p => { if (out.indexOf(p) < 0) out.push(p); });
+  return out;
+}
+let _dnd = { dragging: null };
 const PAIR_JP = {USDJPY:'ドル円',EURJPY:'ユーロ円',GBPJPY:'ポンド円',AUDJPY:'オージー円',EURUSD:'ユーロドル',GBPUSD:'ポンドドル',AUDUSD:'オージードル',EURGBP:'ユーロポンド',EURAUD:'ユーロオージー',GBPAUD:'ポンドオージー'};
 const TF_ALL = ['1','5','15','60','240'];   // マトリクス(ヒートマップ)の列。1分はアラームのみ(角度なし)
 const BAR_TFS = ['5','15','60','240'];      // 角度の強さ比較グラフの列(1分は角度計算が無いので対象外)
@@ -454,13 +465,14 @@ function heatCellMarkup(pair, tf){
 }
 
 function renderMatrix(){
+  if (_dnd.dragging) return;
   const visTfs = TF_ALL.filter(isTfVisible);
   const headRow = $('matrixHeadRow');
   headRow.innerHTML = '<th style="text-align:left">ペア</th>' + visTfs.map(tf => `<th>${TF_JP_BAR[tf]}</th>`).join('');
   const body = $('matrixBody');
-  body.innerHTML = PAIRS.filter(isVisible).map(pair => {
+  body.innerHTML = orderedPairs().filter(isVisible).map(pair => {
     const cells = visTfs.map(tf => `<td>${heatCellMarkup(pair, tf)}</td>`).join('');
-    return `<tr><td class="pairname">${pair}</td>${cells}</tr>`;
+    return `<tr><td class="pairname" draggable="true" data-pair="${pair}" title="ドラッグして並べ替え">${pair}</td>${cells}</tr>`;
   }).join('');
 }
 
@@ -500,11 +512,12 @@ $('vertBarGrid').addEventListener('click', onBarClick);
 setInterval(() => { if (layoutMode === 'vertical') renderVertical(); else renderMatrix(); }, 15000);
 
 function renderBars(){
+  if (_dnd.dragging) return;
   const wrap = $('barsWrap');
   const TRACK_PX = 78;        // .trackの高さ(CSSと合わせる)
   const LABEL_MIN_PX = 24;    // 数値が棒の中に収まるとみなす最低の棒の高さ(px)
   const visBarTfs = BAR_TFS.filter(isTfVisible);
-  wrap.innerHTML = PAIRS.filter(isVisible).map(pair => {
+  wrap.innerHTML = orderedPairs().filter(isVisible).map(pair => {
     const cols = visBarTfs.map(tf => {
       const d = (angleData[pair] || {})[tf];
       const hasAngle = d && d.angle !== null && d.angle !== undefined;
@@ -521,7 +534,7 @@ function renderBars(){
       const insideLabel = fitsInBar ? `<div class="fillLabel">${label}</div>` : '';
       return `<div class="barcol" data-pair="${pair}" data-tf="${tf}"><div class="track">${aboveLabel}<div class="fill" style="height:${height}%;background:${color}">${insideLabel}</div></div><div class="tfLabel">${TF_JP_BAR[tf]}</div></div>`;
     }).join('');
-    return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName">${pair}</div></div>`;
+    return `<div class="pairBlock"><div class="bars">${cols}</div><div class="pairBlockName" draggable="true" data-pair="${pair}" title="ドラッグして並べ替え">${pair}</div></div>`;
   }).join('');
 }
 
@@ -552,13 +565,14 @@ function verticalBarCellMarkup(pair){
 // (列ヘッダーが兼ねるため)。ヒートマップと棒グラフで同じ列数・同じgrid-template-columnsを使って
 // 列幅を完全に一致させている。
 function renderVertical(){
+  if (_dnd.dragging) return;
   const visTfs = TF_ALL.filter(isTfVisible);
-  const visPairs = PAIRS.filter(isVisible);
+  const visPairs = orderedPairs().filter(isVisible);
   const colTemplate = `50px repeat(${visPairs.length}, 1fr)`;
 
   const grid = $('vertGrid');
   grid.style.gridTemplateColumns = colTemplate;
-  let html = '<div></div>' + visPairs.map(p => `<div class="vPairHead">${p}</div>`).join('');
+  let html = '<div></div>' + visPairs.map(p => `<div class="vPairHead" draggable="true" data-pair="${p}" title="ドラッグして並べ替え">${p}</div>`).join('');
   visTfs.forEach(tf => {
     html += `<div class="vRowLabel">${TF_JP_BAR[tf] || tf}</div>`;
     visPairs.forEach(p => { html += heatCellMarkup(p, tf); });
@@ -569,6 +583,46 @@ function renderVertical(){
   barGrid.style.gridTemplateColumns = colTemplate;
   barGrid.innerHTML = '<div></div>' + visPairs.map(p => verticalBarCellMarkup(p)).join('');
 }
+
+// ---- 通貨ペアのドラッグ&ドロップ並べ替え ----
+// ペア名を左クリックのままつかんで、別のペア名の上で離す。後ろから前へ動かすと相手の前へ、前から後ろへ動かすと相手の後ろへ入る。
+function _pairElOf(e){ return e.target && e.target.closest ? e.target.closest('.pairname, .vPairHead, .pairBlockName') : null; }
+function _clearDndMarks(){ document.querySelectorAll('.dndOver, .dndDragging').forEach(el => el.classList.remove('dndOver', 'dndDragging')); }
+document.addEventListener('dragstart', (e) => {
+  const el = _pairElOf(e);
+  if (!el || !el.dataset.pair) return;
+  _dnd.dragging = el.dataset.pair;
+  el.classList.add('dndDragging');
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', _dnd.dragging); } catch (err) { /* no-op */ }
+});
+document.addEventListener('dragover', (e) => {
+  if (!_dnd.dragging) return;
+  const el = _pairElOf(e);
+  document.querySelectorAll('.dndOver').forEach(x => x.classList.remove('dndOver'));
+  if (el && el.dataset.pair && el.dataset.pair !== _dnd.dragging) { e.preventDefault(); el.classList.add('dndOver'); }
+});
+document.addEventListener('drop', (e) => {
+  if (!_dnd.dragging) return;
+  const el = _pairElOf(e);
+  const from = _dnd.dragging;
+  if (!el || !el.dataset.pair || el.dataset.pair === from) return;
+  e.preventDefault();
+  const to = el.dataset.pair;
+  const order = orderedPairs();
+  const iFrom = order.indexOf(from), iTo = order.indexOf(to);
+  order.splice(iFrom, 1);
+  const iTo2 = order.indexOf(to);
+  order.splice(iFrom < iTo ? iTo2 + 1 : iTo2, 0, from);    // 前から後ろへ=相手の後ろ / 後ろから前へ=相手の前
+  voiceSettings.pair_order = order;
+  fetch('/api/alert_voice_settings', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({pair_order: order})
+  }).catch(() => {});
+});
+document.addEventListener('dragend', () => {
+  _dnd.dragging = null;
+  _clearDndMarks();
+  renderAll();
+});
 
 function renderAll(){
   rebuildStaleDirTimes();
