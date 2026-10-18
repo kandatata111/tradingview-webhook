@@ -18,5 +18,17 @@
   "visible_tfs": {},
   "voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
   "hm_font_size": 13,
-  "bars_display": "elapsed"
+  "bars_display": "elapsed",
+  "pair_order": [
+    "GBPUSD",
+    "EURUSD",
+    "USDJPY",
+    "AUDJPY",
+    "EURJPY",
+    "GBPJPY",
+    "AUDUSD",
+    "EURGBP",
+    "EURAUD",
+    "GBPAUD"
+  ]
 }

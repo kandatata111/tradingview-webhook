@@ -40,6 +40,9 @@
   .card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.18)}
   table{border-collapse:separate;border-spacing:2px 2px;width:100%}
   th{text-align:center;font-weight:600;color:var(--text);font-size:11px;padding:2px}
+  .cdot{display:inline-block;width:0.8em;height:0.8em;border-radius:50%;border:2px solid #000;box-sizing:border-box;vertical-align:-0.05em;margin:0 0.1em;text-shadow:none}
+  .cgc{background:#3fd0ff}
+  .cdc{background:#ff7a1a}
   .hm{border-radius:8px;padding:5px 4px;text-align:center;font-size:var(--hm-font-size);line-height:1.2;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25);text-shadow:0 1px 3px rgba(0,0,0,0.75);cursor:pointer}
   .hm.dim{opacity:0.4;box-shadow:none}
   .hm.focus{outline:none;box-shadow:none}
@@ -444,6 +447,9 @@ function heatCellMarkup(pair, tf){
   const arrow = d.direction === 'up' ? '▲' : (d.direction === 'down' ? '▼' : '-');
   // 経過バー数・経過時間は、同じ「ダウ転換の足」から求める(dowInfo)。土日は数えない。
   const info = dowInfo(d, tf);
+  // 短期の雲のGC(水色)/DC(オレンジ寄りの赤)の丸。縁は黒(案H1)。1分足は対象外。
+  const dot = (tf !== '1' && (d.cloud === 'GC' || d.cloud === 'DC'))
+    ? `<span class="cdot ${d.cloud === 'GC' ? 'cgc' : 'cdc'}"></span>` : '';
   let barsTxt = info ? ` [${String(info.bars).padStart(2,'0')}]` : '';
   if (voiceSettings.bars_display === 'elapsed') {
     const el = formatElapsedDHM(info, tf);
@@ -452,16 +458,16 @@ function heatCellMarkup(pair, tf){
   // 角度グラフ非表示時: 向きだけで赤/緑の2色、角度の数値は出さない(矛盾の黄色・濃淡も無し)
   if (!barsVisible) {
     const bg = dirColor(d.direction, false);
-    return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div>`;
+    return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${dot}${barsTxt}</div>`;
   }
   if (d.angle === null || d.angle === undefined) {
     const bg = dirColor(d.direction, false);
-    return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div>`;
+    return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${dot}${barsTxt}</div>`;
   }
   const strong = Math.abs(d.angle) >= 45;
   const mismatch = isDirAngleMismatch(d.direction, d.angle);
   const bg = mismatch ? '#ffeb3b' : dirColor(d.direction, strong);  // 矛盾時は緑/赤と見分けやすい黄色
-  return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${Math.abs(Math.round(d.angle))}${barsTxt}</div>`;
+  return `<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${dot}${Math.abs(Math.round(d.angle))}${barsTxt}</div>`;
 }
 
 function renderMatrix(){
