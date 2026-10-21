@@ -40,8 +40,12 @@
   .card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.18)}
   table{border-collapse:separate;border-spacing:2px 2px;width:100%}
   th{text-align:center;font-weight:600;color:var(--text);font-size:11px;padding:2px}
-  .hmrow{display:inline-flex;align-items:center;justify-content:center;white-space:pre}
-  .cdot{display:inline-block;flex:none;width:1.1em;height:1.1em;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.75);margin:0 0.1em;position:relative;top:-0.03em}
+  /* 雲の交差の帯(ダウ転換のセルの真下)。ダーク=白地+黒文字 / ライト=暗い紫地+白文字 (2026-10-21 案D2) */
+  .hmwrap{display:flex;flex-direction:column;min-width:0}
+  .hmwrap > .hm{border-bottom-left-radius:0;border-bottom-right-radius:0}
+  .cstrip{display:flex;align-items:center;justify-content:center;white-space:pre;border-radius:0 0 8px 8px;padding:2px 4px;font-size:calc(var(--hm-font-size) * 0.85);line-height:1.2;font-weight:700;background:#ffffff;color:#111111;cursor:pointer}
+  [data-theme="light"] .cstrip{background:#3a2d63;color:#ffffff}
+  .cdot{display:inline-block;flex:none;width:1em;height:1em;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.75);margin:0 0.1em;position:relative;top:-0.03em}
   .cgc{background:#0bd5fe}
   .cdc{background:#ff57ea}
   .hm{border-radius:8px;padding:5px 4px;text-align:center;font-size:var(--hm-font-size);line-height:1.2;font-weight:700;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.25);text-shadow:0 1px 3px rgba(0,0,0,0.75);cursor:pointer}
@@ -95,6 +99,18 @@
   .saveStatus.show{opacity:1}
   .sectionDivider{height:1px;background:var(--divider);margin:4px 0}
   .layoutBtn{font-size:11px}
+  /* Toolメニュー(右から出る縦長のメニュー) 2026-10-21 */
+  .toolBtn{background:transparent;border:1px solid var(--btn-border);color:var(--text);border-radius:999px;padding:7px 18px;font-size:14px;cursor:pointer}
+  .toolOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;z-index:900}
+  .toolOverlay.open{display:block}
+  .toolDrawer{position:fixed;top:0;right:0;bottom:0;width:260px;max-width:85vw;background:var(--bg);border-left:1px solid var(--card-border);box-shadow:-8px 0 24px rgba(0,0,0,0.35);transform:translateX(100%);transition:transform .18s ease;z-index:901;display:flex;flex-direction:column}
+  .toolDrawer.open{transform:translateX(0)}
+  .toolHead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;font-size:16px;font-weight:700;border-bottom:1px solid var(--divider)}
+  .toolClose{background:transparent;border:none;color:var(--text);font-size:20px;cursor:pointer;line-height:1}
+  .toolList{display:flex;flex-direction:column}
+  .toolList button{width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid var(--divider);border-radius:0;color:var(--text);font-size:14px;font-weight:600;padding:14px 16px;cursor:pointer}
+  .toolList button:hover{background:var(--chip-bg)}
+  .toolList button.on{background:rgba(139,92,246,0.4)}
   .toggleBtn{font-size:11px}
   .toggleBtn.off{opacity:0.45}
   .vGrid{display:grid;gap:3px}
@@ -115,12 +131,19 @@
     </div>
     <div class="headerBtns">
       <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
+      <button class="toolBtn" id="toolBtn" title="メニューを開く">☰ Tool</button>
+    </div>
+    <div class="toolOverlay" id="toolOverlay"></div>
+    <div class="toolDrawer" id="toolDrawer">
+      <div class="toolHead"><span>Tool</span><button class="toolClose" id="toolClose" title="閉じる">✕</button></div>
+      <div class="toolList" id="toolList">
       <button class="layoutBtn" id="layoutBtn" title="縦型/横型レイアウト切替">📐 横型</button>
       <button class="toggleBtn" id="barsToggleBtn" title="角度グラフの表示/非表示">📊 角度グラフ</button>
       <button class="toggleBtn" id="historyToggleBtn" title="発火履歴の表示/非表示">🕒 発火履歴</button>
       <button class="toggleBtn" id="resyncBtn" title="サーバーが受信済みの発火履歴から、ヒートマップを即座に再構築します(TradingViewへの問い合わせは行いません)">🔄 再構築</button>
       <button class="gearBtn" id="gearBtn">⚙ 個別設定</button>
       <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
+      </div>
     </div>
   </div>
 
@@ -279,7 +302,7 @@ function hideClickInfo(){
   if (el) el.classList.remove('show');
 }
 document.addEventListener('click', (e) => {
-  if (e.target.closest && e.target.closest('.hm, .barcol, .barcolFlex')) return;
+  if (e.target.closest && e.target.closest('.hm, .cstrip, .barcol, .barcolFlex')) return;
   hideClickInfo();
 });
 
@@ -399,6 +422,14 @@ function dowInfo(d, tf){
   if (origin === null) return null;
   return { origin: origin, bars: Math.max(0, Math.floor(tradingMsBetween(origin, now) / step) - missingDailyBreakBars(origin, now, tfMin)) };
 }
+// 雲の交差からの経過(ダウ転換のdowInfoと同じ数え方。交差が起きた足の始まりから数える)
+function cloudInfo(d, tf){
+  const tfMin = Number(tf), step = tfMin * 60000, now = Date.now();
+  const t = Number(d.cloud_t);
+  if (!d || d.cloud_t === null || d.cloud_t === undefined || isNaN(t)) return null;
+  const origin = snapBarStartMs(t, tfMin);
+  return { origin: origin, bars: Math.max(0, Math.floor(tradingMsBetween(origin, now) / step) - missingDailyBreakBars(origin, now, tfMin)) };
+}
 // 5分足は毎日ニューヨーク16:55と17:00の足(2本)がTradingViewに無い(月曜の開始直後は17:00の1本)。その本数を返す(15分足以上は欠けない)。
 function missingDailyBreakBars(originMs, nowMs, tfMin){
   if (Number(tfMin) !== 5) return 0;
@@ -424,7 +455,9 @@ function _hiddenZero(txt){ return `<span style="visibility:hidden">${txt}</span>
 function formatElapsedDHM(info, tf){
   if (!info) return null;
   const tfMin = Number(tf);
-  const totalMin = info.bars * tfMin;                 // バー数×時間足の分 → 5分足なら5分刻み、1時間足なら1時間刻み
+  // 経過時間は「足が確定した時刻」を0として数える(2026-10-21変更)。バー数には転換した足自身が1本目として入っているので1本引く。
+  // 例: 4時間足が今確定→00D/00h、4時間後→00D/04h。他の時間足と並べても先後がずれない。
+  const totalMin = Math.max(0, info.bars - 1) * tfMin;   // 5分足なら5分刻み、1時間足なら1時間刻み
   const pad = n => String(n).padStart(2, '0');
   if (tfMin <= 15) {
     const hh = Math.floor(totalMin / 60), mm = totalMin % 60;
@@ -460,8 +493,18 @@ function heatCellMarkup(pair, tf){
   // 短期の雲のGC(水色)/DC(オレンジ寄りの赤)の丸。影つき(▲▼と同じ影)。1分足は対象外。
   const dot = (voiceSettings.cloud_dot !== 'hide' && tf !== '1' && (d.cloud === 'GC' || d.cloud === 'DC'))
     ? `<span class="cdot ${d.cloud === 'GC' ? 'cgc' : 'cdc'}"></span>` : '';
-  // 丸があるときだけ、▲▼・丸・文字を1行の中で縦中央にそろえる(丸が無いときは従来どおり)
-  const wrap = (h) => dot ? `<span class="hmrow">${h}</span>` : h;
+  // 雲の交差の帯: セルの真下に「丸 + [経過]」。経過はダウ転換と同じ数え方(バー数/経過時間は同じ設定に従う)
+  let strip = '';
+  if (dot) {
+    const ci = cloudInfo(d, tf);
+    let cTxt = '';
+    if (ci) {
+      cTxt = voiceSettings.bars_display === 'elapsed' ? (formatElapsedDHM(ci, tf) || '') : String(ci.bars).padStart(2,'0');
+      cTxt = cTxt ? `[${cTxt}]` : '';
+    }
+    strip = `<div class="cstrip" ${attrs}>${dot}${cTxt ? ' ' + cTxt : ''}</div>`;
+  }
+  const out = (cellHtml) => strip ? `<div class="hmwrap">${cellHtml}${strip}</div>` : cellHtml;
   let barsTxt = info ? ` [${String(info.bars).padStart(2,'0')}]` : '';
   if (voiceSettings.bars_display === 'elapsed') {
     const el = formatElapsedDHM(info, tf);
@@ -470,16 +513,16 @@ function heatCellMarkup(pair, tf){
   // 角度グラフ非表示時: 向きだけで赤/緑の2色、角度の数値は出さない(矛盾の黄色・濃淡も無し)
   if (!barsVisible) {
     const bg = dirColor(d.direction, false);
-    return `<div class="${cls}" style="background:${bg}" ${attrs}>${wrap(`${arrow}${dot}${barsTxt}`)}</div>`;
+    return out(`<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div>`);
   }
   if (d.angle === null || d.angle === undefined) {
     const bg = dirColor(d.direction, false);
-    return `<div class="${cls}" style="background:${bg}" ${attrs}>${wrap(`${arrow}${dot}${barsTxt}`)}</div>`;
+    return out(`<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${barsTxt}</div>`);
   }
   const strong = Math.abs(d.angle) >= 45;
   const mismatch = isDirAngleMismatch(d.direction, d.angle);
   const bg = mismatch ? '#ffeb3b' : dirColor(d.direction, strong);  // 矛盾時は緑/赤と見分けやすい黄色
-  return `<div class="${cls}" style="background:${bg}" ${attrs}>${wrap(`${arrow}${dot}${Math.abs(Math.round(d.angle))}${barsTxt}`)}</div>`;
+  return out(`<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${Math.abs(Math.round(d.angle))}${barsTxt}</div>`);
 }
 
 function renderMatrix(){
@@ -497,7 +540,7 @@ function renderMatrix(){
 // ヒートマップのセルを左クリックすると、いつ更新されたかを表示する(横型・縦型共通)。
 // 点滅中(アラーム通知中)のセルは、表示と同時に点滅も解除する(従来通りの動作)。
 function onHeatCellClick(e){
-  const cell = e.target.closest('.hm');
+  const cell = e.target.closest('.hm, .cstrip');
   if (!cell) return;
   const pair = cell.dataset.pair, tf = cell.dataset.tf;
   const label = `${PAIR_JP[pair] || pair} ${TF_JP_BAR[tf] || tf}`;
@@ -979,7 +1022,16 @@ setInterval(() => { if (voiceSettings.bars_display === 'elapsed') renderAll(); }
 
 $('gearBtn').addEventListener('click', () => {
   $('settingsPanel').classList.toggle('open');
+  closeToolMenu();   // 個別設定を開いたら、設定が見えるようにメニューは閉じる
 });
+
+// ---- Toolメニュー(毎回閉じた状態で始まる。ボタンの外・✕・Escで閉じる) ----
+function openToolMenu(){ $('toolDrawer').classList.add('open'); $('toolOverlay').classList.add('open'); }
+function closeToolMenu(){ $('toolDrawer').classList.remove('open'); $('toolOverlay').classList.remove('open'); }
+$('toolBtn').addEventListener('click', () => { $('toolDrawer').classList.contains('open') ? closeToolMenu() : openToolMenu(); });
+$('toolClose').addEventListener('click', closeToolMenu);
+$('toolOverlay').addEventListener('click', closeToolMenu);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeToolMenu(); });
 
 $('testUpBtn').addEventListener('click', () => {
   playBell();

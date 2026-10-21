@@ -1376,6 +1376,7 @@ def api_angle_push():
                 # pc_direction: PC側(ダウ雲チャート)の向き。通常は使わない。TradingViewのアラート時刻が無い/再起動で上書きされたセルの表示だけに使う(2026-10-13追加)
                 'pc_direction': it.get('direction'),
                 'cloud': it.get('cloud'),  # 短期の雲 GC/DC (ヒートマップの丸用 2026-10-18追加)
+                'cloud_t': it.get('cloud_t'),  # 交差が起きた足の時刻(UTCミリ秒) 2026-10-21追加
                 'updated_at': now_iso,  # angle(角度)がこの時刻に更新された、という意味
             }
         snapshot = {k: dict(v) for k, v in _angle_data.items()}
@@ -1506,6 +1507,7 @@ def api_resync_from_history():
                 'bars_elapsed': existing.get('bars_elapsed'),
                 'pc_direction': existing.get('pc_direction'),
                 'cloud': existing.get('cloud'),
+                'cloud_t': existing.get('cloud_t'),
                 'updated_at': existing.get('updated_at'),
             }
             updated.append({'pair': pair, 'tf': tf, 'direction': info['direction']})
