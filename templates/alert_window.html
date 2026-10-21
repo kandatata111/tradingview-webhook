@@ -99,6 +99,7 @@
   .saveStatus.show{opacity:1}
   .sectionDivider{height:1px;background:var(--divider);margin:4px 0}
   .layoutBtn{font-size:11px}
+  .headerBtns .iconBtn{font-size:15px;padding:4px 8px;line-height:1}
   /* Toolメニュー(右から出る縦長のメニュー) 2026-10-21 */
   .toolBtn{background:transparent;border:1px solid var(--btn-border);color:var(--text);border-radius:999px;padding:7px 18px;font-size:14px;cursor:pointer}
   .toolOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;z-index:900}
@@ -131,6 +132,8 @@
     </div>
     <div class="headerBtns">
       <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
+      <button class="gearBtn iconBtn" id="resyncBtn" title="再構築: サーバーが受信済みの発火履歴とPCのダウ雲チャートの状態から、ヒートマップを即座に再構築します(TradingViewへの問い合わせは行いません)">🔄</button>
+      <button class="gearBtn iconBtn" id="gearBtn" title="個別設定">⚙</button>
       <button class="toolBtn" id="toolBtn" title="メニューを開く">☰ Tool</button>
     </div>
     <div class="toolOverlay" id="toolOverlay"></div>
@@ -140,8 +143,6 @@
       <button class="layoutBtn" id="layoutBtn" title="縦型/横型レイアウト切替">📐 横型</button>
       <button class="toggleBtn" id="barsToggleBtn" title="角度グラフの表示/非表示">📊 角度グラフ</button>
       <button class="toggleBtn" id="historyToggleBtn" title="発火履歴の表示/非表示">🕒 発火履歴</button>
-      <button class="toggleBtn" id="resyncBtn" title="サーバーが受信済みの発火履歴から、ヒートマップを即座に再構築します(TradingViewへの問い合わせは行いません)">🔄 再構築</button>
-      <button class="gearBtn" id="gearBtn">⚙ 個別設定</button>
       <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
       </div>
     </div>
@@ -735,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resyncBtn.addEventListener('click', async () => {
       resyncBtn.disabled = true;
       const origText = resyncBtn.textContent;
-      resyncBtn.textContent = '🔄 再構築中...';
+      resyncBtn.textContent = '⏳';
       try {
         const res = await fetch('/api/resync_from_history', { method: 'POST' });
         const data = await res.json();
