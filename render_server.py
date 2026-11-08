@@ -55,6 +55,10 @@ ANGLE_PUSH_KEY = os.environ.get('ANGLE_PUSH_KEY', '')  # PC側と共有する合
 #   ペア×時間足ごとに専用の枠を持たせることで、他のペア/時間足がどれだけ頻発しても
 #   記録が失われないようにする。
 _dow_alert_lock = threading.Lock()
+# 雲交差のアラート履歴(2026-11-08 追加)。新しい順に最大 CLOUD_ALERT_HISTORY_MAX 件。サーバーの再起動で消える(表示用)
+_cloud_alert_history = []
+CLOUD_ALERT_HISTORY_MAX = 200
+TF_MS = {'1': 60000, '5': 300000, '15': 900000, '60': 3600000, '240': 14400000}
 _dow_alert_history = []
 DOW_ALERT_HISTORY_MAX = 200
 _dow_alert_history_by_cell = {}
@@ -99,6 +103,20 @@ DEFAULT_ALERT_VOICE_SETTINGS = {
     'visible_tfs': {},
     'voice_name': '',
     'hm_font_size': 15,   # ヒートマップ(▲67等)の文字サイズ(px)
+    # ---- 雲交差のアラート(2026-11-08 追加。ダウ転換と同じ種類の設定を別々に持つ) ----
+    'cloud_template_up': '{pair}、{tf}、雲交差、上昇です。{pair}',
+    'cloud_template_down': '{pair}、{tf}、雲交差、下降です。{pair}',
+    'cloud_enabled_pairs': {},   # キーが無い、または true = 鳴らす。false を明示した項目だけ鳴らさない
+    'cloud_enabled_tfs': {},
+    'cloud_align': {},           # 「雲の向きがそろった」発声の設定(段階ごと)
+    'cloud_voice_name': '',      # 雲交差の声(空=ダウ転換と同じ声)
+    # ---- アラームの種類(2026-11-09): ダウ転換のみ / 雲交差のみ / ダウ転換+雲交差(同じ向きにそろった時) ----
+    'dow_on': True, 'cloud_on': True, 'combo_on': True,
+    'combo_template_up': '{pair}、{tf}、ダウ転換と雲交差がそろいました、上昇です。{pair}',
+    'combo_template_down': '{pair}、{tf}、ダウ転換と雲交差がそろいました、下降です。{pair}',
+    'combo_enabled_pairs': {},
+    'combo_enabled_tfs': {},
+    'combo_voice_name': '',      # そろった時の声(空=ダウ転換と同じ声)
 }
 
 
@@ -1355,12 +1373,25 @@ def api_angle_push():
         return jsonify({'error': 'items/alerts must be a list'}), 400
 
     now_iso = datetime.utcnow().isoformat()
+    cloud_fired = []
+    now_ms = int(datetime.utcnow().timestamp() * 1000)
     with _angle_lock:
         for it in items:
             pair = it.get('pair')
             tf = it.get('tf')
             if not pair or not tf:
                 continue
+            # ---- 雲交差の検出(2026-11-08 追加) ----
+            # 前回受け取った雲(GC/DC)と交差の時刻から変わり、交差が新しい(確定してから時間がたっていない)ときだけ知らせる。
+            # 初回(前回の値が無い)・PCを長く止めていた後に古い交差が届いた場合は知らせない(誤発火防止)
+            try:
+                ex = _angle_data.get(pair, {}).get(tf) or {}
+                nc, nt, oc, ot = it.get('cloud'), it.get('cloud_t'), ex.get('cloud'), ex.get('cloud_t')
+                if (nc in ('GC', 'DC') and oc in ('GC', 'DC') and nc != oc and nt and ot and int(nt) > int(ot)
+                        and now_ms - (int(nt) + TF_MS.get(str(tf), 300000)) <= max(600000, TF_MS.get(str(tf), 300000))):
+                    cloud_fired.append({'pair': pair, 'tf': str(tf), 'direction': 'up' if nc == 'GC' else 'down', 'cross_t': int(nt)})
+            except Exception as _e:     # noqa  検出で失敗しても角度の更新は続ける
+                print(f'[CLOUD_ALERT] 検出エラー(継続します): {_e}')
             # direction(ヒートマップの矢印・色の向き)は、TradingViewの確定ダウ転換(/api/zigzag_alert)
             # だけが更新する唯一の情報源とする。PCからのこの定期更新(d_trend由来)はangle(角度の数値)
             # だけを反映し、directionは既存の値をそのまま引き継ぐ(ここで上書きしない)。
@@ -1386,6 +1417,22 @@ def api_angle_push():
         socketio.emit('angle_update', {'data': snapshot})
     except Exception as e:      # noqa
         print(f'[ANGLE] socketio配信エラー(継続します): {e}')
+
+    # 雲交差の通知(2026-11-08 追加): 画面(alert_window)へ配信。鳴らすかどうか・文言は画面側の個別設定で決める
+    if cloud_fired:
+        jst = pytz.timezone('Asia/Tokyo')
+        with _dow_alert_lock:
+            for c in cloud_fired:
+                pair_jp = PAIR_JP.get(c['pair'], c['pair']); tf_jp = TF_JP.get(c['tf'], c['tf'])
+                c.update({'kind': 'cloud', 'text': f"{pair_jp}、{tf_jp}、雲交差、{'上昇' if c['direction'] == 'up' else '下降'}です。{pair_jp}",
+                          'time': datetime.now(jst).strftime('%H:%M:%S'), 'received_at': now_iso})
+                _cloud_alert_history.insert(0, c)
+            del _cloud_alert_history[CLOUD_ALERT_HISTORY_MAX:]
+        for c in cloud_fired:
+            try:
+                socketio.emit('new_cloud_alert', c)
+            except Exception as e:      # noqa
+                print(f'[CLOUD_ALERT] 配信エラー(継続します): {e}')
 
     fired = []
     if alerts:
@@ -1438,6 +1485,13 @@ def api_angle_push():
                 print(f'[ANGLE] ダウ転換通知の配信エラー(継続します): {e}')
 
     return jsonify({'status': 'ok', 'count': len(items), 'fired': len(fired)})
+
+
+@app.route('/api/cloud_alert_history', methods=['GET'])
+def api_cloud_alert_history():
+    """alert_window読み込み時の、雲交差の通知履歴(新しい順)"""
+    with _dow_alert_lock:
+        return jsonify(list(_cloud_alert_history))
 
 
 @app.route('/api/angle_data', methods=['GET'])

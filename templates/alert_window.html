@@ -45,6 +45,7 @@
   .hmwrap > .hm{border-bottom-left-radius:0;border-bottom-right-radius:0}
   .cstrip{display:flex;align-items:center;justify-content:center;white-space:pre;border-radius:0 0 8px 8px;padding:2px 4px;font-size:calc(var(--hm-font-size) * 0.85);line-height:1.2;font-weight:700;background:#ffffff;color:#111111;cursor:pointer}
   [data-theme="light"] .cstrip{background:#3a2d63;color:#ffffff}
+  .cstrip.alerting{animation:hmBlink 1s ease-in-out infinite}   /* 雲交差のアラート中(帯を左クリックで解除) 2026-11-08 */
   .cdot{display:inline-block;flex:none;width:1em;height:1em;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.75);margin:0 0.1em;position:relative;top:-0.03em}
   .cgc{background:#0bd5fe}
   .cdc{background:#ff57ea}
@@ -95,11 +96,30 @@
   .hmFontSizeRow select{background:var(--input-bg);border:1px solid var(--input-border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit}
   .hmFontSizeRow select option{color:#333333;background:#ffffff}
   .settingsFooter{display:flex;justify-content:flex-end;align-items:center;gap:10px}
+  /* 個別設定のタブ(2026-11-09) */
+  .settingsPanel{gap:8px}
+  .stabs{display:flex;gap:4px;border-bottom:1px solid var(--divider);flex-wrap:wrap}
+  .stabBtn{background:transparent;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;color:var(--text-dim);font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;font-family:inherit}
+  .stabBtn.on{background:var(--chip-on-bg);border-color:var(--chip-on-border);color:var(--text)}
+  .stab{display:none;flex-direction:column;gap:6px}
+  .stab.on{display:flex}
+  .srow{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+  .srow .chipGrid{gap:4px}
+  .slbl{width:78px;flex:none;font-size:11px;color:var(--text-dim);white-space:nowrap}
+  .tmplIn{flex:1;min-width:0;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;color:var(--text);font-size:12px;padding:5px 8px;font-family:inherit}
+  .qm{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--chip-bg);border:1px solid var(--chip-border);color:var(--text-dim);font-size:9px;margin-left:3px;cursor:help;vertical-align:1px}
+  .sdet{border-top:1px solid var(--divider);padding-top:6px}
+  .sdetHead{font-size:12px;font-weight:700;color:var(--text);cursor:pointer;user-select:none}
+  .sdet:not(.open) .sdetHead{opacity:.8} .sdet:not(.open) > div:not(.sdetHead){display:none}
+  .sdet:not(.open) .sdetHead::first-letter{}
+  .arow{display:grid;grid-template-columns:86px 1fr auto 1fr auto;gap:4px;align-items:center;margin-top:4px}
+  .arow .toggleChip{padding:2px 8px;white-space:nowrap;justify-content:flex-start}
   .saveStatus{font-size:11px;color:#4ade80;opacity:0;transition:opacity 0.3s}
   .saveStatus.show{opacity:1}
   .sectionDivider{height:1px;background:var(--divider);margin:4px 0}
   .layoutBtn{font-size:11px}
   .headerBtns .iconBtn{font-size:15px;padding:4px 8px;line-height:1}
+  #ackAllBtn:disabled{opacity:.35;cursor:default}   /* 点滅しているセルが無いときは薄く(2026-11-09) */
   /* Toolメニュー(右から出る縦長のメニュー) 2026-10-21 */
   .toolBtn{background:transparent;border:1px solid var(--btn-border);color:var(--text);border-radius:999px;padding:7px 18px;font-size:14px;cursor:pointer}
   .toolOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;z-index:900}
@@ -132,6 +152,7 @@
     </div>
     <div class="headerBtns">
       <button class="themeBtn" id="themeBtn" title="ダーク/ライト切替">🌙</button>
+      <button class="gearBtn iconBtn" id="ackAllBtn" title="点滅をすべて止める(ダウ転換・雲交差)">✅</button>
       <button class="gearBtn iconBtn" id="resyncBtn" title="再構築: サーバーが受信済みの発火履歴とPCのダウ雲チャートの状態から、ヒートマップを即座に再構築します(TradingViewへの問い合わせは行いません)">🔄</button>
       <button class="gearBtn iconBtn" id="gearBtn" title="個別設定">⚙</button>
       <button class="toolBtn" id="toolBtn" title="メニューを開く">☰ Tool</button>
@@ -149,67 +170,40 @@
   </div>
 
   <div class="card settingsPanel" id="settingsPanel">
-    <div class="settingsSection">
-      <h3>ヒートマップの文字サイズ</h3>
-      <div class="hmFontSizeRow"><select id="hmFontSizeSelect"></select></div>
+    <!-- 個別設定(2026-11-09 タブに整理): 表示 / ダウ転換 / 雲交差 / ダウ転換+雲交差。保存ボタンは1つで全部のタブをまとめて保存 -->
+    <div class="stabs" id="settingsTabs">
+      <button class="stabBtn" data-tab="view">表示</button><button class="stabBtn" data-tab="dow">ダウ転換</button><button class="stabBtn" data-tab="cloud">雲交差</button><button class="stabBtn" data-tab="combo">ダウ転換+雲交差</button>
     </div>
-    <div class="sectionDivider"></div>
-    <div class="settingsSection">
-      <h3>ダウ転換からの経過の表示(バー数 / 経過時間 DD/hh/mm)</h3>
-      <div class="hmFontSizeRow"><select id="barsDisplaySelect">
-        <option value="bars">バー数(例: ▼ [93])</option>
-        <option value="elapsed">経過時間(例: ▼ [05D/16h/06m])</option>
-      </select></div>
+    <div class="stab" data-tab="view">
+      <div class="srow"><span class="slbl">文字サイズ</span><span class="hmFontSizeRow"><select id="hmFontSizeSelect"></select></span>
+        <span class="slbl" style="margin-left:12px">経過<span class="qm" title="ダウ転換・雲交差からの経過の表示(バー数 / 経過時間 DD/hh/mm)">?</span></span><span class="hmFontSizeRow"><select id="barsDisplaySelect"><option value="bars">バー数</option><option value="elapsed">経過時間</option></select></span></div>
+      <div class="srow"><span class="slbl">雲の丸<span class="qm" title="▲▼の後ろの丸。水色=GC / ピンク=DC">?</span></span><span class="hmFontSizeRow"><select id="cloudDotSelect"><option value="show">表示する</option><option value="hide">表示しない</option></select></span></div>
+      <div class="srow"><span class="slbl">表示ペア<span class="qm" title="チェックを外すと、その通貨ペアのヒートマップ・角度グラフを非表示にします">?</span></span><div class="chipGrid" id="visiblePairGrid"></div></div>
+      <div class="srow"><span class="slbl">表示足<span class="qm" title="チェックを外すと、その時間足のヒートマップ列・角度グラフ列を非表示にします">?</span></span><div class="chipGrid" id="visibleTfGrid"></div></div>
     </div>
-    <div class="sectionDivider"></div>
-    <div class="settingsSection">
-      <h3>雲のGC/DCの丸(▲▼の後ろ。水色=GC / ピンク=DC)</h3>
-      <div class="hmFontSizeRow"><select id="cloudDotSelect">
-        <option value="show">表示する</option>
-        <option value="hide">表示しない</option>
-      </select></div>
+    <div class="stab" data-tab="dow">
+      <div class="srow"><span class="chipGrid" id="dowOnGrid"></span><span class="slbl" style="width:auto;margin-left:8px">声</span><span class="voiceSelectRow"><select id="voiceSelect"></select></span></div>
+      <div class="srow"><span class="slbl">▲ 上昇<span class="qm" title="{pair}=通貨ペア名 / {tf}=時間足名 / {scope}=デイトレ・スイング(TradingViewアラート由来の時だけ入ります)">?</span></span><input class="tmplIn" id="tmplUp"><button class="testBtn" id="testUpBtn" title="テスト">▶</button></div>
+      <div class="srow"><span class="slbl">▼ 下降</span><input class="tmplIn" id="tmplDown"><button class="testBtn" id="testDownBtn" title="テスト">▶</button></div>
+      <div class="srow"><span class="slbl">ペア<span class="qm" title="チェックした通貨ペアだけ音が鳴ります">?</span></span><div class="chipGrid" id="enablePairGrid"></div></div>
+      <div class="srow"><span class="slbl">時間足<span class="qm" title="チェックした時間足だけ音が鳴ります">?</span></span><div class="chipGrid" id="enableTfGrid"></div></div>
+      <div class="sdet open"><div class="sdetHead">▼ 向きがそろった時の発声<span class="qm" title="ある時間足で起きた時に、短い足から順に各時間足の向きが全部そろったら鳴ります。一番大きい段階の声だけ鳴ります。{pair}=通貨ペア名 / {tfs}=そろった時間足">?</span></div><div id="alignSettings"></div></div>
     </div>
-    <div class="sectionDivider"></div>
-    <div class="settingsSection">
-      <h3>読み上げに使う声(日本語のみ)</h3>
-      <div class="voiceSelectRow"><select id="voiceSelect"></select></div>
+    <div class="stab" data-tab="cloud">
+      <div class="srow"><span class="chipGrid" id="cloudOnGrid"></span><span class="slbl" style="width:auto;margin-left:8px">声</span><span class="voiceSelectRow"><select id="cloudVoiceSelect"></select></span></div>
+      <div class="srow"><span class="slbl">▲ 上昇<span class="qm" title="短期雲がGC(上昇)/DC(下降)に交差した時(1分足は対象外)。{pair}=通貨ペア名 / {tf}=時間足名">?</span></span><input class="tmplIn" id="cloudTmplUp"><button class="testBtn" id="cloudTestUpBtn" title="テスト">▶</button></div>
+      <div class="srow"><span class="slbl">▼ 下降</span><input class="tmplIn" id="cloudTmplDown"><button class="testBtn" id="cloudTestDownBtn" title="テスト">▶</button></div>
+      <div class="srow"><span class="slbl">ペア<span class="qm" title="チェックした通貨ペアだけ音が鳴ります">?</span></span><div class="chipGrid" id="cloudEnablePairGrid"></div></div>
+      <div class="srow"><span class="slbl">時間足<span class="qm" title="チェックした時間足だけ音が鳴ります">?</span></span><div class="chipGrid" id="cloudEnableTfGrid"></div></div>
+      <div class="sdet open"><div class="sdetHead">▼ 向きがそろった時の発声<span class="qm" title="ある時間足で起きた時に、短い足から順に各時間足の向きが全部そろったら鳴ります。一番大きい段階の声だけ鳴ります。{pair}=通貨ペア名 / {tfs}=そろった時間足">?</span></div><div id="cloudAlignSettings"></div></div>
     </div>
-    <div class="sectionDivider"></div>
-    <div class="settingsSection">
-      <h3>読み上げ文言(上昇・下降を別々に設定できます)</h3>
-      <div class="hint">{pair}=通貨ペア名 / {tf}=時間足名 / {scope}=デイトレ・スイング(TradingViewアラート由来の時だけ入ります) が使えます</div>
-      <div class="voiceRow">
-        <textarea id="tmplUp" rows="2"></textarea>
-        <button class="testBtn" id="testUpBtn">▲上昇テスト</button>
-      </div>
-      <div class="voiceRow">
-        <textarea id="tmplDown" rows="2"></textarea>
-        <button class="testBtn" id="testDownBtn">▼下降テスト</button>
-      </div>
-    </div>
-    <div class="sectionDivider"></div>
-    <div class="settingsSection">
-      <h3>ダウ転換の向きがそろった時の発声</h3>
-      <div class="hint">ダウ転換が起きて、1分足から順に各時間足の向きが全部そろった時に鳴ります。一番大きい段階の声だけ鳴ります。{pair}=通貨ペア名 / {tfs}=そろった時間足(例: 1分・5分・15分) が使えます</div>
-      <div id="alignSettings"></div>
-    </div>
-    <div class="sectionDivider"></div>
-    <div class="settingsSection">
-      <h3>鳴らす通貨ペア(チェックした通貨ペアだけ音が鳴ります)</h3>
-      <div class="chipGrid" id="enablePairGrid"></div>
-    </div>
-    <div class="settingsSection">
-      <h3>鳴らす時間足(チェックした時間足だけ音が鳴ります)</h3>
-      <div class="chipGrid" id="enableTfGrid"></div>
-    </div>
-    <div class="sectionDivider"></div>
-    <div class="settingsSection">
-      <h3>表示する通貨ペア(チェックを外すと、その通貨ペアのヒートマップ・角度グラフを非表示にします)</h3>
-      <div class="chipGrid" id="visiblePairGrid"></div>
-    </div>
-    <div class="settingsSection">
-      <h3>表示する時間足(チェックを外すと、その時間足のヒートマップ列・角度グラフ列を非表示にします)</h3>
-      <div class="chipGrid" id="visibleTfGrid"></div>
+    <div class="stab" data-tab="combo">
+      <div class="hint" style="margin:0 0 4px">ダウ転換か雲交差が起きた時、同じ時間足のもう片方が同じ向き(▲とGC / ▼とDC)なら、この声だけ鳴ります<span class="qm" title="この時はダウ転換・雲交差の声は鳴りません。そろった時だけ鳴らしたい場合は、ダウ転換タブ・雲交差タブの「鳴らす」をOFFにしてください">?</span></div><div class="srow"><span class="chipGrid" id="comboOnGrid"></span><span class="slbl" style="width:auto;margin-left:8px">声</span><span class="voiceSelectRow"><select id="comboVoiceSelect"></select></span></div>
+      <div class="srow"><span class="slbl">▲ 上昇<span class="qm" title="{pair}=通貨ペア名 / {tf}=時間足名">?</span></span><input class="tmplIn" id="comboTmplUp"><button class="testBtn" id="comboTestUpBtn" title="テスト">▶</button></div>
+      <div class="srow"><span class="slbl">▼ 下降</span><input class="tmplIn" id="comboTmplDown"><button class="testBtn" id="comboTestDownBtn" title="テスト">▶</button></div>
+      <div class="srow"><span class="slbl">ペア<span class="qm" title="チェックした通貨ペアだけ音が鳴ります">?</span></span><div class="chipGrid" id="comboEnablePairGrid"></div></div>
+      <div class="srow"><span class="slbl">時間足<span class="qm" title="チェックした時間足だけ音が鳴ります">?</span></span><div class="chipGrid" id="comboEnableTfGrid"></div></div>
+      
     </div>
     <div class="settingsFooter">
       <span class="saveStatus" id="saveStatus">保存しました</span>
@@ -279,7 +273,44 @@ let voiceSettings = {
   cloud_dot: 'show',      // 'show'=GC/DCの丸を表示 / 'hide'=非表示
   bars_display: 'bars',   // 'bars'=バー数 / 'elapsed'=経過時間(DD/hh/mm)
   align: {},              // 「ダウ転換の向きがそろった」発声の設定(段階ごと)。下のALIGN_LEVELSを参照
+  // 雲交差のアラート(2026-11-08): ダウ転換と同じ種類の設定を別々に持つ
+  cloud_template_up: '{pair}、{tf}、雲交差、上昇です。{pair}',
+  cloud_template_down: '{pair}、{tf}、雲交差、下降です。{pair}',
+  cloud_enabled_pairs: {},
+  cloud_enabled_tfs: {},
+  cloud_align: {},
+  cloud_voice_name: '',
+  // アラームの種類(2026-11-09): ダウ転換のみ / 雲交差のみ / ダウ転換+雲交差(同じ向きにそろった時)
+  dow_on: true, cloud_on: true, combo_on: true,
+  combo_template_up: '{pair}、{tf}、ダウ転換と雲交差がそろいました、上昇です。{pair}',
+  combo_template_down: '{pair}、{tf}、ダウ転換と雲交差がそろいました、下降です。{pair}',
+  combo_enabled_pairs: {},
+  combo_enabled_tfs: {},
+  combo_voice_name: '',
 };
+function isComboEnabled(entry){
+  return voiceSettings.combo_on !== false && (voiceSettings.combo_enabled_pairs || {})[entry.pair] !== false && (voiceSettings.combo_enabled_tfs || {})[entry.tf] !== false;
+}
+function buildComboSpeechText(entry){
+  const tmpl = entry.direction === 'up' ? voiceSettings.combo_template_up : voiceSettings.combo_template_down;
+  return (tmpl || '').split('{pair}').join(PAIR_JP[entry.pair] || entry.pair).split('{tf}').join(TF_JP[entry.tf] || entry.tf);
+}
+// 同じ時間足の「もう片方」が同じ向きか(ダウ転換の時は雲を、雲交差の時はダウ転換の向きを見る)
+function comboAgrees(entry){
+  const d = ((angleData || {})[entry.pair] || {})[entry.tf];
+  if (!d) return false;
+  if (entry.kind === 'cloud') { const e = effectiveCell(d); return !!e && e.direction === entry.direction; }
+  return (entry.direction === 'up' && d.cloud === 'GC') || (entry.direction === 'down' && d.cloud === 'DC');
+}
+let activeCloudAlerts = {};   // 雲交差で点滅中の帯。key="ペア_時間足"→true (帯を左クリックすると解除)
+const CLOUD_TFS = ['5','15','60','240'];   // 雲交差の対象(短期雲。1分足は対象外)
+function isCloudSoundEnabled(entry){
+  return (voiceSettings.cloud_enabled_pairs || {})[entry.pair] !== false && (voiceSettings.cloud_enabled_tfs || {})[entry.tf] !== false;
+}
+function buildCloudSpeechText(entry){
+  const tmpl = entry.direction === 'up' ? voiceSettings.cloud_template_up : voiceSettings.cloud_template_down;
+  return (tmpl || '').split('{pair}').join(PAIR_JP[entry.pair] || entry.pair).split('{tf}').join(TF_JP[entry.tf] || entry.tf);
+}
 
 function $(id){ return document.getElementById(id); }
 function cellKey(pair, tf){ return pair + '_' + tf; }
@@ -503,7 +534,7 @@ function heatCellMarkup(pair, tf){
       cTxt = voiceSettings.bars_display === 'elapsed' ? (formatElapsedDHM(ci, tf) || '') : String(ci.bars).padStart(2,'0');
       cTxt = cTxt ? `[${cTxt}]` : '';
     }
-    strip = `<div class="cstrip" ${attrs}>${dot}${cTxt ? ' ' + cTxt : ''}</div>`;
+    strip = `<div class="cstrip${activeCloudAlerts[cellKey(pair, tf)] ? ' alerting' : ''}" ${attrs}>${dot}${cTxt ? ' ' + cTxt : ''}</div>`;
   }
   const out = (cellHtml) => strip ? `<div class="hmwrap">${cellHtml}${strip}</div>` : cellHtml;
   let barsTxt = info ? ` [${String(info.bars).padStart(2,'0')}]` : '';
@@ -526,7 +557,12 @@ function heatCellMarkup(pair, tf){
   return out(`<div class="${cls}" style="background:${bg}" ${attrs}>${arrow}${Math.abs(Math.round(d.angle))}${barsTxt}</div>`);
 }
 
+function updateAckAllBtn(){
+  const b = $('ackAllBtn'); if (!b) return;
+  b.disabled = !(Object.keys(activeAlerts).length || Object.keys(activeCloudAlerts).length);
+}
 function renderMatrix(){
+  updateAckAllBtn();
   if (_dnd.dragging) return;
   const visTfs = TF_ALL.filter(isTfVisible);
   const headRow = $('matrixHeadRow');
@@ -550,7 +586,8 @@ function onHeatCellClick(e){
   const info = d ? dowInfo(d, tf) : null;
   showClickInfo(info ? `${label}: ダウ転換 ${formatLocalDateTime(info.origin)}(${info.bars}本前)` : `${label}: 日時不明`);
   if (cell.classList.contains('alerting')) {
-    delete activeAlerts[cellKey(pair, tf)];
+    if (cell.classList.contains('cstrip')) delete activeCloudAlerts[cellKey(pair, tf)];   // 雲交差の帯
+    else delete activeAlerts[cellKey(pair, tf)];
     renderAll();
   }
 }
@@ -688,6 +725,7 @@ document.addEventListener('dragend', () => {
 
 function renderAll(){
   rebuildStaleDirTimes();
+  updateAckAllBtn();
   if (layoutMode === 'vertical') { renderVertical(); }
   else { renderMatrix(); renderBars(); }
 }
@@ -699,7 +737,9 @@ function addHistoryRow(entry, isNew){
   const row = document.createElement('div');
   row.className = 'histrow' + (isNew ? ' flash' : '');
   const scopeTxt = entry.scope_jp ? (' ' + entry.scope_jp) : '';
-  row.innerHTML = `<span class="t">${entry.time || ''}</span><span class="badge">${arrow}</span><span>${PAIR_JP[entry.pair] || entry.pair} ${TF_JP[entry.tf] || entry.tf}${scopeTxt} ダウ転換 ${entry.direction === 'up' ? '上昇' : '下降'}です</span>`;
+  row.innerHTML = entry.kind === 'cloud'
+    ? `<span class="t">${entry.time || ''}</span><span class="badge"><span class="cdot ${entry.direction === 'up' ? 'cgc' : 'cdc'}" style="font-size:10px"></span></span><span>${PAIR_JP[entry.pair] || entry.pair} ${TF_JP[entry.tf] || entry.tf} 雲交差 ${entry.direction === 'up' ? '上昇(GC)' : '下降(DC)'}です</span>`
+    : `<span class="t">${entry.time || ''}</span><span class="badge">${arrow}</span><span>${PAIR_JP[entry.pair] || entry.pair} ${TF_JP[entry.tf] || entry.tf}${scopeTxt} ダウ転換 ${entry.direction === 'up' ? '上昇' : '下降'}です</span>`;
   wrap.insertBefore(row, wrap.firstChild);
   while (wrap.children.length > 30) wrap.removeChild(wrap.lastChild);
 }
@@ -729,6 +769,12 @@ function renderVoiceSelect(){
     ? availableJaVoices.map(v => `<option value="${v.name}">${v.name}</option>`).join('')
     : '<option value="">(日本語音声が見つかりません)</option>';
   if (jpVoice) sel.value = jpVoice.name;
+  // 雲交差のみ・そろった時の声(空=ダウ転換と同じ声)
+  [['cloudVoiceSelect', 'cloud_voice_name'], ['comboVoiceSelect', 'combo_voice_name']].forEach(([id, key]) => {
+    const s2 = $(id); if (!s2) return;
+    s2.innerHTML = '<option value="">ダウ転換と同じ声</option>' + availableJaVoices.map(v => `<option value="${v.name}">${v.name}</option>`).join('');
+    s2.value = availableJaVoices.some(v => v.name === voiceSettings[key]) ? voiceSettings[key] : '';
+  });
 }
 document.addEventListener('DOMContentLoaded', () => {
   const resyncBtn = document.getElementById('resyncBtn');
@@ -763,13 +809,17 @@ document.addEventListener('DOMContentLoaded', () => {
     voiceSettings.voice_name = sel.value;
     jpVoice = availableJaVoices.find(v => v.name === sel.value) || jpVoice;
   });
+  [['cloudVoiceSelect', 'cloud_voice_name'], ['comboVoiceSelect', 'combo_voice_name']].forEach(([id, key]) => {
+    const s2 = $(id); if (s2) s2.addEventListener('change', () => { voiceSettings[key] = s2.value; });
+  });
 });
 
-function speak(text){
+function speak(text, voiceName){   // voiceName: 種類ごとの声の名前(空・見つからない時はダウ転換の声)
   if (muted || !('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'ja-JP';
-  if (jpVoice) u.voice = jpVoice;
+  const v = voiceName ? availableJaVoices.find(x => x.name === voiceName) : null;
+  if (v || jpVoice) u.voice = v || jpVoice;
   speechSynthesis.speak(u);
 }
 
@@ -798,13 +848,16 @@ const ALIGN_LEVELS = [
   {key:'L4', n:5, on:true},    // 1分・5分・15分・1時間・4時間
 ];
 function alignTfsText(n){ return ALIGN_ORDER.slice(0, n).map(t => TF_JP[t]).join('・'); }
+function alignTfsShort(n){ return n === 2 ? TF_JP[ALIGN_ORDER[0]] + '・' + TF_JP[ALIGN_ORDER[1]] : '〜' + TF_JP[ALIGN_ORDER[n - 1]]; }   // チェックの表示(短く)
+// 初期の文言(2026-11-09 ユーザー指定)
+const ALIGN_DEF_TXT = { L1: '1分と5分のダウがそろいました', L2: '15分までのダウがそろいました', L3: '1時間までのダウがそろいました', L4: '全てのダウがそろいました' };
 function alignConf(level){
   const c = (voiceSettings.align || {})[level.key] || {};
   const t = alignTfsText(level.n);
   return {
     enabled: c.enabled === undefined ? level.on : !!c.enabled,
-    up: (c.up !== undefined && c.up !== '') ? c.up : `{pair}、${t}、ダウ転換がそろいました、上昇です。{pair}`,
-    down: (c.down !== undefined && c.down !== '') ? c.down : `{pair}、${t}、ダウ転換がそろいました、下降です。{pair}`,
+    up: (c.up !== undefined && c.up !== '') ? c.up : `${ALIGN_DEF_TXT[level.key]}、上昇です。{pair}`,
+    down: (c.down !== undefined && c.down !== '') ? c.down : `${ALIGN_DEF_TXT[level.key]}、下降です。{pair}`,
   };
 }
 function buildAlignText(pair, level, direction){
@@ -830,15 +883,96 @@ function findAlignLevel(entry){
   }
   return null;
 }
+// ---- 雲交差の向きがそろった時の発声(2026-11-08)。5分足から順に、何本の時間足の雲の向きがそろったか ----
+const CALIGN_ORDER = ['5','15','60','240'];
+const CALIGN_LEVELS = [
+  {key:'C1', n:2, on:false},   // 5分・15分(交差が多いので初期はOFF)
+  {key:'C2', n:3, on:true},    // 5分・15分・1時間
+  {key:'C3', n:4, on:true},    // 5分・15分・1時間・4時間
+];
+function calignTfsText(n){ return CALIGN_ORDER.slice(0, n).map(t => TF_JP[t]).join('・'); }
+function calignTfsShort(n){ return n === 2 ? TF_JP[CALIGN_ORDER[0]] + '・' + TF_JP[CALIGN_ORDER[1]] : '〜' + TF_JP[CALIGN_ORDER[n - 1]]; }
+const CALIGN_DEF_TXT = { C1: '5分と15分の雲がそろいました', C2: '1時間までの雲がそろいました', C3: '全ての雲がそろいました' };   // ダウ転換の文言に合わせた初期値
+function calignConf(level){
+  const c = (voiceSettings.cloud_align || {})[level.key] || {};
+  const t = calignTfsText(level.n);
+  return {
+    enabled: c.enabled === undefined ? level.on : !!c.enabled,
+    up: (c.up !== undefined && c.up !== '') ? c.up : `${CALIGN_DEF_TXT[level.key]}、上昇です。{pair}`,
+    down: (c.down !== undefined && c.down !== '') ? c.down : `${CALIGN_DEF_TXT[level.key]}、下降です。{pair}`,
+  };
+}
+function buildCalignText(pair, level, direction){
+  const tmpl = calignConf(level)[direction === 'up' ? 'up' : 'down'];
+  return (tmpl || '').split('{pair}').join(PAIR_JP[pair] || pair).split('{tfs}').join(calignTfsText(level.n));
+}
+function findCalignLevel(entry){
+  const idx = CALIGN_ORDER.indexOf(String(entry.tf));
+  if (idx < 0 || (entry.direction !== 'up' && entry.direction !== 'down')) return null;
+  const dirOf = tf => {
+    if (tf === String(entry.tf)) return entry.direction;
+    const d = ((angleData || {})[entry.pair] || {})[tf];
+    return d ? (d.cloud === 'GC' ? 'up' : (d.cloud === 'DC' ? 'down' : null)) : null;
+  };
+  for (let i = CALIGN_LEVELS.length - 1; i >= 0; i--) {
+    const lv = CALIGN_LEVELS[i];
+    if (lv.n - 1 < idx) continue;
+    let ok = true;
+    for (let k = 0; k < lv.n; k++) { if (dirOf(CALIGN_ORDER[k]) !== entry.direction) { ok = false; break; } }
+    if (ok) return lv;
+  }
+  return null;
+}
+function renderCalignSettings(){
+  const box = $('cloudAlignSettings');
+  if (!box) return;
+  box.innerHTML = CALIGN_LEVELS.map(lv => {
+    const c = calignConf(lv);
+    return `<div class="calignRow arow" data-level="${lv.key}">
+      <label class="toggleChip${c.enabled ? ' on' : ''}" title="${calignTfsText(lv.n)}"><input type="checkbox" class="calignOn" ${c.enabled ? 'checked' : ''}>${calignTfsShort(lv.n)}</label>
+      <input class="tmplIn calignUp" title="上昇"><button class="testBtn calignTestUp" title="▲上昇テスト">▶</button>
+      <input class="tmplIn calignDown" title="下降"><button class="testBtn calignTestDown" title="▼下降テスト">▶</button>
+    </div>`;
+  }).join('');
+  CALIGN_LEVELS.forEach(lv => {
+    const row = box.querySelector(`.calignRow[data-level="${lv.key}"]`), c = calignConf(lv);
+    row.querySelector('.calignUp').value = c.up;
+    row.querySelector('.calignDown').value = c.down;
+  });
+}
+function collectCalignSettings(){
+  const box = $('cloudAlignSettings'), out = {};
+  if (!box) return voiceSettings.cloud_align || {};
+  CALIGN_LEVELS.forEach(lv => {
+    const row = box.querySelector(`.calignRow[data-level="${lv.key}"]`);
+    if (!row) return;
+    out[lv.key] = { enabled: row.querySelector('.calignOn').checked, up: row.querySelector('.calignUp').value, down: row.querySelector('.calignDown').value };
+  });
+  return out;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.calignTestUp, .calignTestDown');
+  if (!b) return;
+  const row = b.closest('.calignRow'), lv = CALIGN_LEVELS.find(x => x.key === row.dataset.level);
+  const dir = b.classList.contains('calignTestUp') ? 'up' : 'down';
+  const tmpl = row.querySelector(dir === 'up' ? '.calignUp' : '.calignDown').value;
+  playBell();
+  setTimeout(() => speak(tmpl.split('{pair}').join('ドル円').split('{tfs}').join(calignTfsText(lv.n))), 450);
+});
+document.addEventListener('change', (e) => {
+  const cb = e.target.closest('.calignOn');
+  if (cb) cb.closest('.toggleChip').classList.toggle('on', cb.checked);
+});
+
 function renderAlignSettings(){
   const box = $('alignSettings');
   if (!box) return;
   box.innerHTML = ALIGN_LEVELS.map(lv => {
     const c = alignConf(lv);
-    return `<div class="alignRow" data-level="${lv.key}">
-      <label class="toggleChip${c.enabled ? ' on' : ''}"><input type="checkbox" class="alignOn" ${c.enabled ? 'checked' : ''}>${alignTfsText(lv.n)}</label>
-      <div class="voiceRow"><textarea class="alignUp" rows="2"></textarea><button class="testBtn alignTestUp">▲テスト</button></div>
-      <div class="voiceRow"><textarea class="alignDown" rows="2"></textarea><button class="testBtn alignTestDown">▼テスト</button></div>
+    return `<div class="alignRow arow" data-level="${lv.key}">
+      <label class="toggleChip${c.enabled ? ' on' : ''}" title="${alignTfsText(lv.n)}"><input type="checkbox" class="alignOn" ${c.enabled ? 'checked' : ''}>${alignTfsShort(lv.n)}</label>
+      <input class="tmplIn alignUp" title="上昇"><button class="testBtn alignTestUp" title="▲上昇テスト">▶</button>
+      <input class="tmplIn alignDown" title="下降"><button class="testBtn alignTestDown" title="▼下降テスト">▶</button>
     </div>`;
   }).join('');
   ALIGN_LEVELS.forEach(lv => {
@@ -989,6 +1123,18 @@ function renderSettingsPanel(){
   $('visiblePairGrid').innerHTML = PAIRS.map(p => mk('visible', p, PAIR_JP[p], voiceSettings.visible_pairs[p] !== false)).join('');
   $('visibleTfGrid').innerHTML = TF_ALL.map(tf => mk('visibletf', tf, TF_JP[tf], voiceSettings.visible_tfs[tf] !== false)).join('');
 
+  $('dowOnGrid').innerHTML = mk('flag', 'dow_on', '鳴らす', voiceSettings.dow_on !== false);
+  $('cloudOnGrid').innerHTML = mk('flag', 'cloud_on', '鳴らす', voiceSettings.cloud_on !== false);
+  $('comboOnGrid').innerHTML = mk('flag', 'combo_on', '鳴らす', voiceSettings.combo_on !== false);
+  $('comboTmplUp').value = voiceSettings.combo_template_up || '';
+  $('comboTmplDown').value = voiceSettings.combo_template_down || '';
+  $('comboEnablePairGrid').innerHTML = PAIRS.map(p => mk('xpair', p, PAIR_JP[p], (voiceSettings.combo_enabled_pairs || {})[p] !== false)).join('');
+  $('comboEnableTfGrid').innerHTML = CLOUD_TFS.map(tf => mk('xtf', tf, TF_JP[tf], (voiceSettings.combo_enabled_tfs || {})[tf] !== false)).join('');
+  $('cloudTmplUp').value = voiceSettings.cloud_template_up || '';
+  $('cloudTmplDown').value = voiceSettings.cloud_template_down || '';
+  $('cloudEnablePairGrid').innerHTML = PAIRS.map(p => mk('cpair', p, PAIR_JP[p], (voiceSettings.cloud_enabled_pairs || {})[p] !== false)).join('');
+  $('cloudEnableTfGrid').innerHTML = CLOUD_TFS.map(tf => mk('ctf', tf, TF_JP[tf], (voiceSettings.cloud_enabled_tfs || {})[tf] !== false)).join('');
+  renderCalignSettings();
   renderAlignSettings();
   renderVoiceSelect();
 }
@@ -997,7 +1143,15 @@ document.addEventListener('change', (e) => {
   const chip = e.target.closest('.toggleChip');
   if (!chip) return;
   const kind = chip.dataset.kind, key = chip.dataset.key;
-  const storeKey = kind === 'pair' ? 'enabled_pairs' : kind === 'tf' ? 'enabled_tfs' : kind === 'visibletf' ? 'visible_tfs' : 'visible_pairs';
+  if (!kind) return;   // 「向きがそろった」の段階のチップは別の処理(ここでは何もしない)
+  if (kind === 'flag') { voiceSettings[key] = e.target.checked; chip.classList.toggle('on', e.target.checked); return; }   // 種類ごとのON/OFF
+  if (kind === 'xpair' || kind === 'xtf') {
+    const sk = kind === 'xpair' ? 'combo_enabled_pairs' : 'combo_enabled_tfs';
+    voiceSettings[sk] = voiceSettings[sk] || {};
+    if (e.target.checked) { delete voiceSettings[sk][key]; chip.classList.add('on'); } else { voiceSettings[sk][key] = false; chip.classList.remove('on'); }
+    return;
+  }
+  const storeKey = kind === 'pair' ? 'enabled_pairs' : kind === 'tf' ? 'enabled_tfs' : kind === 'cpair' ? 'cloud_enabled_pairs' : kind === 'ctf' ? 'cloud_enabled_tfs' : kind === 'visibletf' ? 'visible_tfs' : 'visible_pairs';
   voiceSettings[storeKey] = voiceSettings[storeKey] || {};
   if (e.target.checked) { delete voiceSettings[storeKey][key]; chip.classList.add('on'); }
   else { voiceSettings[storeKey][key] = false; chip.classList.remove('on'); }
@@ -1021,6 +1175,20 @@ $('barsDisplaySelect').addEventListener('change', () => {
 // 経過時間表示のときは、画面を開いたままでも分が進むよう30秒ごとに描き直す
 setInterval(() => { if (voiceSettings.bars_display === 'elapsed') renderAll(); }, 30000);
 
+function showSettingsTab(t){
+  document.querySelectorAll('#settingsPanel .stabBtn').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  document.querySelectorAll('#settingsPanel .stab').forEach(d => d.classList.toggle('on', d.dataset.tab === t));
+  try { localStorage.setItem('alertWindowSettingsTab', t); } catch (e) { /* no-op */ }
+}
+$('settingsTabs').addEventListener('click', (e) => { const b = e.target.closest('.stabBtn'); if (b) showSettingsTab(b.dataset.tab); });
+(function(){ let t = 'dow'; try { t = localStorage.getItem('alertWindowSettingsTab') || 'dow'; } catch (e) { /* no-op */ } showSettingsTab(t); })();
+document.addEventListener('click', (e) => { const h = e.target.closest('.sdetHead'); if (h && !e.target.closest('.qm')) h.parentElement.classList.toggle('open'); });
+
+$('ackAllBtn').addEventListener('click', () => {
+  activeAlerts = {}; activeCloudAlerts = {};
+  renderAll(); updateAckAllBtn();
+});
+
 $('gearBtn').addEventListener('click', () => {
   $('settingsPanel').classList.toggle('open');
   closeToolMenu();   // 個別設定を開いたら、設定が見えるようにメニューは閉じる
@@ -1043,10 +1211,36 @@ $('testDownBtn').addEventListener('click', () => {
   setTimeout(() => speak(buildSpeechText({pair:'USDJPY', tf:'5', direction:'down', scope_jp:'デイトレ'})), 450);
 });
 
+$('cloudTestUpBtn').addEventListener('click', () => {
+  voiceSettings.cloud_template_up = $('cloudTmplUp').value;
+  playBell();
+  setTimeout(() => speak(buildCloudSpeechText({pair:'USDJPY', tf:'5', direction:'up'}), voiceSettings.cloud_voice_name), 450);
+});
+$('cloudTestDownBtn').addEventListener('click', () => {
+  voiceSettings.cloud_template_down = $('cloudTmplDown').value;
+  playBell();
+  setTimeout(() => speak(buildCloudSpeechText({pair:'USDJPY', tf:'5', direction:'down'}), voiceSettings.cloud_voice_name), 450);
+});
+$('comboTestUpBtn').addEventListener('click', () => {
+  voiceSettings.combo_template_up = $('comboTmplUp').value;
+  playBell();
+  setTimeout(() => speak(buildComboSpeechText({pair:'USDJPY', tf:'5', direction:'up'}), voiceSettings.combo_voice_name), 450);
+});
+$('comboTestDownBtn').addEventListener('click', () => {
+  voiceSettings.combo_template_down = $('comboTmplDown').value;
+  playBell();
+  setTimeout(() => speak(buildComboSpeechText({pair:'USDJPY', tf:'5', direction:'down'}), voiceSettings.combo_voice_name), 450);
+});
+
 $('saveSettingsBtn').addEventListener('click', () => {
   voiceSettings.template_up = $('tmplUp').value;
   voiceSettings.template_down = $('tmplDown').value;
   voiceSettings.align = collectAlignSettings();
+  voiceSettings.cloud_template_up = $('cloudTmplUp').value;
+  voiceSettings.cloud_template_down = $('cloudTmplDown').value;
+  voiceSettings.cloud_align = collectCalignSettings();
+  voiceSettings.combo_template_up = $('comboTmplUp').value;
+  voiceSettings.combo_template_down = $('comboTmplDown').value;
   fetch('/api/alert_voice_settings', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -1063,8 +1257,11 @@ $('saveSettingsBtn').addEventListener('click', () => {
 
 // ---- 初期データ取得 ----
 fetch('/api/angle_data').then(r => r.json()).then(data => { angleData = data || {}; renderAll(); }).catch(() => renderAll());
-fetch('/api/dow_alert_history').then(r => r.json()).then(list => {
-  (list || []).slice().reverse().forEach(e => addHistoryRow(e, false));
+Promise.all([fetch('/api/dow_alert_history').then(r => r.json()).catch(() => []), fetch('/api/cloud_alert_history').then(r => r.ok ? r.json() : []).catch(() => [])]).then(([dl, cl]) => {
+  // ダウ転換と雲交差を受信時刻の順に並べて出す(雲交差の履歴はサーバーの再起動で消える)
+  const all = (dl || []).concat((cl || []).map(e => Object.assign({ kind: 'cloud' }, e)));
+  all.sort((a, b) => String(a.received_at || '').localeCompare(String(b.received_at || '')));
+  all.forEach(e => addHistoryRow(e, false));
 }).catch(() => {});
 fetch('/api/alert_voice_settings').then(r => r.json()).then(s => {
   voiceSettings = Object.assign({}, voiceSettings, s || {});
@@ -1072,6 +1269,10 @@ fetch('/api/alert_voice_settings').then(r => r.json()).then(s => {
   voiceSettings.enabled_tfs = voiceSettings.enabled_tfs || {};
   voiceSettings.visible_pairs = voiceSettings.visible_pairs || {};
   voiceSettings.visible_tfs = voiceSettings.visible_tfs || {};
+  voiceSettings.cloud_enabled_pairs = voiceSettings.cloud_enabled_pairs || {};
+  voiceSettings.cloud_enabled_tfs = voiceSettings.cloud_enabled_tfs || {};
+  voiceSettings.combo_enabled_pairs = voiceSettings.combo_enabled_pairs || {};
+  voiceSettings.combo_enabled_tfs = voiceSettings.combo_enabled_tfs || {};
   renderSettingsPanel();
   renderAll();
   pickVoice();
@@ -1086,17 +1287,45 @@ socket.on('angle_update', (msg) => {
 socket.on('new_dow_alert', (entry) => {
   addHistoryRow(entry, true);
   activeAlerts[cellKey(entry.pair, entry.tf)] = true;
-  renderMatrix();
-  if (isSoundEnabled(entry)) {
+  if (comboAgrees(entry)) activeCloudAlerts[cellKey(entry.pair, entry.tf)] = true;   // そろった時は雲の帯も点滅(2026-11-09)
+  renderAll();
+  // ダウ転換+雲交差がそろった時はその声だけ鳴らす。そろっていなければ「ダウ転換のみ」の声(2026-11-09)
+  if (comboAgrees(entry) && isComboEnabled(entry)) {
+    playBell();
+    setTimeout(() => speak(buildComboSpeechText(entry), voiceSettings.combo_voice_name), 450);
+  } else if (voiceSettings.dow_on !== false && isSoundEnabled(entry)) {
     playBell();
     setTimeout(() => speak(buildSpeechText(entry) || entry.text), 450);
   }
   // 向きがそろった時の発声(一番大きい段階の1つだけ。通貨ペアのオフ設定は守る)
   try {
     const lv = findAlignLevel(entry);
-    if (lv && alignConf(lv).enabled && voiceSettings.enabled_pairs[entry.pair] !== false) {
+    if (lv && voiceSettings.dow_on !== false && alignConf(lv).enabled && voiceSettings.enabled_pairs[entry.pair] !== false) {   // ダウ転換のみがOFFなら鳴らさない
       if (!isSoundEnabled(entry)) playBell();
       setTimeout(() => speak(buildAlignText(entry.pair, lv, entry.direction)), 450);
+    }
+  } catch (err) { /* 発声の判定で失敗しても通常のアラートには影響させない */ }
+});
+
+// 雲交差の通知(2026-11-08): ダウ転換と同じく、帯の点滅・履歴・音声(個別設定に従う)・向きがそろった時の発声
+socket.on('new_cloud_alert', (entry) => {
+  entry = Object.assign({ kind: 'cloud' }, entry);
+  addHistoryRow(entry, true);
+  activeCloudAlerts[cellKey(entry.pair, entry.tf)] = true;
+  if (comboAgrees(entry)) activeAlerts[cellKey(entry.pair, entry.tf)] = true;   // そろった時はダウ転換のセルも点滅(2026-11-09)
+  renderAll();
+  if (comboAgrees(entry) && isComboEnabled(entry)) {   // ダウ転換と同じ向き → そろった時の声だけ
+    playBell();
+    setTimeout(() => speak(buildComboSpeechText(entry), voiceSettings.combo_voice_name), 450);
+  } else if (voiceSettings.cloud_on !== false && isCloudSoundEnabled(entry)) {
+    playBell();
+    setTimeout(() => speak(buildCloudSpeechText(entry) || entry.text, voiceSettings.cloud_voice_name), 450);
+  }
+  try {
+    const lv = findCalignLevel(entry);
+    if (lv && voiceSettings.cloud_on !== false && calignConf(lv).enabled && (voiceSettings.cloud_enabled_pairs || {})[entry.pair] !== false) {   // 雲交差のみがOFFなら鳴らさない
+      if (!isCloudSoundEnabled(entry)) playBell();
+      setTimeout(() => speak(buildCalignText(entry.pair, lv, entry.direction), voiceSettings.cloud_voice_name), 450);
     }
   } catch (err) { /* 発声の判定で失敗しても通常のアラートには影響させない */ }
 });
