@@ -45,6 +45,9 @@
   .hmwrap > .hm{border-bottom-left-radius:0;border-bottom-right-radius:0}
   .cstrip{display:flex;align-items:center;justify-content:center;white-space:pre;border-radius:0 0 8px 8px;padding:2px 4px;font-size:calc(var(--hm-font-size) * 0.85);line-height:1.2;font-weight:700;background:#ffffff;color:#111111;cursor:pointer}
   [data-theme="light"] .cstrip{background:#3a2d63;color:#ffffff}
+  /* 雲交差の帯 案E: GC=青のしま / DC=赤のしま + 文字 2026-11-09 */
+  .cstrip.cs-gc{background:repeating-linear-gradient(135deg,#2563eb 0 6px,#1d4ed8 6px 12px);color:#fff}
+  .cstrip.cs-dc{background:repeating-linear-gradient(135deg,#dc2626 0 6px,#b91c1c 6px 12px);color:#fff}
   .cstrip.alerting{animation:hmBlink 1s ease-in-out infinite}   /* 雲交差のアラート中(帯を左クリックで解除) 2026-11-08 */
   .cdot{display:inline-block;flex:none;width:1em;height:1em;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.75);margin:0 0.1em;position:relative;top:-0.03em}
   .cgc{background:#0bd5fe}
@@ -534,7 +537,8 @@ function heatCellMarkup(pair, tf){
       cTxt = voiceSettings.bars_display === 'elapsed' ? (formatElapsedDHM(ci, tf) || '') : String(ci.bars).padStart(2,'0');
       cTxt = cTxt ? `[${cTxt}]` : '';
     }
-    strip = `<div class="cstrip${activeCloudAlerts[cellKey(pair, tf)] ? ' alerting' : ''}" ${attrs}>${dot}${cTxt ? ' ' + cTxt : ''}</div>`;
+    const cs = d.cloud === 'GC' ? 'cs-gc' : 'cs-dc';   // 案E: しま模様の地 + GC/DC文字
+    strip = `<div class="cstrip ${cs}${activeCloudAlerts[cellKey(pair, tf)] ? ' alerting' : ''}" ${attrs}>${d.cloud}${cTxt ? ' ' + cTxt : ''}</div>`;
   }
   const out = (cellHtml) => strip ? `<div class="hmwrap">${cellHtml}${strip}</div>` : cellHtml;
   let barsTxt = info ? ` [${String(info.bars).padStart(2,'0')}]` : '';
