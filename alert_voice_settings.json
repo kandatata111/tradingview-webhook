@@ -16,7 +16,9 @@
     "GBPJPY": false,
     "GBPUSD": false
   },
-  "visible_tfs": {},
+  "visible_tfs": {
+    "1": false
+  },
   "voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
   "hm_font_size": 14,
   "cloud_template_up": "{pair}、{tf}、交差、上昇。{pair}",
@@ -101,5 +103,5 @@
       "down": "全てのダウがそろいました、下降です。{pair}"
     }
   },
-  "cloud_dot": "show"
+  "cloud_dot": "cloud"
 }
