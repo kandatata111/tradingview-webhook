@@ -54,6 +54,16 @@
   .pband{position:absolute;z-index:0;pointer-events:none;border-radius:10px;background:rgba(139,92,246,0.12);border:2px solid rgba(255,255,255,0.85)}
   [data-theme="light"] .pband{background:rgba(99,102,241,0.08);border-color:rgba(99,102,241,0.55)}
   /* 雲交差のみ表示のとき(2026-11-09): 縞をやめて無地の鮮やかな青(GC)・朱(DC)。ダウ転換のセルが無いので区別の縞は不要 */
+  /* 縦積み型(2026-11-09): ペアの箱を縦に積む。左=時間の名前 / 箱(ペア名+4行) / 箱の外の右=角度グラフ */
+  #stackWrap{display:flex;flex-direction:column;gap:18px;padding:4px 2px}
+  .stRow{display:grid;grid-template-columns:26px minmax(150px,1fr) auto;column-gap:10px;row-gap:3px;align-items:stretch;position:relative}
+  .stRow>.stBg{grid-column:2;margin:-4px;border-radius:10px;background:rgba(139,92,246,0.12);border:2px solid rgba(255,255,255,0.85);z-index:0;pointer-events:none}
+  [data-theme="light"] .stRow>.stBg{background:rgba(99,102,241,0.08);border-color:rgba(99,102,241,0.55)}
+  .stRow>.stCell,.stRow>.vPairHead{position:relative;z-index:1;grid-column:2;min-width:0}
+  .stRow>.stLbl{grid-column:1;display:flex;align-items:center;justify-content:flex-start;color:var(--text-dim);font-size:11px;font-weight:600}
+  .stRow>.stBars{grid-column:3;width:120px;align-self:end;position:relative;z-index:1}
+  #stackCard.nobars .stBars{display:none}
+  .stRow>.stBars .vBarCell{padding:0}
   .cstrip.solo{border-radius:8px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
   .cstrip.solo.cs-gc{background:#2f7bff}
   .cstrip.solo.cs-dc{background:#ff4d3d}
@@ -83,7 +93,7 @@
   .pairname,.vPairHead,.pairBlockName{cursor:grab}
   .dndOver{outline:2px dashed #ffd54f;outline-offset:-2px;background:rgba(255,213,79,0.18)}
   .dndDragging{opacity:0.45}
-  .pairname{color:var(--text);font-weight:700;font-size:12px;text-align:right;padding-right:6px;white-space:nowrap}
+  .pairname{color:var(--text);font-weight:700;font-size:12px;text-align:left;padding:0 8px 0 10px;white-space:nowrap;width:1%}   /* 左端を枠に近づける・列は文字の幅だけ 2026-11-09 */
   .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text);flex-wrap:wrap}
   .sw{width:12px;height:12px;border-radius:4px;display:inline-block}
   .pairBlock{display:flex;flex-direction:column;gap:2px;padding:0 4px}
@@ -160,7 +170,7 @@
   .toggleBtn{font-size:11px}
   .toggleBtn.off{opacity:0.45}
   .vGrid{display:grid;gap:3px}
-  .vRowLabel{display:flex;align-items:center;justify-content:flex-end;color:var(--text-dim);font-size:11px;font-weight:600;padding-right:4px}
+  .vRowLabel{display:flex;align-items:center;justify-content:flex-start;color:var(--text-dim);font-size:11px;font-weight:600;padding-right:0}   /* 左づめ(縦型) 2026-11-09 */
   .vPairHead{display:flex;align-items:center;justify-content:center;color:var(--text);font-size:12px;font-weight:800;padding:2px 0 8px;white-space:nowrap}
   .vBarCell{padding:0 7px}
   .barcolFlex{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1 1 0;min-width:0;cursor:pointer}
@@ -188,7 +198,7 @@
     <div class="toolDrawer" id="toolDrawer">
       <div class="toolHead"><span>Tool</span><button class="toolClose" id="toolClose" title="閉じる">✕</button></div>
       <div class="toolList" id="toolList">
-      <button class="layoutBtn" id="layoutBtn" title="縦型/横型レイアウト切替">📐 横型</button>
+      <button class="layoutBtn" id="layoutBtn" title="レイアウト切替(横型→縦型→縦積み型)">📐 横型</button>
       <button class="toggleBtn" id="barsToggleBtn" title="角度グラフの表示/非表示">📊 角度グラフ</button>
       <button class="toggleBtn" id="historyToggleBtn" title="発火履歴の表示/非表示">🕒 発火履歴</button>
       <button class="muteBtn" id="muteBtn">🔊 音声ON</button>
@@ -255,6 +265,10 @@
     <div class="vGrid" id="vertGrid"></div>
     <div class="sectionDivider" id="vertBarsDivider"></div>
     <div class="vGrid" id="vertBarGrid"></div>
+  </div>
+
+  <div class="card" id="stackCard" style="padding:12px 14px;display:none;flex-direction:column;gap:10px">
+    <div id="stackWrap"></div>
   </div>
 
   <div class="card" id="historyCard" style="padding:8px 14px;overflow:auto;max-height:160px;display:flex;flex-direction:column;gap:4px">
@@ -542,6 +556,7 @@ function effectiveCell(d){
 function viewSel(){ const v = voiceSettings.cloud_dot; return v === 'hide' || v === 'dow' ? 'dow' : (v === 'cloud' ? 'cloud' : 'both'); }
 // 通貨ペアごとの箱(案A): ペアのセル(ペア名を含む)の範囲を囲む枠を、表の後ろに描く
 function drawPairBoxes(){
+  if (layoutMode === 'stack') return;   // 縦積み型の箱は、箱そのもの(.stBg)で描く
   const vert = layoutMode === 'vertical';
   const card = $(vert ? 'vertCard' : 'horizCard'), inner = $(vert ? 'vertGrid' : 'matrixTable');
   if (!card || !inner) return;
@@ -650,7 +665,7 @@ function renderMatrix(){
   if (_dnd.dragging) return;
   const visTfs = TF_ALL.filter(isTfVisible);
   const headRow = $('matrixHeadRow');
-  headRow.innerHTML = '<th style="text-align:left">ペア</th>' + visTfs.map(tf => `<th>${TF_JP_BAR[tf]}</th>`).join('');
+  headRow.innerHTML = '<th style="text-align:left;width:1%;padding-left:10px">ペア</th>' + visTfs.map(tf => `<th>${TF_JP_BAR[tf]}</th>`).join('');
   const body = $('matrixBody');
   body.innerHTML = orderedPairs().filter(isVisible).map(pair => {
     const cells = visTfs.map(tf => `<td>${heatCellMarkup(pair, tf)}</td>`).join('');
@@ -677,6 +692,7 @@ function onHeatCellClick(e){
 }
 $('matrixBody').addEventListener('click', onHeatCellClick);
 $('vertGrid').addEventListener('click', onHeatCellClick);
+$('stackWrap').addEventListener('click', (e) => { if (e.target.closest('.barcolFlex')) onBarClick(e); else onHeatCellClick(e); });
 
 // 角度グラフ(棒グラフ)を左クリックすると、いつ更新されたかを表示する(横型・縦型共通)
 function onBarClick(e){
@@ -692,7 +708,7 @@ $('barsWrap').addEventListener('click', onBarClick);
 $('vertBarGrid').addEventListener('click', onBarClick);
 
 // 経過バー数(特に1分足の推定値)を時間経過に合わせて見た目だけ更新する
-setInterval(() => { if (layoutMode === 'vertical') renderVertical(); else renderMatrix(); requestAnimationFrame(drawPairBoxes); }, 15000);
+setInterval(() => { if (layoutMode === 'vertical') renderVertical(); else if (layoutMode === 'stack') renderStack(); else renderMatrix(); requestAnimationFrame(drawPairBoxes); }, 15000);
 
 function renderBars(){
   if (_dnd.dragging) return;
@@ -751,7 +767,7 @@ function renderVertical(){
   if (_dnd.dragging) return;
   const visTfs = TF_ALL.filter(isTfVisible);
   const visPairs = orderedPairs().filter(isVisible);
-  const colTemplate = `50px repeat(${visPairs.length}, 1fr)`;
+  const colTemplate = `26px repeat(${visPairs.length}, 1fr)`;
 
   const grid = $('vertGrid');
   grid.style.gridTemplateColumns = colTemplate;
@@ -765,6 +781,20 @@ function renderVertical(){
   const barGrid = $('vertBarGrid');
   barGrid.style.gridTemplateColumns = colTemplate;
   barGrid.innerHTML = '<div></div>' + visPairs.map(p => verticalBarCellMarkup(p)).join('');
+}
+
+// 縦積み型(2026-11-09): ペアごとの箱を縦に積む。箱の中=ペア名+時間足の行 / 左=時間の名前(全部の箱に) / 箱の外の右=角度グラフ
+function renderStack(){
+  if (_dnd.dragging) return;
+  const visTfs = TF_ALL.filter(isTfVisible);
+  const visPairs = orderedPairs().filter(isVisible);
+  $('stackWrap').innerHTML = visPairs.map(p => {
+    const N = visTfs.length + 1;   // 行の数(ペア名の行 + 時間足の行)。全部の部品に行を決めて置く
+    let h = `<div class="stRow" style="grid-template-rows:repeat(${N}, auto)"><div class="stBg" style="grid-row:1 / span ${N}"></div><div class="vPairHead" draggable="true" data-pair="${p}" title="ドラッグして並べ替え" style="grid-row:1;padding:2px 0 4px">${p}</div>`;
+    visTfs.forEach((tf, k) => { h += `<div class="stLbl" style="grid-row:${k + 2}">${TF_JP_BAR[tf] || tf}</div><div class="stCell" style="grid-row:${k + 2}">${heatCellMarkup(p, tf)}</div>`; });
+    h += `<div class="stBars" style="grid-row:2 / span ${N - 1}">${verticalBarCellMarkup(p)}</div></div>`;
+    return h;
+  }).join('');
 }
 
 // ---- 通貨ペアのドラッグ&ドロップ並べ替え ----
@@ -811,6 +841,7 @@ function renderAll(){
   rebuildStaleDirTimes();
   updateAckAllBtn();
   if (layoutMode === 'vertical') { renderVertical(); }
+  else if (layoutMode === 'stack') { renderStack(); }
   else { renderMatrix(); renderBars(); }
   requestAnimationFrame(drawPairBoxes);   // ペアごとの箱(2026-11-09)
 }
@@ -1128,7 +1159,8 @@ $('themeBtn').addEventListener('click', () => {
 function setLayoutVisibility(mode){
   $('horizCard').style.display = mode === 'horizontal' ? '' : 'none';
   $('vertCard').style.display = mode === 'vertical' ? '' : 'none';
-  $('layoutBtn').textContent = mode === 'vertical' ? '📐 縦型' : '📐 横型';
+  $('stackCard').style.display = mode === 'stack' ? 'flex' : 'none';
+  $('layoutBtn').textContent = mode === 'stack' ? '📐 縦積み型' : (mode === 'vertical' ? '📐 縦型' : '📐 横型');
 }
 (function initLayout(){
   let saved = 'horizontal';
@@ -1137,7 +1169,7 @@ function setLayoutVisibility(mode){
   setLayoutVisibility(layoutMode);
 })();
 $('layoutBtn').addEventListener('click', () => {
-  layoutMode = layoutMode === 'vertical' ? 'horizontal' : 'vertical';
+  layoutMode = layoutMode === 'horizontal' ? 'vertical' : (layoutMode === 'vertical' ? 'stack' : 'horizontal');   // 横型→縦型→縦積み型→横型
   setLayoutVisibility(layoutMode);
   try { localStorage.setItem('alertWindowLayout', layoutMode); } catch (e) { /* no-op */ }
   renderAll();
@@ -1149,6 +1181,7 @@ function applyBarsVisibility(visible){
   $('horizBarsSection').style.display = visible ? '' : 'none';
   $('vertBarsDivider').style.display = visible ? '' : 'none';
   $('vertBarGrid').style.display = visible ? '' : 'none';
+  $('stackCard').classList.toggle('nobars', !visible);
   const btn = $('barsToggleBtn');
   btn.textContent = '📊 角度グラフ';
   btn.classList.toggle('off', !visible);
