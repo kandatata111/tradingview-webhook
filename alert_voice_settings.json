@@ -31,23 +31,23 @@
   "cloud_enabled_tfs": {},
   "cloud_align": {
     "C1": {
-      "enabled": false,
+      "enabled": true,
       "up": "5分と15分の雲がそろいました、上昇です。{pair}",
       "down": "5分と15分の雲がそろいました、下降です。{pair}"
     },
     "C2": {
-      "enabled": false,
+      "enabled": true,
       "up": "1時間までの雲がそろいました、上昇です。{pair}",
       "down": "1時間までの雲がそろいました、下降です。{pair}"
     },
     "C3": {
-      "enabled": false,
+      "enabled": true,
       "up": "全ての雲がそろいました、上昇です。{pair}",
       "down": "全ての雲がそろいました、下降です。{pair}"
     }
   },
   "cloud_voice_name": "Microsoft 圭太 Online (Natural) - Japanese (Japan)",
-  "dow_on": true,
+  "dow_on": false,
   "cloud_on": true,
   "combo_on": true,
   "combo_template_up": "{pair}、{tf}、ダウと交差、上昇。{pair}",
@@ -59,7 +59,12 @@
     "GBPJPY": false,
     "GBPUSD": false
   },
-  "combo_enabled_tfs": {},
+  "combo_enabled_tfs": {
+    "5": false,
+    "15": false,
+    "60": false,
+    "240": false
+  },
   "combo_voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
   "bars_display": "elapsed",
   "pair_order": [
@@ -76,22 +81,22 @@
   ],
   "align": {
     "L1": {
-      "enabled": true,
+      "enabled": false,
       "up": "1分と5分のダウがそろいました、上昇です。{pair}",
       "down": "1分と5分のダウがそろいました、下降です。{pair}"
     },
     "L2": {
-      "enabled": true,
+      "enabled": false,
       "up": "15分までのダウがそろいました、上昇です。{pair}",
       "down": "15分までのダウがそろいました、下降です。{pair}"
     },
     "L3": {
-      "enabled": true,
+      "enabled": false,
       "up": "1時間までのダウがそろいました、上昇です。{pair}",
       "down": "1時間までのダウがそろいました、下降です。{pair}"
     },
     "L4": {
-      "enabled": true,
+      "enabled": false,
       "up": "全てのダウがそろいました、上昇です。{pair}",
       "down": "全てのダウがそろいました、下降です。{pair}"
     }

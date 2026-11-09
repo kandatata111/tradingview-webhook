@@ -29,8 +29,9 @@
     --btn-bg:rgba(33,26,58,0.06); --btn-border:rgba(33,26,58,0.2);
     --row-alt:rgba(33,26,58,0.035); --divider:rgba(33,26,58,0.12);
   }
-  body{margin:0;font-family:"Yu Gothic","Meiryo",system-ui,sans-serif;background:var(--bg);color:var(--text)}
+  body{margin:0;font-family:"BIZ UDPGothic","Meiryo","Yu Gothic UI",sans-serif;background:var(--bg);color:var(--text)}
   .wrap{padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:100vh}
+  button,input,select,textarea{font-family:inherit}   /* 文字が細く見えるので、太めのゴシック(BIZ UDPゴシック→メイリオ)に。ボタン・入力欄も同じ字体 2026-11-09 */
   .hdr{display:flex;flex-direction:column;gap:2px}
   .hdr h1{font-size:19px;font-weight:700;margin:0;color:var(--text)}
   .hdr .sub{font-size:11px;color:var(--text-dim)}
@@ -45,6 +46,14 @@
   .hmwrap > .hm{border-bottom-left-radius:0;border-bottom-right-radius:0}
   .cstrip{display:flex;align-items:center;justify-content:center;white-space:pre;border-radius:0 0 8px 8px;padding:2px 4px;font-size:calc(var(--hm-font-size) * 0.85);line-height:1.2;font-weight:700;background:#ffffff;color:#111111;cursor:pointer}
   [data-theme="light"] .cstrip{background:#3a2d63;color:#ffffff}
+  /* 通貨ペアごとの箱(案A 2026-11-09): ペアの範囲を枠で囲む。ダーク=白の枠 / ライト=紫の枠 */
+  #horizCard,#vertCard{position:relative;padding-bottom:16px!important}
+  #matrixTable,#vertGrid{position:relative;z-index:1}
+  #matrixTable{border-spacing:2px 14px}
+  #vertGrid{column-gap:14px}
+  .pband{position:absolute;z-index:0;pointer-events:none;border-radius:10px;background:rgba(139,92,246,0.12);border:2px solid rgba(255,255,255,0.85)}
+  [data-theme="light"] .pband{background:rgba(99,102,241,0.08);border-color:rgba(99,102,241,0.55)}
+  .cstrip.solo{border-radius:8px}
   /* 雲交差の帯 案E: GC=青のしま / DC=赤のしま + 文字 2026-11-09 */
   .cstrip.cs-gc{background:repeating-linear-gradient(135deg,#2563eb 0 6px,#1d4ed8 6px 12px);color:#fff}
   .cstrip.cs-dc{background:repeating-linear-gradient(135deg,#dc2626 0 6px,#b91c1c 6px 12px);color:#fff}
@@ -192,7 +201,7 @@
     <div class="stab" data-tab="view">
       <div class="srow"><span class="slbl">文字サイズ</span><span class="hmFontSizeRow"><select id="hmFontSizeSelect"></select></span>
         <span class="slbl" style="margin-left:12px">経過<span class="qm" title="ダウ転換・雲交差からの経過の表示(バー数 / 経過時間 DD/hh/mm)">?</span></span><span class="hmFontSizeRow"><select id="barsDisplaySelect"><option value="bars">バー数</option><option value="elapsed">経過時間</option></select></span></div>
-      <div class="srow"><span class="slbl">雲の丸<span class="qm" title="▲▼の後ろの丸。水色=GC / ピンク=DC">?</span></span><span class="hmFontSizeRow"><select id="cloudDotSelect"><option value="show">表示する</option><option value="hide">表示しない</option></select></span></div>
+      <div class="srow"><span class="slbl">表示選択<span class="qm" title="ヒートマップに出すもの。ダウ転換(▲▼のセル)・雲交差(GC/DCの帯)・両方">?</span></span><span class="hmFontSizeRow"><select id="cloudDotSelect"><option value="both">両方表示</option><option value="dow">ダウ転換のみ表示</option><option value="cloud">雲交差のみ表示</option></select></span></div>
       <div class="srow"><span class="slbl">表示ペア<span class="qm" title="チェックを外すと、その通貨ペアのヒートマップ・角度グラフを非表示にします">?</span></span><div class="chipGrid" id="visiblePairGrid"></div></div>
       <div class="srow"><span class="slbl">表示足<span class="qm" title="チェックを外すと、その時間足のヒートマップ列・角度グラフ列を非表示にします">?</span></span><div class="chipGrid" id="visibleTfGrid"></div></div>
     </div>
@@ -285,7 +294,7 @@ let voiceSettings = {
   visible_tfs: {},      // 省略 or true = 表示。false = 非表示(ヒートマップの列・角度グラフの列ごと)
   voice_name: '',
   hm_font_size: 15,
-  cloud_dot: 'show',      // 'show'=GC/DCの丸を表示 / 'hide'=非表示
+  cloud_dot: 'show',      // 表示選択(2026-11-09): 'show'(=両方)/'both'=両方 / 'hide'(=ダウ転換のみ)/'dow'=ダウ転換のみ / 'cloud'=雲交差のみ
   bars_display: 'bars',   // 'bars'=バー数 / 'elapsed'=経過時間(DD/hh/mm)
   align: {},              // 「ダウ転換の向きがそろった」発声の設定(段階ごと)。下のALIGN_LEVELSを参照
   // 雲交差のアラート(2026-11-08): ダウ転換と同じ種類の設定を別々に持つ
@@ -526,6 +535,28 @@ function effectiveCell(d){
   if (!t || _staleDirTimes.has(t)) return Object.assign({}, d, { direction: d.pc_direction });
   return d;
 }
+// 表示選択(2026-11-09): 'both'=両方 / 'dow'=ダウ転換のみ / 'cloud'=雲交差のみ。以前の値 show/hide も読める
+function viewSel(){ const v = voiceSettings.cloud_dot; return v === 'hide' || v === 'dow' ? 'dow' : (v === 'cloud' ? 'cloud' : 'both'); }
+// 通貨ペアごとの箱(案A): ペアのセル(ペア名を含む)の範囲を囲む枠を、表の後ろに描く
+function drawPairBoxes(){
+  const vert = layoutMode === 'vertical';
+  const card = $(vert ? 'vertCard' : 'horizCard'), inner = $(vert ? 'vertGrid' : 'matrixTable');
+  if (!card || !inner) return;
+  card.querySelectorAll('.pband').forEach(e => e.remove());
+  const cr = card.getBoundingClientRect(), PAD = 4, box = {};
+  inner.querySelectorAll('[data-pair]').forEach(e => {
+    const r = e.getBoundingClientRect(); if (!r.width) return;
+    const b = box[e.dataset.pair] || (box[e.dataset.pair] = [1e9, 1e9, -1e9, -1e9]);
+    b[0] = Math.min(b[0], r.left); b[1] = Math.min(b[1], r.top); b[2] = Math.max(b[2], r.right); b[3] = Math.max(b[3], r.bottom);
+  });
+  for (const p in box) {
+    const [x0, y0, x1, y1] = box[p], d = document.createElement('div');
+    d.className = 'pband';
+    d.style.cssText = `left:${x0 - cr.left - card.clientLeft - PAD}px;top:${y0 - cr.top - card.clientTop - PAD}px;width:${x1 - x0 + PAD * 2}px;height:${y1 - y0 + PAD * 2}px`;
+    card.appendChild(d);
+  }
+}
+window.addEventListener('resize', () => requestAnimationFrame(drawPairBoxes));
 function heatCellMarkup(pair, tf){
   const d = effectiveCell((angleData[pair] || {})[tf]);
   const blinking = !!activeAlerts[cellKey(pair, tf)];
@@ -538,7 +569,8 @@ function heatCellMarkup(pair, tf){
   // 経過バー数・経過時間は、同じ「ダウ転換の足」から求める(dowInfo)。土日は数えない。
   const info = dowInfo(d, tf);
   // 短期の雲のGC(水色)/DC(オレンジ寄りの赤)の丸。影つき(▲▼と同じ影)。1分足は対象外。
-  const dot = (voiceSettings.cloud_dot !== 'hide' && tf !== '1' && (d.cloud === 'GC' || d.cloud === 'DC'))
+  const vs = viewSel();
+  const dot = (vs !== 'dow' && tf !== '1' && (d.cloud === 'GC' || d.cloud === 'DC'))
     ? `<span class="cdot ${d.cloud === 'GC' ? 'cgc' : 'cdc'}"></span>` : '';
   // 雲の交差の帯: セルの真下に「丸 + [経過]」。経過はダウ転換と同じ数え方(バー数/経過時間は同じ設定に従う)
   let strip = '';
@@ -552,6 +584,7 @@ function heatCellMarkup(pair, tf){
     const cs = d.cloud === 'GC' ? 'cs-gc' : 'cs-dc';   // 案E: しま模様の地 + GC/DC文字
     strip = `<div class="cstrip ${cs}${activeCloudAlerts[cellKey(pair, tf)] ? ' alerting' : ''}" ${attrs}>${d.cloud}${cTxt ? ' ' + cTxt : ''}</div>`;
   }
+  if (vs === 'cloud') return strip ? strip.replace('class="cstrip ', 'class="cstrip solo ') : `<div class="hm na" ${attrs}>--</div>`;   // 雲交差のみ: 帯だけ(雲が無い足は --)
   const out = (cellHtml) => strip ? `<div class="hmwrap">${cellHtml}${strip}</div>` : cellHtml;
   let barsTxt = info ? ` [${String(info.bars).padStart(2,'0')}]` : '';
   if (voiceSettings.bars_display === 'elapsed') {
@@ -656,7 +689,7 @@ $('barsWrap').addEventListener('click', onBarClick);
 $('vertBarGrid').addEventListener('click', onBarClick);
 
 // 経過バー数(特に1分足の推定値)を時間経過に合わせて見た目だけ更新する
-setInterval(() => { if (layoutMode === 'vertical') renderVertical(); else renderMatrix(); }, 15000);
+setInterval(() => { if (layoutMode === 'vertical') renderVertical(); else renderMatrix(); requestAnimationFrame(drawPairBoxes); }, 15000);
 
 function renderBars(){
   if (_dnd.dragging) return;
@@ -776,6 +809,7 @@ function renderAll(){
   updateAckAllBtn();
   if (layoutMode === 'vertical') { renderVertical(); }
   else { renderMatrix(); renderBars(); }
+  requestAnimationFrame(drawPairBoxes);   // ペアごとの箱(2026-11-09)
 }
 
 
@@ -1161,7 +1195,7 @@ function renderSettingsPanel(){
   $('hmFontSizeSelect').value = hmSize;
   applyHmFontSize(hmSize);
   $('barsDisplaySelect').value = voiceSettings.bars_display === 'elapsed' ? 'elapsed' : 'bars';
-  $('cloudDotSelect').value = voiceSettings.cloud_dot === 'hide' ? 'hide' : 'show';
+  $('cloudDotSelect').value = viewSel();
 
   const mk = (kind, key, label, on) =>
     `<label class="toggleChip${on ? ' on' : ''}" data-kind="${kind}" data-key="${key}"><input type="checkbox" ${on ? 'checked' : ''}>${label}</label>`;
