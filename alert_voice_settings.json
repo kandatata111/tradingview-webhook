@@ -1,30 +1,73 @@
 {
-  "template_up": "{pair}、{tf}、上昇。  {pair}。",
-  "template_down": "{pair}、{tf}、下降。{pair}。",
+  "template_up": "{pair}、{tf}、ダウ、上昇。 {pair}。",
+  "template_down": "{pair}、{tf}、ダウ、下降。{pair}。",
   "enabled_pairs": {
-    "AUDUSD": false,
     "EURAUD": false,
     "EURGBP": false,
     "GBPAUD": false,
+    "GBPJPY": false,
     "GBPUSD": false
   },
   "enabled_tfs": {},
   "visible_pairs": {
-    "AUDUSD": false,
     "EURAUD": false,
     "EURGBP": false,
-    "GBPAUD": false
+    "GBPAUD": false,
+    "GBPJPY": false,
+    "GBPUSD": false
   },
   "visible_tfs": {},
   "voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
-  "hm_font_size": 13,
+  "hm_font_size": 14,
+  "cloud_template_up": "{pair}、{tf}、交差、上昇。{pair}",
+  "cloud_template_down": "{pair}、{tf}、交差、下降。{pair}",
+  "cloud_enabled_pairs": {
+    "EURAUD": false,
+    "EURGBP": false,
+    "GBPAUD": false,
+    "GBPJPY": false,
+    "GBPUSD": false
+  },
+  "cloud_enabled_tfs": {},
+  "cloud_align": {
+    "C1": {
+      "enabled": false,
+      "up": "5分と15分の雲がそろいました、上昇です。{pair}",
+      "down": "5分と15分の雲がそろいました、下降です。{pair}"
+    },
+    "C2": {
+      "enabled": false,
+      "up": "1時間までの雲がそろいました、上昇です。{pair}",
+      "down": "1時間までの雲がそろいました、下降です。{pair}"
+    },
+    "C3": {
+      "enabled": false,
+      "up": "全ての雲がそろいました、上昇です。{pair}",
+      "down": "全ての雲がそろいました、下降です。{pair}"
+    }
+  },
+  "cloud_voice_name": "Microsoft 圭太 Online (Natural) - Japanese (Japan)",
+  "dow_on": true,
+  "cloud_on": true,
+  "combo_on": true,
+  "combo_template_up": "{pair}、{tf}、ダウと交差、上昇。{pair}",
+  "combo_template_down": "{pair}、{tf}、ダウと交差、下降。{pair}",
+  "combo_enabled_pairs": {
+    "EURAUD": false,
+    "EURGBP": false,
+    "GBPAUD": false,
+    "GBPJPY": false,
+    "GBPUSD": false
+  },
+  "combo_enabled_tfs": {},
+  "combo_voice_name": "Microsoft 七海 Online (Natural) - Japanese (Japan)",
   "bars_display": "elapsed",
   "pair_order": [
     "GBPUSD",
     "EURUSD",
+    "EURJPY",
     "USDJPY",
     "AUDJPY",
-    "EURJPY",
     "GBPJPY",
     "AUDUSD",
     "EURGBP",

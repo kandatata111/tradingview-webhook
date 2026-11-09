@@ -57,6 +57,16 @@
   .hm.focus{outline:none;box-shadow:none}
   .hm.na{opacity:0.25}
   .hm.alerting{cursor:pointer;animation:hmBlink 1s ease-in-out infinite}
+  /* 縮める(ヘッダーだけ残す) 2026-11-09: 縮めた帯=小さいタイトル+⤢(戻す)。縮めている間に新しいアラートが来たら帯が点滅 */
+  #miniBtn{font-size:15px;padding:4px 9px;line-height:1;font-weight:700}
+  .miniBar{display:none}
+  body.mini .wrap{display:none}
+  body.mini{min-width:0}
+  body.mini .miniBar{display:flex;align-items:center;justify-content:flex-start;gap:6px;padding:4px 6px 4px 10px;width:fit-content;background:var(--bg);cursor:pointer;user-select:none}
+  .miniBar .mt{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap}
+  .miniBar button{font-size:13px;padding:1px 6px;line-height:1.2;border-radius:8px;border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--text);cursor:pointer}
+  body.mini.alerting .miniBar{animation:mbBlink 1s ease-in-out infinite}
+  @keyframes mbBlink{0%,100%{box-shadow:inset 0 0 0 0 rgba(251,191,36,0)}50%{box-shadow:inset 0 0 0 3px rgba(251,191,36,0.95);background:rgba(251,191,36,0.25)}}
   @keyframes hmBlink{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,0.25);transform:scale(1)}50%{box-shadow:0 0 0 4px rgba(251,191,36,0.95),0 2px 8px rgba(0,0,0,0.25);transform:scale(1.08)}}
   .pairname,.vPairHead,.pairBlockName{cursor:grab}
   .dndOver{outline:2px dashed #ffd54f;outline-offset:-2px;background:rgba(255,213,79,0.18)}
@@ -147,6 +157,7 @@
 </style>
 </head>
 <body>
+<div class="miniBar" id="miniBar" title="クリックで元の大きさに戻す"><span class="mt">ダウ雲アラート</span><button id="miniRestore" title="元の大きさに戻す">⤢</button></div>
 <div class="wrap">
 
   <div class="hdr" style="flex-direction:row;align-items:flex-start;justify-content:space-between">
@@ -159,6 +170,7 @@
       <button class="gearBtn iconBtn" id="resyncBtn" title="再構築: サーバーが受信済みの発火履歴とPCのダウ雲チャートの状態から、ヒートマップを即座に再構築します(TradingViewへの問い合わせは行いません)">🔄</button>
       <button class="gearBtn iconBtn" id="gearBtn" title="個別設定">⚙</button>
       <button class="toolBtn" id="toolBtn" title="メニューを開く">☰ Tool</button>
+      <button class="gearBtn" id="miniBtn" title="縮める(ヘッダーだけ残す)。帯をクリックすると元の大きさに戻ります">▁</button>
     </div>
     <div class="toolOverlay" id="toolOverlay"></div>
     <div class="toolDrawer" id="toolDrawer">
@@ -564,6 +576,38 @@ function heatCellMarkup(pair, tf){
 function updateAckAllBtn(){
   const b = $('ackAllBtn'); if (!b) return;
   b.disabled = !(Object.keys(activeAlerts).length || Object.keys(activeCloudAlerts).length);
+  miniAlertCheck();
+}
+// ---- 縮める(ヘッダーだけ残す) 2026-11-09 ----
+// 縮めるときに今の大きさを覚えて、ウインドウを帯の大きさまで縮める。戻すときは覚えた大きさに戻す(位置は今の場所のまま)。
+// ウインドウの大きさを変えられない開き方のときは、中の表示だけが帯になる。
+let _miniN0 = 0, _miniGrace = false;   // 縮めたときの点滅中の数。これより増えたら(=新しいアラート)帯を点滅
+const alertCount = () => Object.keys(activeAlerts).length + Object.keys(activeCloudAlerts).length;
+function miniAlertCheck(){
+  if (!document.body.classList.contains('mini') || _miniGrace) return;
+  const n = alertCount();
+  if (n > _miniN0) document.body.classList.add('alerting');
+  else if (n === 0) document.body.classList.remove('alerting');
+  if (n < _miniN0) _miniN0 = n;
+}
+function miniFit(){
+  const bar = $('miniBar'); if (!bar) return;
+  const r = bar.getBoundingClientRect();
+  const fw = window.outerWidth - window.innerWidth, fh = window.outerHeight - window.innerHeight;
+  try { window.resizeTo(Math.ceil(r.width) + fw, Math.ceil(r.height) + fh); } catch(e) {}
+}
+function miniOn(){
+  if (document.body.classList.contains('mini')) return;
+  try { localStorage.setItem('alertWindowMiniSize', JSON.stringify({w: window.outerWidth, h: window.outerHeight})); localStorage.setItem('alertWindowMini', '1'); } catch(e) {}
+  _miniN0 = alertCount();
+  document.body.classList.add('mini'); document.body.classList.remove('alerting');
+  requestAnimationFrame(miniFit);
+}
+function miniOff(){
+  if (!document.body.classList.contains('mini')) return;
+  document.body.classList.remove('mini', 'alerting');
+  let sz = null; try { sz = JSON.parse(localStorage.getItem('alertWindowMiniSize') || 'null'); localStorage.setItem('alertWindowMini', '0'); } catch(e) {}
+  if (sz && sz.w && sz.h) { try { window.resizeTo(sz.w, sz.h); } catch(e) {} }
 }
 function renderMatrix(){
   updateAckAllBtn();
@@ -1335,6 +1379,12 @@ socket.on('new_cloud_alert', (entry) => {
 });
 
 renderAll();
+</script>
+<script>
+// 縮める/戻すボタン(2026-11-09)。読み込み直したときに縮めた状態だったら、帯のまま表示する
+$('miniBtn').addEventListener('click', miniOn);
+$('miniBar').addEventListener('click', miniOff);
+try { if (localStorage.getItem('alertWindowMini') === '1') { _miniGrace = true; document.body.classList.add('mini'); setTimeout(() => { _miniN0 = alertCount(); _miniGrace = false; }, 3000); } } catch(e) {}   // 読み込み直後の復元分では点滅させない
 </script>
 </body>
 </html>
